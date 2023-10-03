@@ -1,0 +1,376 @@
+.lawyers-content {
+  color: var(--color-text);
+  padding: 20px;
+  border-radius: 15px;
+  animation: fadeIn 0.5s ease-in-out;
+  background: var(--color-bg-alt);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.lawyers-title {
+  text-align: left;
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--color-accent);
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background-color: var(--color-bg);
+  border-radius: 8px;
+  width: auto;
+  max-width: 750px;
+  margin: 0 auto;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  flex-wrap: wrap;
+}
+
+.filter-text {
+  white-space: nowrap;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.filter-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-accent);
+}
+
+.role-filter,
+.office-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.role-filter select,
+.office-filter select {
+  outline: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-accent-light);
+  color: var(--color-text);
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.role-filter option,
+.office-filter option {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.role-filter select:hover,
+.office-filter select:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.role-filter select:focus,
+.office-filter select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.reset-filter {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: transparent;
+  color: var(--color-accent);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.reset-filter:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent-light);
+}
+
+.lawyers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.lawyers-grid > div {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.lawyers-grid > div:hover {
+  transform: translateY(-4px);
+}
+
+/* Стили для карточки сотрудника */
+.employee-card {
+  background-color: var(--color-bg);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.3s ease;
+  border: 1px solid var(--color-accent-light);
+  height: 100%;
+  min-height: 220px;
+}
+
+.employee-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-accent);
+}
+
+.employee-avatar {
+  margin-bottom: 16px;
+}
+
+.employee-avatar img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-accent-light);
+}
+
+.default-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.employee-info h3 {
+  margin: 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.employee-info p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.employee-position {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.employee-office {
+  color: var(--color-muted);
+}
+
+/* Стили для модального окна */
+.employee-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-content {
+  background-color: var(--color-bg);
+  padding: 24px;
+  border-radius: 12px;
+  max-width: 90%;
+  width: 400px;
+  color: var(--color-text);
+  position: relative;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-content h3 {
+  color: var(--color-accent);
+  margin-bottom: 16px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.modal-section {
+  margin-bottom: 24px;
+}
+
+.modal-section h4 {
+  margin-bottom: 12px;
+  color: var(--color-accent);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.modal-section p {
+  margin: 8px 0;
+  display: flex;
+  align-items: center;
+}
+
+.modal-section b {
+  min-width: 100px;
+  display: inline-block;
+}
+
+.modal-section input {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: var(--color-bg-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-accent-light);
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.modal-section input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-edit-btn,
+.modal-save-btn,
+.modal-close-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.modal-edit-btn {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.modal-edit-btn:hover {
+  background-color: #c2a030;
+}
+
+.modal-save-btn {
+  background-color: #4AD991;
+  color: white;
+}
+
+.modal-save-btn:hover {
+  background-color: #3db87a;
+}
+
+.modal-close-btn {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.modal-close-btn:hover {
+  background-color: #d0d0d0;
+}
+
+/* Отсутствие сотрудников */
+.no-employees {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  color: var(--color-muted);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+  }
+  
+  .filter-text {
+    margin-bottom: 8px;
+  }
+  
+  .role-filter,
+  .office-filter {
+    width: 100%;
+  }
+  
+  .role-filter select,
+  .office-filter select {
+    width: 100%;
+  }
+  
+  .reset-filter {
+    margin-top: 8px;
+    align-self: flex-end;
+  }
+  
+  .lawyers-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .lawyers-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .modal-content {
+    width: 95%;
+    padding: 16px;
+  }
+} 
