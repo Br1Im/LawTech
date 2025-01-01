@@ -1,1 +1,0 @@
-export { default as PendingRequestWidget } from './ui/PendingRequestWidget'; 
