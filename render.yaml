@@ -4,8 +4,9 @@ services:
     name: lawtech-server
     env: node
     plan: free
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    rootDir: ./server
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -18,8 +19,9 @@ services:
   # Frontend Static Site
   - type: static
     name: lawtech-frontend
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: ./frontend/dist
+    rootDir: ./frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
@@ -30,8 +32,9 @@ services:
     name: lawtech-faiss
     env: python
     plan: free
-    buildCommand: cd server/scripts && pip install -r requirements.txt
-    startCommand: cd server/scripts && python faiss_service.py
+    rootDir: ./server/scripts
+    buildCommand: pip install -r requirements.txt
+    startCommand: python faiss_service.py
     envVars:
       - key: PYTHONUNBUFFERED
         value: 1
