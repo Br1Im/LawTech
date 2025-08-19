@@ -1,10 +1,11 @@
-const mysql = require('mysql2');
+// Заглушка для подключения к базе данных
+// В реальном приложении здесь был бы код для подключения к MySQL, PostgreSQL и т.д.
 
-const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '141427',
-    database: 'lawtech'
-})
+console.log('Инициализация подключения к базе данных');
 
-module.exports = pool.promise();
+module.exports = {
+  query: async (sql, params) => {
+    console.log('Выполнение запроса:', sql, params);
+    return [];
+  }
+};

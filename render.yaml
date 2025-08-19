@@ -1,0 +1,39 @@
+services:
+  # Backend API Server
+  - type: web
+    name: lawtech-server
+    env: node
+    plan: free
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: FAISS_SERVICE_URL
+        value: http://localhost:5000
+    healthCheckPath: /api/health
+
+  # Frontend Static Site
+  - type: static
+    name: lawtech-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # Python FAISS Service
+  - type: web
+    name: lawtech-faiss
+    env: python
+    plan: free
+    buildCommand: cd server/scripts && pip install -r requirements.txt
+    startCommand: cd server/scripts && python faiss_service.py
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: 1
+      - key: PORT
+        value: 5000

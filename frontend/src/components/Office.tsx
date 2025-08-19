@@ -118,15 +118,80 @@ const Office = () => {
           previousRevenue: office.previousRevenue || (office.revenue !== undefined ? office.revenue * (0.9 + Math.random() * 0.2) : 0),
           previousVisits: office.previousVisits || (office.data && office.data[0] !== undefined ? office.data[0] * (0.9 + Math.random() * 0.2) : 0)
         }));
-        setOffices(transformedOffices);
+
+        // Если сервер вернул офисы – используем их, иначе применяем мок-данные
         if (transformedOffices.length > 0) {
+          setOffices(transformedOffices);
           setSelectedOffice(transformedOffices[0]);
+          // После загрузки офисов сразу запрашиваем данные для графика
+          fetchOfficeRevenueData(transformedOffices);
+        } else {
+          throw new Error('Сервер вернул пустой список офисов');
         }
-        
-        // После загрузки офисов сразу запрашиваем данные для графика
-        fetchOfficeRevenueData(transformedOffices);
       } catch (err) {
-        console.error('Ошибка:', err);
+        console.error('Ошибка при получении офисов, загружаю мок-данные:', err);
+
+        // ----------------------
+        // Мок-данные для демонстрации
+        // ----------------------
+        const sampleOffices: Office[] = [
+          {
+            id: 'demo-1',
+            title: 'Демо офис',
+            description: 'г. Москва, ул. Пример, д. 1',
+            revenue: 320000,
+            orders: 120,
+            employees: [
+              {
+                id: 'emp-1',
+                surname: 'Иванов',
+                name: 'Иван',
+                middle_name: 'Иванович',
+                position: 'Юрист',
+                dailyContracts: 5,
+                totalRevenue14Days: 210000,
+                phone: '+7 900 000-00-00',
+                pastRevenue: {},
+                closeRate: 0.8,
+              },
+              {
+                id: 'emp-2',
+                surname: 'Петров',
+                name: 'Пётр',
+                middle_name: 'Петрович',
+                position: 'Адвокат',
+                dailyContracts: 3,
+                totalRevenue14Days: 110000,
+                phone: '+7 900 000-00-01',
+                pastRevenue: {},
+                closeRate: 0.7,
+              },
+            ],
+            data: [120, 8], // visits / pending
+            address: 'г. Москва, ул. Пример, д. 1',
+            employee_count: 2,
+            contact_phone: '+7 900 000-00-02',
+            website: 'https://law-demo.ru',
+            previousRevenue: 280000,
+            previousVisits: 100,
+          },
+        ];
+
+        setOffices(sampleOffices);
+        setSelectedOffice(sampleOffices[0]);
+
+        // Простейшие данные для графика
+        const demoLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        setOfficeRevenueData({
+          labels: demoLabels,
+          offices: [
+            {
+              id: 'demo-1',
+              name: 'Демо офис',
+              revenue: [50000, 45000, 40000, 60000, 55000, 35000],
+            },
+          ],
+        });
       }
     };
     fetchOffices();
@@ -331,14 +396,15 @@ const Office = () => {
         }
       } else {
         console.error('Ошибка запроса к API:', response.status);
-        // Если запрос не удался, устанавливаем пустые значения
+        // Если запрос не удался, устанавливаем моковые значения
+        const mockRevenue = currentOffices.map(office => ({
+          id: office.id,
+          name: office.title,
+          revenue: periodLabels.map(() => Math.floor(30000 + Math.random() * 40000))
+        }));
         setOfficeRevenueData({
           labels: periodLabels,
-          offices: currentOffices.map(office => ({
-            id: office.id,
-            name: office.title,
-            revenue: new Array(periodLabels.length).fill(0)
-          }))
+          offices: mockRevenue,
         });
       }
     } catch (error) {

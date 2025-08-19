@@ -10,6 +10,7 @@ const config = require('../config');
 const { authenticateToken } = require('../middleware/auth');
 const authController = require('../controllers/auth');
 const legalController = require('../controllers/legal');
+const legalDocumentsController = require('../controllers/legalDocuments');
 const fileController = require('../controllers/file');
 const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
@@ -30,6 +31,11 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+// Health check endpoint для Render
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
 
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
@@ -54,4 +60,15 @@ router.post('/offices/:officeId/messages', authMiddleware, chatController.sendMe
 router.put('/messages/:messageId/read', authMiddleware, chatController.markMessageAsRead);
 router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessage);
 
-module.exports = router; 
+// Маршруты для работы с юридическими документами и FAISS
+router.get('/legal-documents', authenticateToken, legalDocumentsController.getAllDocuments);
+router.get('/legal-documents/:id', authenticateToken, legalDocumentsController.getDocumentById);
+router.post('/legal-documents', authenticateToken, legalDocumentsController.createDocument);
+router.put('/legal-documents/:id', authenticateToken, legalDocumentsController.updateDocument);
+router.delete('/legal-documents/:id', authenticateToken, legalDocumentsController.deleteDocument);
+
+// Векторный поиск по документам
+router.get('/legal-documents/search', authenticateToken, legalDocumentsController.searchDocuments);
+router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsController.getSimilarDocuments);
+
+module.exports = router;
