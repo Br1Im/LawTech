@@ -4,7 +4,7 @@ import FeaturesSection from '../widgets/homePage/FeaturesSection';
 import Offer from '../widgets/homePage/Offer';
 import FAQ from '../widgets/homePage/FAQ';
 import Footer from '../widgets/homePage/Footer';
-import styled from 'styled-components';
+import styled from '@emotion/styled';
 import { useNavigate } from 'react-router-dom';
 import React, { useEffect } from 'react';
 

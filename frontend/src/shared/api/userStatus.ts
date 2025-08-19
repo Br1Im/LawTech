@@ -1,8 +1,8 @@
-import { api } from './api';
+import { apiInstance } from './instance';
 
 export const updateUserStatus = async (userId: number, isOnline: boolean) => {
   try {
-    const response = await api.post('/users/status', { userId, isOnline });
+    const response = await apiInstance.post('/users/status', { userId, isOnline });
     return response.data;
   } catch (error) {
     console.error('Ошибка при обновлении статуса:', error);
@@ -12,10 +12,10 @@ export const updateUserStatus = async (userId: number, isOnline: boolean) => {
 
 export const getUserStatus = async (userId: number) => {
   try {
-    const response = await api.get(`/users/${userId}/status`);
+    const response = await apiInstance.get(`/users/${userId}/status`);
     return response.data;
   } catch (error) {
     console.error('Ошибка при получении статуса:', error);
     throw error;
   }
-}; 
+};

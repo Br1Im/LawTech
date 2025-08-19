@@ -1,27 +1,5 @@
-import axios from 'axios';
 import type { JoinOfficeData, JoinRequestUpdateData } from '../types';
-import { API_BASE_URL } from '../config/constants';
-
-// const API_URL = 'http://localhost:5000/api';
-
-const apiInstance = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Добавляем интерцептор для добавления токена к запросам
-apiInstance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+import { apiInstance } from './instance';
 
 export const api = {
   auth: {
@@ -114,4 +92,4 @@ export const api = {
   },
 };
 
-export default api; 
+export default api;

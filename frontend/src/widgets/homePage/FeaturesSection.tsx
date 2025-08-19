@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
 import Rocket from '../../assets/Header/Rocket.png';
 import Bag from '../../assets/Header/Bag.png';
 import UserArrow from '../../assets/Header/User Arrows.png';

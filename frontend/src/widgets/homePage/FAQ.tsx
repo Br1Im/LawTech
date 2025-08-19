@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
 import minusSVG from '../../assets/Header/minus.svg';
 import plusSVG from '../../assets/Header/plus.svg';
 import diva from '../../assets/Header/molot.png';
