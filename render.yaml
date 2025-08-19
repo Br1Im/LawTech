@@ -7,7 +7,6 @@ services:
     rootDir: ./server
     buildCommand: npm install
     startCommand: npm start
-    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,6 +14,14 @@ services:
         value: 3001
       - key: FAISS_SERVICE_URL
         value: http://localhost:5000
+      - key: GIGACHAT_AUTH_KEY
+        value: ZjFmODc3YWYtMzMzMC00ZWI5LTlmZTYtZjQ5ODYxM2YwZjM3OjQzOWVlY2UzLTAxMjYtNDVkMy1iOWQ3LTg3OTI3M2NjMzI0Mw==
+      - key: GIGACHAT_SCOPE
+        value: GIGACHAT_API_PERS
+      - key: JWT_SECRET
+        value: law-tech-secret-key
+      - key: OCR_API_KEY
+        value: K89514712488957
     healthCheckPath: /api/health
 
   # Frontend Static Site
