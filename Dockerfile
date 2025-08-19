@@ -3,7 +3,7 @@
 FROM node:18-alpine AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
@@ -11,7 +11,7 @@ RUN npm run build
 FROM node:18-alpine AS backend-build
 WORKDIR /app/server
 COPY server/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 COPY server/ ./
 
 # Stage 3: Python сервис для FAISS
