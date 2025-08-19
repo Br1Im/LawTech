@@ -7,6 +7,7 @@ services:
     rootDir: ./server
     buildCommand: npm install
     startCommand: npm start
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: NODE_ENV
         value: production
@@ -19,6 +20,7 @@ services:
   # Frontend Static Site
   - type: static
     name: lawtech-frontend
+    env: node
     rootDir: ./frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
