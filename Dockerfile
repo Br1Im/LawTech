@@ -23,15 +23,15 @@ FROM nginx:alpine AS production
 COPY --from=frontend-build /app/frontend/dist /usr/share/nginx/html
 
 # Создание конфигурации nginx
-RUN echo 'server {\n\
-    listen 80;\n\
-    server_name localhost;\n\
-    \n\
-    location / {\n\
-        root /usr/share/nginx/html;\n\
-        try_files $uri $uri/ /index.html;\n\
-    }\n\
-}' > /etc/nginx/conf.d/default.conf
+RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
+    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    server_name localhost;' >> /etc/nginx/conf.d/default.conf && \
+    echo '' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '}' >> /etc/nginx/conf.d/default.conf
 
 # Открытие порта
 EXPOSE 80
