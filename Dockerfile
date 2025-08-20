@@ -15,7 +15,7 @@ RUN npm ci --omit=dev
 COPY server/ ./
 
 # Stage 3: Python сервис для FAISS
-FROM python:3.9-slim AS python-build
+FROM python:3.11-slim AS python-build
 WORKDIR /app/scripts
 COPY server/scripts/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
