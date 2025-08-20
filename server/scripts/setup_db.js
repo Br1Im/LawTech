@@ -10,13 +10,13 @@ const setupDatabase = async () => {
     // Создание таблицы офисов
     await db.query(`
       CREATE TABLE IF NOT EXISTS offices (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        address VARCHAR(255),
-        contact_phone VARCHAR(50),
-        website VARCHAR(255),
-        revenue DECIMAL(10, 2) DEFAULT 0.00,
-        orders INT DEFAULT 0,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        address TEXT,
+        contact_phone TEXT,
+        website TEXT,
+        revenue REAL DEFAULT 0.00,
+        orders INTEGER DEFAULT 0,
         created_at DATETIME NOT NULL,
         updated_at DATETIME
       )
@@ -27,12 +27,12 @@ const setupDatabase = async () => {
       // Создание таблицы пользователей (если еще не создана)
       await db.query(`
         CREATE TABLE IF NOT EXISTS users (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          username VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          password VARCHAR(255) NOT NULL,
-          office_id INT,
-          role VARCHAR(50) DEFAULT 'user',
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          office_id INTEGER,
+          role TEXT DEFAULT 'user',
           last_active DATETIME,
           created_at DATETIME NOT NULL,
           updated_at DATETIME,
@@ -44,12 +44,12 @@ const setupDatabase = async () => {
       // Создание таблицы сообщений
       await db.query(`
         CREATE TABLE IF NOT EXISTS messages (
-          id INT AUTO_INCREMENT PRIMARY KEY,
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
           text TEXT NOT NULL,
-          sender VARCHAR(255) NOT NULL,
-          office_id INT NOT NULL,
-          user_id INT NOT NULL,
-          is_read BOOLEAN DEFAULT FALSE,
+          sender TEXT NOT NULL,
+          office_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          is_read INTEGER DEFAULT 0,
           created_at DATETIME NOT NULL,
           FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE,
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -68,4 +68,4 @@ const setupDatabase = async () => {
   }
 };
 
-setupDatabase(); 
+setupDatabase();

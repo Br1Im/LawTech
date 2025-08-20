@@ -2,16 +2,12 @@
  * Контроллеры для аутентификации пользователей
  */
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const config = require('../config');
-
-// Список тестовых пользователей (в реальном приложении нужно использовать базу данных)
-const users = [
-    { id: 1, username: 'admin', password: 'admin123', role: 'admin' },
-    { id: 2, username: 'user', password: 'user123', role: 'user' }
-];
+const db = require('../db');
 
 // Обработчик для регистрации новых пользователей
-const register = (req, res) => {
+const register = async (req, res) => {
     try {
         const { name, email, password, userType, officeType, officeId } = req.body;
 
@@ -22,37 +18,36 @@ const register = (req, res) => {
         }
 
         // Проверка, есть ли уже пользователь с таким email
-        const existingUser = users.find(u => u.email === email);
-        if (existingUser) {
+        const [existingUsers] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+        if (existingUsers.length > 0) {
             return res.status(409).json({ 
                 error: 'Пользователь с таким email уже существует' 
             });
         }
 
-        // Создаем нового пользователя
-        const newUser = {
-            id: users.length + 1,
-            username: name,
-            email,
-            password,
-            role: userType,
-            isNewOffice: userType === 'office' && officeType === 'new'
-        };
+        // Хешируем пароль
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Если это существующий офис, сохраняем ID офиса
+        // Определяем office_id
+        let finalOfficeId = null;
         if (userType === 'office' && officeType === 'existing' && officeId) {
-            newUser.officeId = officeId;
+            finalOfficeId = officeId;
         }
 
-        // Добавляем пользователя в массив (в реальном приложении - в БД)
-        users.push(newUser);
+        // Создаем нового пользователя в БД
+        const [result] = await db.query(`
+            INSERT INTO users (username, email, password, office_id, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+        `, [name, email, hashedPassword, finalOfficeId, userType]);
+
+        const newUserId = result.insertId;
 
         // Создаем JWT токен для автоматической авторизации
         const token = jwt.sign(
             { 
-                id: newUser.id, 
-                email: newUser.email,
-                role: newUser.role 
+                id: newUserId, 
+                email: email,
+                role: userType 
             }, 
             config.JWT_SECRET, 
             { 
@@ -60,13 +55,19 @@ const register = (req, res) => {
             }
         );
 
-        // Возвращаем успех и токен (без пароля)
-        const { password: _, ...userWithoutPassword } = newUser;
+        // Отправляем токен и данные пользователя (без пароля)
+        const newUser = {
+            id: newUserId,
+            username: name,
+            email: email,
+            role: userType,
+            office_id: finalOfficeId
+        };
         
         res.status(201).json({
             message: 'Пользователь успешно зарегистрирован',
             token,
-            user: userWithoutPassword
+            user: newUser
         });
 
     } catch (error) {
@@ -78,7 +79,7 @@ const register = (req, res) => {
 };
 
 // Обработчик для логина пользователей
-const login = (req, res) => {
+const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -88,12 +89,23 @@ const login = (req, res) => {
             });
         }
 
-        // Поиск пользователя в базе (в данном случае просто массив)
-        const user = users.find(u => 
-            (u.email === email || u.username === email) && u.password === password
+        // Поиск пользователя в базе данных
+        const [users] = await db.query(
+            'SELECT id, username, email, password, role, office_id FROM users WHERE email = ? OR username = ?', 
+            [email, email]
         );
 
-        if (!user) {
+        if (users.length === 0) {
+            return res.status(401).json({ 
+                error: 'Неверный email или пароль' 
+            });
+        }
+
+        const user = users[0];
+
+        // Проверяем пароль
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
             return res.status(401).json({ 
                 error: 'Неверный email или пароль' 
             });
@@ -103,7 +115,7 @@ const login = (req, res) => {
         const token = jwt.sign(
             { 
                 id: user.id, 
-                email: user.email || user.username,
+                email: user.email,
                 role: user.role 
             }, 
             config.JWT_SECRET, 
@@ -129,7 +141,7 @@ const login = (req, res) => {
 };
 
 // Получение информации о текущем пользователе
-const getCurrentUser = (req, res) => {
+const getCurrentUser = async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({
@@ -138,19 +150,21 @@ const getCurrentUser = (req, res) => {
         }
 
         // Находим полную информацию о пользователе
-        const user = users.find(u => u.id === req.user.id);
+        const [users] = await db.query(
+            'SELECT id, username, email, role, office_id, created_at FROM users WHERE id = ?', 
+            [req.user.id]
+        );
         
-        if (!user) {
+        if (users.length === 0) {
             return res.status(404).json({
                 error: 'Пользователь не найден'
             });
         }
 
-        // Отправляем данные пользователя (без пароля)
-        const { password, ...userWithoutPassword } = user;
+        const user = users[0];
         
         res.json({
-            user: userWithoutPassword
+            user: user
         });
 
     } catch (error) {
@@ -165,4 +179,4 @@ module.exports = {
     login,
     register,
     getCurrentUser
-}; 
+};
