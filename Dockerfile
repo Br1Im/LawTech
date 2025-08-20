@@ -55,8 +55,8 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'wait $NODE_PID $NGINX_PID' >> /start.sh && \
     chmod +x /start.sh
 
-# Открываем порт 80
-EXPOSE 80
+# Открываем порт 10000
+EXPOSE 10000
 
 # Запускаем оба сервиса
 CMD ["/start.sh"]
