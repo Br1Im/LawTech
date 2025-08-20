@@ -41,7 +41,7 @@ COPY server/ .
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
 
 # Копируем конфигурацию nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Создаем скрипт запуска
 RUN echo '#!/bin/sh' > /start.sh && \
