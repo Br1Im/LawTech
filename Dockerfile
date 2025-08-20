@@ -22,10 +22,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server/scripts/ ./
 
 # Stage 4: Финальный образ с nginx для статики и node для API
-FROM node:18-alpine AS production
+FROM python:3.10-alpine AS production
 
-# Установка nginx и Python
-RUN apk add --no-cache nginx python3 py3-pip python3-dev build-base
+# Установка Node.js и nginx
+RUN apk add --no-cache nodejs npm nginx python3-dev build-base
 
 # Создание директорий
 WORKDIR /app
@@ -41,7 +41,7 @@ COPY --from=backend-build /app/server /app/server
 COPY --from=python-build /app/scripts /app/scripts
 
 # Установка Python зависимостей в финальном образе
-RUN pip3 install --no-cache-dir --break-system-packages -r /app/scripts/requirements.txt
+RUN pip3 install --no-cache-dir -r /app/scripts/requirements.txt
 
 # Конфигурация nginx
 RUN echo 'server {\n\
