@@ -11,9 +11,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3001
+        value: 10000
       - key: FAISS_SERVICE_URL
-        value: http://localhost:5000
+        value: https://lawtech-faiss.onrender.com
       - key: GIGACHAT_AUTH_KEY
         value: ZjFmODc3YWYtMzMzMC00ZWI5LTlmZTYtZjQ5ODYxM2YwZjM3OjQzOWVlY2UzLTAxMjYtNDVkMy1iOWQ3LTg3OTI3M2NjMzI0Mw==
       - key: GIGACHAT_SCOPE
