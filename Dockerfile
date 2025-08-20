@@ -24,8 +24,8 @@ COPY server/scripts/ ./
 # Stage 4: Финальный образ с nginx для статики и node для API
 FROM node:18-alpine AS production
 
-# Установка nginx
-RUN apk add --no-cache nginx python3 py3-pip
+# Установка nginx и Python
+RUN apk add --no-cache nginx python3 py3-pip python3-dev build-base
 
 # Создание директорий
 WORKDIR /app
@@ -39,8 +39,9 @@ COPY --from=backend-build /app/server /app/server
 
 # Копирование Python сервиса
 COPY --from=python-build /app/scripts /app/scripts
-COPY --from=python-build /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
-COPY --from=python-build /usr/local/bin /usr/local/bin
+
+# Установка Python зависимостей в финальном образе
+RUN pip3 install --no-cache-dir -r /app/scripts/requirements.txt
 
 # Конфигурация nginx
 RUN echo 'server {\n\
@@ -70,24 +71,50 @@ RUN echo 'server {\n\
 RUN echo '#!/bin/sh\n\
 set -e\n\
 \n\
+echo "Starting LawTech application..."\n\
+echo "Current directory: $(pwd)"\n\
+echo "Available files: $(ls -la /app)"\n\
+\n\
+# Проверка наличия необходимых файлов\n\
+echo "Checking required files..."\n\
+if [ ! -f "/app/scripts/faiss_service.py" ]; then\n\
+  echo "ERROR: faiss_service.py not found"\n\
+  exit 1\n\
+fi\n\
+if [ ! -f "/app/server/server.js" ]; then\n\
+  echo "ERROR: server.js not found"\n\
+  exit 1\n\
+fi\n\
+echo "All required files found."\n\
+\n\
 # Запуск FAISS сервиса в фоне\n\
+echo "Starting FAISS service..."\n\
 cd /app/scripts\n\
 python3 faiss_service.py &\n\
 FAISS_PID=$!\n\
+echo "FAISS service started with PID: $FAISS_PID"\n\
 \n\
 # Запуск Node.js сервера в фоне\n\
+echo "Starting Node.js server..."\n\
 cd /app/server\n\
 node server.js &\n\
 NODE_PID=$!\n\
+echo "Node.js server started with PID: $NODE_PID"\n\
 \n\
 # Запуск nginx\n\
+echo "Starting nginx..."\n\
 nginx -g "daemon off;" &\n\
 NGINX_PID=$!\n\
+echo "Nginx started with PID: $NGINX_PID"\n\
 \n\
+echo "All services started. Waiting for processes..."\n\
 # Ожидание завершения любого процесса\n\
 wait $FAISS_PID $NODE_PID $NGINX_PID' > /app/start.sh
 
 RUN chmod +x /app/start.sh
+
+# Проверка что скрипт создан и исполняемый
+RUN ls -la /app/start.sh && head -5 /app/start.sh
 
 # Переменные окружения
 ENV NODE_ENV=production
@@ -99,4 +126,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 80 3001 5000
 
 # Запуск приложения
-CMD ["/app/start.sh"]
+ENTRYPOINT ["/bin/sh", "/app/start.sh"]
