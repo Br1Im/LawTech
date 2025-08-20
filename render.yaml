@@ -10,8 +10,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
+
       - key: FAISS_SERVICE_URL
         value: https://lawtech-faiss.onrender.com
       - key: GIGACHAT_AUTH_KEY
