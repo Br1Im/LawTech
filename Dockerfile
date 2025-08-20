@@ -49,7 +49,7 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'cd /app/server && node server.js &' >> /start.sh && \
     echo 'NODE_PID=$!' >> /start.sh && \
     echo 'echo "Starting nginx..."' >> /start.sh && \
-    echo 'nginx &' >> /start.sh && \
+    echo 'nginx -g "daemon off;" &' >> /start.sh && \
     echo 'NGINX_PID=$!' >> /start.sh && \
     echo 'echo "Both services started"' >> /start.sh && \
     echo 'wait $NODE_PID $NGINX_PID' >> /start.sh && \
