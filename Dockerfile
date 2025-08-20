@@ -41,7 +41,7 @@ COPY --from=backend-build /app/server /app/server
 COPY --from=python-build /app/scripts /app/scripts
 
 # Установка Python зависимостей в финальном образе
-RUN pip3 install --no-cache-dir -r /app/scripts/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /app/scripts/requirements.txt
 
 # Конфигурация nginx
 RUN echo 'server {\n\
