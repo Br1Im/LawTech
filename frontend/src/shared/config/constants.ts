@@ -6,7 +6,7 @@
 // Для продакшена используем относительный путь, а при разработке - полный URL
 export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 // Абсолютный адрес API для прямых запросов (резервный вариант)
-export const API_SERVER_URL = 'http://law-tech.online/api';
+export const API_SERVER_URL = 'https://lawtech-p225.onrender.com/api';
 
 // Получение полного URL API
 export const getApiUrl = (path: string) => {
@@ -51,4 +51,4 @@ export const CHAT_CONSTANTS = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ],
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10 МБ в байтах
-}; 
+};
