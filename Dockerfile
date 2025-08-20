@@ -7,8 +7,8 @@ WORKDIR /app/frontend
 # Копируем package.json и package-lock.json фронтенда
 COPY frontend/package*.json ./
 
-# Устанавливаем зависимости фронтенда
-RUN npm ci --only=production
+# Устанавливаем зависимости фронтенда (включая devDependencies для сборки)
+RUN npm ci
 
 # Копируем исходный код фронтенда
 COPY frontend/ .
