@@ -39,6 +39,7 @@ router.get('/health', (req, res) => {
 
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
+router.post('/auth/register', authController.register);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 
 // Маршруты для юридических запросов
