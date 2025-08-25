@@ -309,5 +309,8 @@ async def serve_spa(full_path: str):
     else:
         raise HTTPException(status_code=404, detail="Frontend not found")
 
+# Инициализируем базу данных при запуске
+init_db()
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=PORT)

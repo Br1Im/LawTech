@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: ./server
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: gunicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: JWT_SECRET
         value: law-tech-secret-key
