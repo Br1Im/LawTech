@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   # Сервер (бэкенд)
   server:
@@ -9,13 +7,11 @@ services:
       - "3001:3001"
     volumes:
       - ./server:/app
-      - /app/node_modules
-    depends_on:
-      - faiss-service
     environment:
-      - NODE_ENV=development
+      - JWT_SECRET=law-tech-secret-key
       - PORT=3001
-      - FAISS_SERVICE_URL=http://faiss-service:5000
+    networks:
+      - lawtech-network
 
   # Фронтенд
   frontend:
@@ -27,21 +23,25 @@ services:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
-      - backend
+      - server
+    networks:
+      - lawtech-network
 
-  faiss-service:
-    build:
-      context: ./server/scripts
-      dockerfile: Dockerfile.faiss
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./server/scripts:/app
-      - ./server/data:/app/data
-    environment:
-      - PYTHONUNBUFFERED=1
+  # faiss-service:
+  #   build:
+  #     context: ./server/scripts
+  #     dockerfile: Dockerfile.faiss
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./server/scripts:/app
+  #     - ./server/data:/app/data
+  #   environment:
+  #     - PYTHONUNBUFFERED=1
+  #   networks:
+  #     - lawtech-network
 
 # Определение общей сети для контейнеров
 networks:
   lawtech-network:
-    driver: bridge 
+    driver: bridge

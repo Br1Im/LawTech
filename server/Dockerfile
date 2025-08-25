@@ -1,10 +1,17 @@
-FROM node:18-alpine
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка зависимостей
-COPY package*.json ./
-RUN npm ci
+# Установка системных зависимостей
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копирование файла зависимостей
+COPY requirements.txt .
+
+# Установка Python зависимостей
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Копирование остальных файлов приложения
 COPY . .
@@ -13,14 +20,12 @@ COPY . .
 RUN mkdir -p uploads
 RUN chmod 777 uploads
 
-# Переменные окружения будут переданы из docker-compose.yml
-ENV GIGACHAT_AUTH_KEY=ZjFmODc3YWYtMzMzMC00ZWI5LTlmZTYtZjQ5ODYxM2YwZjM3OjQzOWVlY2UzLTAxMjYtNDVkMy1iOWQ3LTg3OTI3M2NjMzI0Mw==
-ENV GIGACHAT_SCOPE=GIGACHAT_API_PERS
+# Переменные окружения
 ENV JWT_SECRET=law-tech-secret-key
-ENV OCR_API_KEY=K89514712488957
+ENV PORT=3001
 
-# Открываем порт, который использует приложение
-EXPOSE 5000
+# Открываем порт
+EXPOSE 3001
 
 # Запуск приложения
-CMD ["node", "server.js"] 
+CMD ["python", "main.py"]
