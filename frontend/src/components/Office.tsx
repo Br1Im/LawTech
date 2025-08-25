@@ -35,14 +35,17 @@ interface Office {
   data: number[];
   address?: string;
   employee_count?: number;
-  contact_phone?: string | null;
-  website?: string | null;
+  work_phone?: string | null;
+  mobile_phone?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
   // Поля для ИП
   ip_surname?: string;
   ip_name?: string;
   ip_middle_name?: string;
+  // Поля для ИНН и ОГРН
+  inn?: string;
+  ogrn?: string;
 }
 
 type PeriodType = "day" | "2weeks" | "month";
@@ -553,8 +556,10 @@ const Office = () => {
       form.setFieldsValue({
         officeName: selectedOffice.title,
         officeAddress: selectedOffice.address,
-        contactPhone: selectedOffice.contact_phone || '',
-        website: selectedOffice.website || ''
+        contactPhone: selectedOffice.work_phone || '',
+        mobilePhone: selectedOffice.mobile_phone || '',
+        inn: selectedOffice.inn || '',
+        ogrn: selectedOffice.ogrn || ''
       });
       setIsEditModalVisible(true);
     }
@@ -595,8 +600,10 @@ const Office = () => {
           title: values.officeName,
           address: values.officeAddress || '',
           description: values.officeAddress || 'Адрес не указан',
-          contact_phone: values.contactPhone,
-          website: values.website
+          inn: values.inn || '',
+          ogrn: values.ogrn || '',
+          work_phone: values.contactPhone || '',
+          mobile_phone: values.mobilePhone || ''
         };
 
         setSelectedOffice(updatedOffice);
@@ -664,7 +671,13 @@ const Office = () => {
           // Добавляем данные ИП
           ip_surname: values.ipSurname,
           ip_name: values.ipName,
-          ip_middle_name: values.ipMiddleName
+          ip_middle_name: values.ipMiddleName,
+          // Добавляем ИНН и ОГРН
+          inn: values.inn,
+          ogrn: values.ogrn,
+          // Обновляем поля телефонов
+          work_phone: values.contactPhone,
+          mobile_phone: values.mobilePhone
         })
       });
 
@@ -695,12 +708,15 @@ const Office = () => {
         data: [0, 0],
         address: values.officeAddress || '',
         employee_count: 0,
-        contact_phone: values.contactPhone || null,
-        website: values.website || null,
+        work_phone: values.workPhone || null,
+        mobile_phone: values.mobilePhone || null,
         // Добавляем данные ИП
         ip_surname: values.ipSurname || '',
         ip_name: values.ipName || '',
-        ip_middle_name: values.ipMiddleName || ''
+        ip_middle_name: values.ipMiddleName || '',
+        // Добавляем ИНН и ОГРН
+        inn: values.inn || '',
+        ogrn: values.ogrn || ''
       };
 
       // Обновляем список офисов, добавляя новый офис к существующим
@@ -933,6 +949,21 @@ const Office = () => {
           </div>
           
           <Form.Item
+            name="inn"
+            label="ИНН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
+          >
+            <Input placeholder="Введите ИНН" />
+          </Form.Item>
+          <Form.Item
+            name="ogrn"
+            label="ОГРН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
+          >
+            <Input placeholder="Введите ОГРН" />
+          </Form.Item>
+          
+          <Form.Item
             name="officeAddress"
             label="Адрес"
           >
@@ -940,15 +971,15 @@ const Office = () => {
           </Form.Item>
           <Form.Item
             name="contactPhone"
-            label="Телефон"
+            label="Рабочий телефон"
           >
-            <Input placeholder="Введите контактный телефон" />
+            <Input placeholder="Введите рабочий телефон" />
           </Form.Item>
           <Form.Item
-            name="website"
-            label="Веб-сайт"
+            name="mobilePhone"
+            label="Мобильный телефон"
           >
-            <Input placeholder="Введите адрес веб-сайта" />
+            <Input placeholder="Введите мобильный телефон" />
           </Form.Item>
         </Form>
       </Modal>
@@ -1012,6 +1043,20 @@ const Office = () => {
           </div>
           
           <Form.Item
+            name="inn"
+            label="ИНН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
+          >
+            <Input placeholder="Введите ИНН" />
+          </Form.Item>
+          <Form.Item
+            name="ogrn"
+            label="ОГРН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
+          >
+            <Input placeholder="Введите ОГРН" />
+          </Form.Item>
+          <Form.Item
             name="officeAddress"
             label="Адрес"
           >
@@ -1019,15 +1064,15 @@ const Office = () => {
           </Form.Item>
           <Form.Item
             name="contactPhone"
-            label="Телефон"
+            label="Рабочий телефон"
           >
-            <Input placeholder="Введите контактный телефон" />
+            <Input placeholder="Введите рабочий телефон" />
           </Form.Item>
           <Form.Item
-            name="website"
-            label="Веб-сайт"
+            name="mobilePhone"
+            label="Мобильный телефон"
           >
-            <Input placeholder="Введите адрес веб-сайта" />
+            <Input placeholder="Введите мобильный телефон" />
           </Form.Item>
         </Form>
       </Modal>
