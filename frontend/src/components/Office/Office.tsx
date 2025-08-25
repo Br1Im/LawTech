@@ -37,6 +37,9 @@ interface Office {
   website?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
+  ip_surname?: string;
+  ip_name?: string;
+  ip_middle_name?: string;
 }
 
 type PeriodType = "day" | "2weeks" | "month";
@@ -389,7 +392,10 @@ const Office = () => {
           name: values.title,
           address: values.address,
           contact_phone: values.contact_phone,
-          website: values.website
+          website: values.website,
+          ip_surname: values.ip_surname,
+          ip_name: values.ip_name,
+          ip_middle_name: values.ip_middle_name
         })
       });
 
@@ -409,7 +415,10 @@ const Office = () => {
         address: newOffice.address || values.address,
         employee_count: 0,
         contact_phone: newOffice.contact_phone || values.contact_phone,
-        website: newOffice.website || values.website
+        website: newOffice.website || values.website,
+        ip_surname: newOffice.ip_surname || values.ip_surname,
+        ip_name: newOffice.ip_name || values.ip_name,
+        ip_middle_name: newOffice.ip_middle_name || values.ip_middle_name
       };
 
       // Добавляем новый офис в список
@@ -571,6 +580,46 @@ const Office = () => {
           >
             <Input placeholder="Введите название офиса" />
           </Form.Item>
+          
+          {/* Подпункт ИП */}
+          <div style={{ 
+            border: '1px solid #d9d9d9', 
+            borderRadius: '6px', 
+            padding: '16px', 
+            marginBottom: '16px',
+            backgroundColor: '#fafafa'
+          }}>
+            <h4 style={{ 
+              margin: '0 0 16px 0', 
+              color: '#1890ff',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}>ИП</h4>
+            
+            <Form.Item
+              name="ip_surname"
+              label="Фамилия"
+              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
+            >
+              <Input placeholder="Введите фамилию" />
+            </Form.Item>
+            
+            <Form.Item
+              name="ip_name"
+              label="Имя"
+              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
+            >
+              <Input placeholder="Введите имя" />
+            </Form.Item>
+            
+            <Form.Item
+              name="ip_middle_name"
+              label="Отчество"
+            >
+              <Input placeholder="Введите отчество" />
+            </Form.Item>
+          </div>
+          
           <Form.Item
             name="address"
             label="Адрес"
@@ -618,6 +667,47 @@ const Office = () => {
           >
             <Input placeholder="Введите название офиса" />
           </Form.Item>
+          
+          <div style={{ 
+            border: '1px solid #d9d9d9', 
+            borderRadius: '6px', 
+            padding: '16px', 
+            marginBottom: '16px',
+            backgroundColor: '#fafafa'
+          }}>
+            <div style={{ 
+              marginBottom: '12px', 
+              fontWeight: 'bold', 
+              color: '#1890ff',
+              fontSize: '14px'
+            }}>
+              ИП
+            </div>
+            
+            <Form.Item
+              name="ip_surname"
+              label="Фамилия"
+              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
+            >
+              <Input placeholder="Введите фамилию" />
+            </Form.Item>
+            
+            <Form.Item
+              name="ip_name"
+              label="Имя"
+              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
+            >
+              <Input placeholder="Введите имя" />
+            </Form.Item>
+            
+            <Form.Item
+              name="ip_middle_name"
+              label="Отчество"
+            >
+              <Input placeholder="Введите отчество" />
+            </Form.Item>
+          </div>
+          
           <Form.Item
             name="address"
             label="Адрес"

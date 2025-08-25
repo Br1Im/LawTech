@@ -39,6 +39,10 @@ interface Office {
   website?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
+  // Поля для ИП
+  ip_surname?: string;
+  ip_name?: string;
+  ip_middle_name?: string;
 }
 
 type PeriodType = "day" | "2weeks" | "month";
@@ -656,7 +660,11 @@ const Office = () => {
         },
         body: JSON.stringify({
           ...values,
-          owner_id: profileData.id
+          owner_id: profileData.id,
+          // Добавляем данные ИП
+          ip_surname: values.ipSurname,
+          ip_name: values.ipName,
+          ip_middle_name: values.ipMiddleName
         })
       });
 
@@ -688,7 +696,11 @@ const Office = () => {
         address: values.officeAddress || '',
         employee_count: 0,
         contact_phone: values.contactPhone || null,
-        website: values.website || null
+        website: values.website || null,
+        // Добавляем данные ИП
+        ip_surname: values.ipSurname || '',
+        ip_name: values.ipName || '',
+        ip_middle_name: values.ipMiddleName || ''
       };
 
       // Обновляем список офисов, добавляя новый офис к существующим
@@ -894,6 +906,32 @@ const Office = () => {
           >
             <Input placeholder="Введите название офиса" />
           </Form.Item>
+          
+          {/* Подпункт ИП */}
+          <div style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d9d9d9', borderRadius: '6px', backgroundColor: '#fafafa' }}>
+            <h4 style={{ margin: '0 0 16px 0', color: '#1890ff' }}>ИП (Индивидуальный предприниматель)</h4>
+            <Form.Item
+              name="ipSurname"
+              label="Фамилия"
+              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
+            >
+              <Input placeholder="Введите фамилию" />
+            </Form.Item>
+            <Form.Item
+              name="ipName"
+              label="Имя"
+              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
+            >
+              <Input placeholder="Введите имя" />
+            </Form.Item>
+            <Form.Item
+              name="ipMiddleName"
+              label="Отчество"
+            >
+              <Input placeholder="Введите отчество" />
+            </Form.Item>
+          </div>
+          
           <Form.Item
             name="officeAddress"
             label="Адрес"
@@ -947,6 +985,32 @@ const Office = () => {
           >
             <Input placeholder="Введите название офиса" />
           </Form.Item>
+          
+          {/* Блок полей для ИП */}
+          <div style={{ border: '1px solid #e8e8e8', padding: '16px', marginBottom: '16px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
+            <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#1890ff' }}>ИП</div>
+            <Form.Item
+              name="ipSurname"
+              label="Фамилия"
+              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
+            >
+              <Input placeholder="Введите фамилию" />
+            </Form.Item>
+            <Form.Item
+              name="ipName"
+              label="Имя"
+              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
+            >
+              <Input placeholder="Введите имя" />
+            </Form.Item>
+            <Form.Item
+              name="ipMiddleName"
+              label="Отчество"
+            >
+              <Input placeholder="Введите отчество" />
+            </Form.Item>
+          </div>
+          
           <Form.Item
             name="officeAddress"
             label="Адрес"
