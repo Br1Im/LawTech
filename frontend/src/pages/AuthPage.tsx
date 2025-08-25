@@ -15,7 +15,7 @@ interface RegisterFormValues {
   name: string;
   email: string;
   password: string;
-  userType: 'lawyer' | 'office';
+  userType: 'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
   officeType?: 'new' | 'existing' | '';
   officeId?: string;
 }
@@ -61,7 +61,7 @@ const FormStyle: CSSProperties = {
 
 const AuthPage = () => {
   const [mode, setMode] = useState<'register' | 'login'>('register');
-  const [userType, setUserType] = useState<'lawyer' | 'office' | ''>('');
+  const [userType, setUserType] = useState<'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative' | ''>('');
   const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -262,6 +262,11 @@ const AuthPage = () => {
                 >
                   <Select.Option value="lawyer">Одиночный юрист</Select.Option>
                   <Select.Option value="office">Офис</Select.Option>
+                  <Select.Option value="manager">Менеджер</Select.Option>
+                  <Select.Option value="okk">ОКК</Select.Option>
+                  <Select.Option value="expert">Эксперт</Select.Option>
+                  <Select.Option value="admin">Администратор</Select.Option>
+                  <Select.Option value="representative">Представитель</Select.Option>
                 </Select>
               </Form.Item>
               {userType === 'office' && (
@@ -390,6 +395,29 @@ const AuthPage = () => {
                   }}
                 >
                   Войти
+                </Button>
+              </Form.Item>
+              <Form.Item>
+                <Button
+                  type="default"
+                  block
+                  onClick={() => navigate('/crm')}
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'var(--color-button-bg)',
+                    color: 'var(--color-button-bg)',
+                    marginTop: '8px',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-button-bg)';
+                    e.currentTarget.style.color = 'var(--color-button-text)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--color-button-bg)';
+                  }}
+                >
+                  Перейти к дашбордам
                 </Button>
               </Form.Item>
             </Form>

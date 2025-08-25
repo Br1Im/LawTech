@@ -39,7 +39,7 @@ interface Office {
   previousVisits?: number;
 }
 
-type PeriodType = "day" | "week" | "month";
+type PeriodType = "day" | "2weeks" | "month";
 
 // Функция для расчета процентного изменения
 const calculatePercentageChange = (current: number, previous: number): { percentage: string | null; isIncrease: boolean | null } => {
@@ -206,12 +206,12 @@ const Office = () => {
           labels.push(date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }));
         }
         break;
-      case "week":
-        // Последние 6 недель
+      case "2weeks":
+        // Последние 6 периодов по 2 недели
         for (let i = 5; i >= 0; i--) {
           const date = new Date(today);
-          date.setDate(date.getDate() - i * 7);
-          labels.push(`Неделя ${6 - i}`);
+          date.setDate(date.getDate() - i * 14);
+          labels.push(`Период ${6 - i}`);
         }
         break;
       case "month":
@@ -236,8 +236,8 @@ const Office = () => {
     switch (period) {
       case "day":
         return "сегодня";
-      case "week":
-        return "за неделю";
+      case "2weeks":
+        return "за 2 недели";
       case "month":
         return "за месяц";
       default:
@@ -483,10 +483,10 @@ const Office = () => {
               День
             </button>
             <button 
-              className={`period-button ${period === "week" ? "active" : ""}`}
-              onClick={() => handlePeriodChange("week")}
+              className={`period-button ${period === "2weeks" ? "active" : ""}`}
+              onClick={() => handlePeriodChange("2weeks")}
             >
-              Неделя
+              Период (2 недели)
             </button>
             <button 
               className={`period-button ${period === "month" ? "active" : ""}`}
@@ -642,4 +642,4 @@ const Office = () => {
   );
 };
 
-export default Office; 
+export default Office;

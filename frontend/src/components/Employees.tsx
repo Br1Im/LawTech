@@ -30,6 +30,71 @@ const EmployeeCard = ({ employee }: { employee: Employee }) => {
   );
 };
 
+// Компонент круговой диаграммы
+const PieChart = ({ contracts, consultations }: { contracts: number, consultations: number }) => {
+  const total = contracts + consultations;
+  const contractsPercentage = total > 0 ? (contracts / total) * 100 : 0;
+  const consultationsPercentage = total > 0 ? (consultations / total) * 100 : 0;
+  
+  const contractsAngle = (contractsPercentage / 100) * 360;
+  const consultationsAngle = (consultationsPercentage / 100) * 360;
+  
+  const radius = 80;
+  const centerX = 100;
+  const centerY = 100;
+  
+  const getCoordinatesForAngle = (angle: number) => {
+    const radian = (angle - 90) * (Math.PI / 180);
+    return {
+      x: centerX + radius * Math.cos(radian),
+      y: centerY + radius * Math.sin(radian)
+    };
+  };
+  
+  const contractsEnd = getCoordinatesForAngle(contractsAngle);
+  const consultationsEnd = getCoordinatesForAngle(contractsAngle + consultationsAngle);
+  
+  const contractsLargeArc = contractsAngle > 180 ? 1 : 0;
+  const consultationsLargeArc = consultationsAngle > 180 ? 1 : 0;
+  
+  return (
+    <div className="pie-chart-container">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        {total > 0 ? (
+          <>
+            {/* Заключённые договора (зелёный) */}
+            <path
+              d={`M ${centerX} ${centerY} L ${centerX} ${centerY - radius} A ${radius} ${radius} 0 ${contractsLargeArc} 1 ${contractsEnd.x} ${contractsEnd.y} Z`}
+              fill="#4CAF50"
+              stroke="white"
+              strokeWidth="2"
+            />
+            {/* Консультации (красный) */}
+            <path
+              d={`M ${centerX} ${centerY} L ${contractsEnd.x} ${contractsEnd.y} A ${radius} ${radius} 0 ${consultationsLargeArc} 1 ${consultationsEnd.x} ${consultationsEnd.y} Z`}
+              fill="#F44336"
+              stroke="white"
+              strokeWidth="2"
+            />
+          </>
+        ) : (
+          <circle cx={centerX} cy={centerY} r={radius} fill="#E0E0E0" />
+        )}
+      </svg>
+      <div className="chart-legend">
+        <div className="legend-item">
+          <div className="legend-color" style={{ backgroundColor: '#4CAF50' }}></div>
+          <span>Договора: {contracts}</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color" style={{ backgroundColor: '#F44336' }}></div>
+          <span>Консультации: {consultations}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Модальное окно с информацией о сотруднике
 const EmployeeModal = ({ 
   employee, 
@@ -40,20 +105,23 @@ const EmployeeModal = ({
   onClose: () => void, 
   onSave: (employee: Employee) => void 
 }) => {
-  const [editMode, setEditMode] = useState(false);
-  const [editedEmployee, setEditedEmployee] = useState<Employee>({ ...employee });
-
-  const handleChange = (field: keyof Employee, value: string) => {
-    setEditedEmployee((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const [selectedPeriod, setSelectedPeriod] = useState<'month' | 'period' | 'year'>('month');
+  
+  // Демо данные для диаграммы
+  const getDataForPeriod = (period: 'month' | 'period' | 'year') => {
+    switch (period) {
+      case 'month':
+        return { contracts: 15, consultations: 8 };
+      case 'period':
+        return { contracts: 45, consultations: 23 };
+      case 'year':
+        return { contracts: 180, consultations: 95 };
+      default:
+        return { contracts: 15, consultations: 8 };
+    }
   };
-
-  const handleSave = () => {
-    onSave(editedEmployee);
-    setEditMode(false);
-  };
+  
+  const chartData = getDataForPeriod(selectedPeriod);
 
   return (
     <div className="employee-modal-overlay" onClick={onClose}>
@@ -61,26 +129,37 @@ const EmployeeModal = ({
         <h3>Информация о сотруднике</h3>
         <div className="modal-section">
           <h4>Общая информация</h4>
-          {editMode ? (
-            <>
-              <p><b>Имя:</b> <input value={editedEmployee.name} onChange={(e) => handleChange("name", e.target.value)} /></p>
-              <p><b>Должность:</b> <input value={editedEmployee.position} onChange={(e) => handleChange("position", e.target.value)} /></p>
-              <p><b>Офис:</b> <input value={editedEmployee.office} onChange={(e) => handleChange("office", e.target.value)} /></p>
-            </>
-          ) : (
-            <>
-              <p><b>Имя:</b> {editedEmployee.name}</p>
-              <p><b>Должность:</b> {editedEmployee.position}</p>
-              <p><b>Офис:</b> {editedEmployee.office}</p>
-            </>
-          )}
+          <p><b>Имя:</b> {employee.name}</p>
+          <p><b>Должность:</b> {employee.position}</p>
+          <p><b>Офис:</b> {employee.office}</p>
         </div>
+        
+        <div className="modal-section">
+          <h4>Статистика работы</h4>
+          <div className="period-buttons">
+            <button 
+              className={`period-btn ${selectedPeriod === 'month' ? 'active' : ''}`}
+              onClick={() => setSelectedPeriod('month')}
+            >
+              Месяц
+            </button>
+            <button 
+              className={`period-btn ${selectedPeriod === 'period' ? 'active' : ''}`}
+              onClick={() => setSelectedPeriod('period')}
+            >
+              Период
+            </button>
+            <button 
+              className={`period-btn ${selectedPeriod === 'year' ? 'active' : ''}`}
+              onClick={() => setSelectedPeriod('year')}
+            >
+              Год
+            </button>
+          </div>
+          <PieChart contracts={chartData.contracts} consultations={chartData.consultations} />
+        </div>
+        
         <div className="modal-buttons">
-          {editMode ? (
-            <button className="modal-save-btn" onClick={handleSave}>Сохранить</button>
-          ) : (
-            <button className="modal-edit-btn" onClick={() => setEditMode(true)}>Редактировать</button>
-          )}
           <button className="modal-close-btn" onClick={onClose}>Закрыть</button>
         </div>
       </div>
@@ -251,7 +330,12 @@ const Employees = () => {
     { id: 5, name: "Дмитрий Морозов", position: "Юрист", office: "Красноярск", role: 'lawyer' },
     { id: 6, name: "Мария Васильева", position: "Эксперт", office: "Новокузнецк", role: 'expert' },
     { id: 7, name: "Роман Гордеев", position: "Эксперт", office: "Красноярск", role: 'expert' },
-    { id: 8, name: "Юлия Чистякова", position: "Юрист", office: "Кемерово", role: 'lawyer' }
+    { id: 8, name: "Юлия Чистякова", position: "Юрист", office: "Кемерово", role: 'lawyer' },
+    { id: 9, name: "Андрей Менеджеров", position: "Менеджер", office: "Кемерово", role: 'admin' },
+    { id: 10, name: "Светлана Представителева", position: "Представитель", office: "Красноярск", role: 'admin' },
+    { id: 11, name: "Михаил Юристов", position: "Юрист", office: "Новокузнецк", role: 'lawyer' },
+    { id: 12, name: "Ольга Экспертова", position: "Эксперт", office: "Кемерово", role: 'expert' },
+    { id: 13, name: "Владимир ОККов", position: "ОКК", office: "Красноярск", role: 'admin' }
   ];
 
   // Локальные демо-данные для заявок на присоединение
@@ -319,9 +403,9 @@ const Employees = () => {
       } catch (err) {
         console.error('Ошибка получения данных:', err);
         setError((err as Error).message || 'Не удалось загрузить список сотрудников');
-        // Устанавливаем пустой список сотрудников вместо демо-данных
-        setEmployees([]);
-        setFilteredEmployees([]);
+        // Используем демо-данные при ошибке загрузки с сервера
+        setEmployees(localEmployees);
+        setFilteredEmployees(localEmployees);
       } finally {
         setLoading(false);
       }
@@ -627,4 +711,4 @@ const Employees = () => {
   );
 };
 
-export default Employees; 
+export default Employees;

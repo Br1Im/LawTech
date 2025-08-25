@@ -466,7 +466,390 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Стили для улучшенного модального окна создания договора */
+.contract-modal {
+  max-width: 700px !important;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.contract-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.contract-modal::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.contract-modal::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: 3px;
+}
+
+.contract-modal::-webkit-scrollbar-thumb:hover {
+  background: #c2a030;
+}
+
+/* Стили для выбора предмета договора */
+.subject-type-selector {
+  margin-top: 10px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-text);
+  transition: all 0.3s ease;
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid var(--color-accent-light);
+  background-color: var(--color-bg);
+  min-width: 180px;
+  justify-content: flex-start;
+}
+
+.radio-label:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
+}
+
+.radio-label input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.radio-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-accent-light);
+  border-radius: 50%;
+  margin-right: 12px;
+  position: relative;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  background-color: var(--color-bg);
+}
+
+.radio-label input[type="radio"]:checked + .radio-custom {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+.radio-label input[type="radio"]:checked + .radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background-color: white;
+  border-radius: 50%;
+  animation: radioCheck 0.3s ease;
+}
+
+.radio-label input[type="radio"]:checked {
+  background-color: rgba(212, 175, 55, 0.1);
+}
+
+.radio-label:has(input[type="radio"]:checked) {
+  background-color: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
+}
+
+@keyframes radioCheck {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Стили для выбора типов документов */
+.document-types-selection {
+  margin-top: 15px;
+  padding: 15px;
+  background-color: rgba(212, 175, 55, 0.05);
+  border-radius: 8px;
+  border: 1px solid var(--color-accent-light);
+  animation: slideDown 0.3s ease;
+}
+
+.document-types-selection label {
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: 10px;
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 400;
+  color: var(--color-text);
+  transition: all 0.3s ease;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.checkbox-label:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent-light);
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-accent-light);
+  border-radius: 4px;
+  margin-right: 10px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  animation: checkboxCheck 0.3s ease;
+}
+
+@keyframes checkboxCheck {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Стили для произвольного ввода */
+.custom-subject-input {
+  margin-top: 15px;
+  animation: slideDown 0.3s ease;
+}
+
+.custom-subject-input input {
+  background-color: rgba(212, 175, 55, 0.05);
+  border: 1px solid var(--color-accent-light);
+}
+
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}
+
+/* Стили для строки с двумя полями */
+.form-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group.half-width {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Стили для отображения остатка */
+.remaining-amount {
+  padding: 12px 16px;
+  background-color: rgba(212, 175, 55, 0.1);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Стили для кнопки материалов */
+.materials-btn {
+  background: linear-gradient(135deg, var(--color-accent), #c2a030) !important;
+  color: white !important;
+  border: none !important;
+  padding: 12px 20px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  width: 100% !important;
+  margin-top: 10px !important;
+}
+
+.materials-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+}
+
+/* Стили для загрузки материалов */
+.materials-upload {
+  margin-top: 15px;
+  padding: 20px;
+  background-color: rgba(212, 175, 55, 0.05);
+  border: 2px dashed var(--color-accent-light);
+  border-radius: 8px;
+  animation: slideDown 0.3s ease;
+}
+
+.file-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-accent-light);
+  border-radius: 6px;
+  background-color: var(--color-bg);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.file-input:hover {
+  border-color: var(--color-accent);
+  background-color: rgba(212, 175, 55, 0.05);
+}
+
+/* Стили для списка загруженных файлов */
+.uploaded-files {
+  margin-top: 15px;
+}
+
+.uploaded-files h4 {
+  margin: 0 0 10px 0;
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-accent-light);
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  animation: fadeIn 0.3s ease;
+}
+
+.file-item:hover {
+  border-color: var(--color-accent);
+  background-color: rgba(212, 175, 55, 0.05);
+}
+
+.file-name {
+  font-size: 14px;
+  color: var(--color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-file-btn {
+  background: #ff4757 !important;
+  color: white !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  font-weight: bold !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.3s ease !important;
+  min-width: unset !important;
+  padding: 0 !important;
+}
+
+.remove-file-btn:hover {
+  background: #ff3838 !important;
+  transform: scale(1.1) !important;
+}
+
 /* Адаптивность для модального окна */
+@media (max-width: 768px) {
+  .contract-modal {
+    max-width: 95% !important;
+    margin: 10px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .form-group.half-width {
+    margin-bottom: 20px;
+  }
+  
+  .radio-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .checkbox-group {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 576px) {
   .modal-content {
     width: 95%;
@@ -481,4 +864,4 @@
   .submit-btn {
     width: 100%;
   }
-} 
+}

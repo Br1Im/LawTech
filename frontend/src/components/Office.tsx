@@ -19,6 +19,7 @@ interface Employee {
   position: string;
   dailyContracts: number;
   totalRevenue14Days: number;
+  periodRevenue: number;
   phone: string;
   pastRevenue: { [key: string]: number };
   closeRate: number;
@@ -40,7 +41,7 @@ interface Office {
   previousVisits?: number;
 }
 
-type PeriodType = "day" | "week" | "month";
+type PeriodType = "day" | "2weeks" | "month";
 
 // Функция для расчета процентного изменения
 const calculatePercentageChange = (current: number, previous: number): { percentage: string | null; isIncrease: boolean | null } => {
@@ -150,6 +151,7 @@ const Office = () => {
                 position: 'Юрист',
                 dailyContracts: 5,
                 totalRevenue14Days: 210000,
+                periodRevenue: 180000,
                 phone: '+7 900 000-00-00',
                 pastRevenue: {},
                 closeRate: 0.8,
@@ -162,14 +164,132 @@ const Office = () => {
                 position: 'Адвокат',
                 dailyContracts: 3,
                 totalRevenue14Days: 110000,
+                periodRevenue: 95000,
                 phone: '+7 900 000-00-01',
                 pastRevenue: {},
                 closeRate: 0.7,
               },
+              {
+                id: 'emp-3',
+                surname: 'Сидорова',
+                name: 'Анна',
+                middle_name: 'Александровна',
+                position: 'Юрист',
+                dailyContracts: 4,
+                totalRevenue14Days: 150000,
+                periodRevenue: 130000,
+                phone: '+7 900 000-00-02',
+                pastRevenue: {},
+                closeRate: 0.75,
+              },
+              {
+                id: 'emp-4',
+                surname: 'Козлов',
+                name: 'Михаил',
+                middle_name: 'Сергеевич',
+                position: 'Адвокат',
+                dailyContracts: 6,
+                totalRevenue14Days: 280000,
+                periodRevenue: 250000,
+                phone: '+7 900 000-00-03',
+                pastRevenue: {},
+                closeRate: 0.85,
+              },
+              {
+                id: 'emp-5',
+                surname: 'Морозова',
+                name: 'Елена',
+                middle_name: 'Викторовна',
+                position: 'Юрист',
+                dailyContracts: 3,
+                totalRevenue14Days: 120000,
+                periodRevenue: 105000,
+                phone: '+7 900 000-00-04',
+                pastRevenue: {},
+                closeRate: 0.72,
+              },
+              {
+                id: 'emp-6',
+                surname: 'Волков',
+                name: 'Дмитрий',
+                middle_name: 'Андреевич',
+                position: 'Адвокат',
+                dailyContracts: 5,
+                totalRevenue14Days: 190000,
+                periodRevenue: 170000,
+                phone: '+7 900 000-00-05',
+                pastRevenue: {},
+                closeRate: 0.78,
+              },
+              {
+                id: 'emp-7',
+                surname: 'Смирнов',
+                name: 'Алексей',
+                middle_name: 'Владимирович',
+                position: 'Менеджер',
+                dailyContracts: 7,
+                totalRevenue14Days: 220000,
+                periodRevenue: 200000,
+                phone: '+7 900 000-00-06',
+                pastRevenue: {},
+                closeRate: 0.82,
+              },
+              {
+                id: 'emp-8',
+                surname: 'Федорова',
+                name: 'Ольга',
+                middle_name: 'Николаевна',
+                position: 'Представитель',
+                dailyContracts: 4,
+                totalRevenue14Days: 160000,
+                periodRevenue: 140000,
+                phone: '+7 900 000-00-07',
+                pastRevenue: {},
+                closeRate: 0.76,
+              },
+              {
+                id: 'emp-9',
+                surname: 'Кузнецов',
+                name: 'Сергей',
+                middle_name: 'Игоревич',
+                position: 'Юрист',
+                dailyContracts: 6,
+                totalRevenue14Days: 240000,
+                periodRevenue: 210000,
+                phone: '+7 900 000-00-08',
+                pastRevenue: {},
+                closeRate: 0.84,
+              },
+              {
+                id: 'emp-10',
+                surname: 'Новикова',
+                name: 'Мария',
+                middle_name: 'Дмитриевна',
+                position: 'Эксперт',
+                dailyContracts: 3,
+                totalRevenue14Days: 130000,
+                periodRevenue: 115000,
+                phone: '+7 900 000-00-09',
+                pastRevenue: {},
+                closeRate: 0.73,
+              },
+              {
+                id: 'emp-11',
+                surname: 'Лебедев',
+                name: 'Андрей',
+                middle_name: 'Максимович',
+                position: 'ОКК',
+                dailyContracts: 5,
+                totalRevenue14Days: 180000,
+                periodRevenue: 160000,
+                phone: '+7 900 000-00-10',
+                pastRevenue: {},
+                closeRate: 0.79,
+              },
             ],
-            data: [120, 8], // visits / pending
+            data: [20, 8], // visits / pending
             address: 'г. Москва, ул. Пример, д. 1',
-            employee_count: 2,
+            employee_count: 11,
             contact_phone: '+7 900 000-00-02',
             website: 'https://law-demo.ru',
             previousRevenue: 280000,
@@ -272,12 +392,12 @@ const Office = () => {
           labels.push(date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }));
         }
         break;
-      case "week":
-        // Последние 6 недель
+      case "2weeks":
+        // Последние 6 периодов по 2 недели
         for (let i = 5; i >= 0; i--) {
           const date = new Date(today);
-          date.setDate(date.getDate() - i * 7);
-          labels.push(`Неделя ${6 - i}`);
+          date.setDate(date.getDate() - i * 14);
+          labels.push(`Период ${6 - i}`);
         }
         break;
       case "month":
@@ -302,8 +422,8 @@ const Office = () => {
     switch (period) {
       case "day":
         return "сегодня";
-      case "week":
-        return "за неделю";
+      case "2weeks":
+        return "за период";
       case "month":
         return "за месяц";
       default:
@@ -603,10 +723,10 @@ const Office = () => {
               День
             </button>
             <button 
-              className={`period-button ${period === "week" ? "active" : ""}`}
-              onClick={() => handlePeriodChange("week")}
+              className={`period-button ${period === "2weeks" ? "active" : ""}`}
+              onClick={() => handlePeriodChange("2weeks")}
             >
-              Неделя
+              Период
             </button>
             <button 
               className={`period-button ${period === "month" ? "active" : ""}`}
@@ -663,7 +783,7 @@ const Office = () => {
               <div className="statCard-content">
                 <StatCard
                   title="Приходы"
-                  value={stats.visits.toLocaleString() + " ₽"}
+                  value={stats.visits.toLocaleString() + ""}
                   icon={<FaUsers />}
                   colorIcon="#8280FF"
                   percentage={stats.visitsChange.percentage}
@@ -688,18 +808,18 @@ const Office = () => {
                 <table className="employee-stats-table">
                   <thead>
                     <tr>
-                      <th>ФИО</th>
-                      <th>Должность</th>
-                      <th>Выручка {getPeriodText()}</th>
+                      <th>Юрист</th>
+                      <th>Касса за день</th>
+                      <th>Касса за период</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedOffice.employees.length > 0 ? (
                       selectedOffice.employees.map(employee => (
                         <tr key={employee.id}>
-                          <td>{`${employee.surname} ${employee.name} ${employee.middle_name}`}</td>
-                          <td>{employee.position}</td>
-                          <td>{employee.totalRevenue14Days.toLocaleString()} ₽</td>
+                          <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                          <td>{employee.totalRevenue14Days.toLocaleString()}</td>
+                          <td>{employee.periodRevenue.toLocaleString()}</td>
                         </tr>
                       ))
                     ) : (

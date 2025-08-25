@@ -5,6 +5,8 @@ interface Arrival {
   id: number;
   clientName: string;
   theme: string;
+  questionEssence: string;
+  ticket: string;
   lawyerAssigned: string;
   appointmentTime: string;
   contractSigned: boolean;
@@ -136,6 +138,8 @@ const Arrivals: React.FC = () => {
   const [newArrival, setNewArrival] = useState<Omit<Arrival, 'id'>>({
     clientName: '',
     theme: '',
+    questionEssence: '',
+    ticket: '',
     lawyerAssigned: '',
     appointmentTime: '',
     contractSigned: false,
@@ -147,9 +151,22 @@ const Arrivals: React.FC = () => {
     setNewArrival(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    // Разрешаем только цифры и ограничиваем до 4 символов
+    if (/^\d{0,4}$/.test(value)) {
+      setNewArrival(prev => ({ ...prev, ticket: value }));
+    }
+  };
+
   const handleAddArrival = async () => {
-    if (!newArrival.clientName || !newArrival.theme || !newArrival.lawyerAssigned || !newArrival.appointmentTime) {
+    if (!newArrival.clientName || !newArrival.theme || !newArrival.questionEssence || !newArrival.ticket || !newArrival.lawyerAssigned || !newArrival.appointmentTime) {
       setError('Пожалуйста, заполните все поля');
+      return;
+    }
+
+    if (newArrival.ticket.length !== 4) {
+      setError('Талон должен содержать ровно 4 цифры');
       return;
     }
 
@@ -191,6 +208,8 @@ const Arrivals: React.FC = () => {
       setNewArrival({
         clientName: '',
         theme: '',
+        questionEssence: '',
+        ticket: '',
         lawyerAssigned: '',
         appointmentTime: '',
         contractSigned: false,
@@ -244,6 +263,28 @@ const Arrivals: React.FC = () => {
             />
           </div>
           <div className="form-group">
+            <label>Суть вопроса</label>
+            <input 
+              type="text" 
+              name="questionEssence" 
+              value={newArrival.questionEssence}
+              onChange={handleInputChange}
+              placeholder="Суть вопроса"
+            />
+          </div>
+          <div className="form-group">
+            <label>Талон</label>
+            <input 
+              type="text" 
+              name="ticket" 
+              value={newArrival.ticket}
+              onChange={handleTicketChange}
+              placeholder="0000"
+              maxLength={4}
+              pattern="[0-9]{4}"
+            />
+          </div>
+          <div className="form-group">
             <label>Юрист</label>
             <input 
               type="text" 
@@ -283,6 +324,8 @@ const Arrivals: React.FC = () => {
               <tr>
                 <th>Клиент</th>
                 <th>Тема</th>
+                <th>Суть вопроса</th>
+                <th>Талон</th>
                 <th>Юрист</th>
                 <th>Время приема</th>
                 <th>Заключен договор</th>
@@ -295,6 +338,8 @@ const Arrivals: React.FC = () => {
                   <tr key={arrival.id} className={arrival.didNotArrive ? 'not-arrived' : ''}>
                     <td>{arrival.clientName}</td>
                     <td>{arrival.theme}</td>
+                    <td>{arrival.questionEssence}</td>
+                    <td>{arrival.ticket}</td>
                     <td>{arrival.lawyerAssigned}</td>
                     <td>{formatDateTime(arrival.appointmentTime)}</td>
                     <td className="checkbox-cell">
@@ -316,7 +361,7 @@ const Arrivals: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="no-data">Нет данных о приходах</td>
+                  <td colSpan={8} className="no-data">Нет данных о приходах</td>
                 </tr>
               )}
             </tbody>
@@ -327,4 +372,4 @@ const Arrivals: React.FC = () => {
   );
 };
 
-export default Arrivals; 
+export default Arrivals;

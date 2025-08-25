@@ -287,10 +287,7 @@ const Reception: React.FC = () => {
 
   return (
     <div className="reception-container">
-      <h2 className="reception-title">Ресепшен</h2>
-      <div className="reception-description">
-        Централизованный чат с офисами компании
-      </div>
+      {/* Header removed as per new design */}
       
       <div className="chat-container">
         <div className="office-list">
@@ -400,4 +397,4 @@ const Reception: React.FC = () => {
   );
 };
 
-export default Reception; 
+export default Reception;
