@@ -33,13 +33,15 @@ interface Office {
   data: number[];
   address?: string;
   employee_count?: number;
-  contact_phone?: string | null;
-  website?: string | null;
+  work_phone?: string | null;
+  mobile_phone?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
   ip_surname?: string;
   ip_name?: string;
   ip_middle_name?: string;
+  inn?: string;
+  ogrn?: string;
 }
 
 type PeriodType = "day" | "2weeks" | "month";
@@ -317,8 +319,13 @@ const Office = () => {
           body: JSON.stringify({
             name: values.title,
             address: values.address,
-            contact_phone: values.contact_phone,
-            website: values.website
+            work_phone: values.work_phone,
+            mobile_phone: values.mobile_phone,
+            inn: values.inn,
+            ogrn: values.ogrn,
+            ip_surname: values.ip_surname,
+            ip_name: values.ip_name,
+            ip_middle_name: values.ip_middle_name
           })
         });
 
@@ -332,8 +339,13 @@ const Office = () => {
                 title: values.title,
                 description: values.address,
                 address: values.address,
-                contact_phone: values.contact_phone,
-                website: values.website
+                work_phone: values.work_phone,
+                mobile_phone: values.mobile_phone,
+                inn: values.inn,
+                ogrn: values.ogrn,
+                ip_surname: values.ip_surname,
+                ip_name: values.ip_name,
+                ip_middle_name: values.ip_middle_name
               } 
             : office
         ));
@@ -345,8 +357,13 @@ const Office = () => {
             title: values.title,
             description: values.address,
             address: values.address,
-            contact_phone: values.contact_phone,
-            website: values.website
+            work_phone: values.work_phone,
+            mobile_phone: values.mobile_phone,
+            inn: values.inn,
+            ogrn: values.ogrn,
+            ip_surname: values.ip_surname,
+            ip_name: values.ip_name,
+            ip_middle_name: values.ip_middle_name
           } : null
         );
 
@@ -391,11 +408,13 @@ const Office = () => {
         body: JSON.stringify({
           name: values.title,
           address: values.address,
-          contact_phone: values.contact_phone,
-          website: values.website,
+          work_phone: values.work_phone,
+          mobile_phone: values.mobile_phone,
           ip_surname: values.ip_surname,
           ip_name: values.ip_name,
-          ip_middle_name: values.ip_middle_name
+          ip_middle_name: values.ip_middle_name,
+          inn: values.inn,
+          ogrn: values.ogrn
         })
       });
 
@@ -414,11 +433,13 @@ const Office = () => {
         data: [0, 0],
         address: newOffice.address || values.address,
         employee_count: 0,
-        contact_phone: newOffice.contact_phone || values.contact_phone,
-        website: newOffice.website || values.website,
+        work_phone: newOffice.work_phone || values.work_phone,
+        mobile_phone: newOffice.mobile_phone || values.mobile_phone,
         ip_surname: newOffice.ip_surname || values.ip_surname,
         ip_name: newOffice.ip_name || values.ip_name,
-        ip_middle_name: newOffice.ip_middle_name || values.ip_middle_name
+        ip_middle_name: newOffice.ip_middle_name || values.ip_middle_name,
+        inn: newOffice.inn || values.inn,
+        ogrn: newOffice.ogrn || values.ogrn
       };
 
       // Добавляем новый офис в список
@@ -621,22 +642,37 @@ const Office = () => {
           </div>
           
           <Form.Item
+            name="inn"
+            label="ИНН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
+          >
+            <Input placeholder="Введите ИНН" />
+          </Form.Item>
+          <Form.Item
+            name="ogrn"
+            label="ОГРН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
+          >
+            <Input placeholder="Введите ОГРН" />
+          </Form.Item>
+          
+          <Form.Item
             name="address"
             label="Адрес"
           >
             <Input placeholder="Введите адрес офиса" />
           </Form.Item>
           <Form.Item
-            name="contact_phone"
-            label="Контактный телефон"
+            name="work_phone"
+            label="Рабочий телефон"
           >
-            <Input placeholder="Введите контактный телефон" />
+            <Input placeholder="Введите рабочий телефон" />
           </Form.Item>
           <Form.Item
-            name="website"
-            label="Веб-сайт"
+            name="mobile_phone"
+            label="Мобильный телефон"
           >
-            <Input placeholder="Введите адрес веб-сайта" />
+            <Input placeholder="Введите мобильный телефон" />
           </Form.Item>
         </Form>
       </Modal>
