@@ -2,16 +2,16 @@ services:
   # Backend API service
   - type: web
     name: lawtech-server
-    env: python
+    env: node
     plan: free
     rootDir: ./server
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
       - key: JWT_SECRET
         value: law-tech-secret-key
-      - key: PORT
-        value: 10000
+      - key: NODE_ENV
+        value: production
 
   # Frontend static site
   - type: static
@@ -21,4 +21,4 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        value: https://lawtech-server.onrender.com
+        value: https://lawtech-server.onrender.com/api

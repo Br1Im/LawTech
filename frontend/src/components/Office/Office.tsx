@@ -34,7 +34,7 @@ interface Office {
   address?: string;
   employee_count?: number;
   work_phone?: string | null;
-  mobile_phone?: string | null;
+  work_phone2?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
   ip_surname?: string;
@@ -291,8 +291,13 @@ const Office = () => {
       form.setFieldsValue({
         title: selectedOffice.title,
         address: selectedOffice.address || '',
-        contact_phone: selectedOffice.contact_phone || '',
-        website: selectedOffice.website || ''
+        work_phone: selectedOffice.work_phone || '',
+        work_phone2: selectedOffice.work_phone2 || '',
+        ip_surname: selectedOffice.ip_surname || '',
+        ip_name: selectedOffice.ip_name || '',
+        ip_middle_name: selectedOffice.ip_middle_name || '',
+        inn: selectedOffice.inn || '',
+        ogrn: selectedOffice.ogrn || ''
       });
       setIsEditModalVisible(true);
     }
@@ -320,7 +325,7 @@ const Office = () => {
             name: values.title,
             address: values.address,
             work_phone: values.work_phone,
-            mobile_phone: values.mobile_phone,
+            work_phone2: values.work_phone2,
             inn: values.inn,
             ogrn: values.ogrn,
             ip_surname: values.ip_surname,
@@ -340,7 +345,7 @@ const Office = () => {
                 description: values.address,
                 address: values.address,
                 work_phone: values.work_phone,
-                mobile_phone: values.mobile_phone,
+                work_phone2: values.work_phone2,
                 inn: values.inn,
                 ogrn: values.ogrn,
                 ip_surname: values.ip_surname,
@@ -358,7 +363,7 @@ const Office = () => {
             description: values.address,
             address: values.address,
             work_phone: values.work_phone,
-            mobile_phone: values.mobile_phone,
+            work_phone2: values.work_phone2,
             inn: values.inn,
             ogrn: values.ogrn,
             ip_surname: values.ip_surname,
@@ -409,7 +414,7 @@ const Office = () => {
           name: values.title,
           address: values.address,
           work_phone: values.work_phone,
-          mobile_phone: values.mobile_phone,
+          work_phone2: values.work_phone2,
           ip_surname: values.ip_surname,
           ip_name: values.ip_name,
           ip_middle_name: values.ip_middle_name,
@@ -434,7 +439,7 @@ const Office = () => {
         address: newOffice.address || values.address,
         employee_count: 0,
         work_phone: newOffice.work_phone || values.work_phone,
-        mobile_phone: newOffice.mobile_phone || values.mobile_phone,
+        work_phone2: newOffice.work_phone2 || values.work_phone2,
         ip_surname: newOffice.ip_surname || values.ip_surname,
         ip_name: newOffice.ip_name || values.ip_name,
         ip_middle_name: newOffice.ip_middle_name || values.ip_middle_name,
@@ -494,10 +499,10 @@ const Office = () => {
             <p className="office-description">{selectedOffice.description}</p>
             <div className="office-details">
               <div className="office-detail">
-                <strong>Телефон:</strong> {selectedOffice.contact_phone || 'Не указан'}
+                <strong>Рабочий телефон 1:</strong> {selectedOffice.work_phone || 'Не указан'}
               </div>
               <div className="office-detail">
-                <strong>Сайт:</strong> {selectedOffice.website || 'Не указан'}
+                <strong>Рабочий телефон 2:</strong> {selectedOffice.work_phone2 || 'Не указан'}
               </div>
               <div className="office-detail">
                 <strong>Сотрудников:</strong> {selectedOffice.employee_count || 0}
@@ -664,15 +669,15 @@ const Office = () => {
           </Form.Item>
           <Form.Item
             name="work_phone"
-            label="Рабочий телефон"
+            label="Рабочий телефон 1"
           >
-            <Input placeholder="Введите рабочий телефон" />
+            <Input placeholder="Введите рабочий телефон 1" />
           </Form.Item>
           <Form.Item
-            name="mobile_phone"
-            label="Мобильный телефон"
+            name="work_phone2"
+            label="Рабочий телефон 2"
           >
-            <Input placeholder="Введите мобильный телефон" />
+            <Input placeholder="Введите рабочий телефон 2" />
           </Form.Item>
         </Form>
       </Modal>
@@ -745,22 +750,38 @@ const Office = () => {
           </div>
           
           <Form.Item
+            name="inn"
+            label="ИНН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
+          >
+            <Input placeholder="Введите ИНН" />
+          </Form.Item>
+          
+          <Form.Item
+            name="ogrn"
+            label="ОГРН"
+            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
+          >
+            <Input placeholder="Введите ОГРН" />
+          </Form.Item>
+          
+          <Form.Item
             name="address"
             label="Адрес"
           >
             <Input placeholder="Введите адрес офиса" />
           </Form.Item>
           <Form.Item
-            name="contact_phone"
-            label="Контактный телефон"
+            name="work_phone"
+            label="Рабочий телефон 1"
           >
-            <Input placeholder="Введите контактный телефон" />
+            <Input placeholder="Введите рабочий телефон 1" />
           </Form.Item>
           <Form.Item
-            name="website"
-            label="Веб-сайт"
+            name="work_phone2"
+            label="Рабочий телефон 2"
           >
-            <Input placeholder="Введите адрес веб-сайта" />
+            <Input placeholder="Введите рабочий телефон 2" />
           </Form.Item>
         </Form>
       </Modal>

@@ -36,7 +36,7 @@ interface Office {
   address?: string;
   employee_count?: number;
   work_phone?: string | null;
-  mobile_phone?: string | null;
+  work_phone2?: string | null;
   previousRevenue?: number;
   previousVisits?: number;
   // Поля для ИП
@@ -557,7 +557,7 @@ const Office = () => {
         officeName: selectedOffice.title,
         officeAddress: selectedOffice.address,
         contactPhone: selectedOffice.work_phone || '',
-        mobilePhone: selectedOffice.mobile_phone || '',
+        work_phone2: selectedOffice.work_phone2 || '',
         inn: selectedOffice.inn || '',
         ogrn: selectedOffice.ogrn || ''
       });
@@ -603,7 +603,7 @@ const Office = () => {
           inn: values.inn || '',
           ogrn: values.ogrn || '',
           work_phone: values.contactPhone || '',
-          mobile_phone: values.mobilePhone || ''
+          work_phone2: values.work_phone2 || ''
         };
 
         setSelectedOffice(updatedOffice);
@@ -677,7 +677,7 @@ const Office = () => {
           ogrn: values.ogrn,
           // Обновляем поля телефонов
           work_phone: values.contactPhone,
-          mobile_phone: values.mobilePhone
+          work_phone2: values.work_phone2
         })
       });
 
@@ -708,8 +708,8 @@ const Office = () => {
         data: [0, 0],
         address: values.officeAddress || '',
         employee_count: 0,
-        work_phone: values.workPhone || null,
-        mobile_phone: values.mobilePhone || null,
+        work_phone: values.contactPhone || null,
+        work_phone2: values.work_phone2 || null,
         // Добавляем данные ИП
         ip_surname: values.ipSurname || '',
         ip_name: values.ipName || '',
@@ -971,15 +971,15 @@ const Office = () => {
           </Form.Item>
           <Form.Item
             name="contactPhone"
-            label="Рабочий телефон"
+            label="Рабочий телефон 1"
           >
-            <Input placeholder="Введите рабочий телефон" />
+            <Input placeholder="Введите рабочий телефон 1" />
           </Form.Item>
           <Form.Item
-            name="mobilePhone"
-            label="Мобильный телефон"
+            name="work_phone2"
+            label="Рабочий телефон 2"
           >
-            <Input placeholder="Введите мобильный телефон" />
+            <Input placeholder="Введите рабочий телефон 2" />
           </Form.Item>
         </Form>
       </Modal>
@@ -1064,15 +1064,15 @@ const Office = () => {
           </Form.Item>
           <Form.Item
             name="contactPhone"
-            label="Рабочий телефон"
+            label="Рабочий телефон 1"
           >
-            <Input placeholder="Введите рабочий телефон" />
+            <Input placeholder="Введите рабочий телефон 1" />
           </Form.Item>
           <Form.Item
-            name="mobilePhone"
-            label="Мобильный телефон"
+            name="work_phone2"
+            label="Рабочий телефон 2"
           >
-            <Input placeholder="Введите мобильный телефон" />
+            <Input placeholder="Введите рабочий телефон 2" />
           </Form.Item>
         </Form>
       </Modal>
