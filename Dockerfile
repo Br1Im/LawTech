@@ -16,14 +16,11 @@ COPY frontend/ .
 # Собираем фронтенд
 RUN npm run build
 
-# Продакшн стадия с Python
-FROM python:3.11-slim
+# Продакшн стадия с Node.js
+FROM node:18-alpine
 
-# Устанавливаем nginx и системные зависимости
-RUN apt-get update && apt-get install -y \
-    nginx \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Устанавливаем nginx
+RUN apk add --no-cache nginx
 
 # Создаем директории
 RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /app/server
@@ -31,11 +28,11 @@ RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /app/server
 # Устанавливаем рабочую директорию для бэкенда
 WORKDIR /app/server
 
-# Копируем файл зависимостей Python
-COPY server/requirements.txt ./
+# Копируем файл зависимостей Node.js
+COPY server/package*.json ./
 
-# Устанавливаем Python зависимости
-RUN pip install --no-cache-dir -r requirements.txt
+# Устанавливаем Node.js зависимости
+RUN npm ci --only=production
 
 # Копируем исходный код бэкенда
 COPY server/ .
@@ -51,15 +48,15 @@ RUN mkdir -p uploads
 RUN chmod 777 uploads
 
 # Создаем скрипт запуска
-RUN echo '#!/bin/bash' > /start.sh && \
-    echo 'echo "Starting Python FastAPI server..."' >> /start.sh && \
-    echo 'cd /app/server && gunicorn main:app --host 0.0.0.0 --port ${PORT:-10000} &' >> /start.sh && \
-    echo 'PYTHON_PID=$!' >> /start.sh && \
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'echo "Starting Node.js server..."' >> /start.sh && \
+    echo 'cd /app/server && npm start &' >> /start.sh && \
+    echo 'NODE_PID=$!' >> /start.sh && \
     echo 'echo "Starting nginx..."' >> /start.sh && \
     echo 'nginx -g "daemon off;" &' >> /start.sh && \
     echo 'NGINX_PID=$!' >> /start.sh && \
     echo 'echo "Both services started"' >> /start.sh && \
-    echo 'wait $PYTHON_PID $NGINX_PID' >> /start.sh && \
+    echo 'wait $NODE_PID $NGINX_PID' >> /start.sh && \
     chmod +x /start.sh
 
 # Переменные окружения
