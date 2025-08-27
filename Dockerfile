@@ -51,12 +51,7 @@ RUN chmod 777 uploads
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'echo "Starting Node.js server..."' >> /start.sh && \
     echo 'cd /app/server && npm start &' >> /start.sh && \
-    echo 'NODE_PID=$!' >> /start.sh && \
-    echo 'echo "Configuring nginx for port $PORT..."' >> /start.sh && \
-    echo 'sed "s/\${PORT:-80}/$PORT/g" /etc/nginx/nginx.conf > /tmp/nginx.conf' >> /start.sh && \
-    echo 'mv /tmp/nginx.conf /etc/nginx/nginx.conf' >> /start.sh && \
     echo 'echo "Starting nginx..."' >> /start.sh && \
-    echo 'echo "Both services started"' >> /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
 
