@@ -42,11 +42,11 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // Health check endpoints
-app.get('/', (req, res) => {
+app.get('/api/status', (req, res) => {
   res.json({ message: 'LawTech API is running', status: 'healthy' });
 });
 
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
