@@ -56,10 +56,8 @@ RUN echo '#!/bin/sh' > /start.sh && \
     echo 'sed "s/\${PORT:-80}/$PORT/g" /etc/nginx/nginx.conf > /tmp/nginx.conf' >> /start.sh && \
     echo 'mv /tmp/nginx.conf /etc/nginx/nginx.conf' >> /start.sh && \
     echo 'echo "Starting nginx..."' >> /start.sh && \
-    echo 'nginx -g "daemon off;" &' >> /start.sh && \
-    echo 'NGINX_PID=$!' >> /start.sh && \
     echo 'echo "Both services started"' >> /start.sh && \
-    echo 'wait $NODE_PID $NGINX_PID' >> /start.sh && \
+    echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
 
 # Переменные окружения
