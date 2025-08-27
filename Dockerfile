@@ -1,66 +1,39 @@
-# Dockerfile для фронтенда и бэкенда
+# Используем Node.js 18 Alpine для минимального размера
 FROM node:18-alpine as build
 
-# Устанавливаем рабочую директорию для фронтенда
-WORKDIR /app/frontend
-
-# Копируем package.json и package-lock.json фронтенда
-COPY frontend/package*.json ./
-
-# Устанавливаем зависимости фронтенда (включая devDependencies для сборки)
-RUN npm ci
-
-# Копируем исходный код фронтенда
-COPY frontend/ .
-
 # Собираем фронтенд
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ .
 RUN npm run build
 
-# Продакшн стадия с Node.js
+# Продакшн стадия
 FROM node:18-alpine
+WORKDIR /app
 
-# Устанавливаем nginx
-RUN apk add --no-cache nginx
-
-# Создаем директории
-RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp /app/server
-
-# Устанавливаем рабочую директорию для бэкенда
-WORKDIR /app/server
-
-# Копируем файл зависимостей Node.js
+# Копируем package.json и package-lock.json сервера
 COPY server/package*.json ./
 
-# Устанавливаем Node.js зависимости
+# Устанавливаем зависимости сервера
 RUN npm ci --only=production
 
-# Копируем исходный код бэкенда
+# Копируем исходный код сервера
 COPY server/ .
 
 # Копируем собранный фронтенд
-COPY --from=build /app/frontend/dist /usr/share/nginx/html
-
-# Копируем конфигурацию nginx
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/frontend/dist ./frontend/dist
 
 # Создаем директорию для загрузок
 RUN mkdir -p uploads
-RUN chmod 777 uploads
-
-# Создаем скрипт запуска
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'echo "Starting Node.js server..."' >> /start.sh && \
-    echo 'cd /app/server && npm start &' >> /start.sh && \
-    echo 'echo "Starting nginx..."' >> /start.sh && \
-    echo 'nginx -g "daemon off;"' >> /start.sh && \
-    chmod +x /start.sh
 
 # Переменные окружения
+ENV NODE_ENV=production
 ENV JWT_SECRET=law-tech-secret-key
 ENV PORT=10000
 
-# Открываем порт 10000
+# Открываем порт
 EXPOSE 10000
 
-# Запускаем оба сервиса
-CMD ["/start.sh"]
+# Запускаем сервер
+CMD ["npm", "start"]

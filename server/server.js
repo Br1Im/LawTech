@@ -12,7 +12,7 @@ const vectorSearch = require('./services/vectorSearch');
 
 // Инициализация приложения Express
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // Настройка CORS
 app.use(cors({
@@ -28,6 +28,9 @@ app.use(cors({
 // Настройка middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Отдача статических файлов фронтенда
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Создание директории uploads если не существует
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -49,6 +52,11 @@ app.get('/health', (req, res) => {
 
 // Использование API маршрутов
 app.use('/api', apiRoutes);
+
+// Обработчик для SPA - все неизвестные маршруты возвращают index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+});
 
 // Обработка 404 ошибки
 app.use((req, res, next) => {
