@@ -13,7 +13,7 @@ class Office {
       const query = `
         SELECT o.*, 
                CASE 
-                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                 WHEN MAX(u.last_active) > datetime('now', '-5 minutes') THEN 1 
                  ELSE 0 
                END as online,
                MAX(u.last_active) as last_activity
@@ -40,7 +40,7 @@ class Office {
       const query = `
         SELECT o.*, 
                CASE 
-                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                 WHEN MAX(u.last_active) > datetime('now', '-5 minutes') THEN 1 
                  ELSE 0 
                END as online,
                MAX(u.last_active) as last_activity
@@ -67,7 +67,7 @@ class Office {
       const { name, address, contact_phone, website } = office;
       const query = `
         INSERT INTO offices (name, address, contact_phone, website, created_at) 
-        VALUES (?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, datetime('now'))
       `;
       const [result] = await db.query(query, [name, address, contact_phone, website]);
       
@@ -102,7 +102,7 @@ class Office {
             address = ?, 
             contact_phone = ?, 
             website = ?,
-            updated_at = NOW()
+            updated_at = datetime('now')
         WHERE id = ?
       `;
       await db.query(query, [name, address, contact_phone, website, id]);
@@ -131,6 +131,45 @@ class Office {
       throw error;
     }
   }
+  
+  /**
+   * Получить данные о выручке офисов за указанный период
+   * @param {string} period - Период (day, 2weeks, month)
+   * @returns {Promise<Object>} - Данные о выручке
+   */
+  static async getRevenueByPeriod(period) {
+    try {
+      // В реальном проекте здесь будет запрос к базе данных
+      // с агрегацией данных о выручке за указанный период
+      
+      // Получаем все офисы
+      const offices = await this.getAll();
+      
+      // Генерируем моковые данные о выручке для каждого офиса
+      const officesWithRevenue = offices.map(office => {
+        // Определяем количество точек данных в зависимости от периода
+        let dataPoints = 6; // По умолчанию 6 точек для всех периодов
+        
+        // Генерируем случайные данные о выручке
+        const revenue = Array(dataPoints).fill(0).map(() => 
+          Math.floor(30000 + Math.random() * 40000)
+        );
+        
+        return {
+          id: office.id.toString(),
+          name: office.name,
+          revenue
+        };
+      });
+      
+      return {
+        offices: officesWithRevenue
+      };
+    } catch (error) {
+      console.error('Error getting office revenue:', error);
+      throw error;
+    }
+  }
 }
 
-module.exports = Office; 
+module.exports = Office;

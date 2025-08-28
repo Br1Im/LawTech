@@ -427,7 +427,7 @@ async def create_office(office_data: OfficeCreate, current_user: dict = Depends(
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO offices (name, address, contact_phone, work_phone2, website, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
         """, (
             office_data.name,
             office_data.address,
@@ -506,7 +506,7 @@ async def update_office(office_id: int, office_data: OfficeUpdate, current_user:
             update_values.append(office_data.website)
         
         if update_fields:
-            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            update_fields.append("updated_at = datetime('now')")
             update_values.append(office_id)
             
             cursor.execute(f"""

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { buildApiUrl } from '../shared/utils/apiUtils';
 import "./Expenses.css";
 
 interface Employee {
@@ -71,7 +72,7 @@ const Expenses: React.FC = () => {
         }
 
         // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch('http://localhost:5000/api/profile', {
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -90,7 +91,7 @@ const Expenses: React.FC = () => {
         }
 
         // Получаем список расходов для данного офиса
-        const expensesResponse = await fetch(`http://localhost:5000/api/office/${officeId}/expenses`, {
+        const expensesResponse = await fetch(buildApiUrl(`/office/${officeId}/expenses`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -141,7 +142,7 @@ const Expenses: React.FC = () => {
       for (const detail of editedDetails) {
         if (detail.id) {
           // Обновляем существующую деталь
-          await fetch(`http://localhost:5000/api/expenses/details/${detail.id}`, {
+          await fetch(buildApiUrl(`/expenses/details/${detail.id}`), {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -154,7 +155,7 @@ const Expenses: React.FC = () => {
           });
         } else {
           // Создаем новую деталь
-          await fetch('http://localhost:5000/api/expenses/details', {
+          await fetch(buildApiUrl('/expenses/details'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -222,7 +223,7 @@ const Expenses: React.FC = () => {
           throw new Error('Требуется авторизация');
         }
         
-        await fetch(`http://localhost:5000/api/expenses/details/${detail.id}`, {
+        await fetch(buildApiUrl(`/expenses/details/${detail.id}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -252,7 +253,7 @@ const Expenses: React.FC = () => {
         throw new Error('Требуется авторизация');
       }
       
-      const response = await fetch('http://localhost:5000/api/expenses/categories', {
+      const response = await fetch(buildApiUrl('/expenses/categories'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +299,7 @@ const Expenses: React.FC = () => {
       }
       
       // 1. Создаем категорию "Заработная плата"
-      const categoryResponse = await fetch('http://localhost:5000/api/expenses/categories', {
+      const categoryResponse = await fetch(buildApiUrl('/expenses/categories'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -321,7 +322,7 @@ const Expenses: React.FC = () => {
       // 2. Добавляем детали расходов для каждого сотрудника
       for (const employee of employees) {
         const salary = calculateSalary(employee);
-        await fetch('http://localhost:5000/api/expenses/details', {
+        await fetch(buildApiUrl('/expenses/details'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -336,7 +337,7 @@ const Expenses: React.FC = () => {
       }
       
       // 3. Получаем обновленный список расходов
-      const expensesResponse = await fetch(`http://localhost:5000/api/office/${officeId}/expenses`, {
+      const expensesResponse = await fetch(buildApiUrl(`/office/${officeId}/expenses`), {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -575,4 +576,4 @@ const Expenses: React.FC = () => {
   );
 };
 
-export default Expenses; 
+export default Expenses;

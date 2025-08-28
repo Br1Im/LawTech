@@ -6,6 +6,7 @@ import { GrAdd } from "react-icons/gr";
 import PieChartComponent from "../PieChartComponent";
 import LineChartComponent from "../LineChartComponent";
 import { Modal, Form, Input, Button, message } from "antd";
+import { buildApiUrl } from "../../shared/utils/apiUtils";
 
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
@@ -86,7 +87,7 @@ const Office = () => {
   useEffect(() => {
     const fetchOffices = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/offices', {
+        const response = await fetch(buildApiUrl('/offices'), {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -315,7 +316,7 @@ const Office = () => {
       
       if (selectedOffice) {
         // В реальном приложении здесь должен быть запрос к API
-        const response = await fetch(`http://localhost:5000/api/offices/${selectedOffice.id}`, {
+        const response = await fetch(buildApiUrl(`/offices/${selectedOffice.id}`), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -404,7 +405,7 @@ const Office = () => {
       const values = await addForm.validateFields();
       
       // В реальном приложении здесь должен быть запрос к API
-      const response = await fetch('http://localhost:5000/api/offices', {
+      const response = await fetch(buildApiUrl('/offices'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

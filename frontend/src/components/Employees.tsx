@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaUser, FaQrcode } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose, MdContentCopy, MdCheck } from "react-icons/md";
+import { buildApiUrl } from "../shared/utils/apiUtils";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
@@ -188,7 +189,7 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
         }
         
         // Получаем данные профиля для определения ID офиса
-        const profileResponse = await fetch('http://localhost:5000/api/profile', {
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -213,7 +214,7 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
         
         // Запрос к серверу для генерации QR-кода
         const qrResponse = await fetch(
-          `http://localhost:5000/api/generate-qrcode?text=${encodeURIComponent(inviteUrl)}&officeId=${officeId}`,
+          buildApiUrl(`/generate-qrcode?text=${encodeURIComponent(inviteUrl)}&officeId=${officeId}`),
           {
             headers: {
               Authorization: `Bearer ${token}`
@@ -369,7 +370,7 @@ const Employees = () => {
         }
 
         // Сначала получаем данные об офисе пользователя
-        const profileResponse = await fetch('http://localhost:5000/api/profile', {
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -387,7 +388,7 @@ const Employees = () => {
         }
 
         // Теперь получаем сотрудников этого офиса
-        const employeesResponse = await fetch(`http://localhost:5000/api/office/${officeId}/employees`, {
+        const employeesResponse = await fetch(buildApiUrl(`/office/${officeId}/employees`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -424,7 +425,7 @@ const Employees = () => {
         }
 
         // Получаем ID офиса текущего пользователя
-        const profileResponse = await fetch('http://localhost:5000/api/profile', {
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -442,7 +443,7 @@ const Employees = () => {
         }
 
         // Получаем заявки на присоединение к этому офису
-        const requestsResponse = await fetch(`http://localhost:5000/api/office/${officeId}/join-requests`, {
+        const requestsResponse = await fetch(buildApiUrl(`/office/${officeId}/join-requests`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -508,7 +509,7 @@ const Employees = () => {
         throw new Error('Требуется авторизация');
       }
 
-      const response = await fetch(`http://localhost:5000/api/employees/${updatedEmployee.id}`, {
+      const response = await fetch(buildApiUrl(`/employees/${updatedEmployee.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -553,7 +554,7 @@ const Employees = () => {
         throw new Error('Требуется авторизация');
       }
 
-      const response = await fetch(`http://localhost:5000/api/join-requests/${requestId}`, {
+      const response = await fetch(buildApiUrl(`/join-requests/${requestId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

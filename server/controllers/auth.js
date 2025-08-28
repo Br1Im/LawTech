@@ -37,7 +37,7 @@ const register = async (req, res) => {
         // Создаем нового пользователя в БД
         const [result] = await db.query(`
             INSERT INTO users (username, email, password, office_id, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
         `, [name, email, hashedPassword, finalOfficeId, userType]);
 
         const newUserId = result.insertId;
@@ -47,7 +47,8 @@ const register = async (req, res) => {
             { 
                 id: newUserId, 
                 email: email,
-                role: userType 
+                role: userType,
+                office_id: finalOfficeId 
             }, 
             config.JWT_SECRET, 
             { 
@@ -116,7 +117,8 @@ const login = async (req, res) => {
             { 
                 id: user.id, 
                 email: user.email,
-                role: user.role 
+                role: user.role,
+                office_id: user.office_id 
             }, 
             config.JWT_SECRET, 
             { 
@@ -163,8 +165,14 @@ const getCurrentUser = async (req, res) => {
 
         const user = users[0];
         
+        // Преобразуем office_id в officeId для совместимости с фронтендом
+        const userResponse = {
+            ...user,
+            officeId: user.office_id
+        };
+        
         res.json({
-            user: user
+            user: userResponse
         });
 
     } catch (error) {

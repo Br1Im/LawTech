@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { buildApiUrl } from '../shared/utils/apiUtils';
 import './Arrivals.css';
 
 interface Arrival {
@@ -32,7 +33,7 @@ const Arrivals: React.FC = () => {
         }
 
         // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch('http://localhost:5000/api/profile', {
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -51,7 +52,7 @@ const Arrivals: React.FC = () => {
         }
 
         // Получаем список приходов для данного офиса
-        const arrivalsResponse = await fetch(`http://localhost:5000/api/office/${officeId}/arrivals`, {
+        const arrivalsResponse = await fetch(buildApiUrl(`/office/${officeId}/arrivals`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -93,7 +94,7 @@ const Arrivals: React.FC = () => {
       const didNotArrive = type === 'didNotArrive' ? !arrival.didNotArrive : arrival.didNotArrive;
 
       // Отправляем запрос на обновление
-      const response = await fetch(`http://localhost:5000/api/arrivals/${id}`, {
+      const response = await fetch(buildApiUrl(`/arrivals/${id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +183,7 @@ const Arrivals: React.FC = () => {
         throw new Error('Требуется авторизация');
       }
 
-      const response = await fetch('http://localhost:5000/api/arrivals', {
+      const response = await fetch(buildApiUrl('/arrivals'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiSend, FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
+import { buildApiUrl } from '../../shared/utils/apiUtils';
 import './ChatInterface.css';
 
 // Тип сообщения
@@ -185,7 +186,7 @@ const ChatInterface: React.FC = () => {
       }
       
       // Отправляем запрос на сервер
-      const response = await fetch('http://localhost:5000/api/ocr', {
+      const response = await fetch(buildApiUrl('/ocr'), {
         method: 'POST',
         body: formData,
         headers: {
@@ -221,7 +222,7 @@ const ChatInterface: React.FC = () => {
     }
 
     // Создаем ссылку для скачивания
-    const downloadUrl = `http://localhost:5000/api/docx/${fileName}`;
+    const downloadUrl = buildApiUrl(`/docx/${fileName}`);
     
     // Создаем временную ссылку для скачивания
     const link = document.createElement('a');
@@ -243,7 +244,7 @@ const ChatInterface: React.FC = () => {
       }
       
       // Отправляем запрос на сервер
-      const response = await fetch('http://localhost:5000/api/gigachat', {
+      const response = await fetch(buildApiUrl('/gigachat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -633,4 +634,4 @@ const ChatInterface: React.FC = () => {
   );
 };
 
-export default ChatInterface; 
+export default ChatInterface;

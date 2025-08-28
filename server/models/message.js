@@ -38,7 +38,7 @@ class Message {
       const { text, sender, office_id, user_id } = message;
       const query = `
         INSERT INTO messages (text, sender, office_id, user_id, is_read, created_at) 
-        VALUES (?, ?, ?, ?, 0, NOW())
+        VALUES (?, ?, ?, ?, 0, datetime('now'))
       `;
       const [result] = await db.query(query, [text, sender, office_id, user_id]);
       
@@ -99,4 +99,4 @@ class Message {
   }
 }
 
-module.exports = Message; 
+module.exports = Message;

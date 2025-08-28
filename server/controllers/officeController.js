@@ -6,13 +6,50 @@ const { formatOfficeResponse } = require('../utils/formatters');
  */
 const officeController = {
   /**
+   * Получить данные о выручке офисов за указанный период
+   * @param {Object} req - объект запроса Express
+   * @param {Object} res - объект ответа Express
+   */
+  async getOfficesRevenue(req, res) {
+    try {
+      const { period } = req.query;
+      
+      // Проверяем, что период указан и является допустимым
+      if (!period || !['day', '2weeks', 'month'].includes(period)) {
+        return res.status(400).json({ error: 'Необходимо указать корректный период (day, 2weeks, month)' });
+      }
+      
+      const revenueData = await Office.getRevenueByPeriod(period);
+      
+      return res.json(revenueData);
+    } catch (error) {
+      console.error('Ошибка при получении данных о выручке:', error);
+      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
+  },
+  
+  /**
    * Получить все офисы
    * @param {Object} req - объект запроса Express
    * @param {Object} res - объект ответа Express
    */
   async getAllOffices(req, res) {
     try {
-      const offices = await Office.getAll();
+      // Получаем роль пользователя из объекта req.user, который устанавливается middleware аутентификации
+      const userRole = req.user?.role;
+      const userOfficeId = req.user?.office_id;
+      
+      let offices;
+      
+      // Если пользователь - юрист, показываем только его офис
+      if (userRole === 'lawyer' && userOfficeId) {
+        // Получаем только офис юриста
+        const office = await Office.getById(userOfficeId);
+        offices = office ? [office] : [];
+      } else {
+        // Для администраторов и других ролей показываем все офисы
+        offices = await Office.getAll();
+      }
       
       // Форматируем ответ
       const formattedOffices = offices.map(office => formatOfficeResponse(office));
@@ -147,4 +184,4 @@ const officeController = {
   }
 };
 
-module.exports = officeController; 
+module.exports = officeController;

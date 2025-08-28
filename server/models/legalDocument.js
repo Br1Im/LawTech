@@ -63,7 +63,7 @@ class LegalDocument {
     
     const sql = `
       UPDATE legal_documents
-      SET title = ?, content = ?, category = ?, embedding = ?, updated_at = CURRENT_TIMESTAMP
+      SET title = ?, content = ?, category = ?, embedding = ?, updated_at = datetime('now')
       WHERE id = ?
     `;
     
@@ -82,4 +82,4 @@ class LegalDocument {
   }
 }
 
-module.exports = LegalDocument; 
+module.exports = LegalDocument;

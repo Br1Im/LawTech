@@ -15,6 +15,9 @@ const fileController = require('../controllers/file');
 const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
+const employeeController = require('../controllers/employeeController');
+const joinRequestController = require('../controllers/joinRequestController');
+const officeDocumentsController = require('../controllers/officeDocumentsController');
 
 // Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
@@ -41,6 +44,7 @@ router.get('/health', (req, res) => {
 router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
+router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
 
 // Маршруты для юридических запросов
 router.post('/chat', authenticateToken, legalController.handleChatRequest);
@@ -50,6 +54,7 @@ router.post('/upload', authenticateToken, upload.single('file'), fileController.
 
 // Роуты для офисов
 router.get('/offices', authMiddleware, officeController.getAllOffices);
+router.get('/offices/revenue', authMiddleware, officeController.getOfficesRevenue);
 router.get('/offices/:officeId', authMiddleware, officeController.getOfficeById);
 router.post('/offices', authMiddleware, officeController.createOffice);
 router.put('/offices/:officeId', authMiddleware, officeController.updateOffice);
@@ -60,6 +65,27 @@ router.get('/offices/:officeId/messages', authMiddleware, chatController.getOffi
 router.post('/offices/:officeId/messages', authMiddleware, chatController.sendMessage);
 router.put('/messages/:messageId/read', authMiddleware, chatController.markMessageAsRead);
 router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessage);
+
+// Роуты для документов офиса
+router.get('/office/:officeId/documents', authenticateToken, officeDocumentsController.getOfficeDocuments);
+router.get('/office/documents/:id', authenticateToken, officeDocumentsController.getDocumentById);
+router.post('/office/documents', authenticateToken, officeDocumentsController.createDocument);
+router.put('/office/documents/:id', authenticateToken, officeDocumentsController.updateDocument);
+router.delete('/office/documents/:id', authenticateToken, officeDocumentsController.deleteDocument);
+router.get('/office/:officeId/documents/type/:type', authenticateToken, officeDocumentsController.getDocumentsByType);
+router.get('/office/:officeId/documents/status/:status', authenticateToken, officeDocumentsController.getDocumentsByStatus);
+
+// Роуты для сотрудников офиса
+router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
+router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);
+router.put('/employees/:employeeId', authenticateToken, employeeController.updateEmployee);
+router.delete('/employees/:employeeId', authenticateToken, employeeController.deleteEmployee);
+
+// Роуты для заявок на присоединение к офису
+router.get('/office/:officeId/join-requests', authenticateToken, joinRequestController.getOfficeJoinRequests);
+router.get('/join-requests/status', authenticateToken, joinRequestController.getUserRequestStatus);
+router.put('/join-requests/:requestId', authenticateToken, joinRequestController.updateRequestStatus);
+router.post('/join-office', authenticateToken, joinRequestController.joinOffice);
 
 // Маршруты для работы с юридическими документами и FAISS
 router.get('/legal-documents', authenticateToken, legalDocumentsController.getAllDocuments);

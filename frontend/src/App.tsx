@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
 import { useState, useEffect } from 'react';
+import { OfficeProvider } from './context/OfficeContext';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -17,18 +18,20 @@ function App() {
   }, []);
   
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path='/welcome' element={<WelcomePage />} />
-        <Route path='/crm' element={<CRM />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
-        <Route path="/pending-request" element={<PendingRequestPage />} />
-        <Route path="*" element={<h1>Страница не найдена</h1>} />
-      </Routes>
-    </BrowserRouter>
+    <OfficeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path='/welcome' element={<WelcomePage />} />
+          <Route path='/crm' element={<CRM />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
+          <Route path="/pending-request" element={<PendingRequestPage />} />
+          <Route path="*" element={<h1>Страница не найдена</h1>} />
+        </Routes>
+      </BrowserRouter>
+    </OfficeProvider>
   );
 }
 
