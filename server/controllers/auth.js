@@ -47,8 +47,7 @@ const register = async (req, res) => {
             { 
                 id: newUserId, 
                 email: email,
-                role: userType,
-                office_id: finalOfficeId 
+                role: userType 
             }, 
             config.JWT_SECRET, 
             { 

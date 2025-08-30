@@ -179,32 +179,3 @@ exports.getOfficeDocuments = async (req, res) => {
     res.status(500).json({ error: 'Failed to retrieve office documents' });
   }
 };
-
-// Создание нового документа
-exports.createDocument = async (req, res) => {
-  try {
-    const { clientName, representativeName, contractDate, contractSubject, officeId } = req.body;
-    
-    if (!clientName || !contractSubject || !officeId) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-    
-    // Здесь должна быть логика создания документа в базе данных
-    // Пока возвращаем тестовые данные
-    const newDocument = {
-      id: Math.floor(Math.random() * 1000) + 6, // Генерируем случайный ID
-      title: `Договор с ${clientName}`,
-      type: contractSubject.includes('Документы') ? 'Документы' : 'Представление интересов',
-      status: 'Черновик',
-      date: contractDate || new Date().toLocaleDateString('ru-RU'),
-      client: clientName
-    };
-    
-    // В реальном приложении здесь будет сохранение в базу данных
-    
-    res.status(201).json(newDocument);
-  } catch (error) {
-    console.error('Error creating document:', error);
-    res.status(500).json({ error: 'Failed to create document' });
-  }
-};

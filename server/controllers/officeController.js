@@ -35,21 +35,7 @@ const officeController = {
    */
   async getAllOffices(req, res) {
     try {
-      // Получаем роль пользователя из объекта req.user, который устанавливается middleware аутентификации
-      const userRole = req.user?.role;
-      const userOfficeId = req.user?.office_id;
-      
-      let offices;
-      
-      // Если пользователь - юрист, показываем только его офис
-      if (userRole === 'lawyer' && userOfficeId) {
-        // Получаем только офис юриста
-        const office = await Office.getById(userOfficeId);
-        offices = office ? [office] : [];
-      } else {
-        // Для администраторов и других ролей показываем все офисы
-        offices = await Office.getAll();
-      }
+      const offices = await Office.getAll();
       
       // Форматируем ответ
       const formattedOffices = offices.map(office => formatOfficeResponse(office));

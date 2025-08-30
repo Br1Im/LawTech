@@ -131,7 +131,8 @@ class Office {
       throw error;
     }
   }
-  
+}
+
   /**
    * Получить данные о выручке офисов за указанный период
    * @param {string} period - Период (day, 2weeks, month)

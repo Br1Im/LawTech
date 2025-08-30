@@ -17,7 +17,6 @@ const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
 const employeeController = require('../controllers/employeeController');
 const joinRequestController = require('../controllers/joinRequestController');
-const officeDocumentsController = require('../controllers/officeDocumentsController');
 
 // Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
@@ -67,13 +66,8 @@ router.put('/messages/:messageId/read', authMiddleware, chatController.markMessa
 router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessage);
 
 // Роуты для документов офиса
-router.get('/office/:officeId/documents', authenticateToken, officeDocumentsController.getOfficeDocuments);
-router.get('/office/documents/:id', authenticateToken, officeDocumentsController.getDocumentById);
-router.post('/office/documents', authenticateToken, officeDocumentsController.createDocument);
-router.put('/office/documents/:id', authenticateToken, officeDocumentsController.updateDocument);
-router.delete('/office/documents/:id', authenticateToken, officeDocumentsController.deleteDocument);
-router.get('/office/:officeId/documents/type/:type', authenticateToken, officeDocumentsController.getDocumentsByType);
-router.get('/office/:officeId/documents/status/:status', authenticateToken, officeDocumentsController.getDocumentsByStatus);
+router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
+router.post('/documents', authenticateToken, legalDocumentsController.createDocument);
 
 // Роуты для сотрудников офиса
 router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);

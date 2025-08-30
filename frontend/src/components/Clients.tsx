@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { buildApiUrl } from '../shared/utils/apiUtils';
-import { useOffice } from '../context/OfficeContext';
 import "./Clients.css";
 
 interface ExpertDocument {
@@ -21,26 +20,44 @@ interface Contract {
 }
 
 const Clients: React.FC = () => {
-  const { currentOffice, loading: officeLoading, error: officeError } = useOffice();
-
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [officeId, setOfficeId] = useState<string | null>(null);
 
   // Получение данных с сервера
   useEffect(() => {
     const fetchClients = async () => {
-      if (!currentOffice) return;
-
       setLoading(true);
       setError(null);
       try {
+        // Получаем токен авторизации
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('Требуется авторизация');
         }
 
-        const clientsResponse = await fetch(buildApiUrl(`/office/${currentOffice.id}/clients`), {
+        // Получаем ID офиса из профиля пользователя
+        const profileResponse = await fetch(buildApiUrl('/profile'), {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (!profileResponse.ok) {
+          throw new Error('Не удалось получить данные профиля');
+        }
+
+        const profileData = await profileResponse.json();
+        const officeId = profileData.officeId;
+        setOfficeId(officeId);
+
+        if (!officeId) {
+          throw new Error('Офис не найден');
+        }
+
+        // Получаем список клиентов для данного офиса
+        const clientsResponse = await fetch(buildApiUrl(`/office/${officeId}/clients`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -88,7 +105,7 @@ const Clients: React.FC = () => {
     };
 
     fetchClients();
-  }, [currentOffice]);
+  }, []);
 
   // Обработчик для связи с клиентом (заглушка)
   const handleContact = (clientId: number) => {
@@ -102,21 +119,9 @@ const Clients: React.FC = () => {
     // Здесь можно добавить функционал просмотра документов
   };
 
-  if (officeLoading) {
-    return <div className="loading-indicator">Загрузка данных офиса...</div>;
-  }
-
-  if (officeError) {
-    return <div className="error-message">{officeError}</div>;
-  }
-
-  if (!currentOffice) {
-    return <div className="error-message">Офис не найден</div>;
-  }
-
   return (
     <div className="clients-container">
-      <h2 className="clients-title">Клиенты офиса {currentOffice.title}</h2>
+      <h2 className="clients-title">Клиенты</h2>
       
       {error && <div className="error-message">{error}</div>}
       
