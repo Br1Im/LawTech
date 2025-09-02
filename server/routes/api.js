@@ -15,8 +15,9 @@ const fileController = require('../controllers/file');
 const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
-const employeeController = require('../controllers/employeeController');
-const joinRequestController = require('../controllers/joinRequestController');
+// Эти контроллеры пока не реализованы
+// const employeeController = require('../controllers/employeeController');
+// const joinRequestController = require('../controllers/joinRequestController');
 
 // Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
@@ -69,17 +70,17 @@ router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessa
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
 router.post('/documents', authenticateToken, legalDocumentsController.createDocument);
 
-// Роуты для сотрудников офиса
-router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
-router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);
-router.put('/employees/:employeeId', authenticateToken, employeeController.updateEmployee);
-router.delete('/employees/:employeeId', authenticateToken, employeeController.deleteEmployee);
+// Роуты для сотрудников офиса - временно отключены
+// router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
+// router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);
+// router.put('/employees/:employeeId', authenticateToken, employeeController.updateEmployee);
+// router.delete('/employees/:employeeId', authenticateToken, employeeController.deleteEmployee);
 
-// Роуты для заявок на присоединение к офису
-router.get('/office/:officeId/join-requests', authenticateToken, joinRequestController.getOfficeJoinRequests);
-router.get('/join-requests/status', authenticateToken, joinRequestController.getUserRequestStatus);
-router.put('/join-requests/:requestId', authenticateToken, joinRequestController.updateRequestStatus);
-router.post('/join-office', authenticateToken, joinRequestController.joinOffice);
+// Роуты для заявок на присоединение к офису - временно отключены
+// router.get('/office/:officeId/join-requests', authenticateToken, joinRequestController.getOfficeJoinRequests);
+// router.get('/join-requests/status', authenticateToken, joinRequestController.getUserRequestStatus);
+// router.put('/join-requests/:requestId', authenticateToken, joinRequestController.updateRequestStatus);
+// router.post('/join-office', authenticateToken, joinRequestController.joinOffice);
 
 // Маршруты для работы с юридическими документами и FAISS
 router.get('/legal-documents', authenticateToken, legalDocumentsController.getAllDocuments);
