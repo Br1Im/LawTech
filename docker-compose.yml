@@ -9,6 +9,7 @@ services:
       - "80:80"
     depends_on:
       - backend
+      - server-nest
     networks:
       - lawtech-network
 
@@ -31,6 +32,29 @@ services:
       - faiss-service
     volumes:
       - ./server/uploads:/app/uploads
+    networks:
+      - lawtech-network
+      
+  server-nest:
+    build:
+      context: ./server-nest
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - JWT_SECRET=your-secret-key
+      - JWT_EXPIRATION=24h
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=lawtech
+    depends_on:
+      - db
+    volumes:
+      - ./server-nest/uploads:/app/uploads
     networks:
       - lawtech-network
 
