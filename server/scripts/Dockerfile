@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y \
 # Копируем файл с зависимостями
 COPY requirements.txt .
 
-# Устанавливаем зависимости
-RUN pip install --no-cache-dir -r requirements.txt
+# Обновляем pip и устанавливаем зависимости
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код
 COPY . .
