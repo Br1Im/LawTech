@@ -1,5 +1,5 @@
 .stat-card {
-  background-color: var(--color-bg);
+  background-color: var(--color-bg-alt);
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   padding: 20px;
@@ -29,7 +29,7 @@
   right: 20px;
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
