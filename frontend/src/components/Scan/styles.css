@@ -1,0 +1,54 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9fafb;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+  }
+  
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  #fileInput {
+    display: block;
+  }
+  
+  .canvas-wrap {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .canvas-wrap canvas, #canvasWrap canvas {
+    border: 2px solid #d4af37;
+    border-radius: 12px;
+    max-width: 100%;
+    display: block;
+    margin: 10px auto;
+    background: white;
+  }
+  
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+  
+  #scanBtn {
+    background-color: #d4af37;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    width: fit-content;
+    transition: background-color 0.2s ease, transform 0.05s ease, opacity 0.2s ease;
+  }
+  #scanBtn:hover { background-color: #bf9730; }
+  #scanBtn:active { transform: translateY(1px); }
+  #scanBtn:disabled { opacity: 0.6; cursor: not-allowed; }

@@ -10,24 +10,6 @@
   min-height: auto;
 }
 
-.ai-tools-header {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.ai-tools-header h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-accent);
-  margin: 0 0 6px 0;
-}
-
-.ai-tools-header p {
-  font-size: 14px;
-  color: var(--color-muted);
-  margin: 0;
-}
-
 .ai-tools-content {
   flex: 1;
   display: flex;
@@ -49,13 +31,5 @@
   .ai-tools-container {
     padding: 14px;
     gap: 14px;
-  }
-  
-  .ai-tools-header h2 {
-    font-size: 20px;
-  }
-  
-  .ai-tools-header p {
-    font-size: 13px;
   }
 } 

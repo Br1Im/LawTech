@@ -1,0 +1,192 @@
+.scanner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.scanner-container {
+  background-color: var(--color-bg);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--color-accent-light);
+  display: flex;
+  flex-direction: column;
+}
+
+.scanner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--color-accent-light);
+  background-color: var(--color-bg-alt);
+}
+
+.scanner-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.close-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--color-accent);
+}
+
+.scanner-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  color: var(--color-muted);
+  font-size: 16px;
+}
+
+.file-input-container {
+  display: flex;
+  justify-content: center;
+}
+
+.file-select-button {
+  background-color: var(--color-accent);
+  color: var(--color-button-text);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.file-select-button:hover {
+  background-color: var(--color-accent-dark, #b8972f);
+}
+
+.canvas-wrap {
+  width: 100%;
+  text-align: center;
+  margin: 10px 0;
+}
+
+.canvas-wrap canvas {
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+  background: white;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+#scanBtn {
+  background-color: var(--color-accent);
+  color: var(--color-button-text);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color 0.2s ease, transform 0.05s ease, opacity 0.2s ease;
+}
+
+#scanBtn:hover { 
+  background-color: var(--color-accent-dark, #b8972f); 
+}
+
+#scanBtn:active { 
+  transform: translateY(1px); 
+}
+
+#scanBtn:disabled { 
+  opacity: 0.6; 
+  cursor: not-allowed; 
+}
+
+#scanBtn.scanning {
+  position: relative;
+  padding-right: 40px;
+}
+
+#scanBtn.scanning::after {
+  content: '';
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 768px) {
+  .scanner-container {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .scanner-header h2 {
+    font-size: 16px;
+  }
+  
+  .scanner-content {
+    padding: 15px;
+    gap: 15px;
+  }
+  
+  #scanBtn {
+    font-size: 14px;
+    padding: 8px 16px;
+  }
+}

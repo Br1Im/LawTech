@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiSend, FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload } from 'react-icons/fi';
+import { FiSend, FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload, FiCamera } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import { buildApiUrl } from '../../shared/utils/apiUtils';
+import Scanner from '../Scan/Scanner';
 import './ChatInterface.css';
 
 // Тип сообщения
@@ -22,6 +23,7 @@ const ChatInterface: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState<boolean>(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -165,6 +167,9 @@ const ChatInterface: React.FC = () => {
     }
     setSelectedImage(null);
     setPreviewImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Функция для распознавания текста с изображения с использованием серверного API
@@ -268,7 +273,7 @@ const ChatInterface: React.FC = () => {
 
   // Обработка отправки сообщения
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() && !selectedImage) return;
+    if (!inputMessage.trim() && !selectedImage && !previewImage) return;
     
     // Создаем ID для нового сообщения
     const newMessageId = `msg_${Date.now()}`;
@@ -292,13 +297,25 @@ const ChatInterface: React.FC = () => {
     
     try {
       // Если было отправлено изображение
-      if (userMessage.image && selectedImage) {
+      if (userMessage.image) {
         try {
-          // Распознаем текст с изображения через серверное API
-          const result = await recognizeText(selectedImage);
-          recognizedText = result.text;
-          docxFileName = result.docxFileName;
-          aiResponseContent = `Я обработал ваше изображение и распознал текст:\n\n${recognizedText}\n\nФайл DOCX готов к скачиванию.`;
+          // Для отсканированного изображения создаем File из Data URL
+          let imageFile = selectedImage;
+          
+          if (!imageFile && previewImage) {
+            // Преобразуем Data URL в File объект для отсканированного изображения
+            const response = await fetch(previewImage);
+            const blob = await response.blob();
+            imageFile = new File([blob], 'scanned_image.jpg', { type: 'image/jpeg' });
+          }
+          
+          if (imageFile) {
+            // Распознаем текст с изображения через серверное API
+            const result = await recognizeText(imageFile);
+            recognizedText = result.text;
+            docxFileName = result.docxFileName;
+            aiResponseContent = `Я обработал ваше изображение и распознал текст:\n\n${recognizedText}\n\nФайл DOCX готов к скачиванию.`;
+          }
         } catch (error: any) {
           recognizedText = `Ошибка при распознавании текста: ${error.message || 'неизвестная ошибка'}`;
           aiResponseContent = `Ошибка при распознавании текста: ${error.message || 'неизвестная ошибка'}`;
@@ -309,7 +326,7 @@ const ChatInterface: React.FC = () => {
       }
       
       // Очищаем выбранное изображение
-      if (selectedImage) {
+      if (selectedImage || previewImage) {
         handleCancelImage();
       }
       
@@ -599,6 +616,13 @@ const ChatInterface: React.FC = () => {
             >
               <FiPaperclip />
             </button>
+            <button 
+              className="attachment-button" 
+              onClick={() => setShowScanner(true)}
+              title="Сканировать документ"
+            >
+              <FiCamera />
+            </button>
             <input
               type="file"
               ref={fileInputRef}
@@ -630,6 +654,15 @@ const ChatInterface: React.FC = () => {
           </div>
         </div>
       </div>
+      {showScanner && (
+        <Scanner 
+          onScanComplete={(imageData) => {
+            setPreviewImage(imageData);
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 };
