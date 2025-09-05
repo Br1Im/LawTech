@@ -298,7 +298,6 @@
 .period-buttons {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
   justify-content: center;
 }
 
