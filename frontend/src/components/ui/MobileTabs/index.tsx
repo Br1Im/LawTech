@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   ApartmentOutlined,
   FileTextOutlined,
@@ -9,7 +9,11 @@ import {
   TeamOutlined,
   ContactsOutlined,
   RobotOutlined,
+  UserOutlined,
+  LogoutOutlined,
+  BulbOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 
 interface MobileTabsProps {
   activeTab: string;
@@ -22,6 +26,27 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
   onTabClick,
   isMobile,
 }) => {
+  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
+    () => document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+  }, [isDarkTheme]);
+
+  const toggleTheme = () => {
+    setIsDarkTheme(!isDarkTheme);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/');
+  };
+
+  const handleProfile = () => {
+    navigate('/profile');
+  };
   const tabNames = [
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
@@ -34,13 +59,34 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
   ];
 
+  const accountTabs = [
+    { 
+      name: isDarkTheme ? "Светлая" : "Темная", 
+      key: "theme", 
+      icon: <BulbOutlined />,
+      onClick: toggleTheme 
+    },
+    { 
+      name: "Профиль", 
+      key: "profile", 
+      icon: <UserOutlined />,
+      onClick: handleProfile 
+    },
+    { 
+      name: "Выйти", 
+      key: "logout", 
+      icon: <LogoutOutlined />,
+      onClick: handleLogout 
+    },
+  ];
+
   const styles = {
     mobileTabs: {
       position: "fixed" as const,
-      top: "70px",
+      top: "0px",
       left: 0,
       right: 0,
-      height: "60px",
+      height: "70px",
       backgroundColor: "var(--color-bg-alt)",
       display: isMobile ? "flex" : "none",
       justifyContent: "flex-start",
@@ -107,6 +153,19 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
               ...(activeTab === tab.name ? styles.mobileTabActive : {})
             }}
             onClick={() => onTabClick(tab.name)}
+          >
+            <span style={styles.mobileTabIcon}>{tab.icon}</span>
+            <span style={styles.mobileTabText}>{tab.name}</span>
+          </div>
+        ))}
+        
+        <div style={{ width: '1px', height: '40px', backgroundColor: 'var(--color-border)', margin: '0 8px' }} />
+        
+        {accountTabs.map(tab => (
+          <div
+            key={tab.key}
+            style={styles.mobileTab}
+            onClick={tab.onClick}
           >
             <span style={styles.mobileTabIcon}>{tab.icon}</span>
             <span style={styles.mobileTabText}>{tab.name}</span>

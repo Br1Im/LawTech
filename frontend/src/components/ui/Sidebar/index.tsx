@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Layout, Menu } from "antd";
 import {
   ApartmentOutlined,
@@ -10,7 +10,12 @@ import {
   TeamOutlined,
   ContactsOutlined,
   RobotOutlined,
+  UserOutlined,
+  LogoutOutlined,
+
+  SettingOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 
 const { Sider } = Layout;
 
@@ -29,6 +34,34 @@ const Sidebar: React.FC<SidebarProps> = ({
   onTabClick,
   isMobile,
 }) => {
+  const [isDarkTheme] = useState<boolean>(
+    () => document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+  const [accountMenuOpen, setAccountMenuOpen] = useState<boolean>(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+  }, [isDarkTheme]);
+
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/');
+    setAccountMenuOpen(false);
+  };
+
+  const handleProfile = () => {
+    navigate('/profile');
+    setAccountMenuOpen(false);
+  };
+
+  const handleSettings = () => {
+    // Здесь будет логика для настроек
+    console.log('Открыть настройки');
+    setAccountMenuOpen(false);
+  };
   const tabNames = [
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
@@ -41,14 +74,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
   ];
 
+
+
   const styles = {
     sider: {
       backgroundColor: "var(--color-bg-alt)",
       borderRight: `1px solid var(--color-border)`,
       boxShadow: "2px 0 8px rgba(0, 0, 0, 0.05)",
       transition: "all 0.3s ease",
-      marginTop: "70px",
-      height: "calc(100vh - 70px)",
+      marginTop: "0px",
+      height: "100vh",
       position: "fixed" as const,
       left: 0,
       zIndex: 998,
@@ -128,8 +163,88 @@ const Sidebar: React.FC<SidebarProps> = ({
           .ant-layout-sider .ant-layout-sider-trigger .anticon {
             font-size: 18px;
           }
-        `}
-      </style>
+          
+          /* Выравнивание иконок при свернутом сайдбаре */
+          .ant-layout-sider-collapsed .custom-menu .ant-menu-item {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            text-align: center !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+          }
+          
+          .ant-layout-sider-collapsed .custom-menu .ant-menu-item .anticon {
+            margin-right: 0 !important;
+            margin-left: 0 !important;
+          }
+          
+          .ant-layout-sider-collapsed .custom-menu .ant-menu-item .ant-menu-title-content {
+            display: none !important;
+          }
+          
+          /* Дополнительное выравнивание для меню аккаунта */
+          .ant-layout-sider-collapsed .account-menu .ant-menu-item {
+            padding: 0 !important;
+            margin: 0 !important;
+            height: 40px !important;
+            line-height: 40px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+          }
+          
+          .ant-layout-sider-collapsed .account-menu .ant-menu-item .anticon {
+            margin: 0 !important;
+            font-size: 16px !important;
+          }
+          
+          /* Анимация для выпадающего меню */
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }           
+           /* Анимация для выпадающего меню */
+           @keyframes slideUp {
+             from {
+               opacity: 0;
+               transform: translateY(10px);
+             }
+             to {
+               opacity: 1;
+               transform: translateY(0);
+             }
+           }
+           
+           @keyframes popUpCenter {
+             from {
+               opacity: 0;
+               transform: translateX(-50%) translateY(10px) scale(0.95);
+             }
+             to {
+               opacity: 1;
+               transform: translateX(-50%) translateY(0) scale(1);
+             }
+           }
+           
+           @keyframes popUpRight {
+             from {
+               opacity: 0;
+               transform: translateX(8px) translateY(10px) scale(0.95);
+             }
+             to {
+               opacity: 1;
+               transform: translateX(8px) translateY(0) scale(1);
+             }
+           }
+          `}
+        </style>
       <Sider
         collapsible
         collapsed={collapsed}
@@ -138,23 +253,241 @@ const Sidebar: React.FC<SidebarProps> = ({
         width={260}
         theme="light"
       >
-        <Menu
-          mode="inline"
-          selectedKeys={[tabNames.find((tab) => tab.name === activeTab)?.key || "1"]}
-          style={styles.menu}
-          className="custom-menu"
-          onClick={({ key }) => {
-            const selectedTab = tabNames.find((tab) => tab.key === key)?.name;
-            if (selectedTab) onTabClick(selectedTab);
-          }}
-          items={tabNames.map((tab) => ({
-            key: tab.key,
-            icon: tab.icon,
-            label: tab.name,
-            title: tab.name,
-            style: styles.menuItem,
-          }))}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ 
+            padding: '16px', 
+            borderBottom: '1px solid var(--color-border)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: collapsed ? '0' : '12px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            minHeight: '64px'
+          }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--color-accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontWeight: 'bold',
+              fontSize: '16px',
+              flexShrink: 0,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              LT
+            </div>
+            <div style={{
+              overflow: 'hidden',
+              width: collapsed ? '0px' : '120px',
+              transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              <span style={{
+                fontSize: '22px',
+                fontWeight: 'bold',
+                color: 'var(--color-accent)',
+                whiteSpace: 'nowrap',
+                display: 'block',
+                transform: collapsed ? 'translateX(-100%)' : 'translateX(0)',
+                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}>
+                LawTech
+              </span>
+            </div>
+          </div>
+          <Menu
+            mode="inline"
+            selectedKeys={[tabNames.find((tab) => tab.name === activeTab)?.key || "1"]}
+            style={{ ...styles.menu, flex: 1 }}
+            className="custom-menu"
+            onClick={({ key }) => {
+              const selectedTab = tabNames.find((tab) => tab.key === key)?.name;
+              if (selectedTab) onTabClick(selectedTab);
+            }}
+            items={tabNames.map((tab) => ({
+              key: tab.key,
+              icon: tab.icon,
+              label: tab.name,
+              title: tab.name,
+              style: styles.menuItem,
+            }))}
+          />
+          
+          <div style={{ borderTop: '1px solid var(--color-border)', position: 'relative' }}>
+            <div 
+              style={{ 
+                padding: '12px 16px',
+                cursor: 'pointer',
+                backgroundColor: accountMenuOpen ? 'var(--color-accent)' : 'var(--color-bg-alt)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'space-between',
+                gap: collapsed ? '0' : '12px',
+                borderRadius: collapsed ? '8px' : '0px',
+                margin: collapsed ? '8px' : '0px',
+                boxShadow: accountMenuOpen ? '0 2px 8px rgba(0, 0, 0, 0.1)' : 'none'
+              }}
+              onClick={() => setAccountMenuOpen(!accountMenuOpen)}
+              onMouseEnter={(e) => {
+                if (!accountMenuOpen) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!accountMenuOpen) {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
+                  e.currentTarget.style.transform = 'translateY(0px)';
+                }
+              }}
+              title="Меню аккаунта"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: collapsed ? '0' : '12px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--color-accent)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <UserOutlined style={{ 
+                    fontSize: '16px', 
+                    color: '#fff'
+                  }} />
+                </div>
+                {!collapsed && (
+                  <div>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: 'var(--color-text)'
+                    }}>
+                      Пользователь
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--color-muted)'
+                    }}>
+                      user@example.com
+                    </div>
+                  </div>
+                )}
+              </div>
+              {!collapsed && (
+                <div style={{
+                  transform: accountMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.3s ease'
+                }}>
+                  <span style={{
+                    fontSize: '12px',
+                    color: 'var(--color-muted)'
+                  }}>
+                    ▼
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {accountMenuOpen && (
+              <div style={{
+                position: 'absolute',
+                bottom: collapsed ? '0' : '100%',
+                left: collapsed ? '100%' : '50%',
+                transform: collapsed ? 'translateX(8px)' : 'translateX(-50%)',
+                backgroundColor: 'var(--color-bg)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '12px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                zIndex: 1000,
+                width: collapsed ? '180px' : '200px',
+                marginBottom: collapsed ? '0' : '12px',
+                overflow: 'hidden',
+                animation: collapsed ? 'popUpRight 0.3s cubic-bezier(0.4, 0, 0.2, 1)' : 'popUpCenter 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}>
+                <div 
+                  style={{
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    borderBottom: '1px solid var(--color-border)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={handleProfile}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
+                    e.currentTarget.style.paddingLeft = '20px';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.paddingLeft = '16px';
+                  }}
+                >
+                  <UserOutlined style={{ fontSize: '14px', color: 'var(--color-accent)' }} />
+                  <span style={{ fontSize: '14px', color: 'var(--color-text)', fontWeight: '500' }}>Профиль</span>
+                </div>
+                
+                <div 
+                  style={{
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    borderBottom: '1px solid var(--color-border)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={handleSettings}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
+                    e.currentTarget.style.paddingLeft = '20px';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.paddingLeft = '16px';
+                  }}
+                >
+                  <SettingOutlined style={{ fontSize: '14px', color: 'var(--color-accent)' }} />
+                  <span style={{ fontSize: '14px', color: 'var(--color-text)', fontWeight: '500' }}>Настройки</span>
+                </div>
+                
+                <div 
+                  style={{
+                    padding: '14px 16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onClick={handleLogout}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fff2f0';
+                    e.currentTarget.style.paddingLeft = '20px';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.paddingLeft = '16px';
+                  }}
+                >
+                  <LogoutOutlined style={{ fontSize: '14px', color: '#ff4d4f' }} />
+                  <span style={{ fontSize: '14px', color: '#ff4d4f', fontWeight: '500' }}>Выход</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </Sider>
     </>
   );
