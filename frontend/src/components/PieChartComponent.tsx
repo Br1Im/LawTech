@@ -144,13 +144,13 @@ const PieChartComponent: React.FC<PieChartProps> = ({ title, data }) => {
             text: title,
             color: textColor,
             font: {
-              size: 20,
+              size: 16,
               weight: 'bold',
               family: "'Arial', sans-serif"
             },
             padding: {
-              top: 10,
-              bottom: 20
+              top: 0,
+              bottom: 15
             }
           },
           tooltip: {

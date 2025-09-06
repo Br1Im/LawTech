@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import "./OfficeContent.css";
 import StatCard from "../components/StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaEdit } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import PieChartComponent from "./PieChartComponent";
-import LineChartComponent from "./LineChartComponent";
+import BarChartComponent from "./BarChartComponent";
 import { Modal, Form, Input, Button, message } from "antd";
 import { buildApiUrl } from "../shared/utils/apiUtils";
 
@@ -37,6 +37,8 @@ interface Office {
   employee_count?: number;
   work_phone?: string | null;
   work_phone2?: string | null;
+  contact_phone?: string;
+  website?: string;
   previousRevenue?: number;
   previousVisits?: number;
   // Поля для ИП
@@ -76,6 +78,12 @@ const Office = () => {
   const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [showRevenueModal, setShowRevenueModal] = useState(false);
+  const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
+  const [showBarChartModal, setShowBarChartModal] = useState(false);
+  const [showPieChartModal, setShowPieChartModal] = useState(false);
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [form] = Form.useForm();
   const [addForm] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -420,21 +428,17 @@ const Office = () => {
     return labels;
   };
 
-  // Генерация меток периода для графика - использует текущий период
-  const generatePeriodLabels = (): string[] => {
-    return generatePeriodLabelsForPeriod(period);
-  };
 
   const getPeriodText = () => {
     switch (period) {
       case "day":
-        return "сегодня";
+        return "День";
       case "2weeks":
-        return "за период";
+        return "Период";
       case "month":
-        return "за месяц";
+        return "Месяц";
       default:
-        return "сегодня";
+        return "День";
     }
   };
 
@@ -742,152 +746,211 @@ const Office = () => {
         <h2><FaBuilding className="header-icon" /> Управление офисами</h2>
         
         <div className="period-selector">
-          <FaCalendarAlt className="calendar-icon" />
-          <div className="period-buttons">
-            <button 
-              className={`period-button ${period === "day" ? "active" : ""}`} 
-              onClick={() => handlePeriodChange("day")}
+          <div className="period-dropdown">
+            <div 
+              className={`period-dropdown-header ${showPeriodDropdown ? 'active' : ''}`} 
+              onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
             >
-              День
-            </button>
-            <button 
-              className={`period-button ${period === "2weeks" ? "active" : ""}`}
-              onClick={() => handlePeriodChange("2weeks")}
-            >
-              Период
-            </button>
-            <button 
-              className={`period-button ${period === "month" ? "active" : ""}`}
-              onClick={() => handlePeriodChange("month")}
-            >
-              Месяц
-            </button>
+              <FaCalendarAlt className="calendar-icon" />
+              <span className="selected-period">{getPeriodText()}</span>
+              <span className="dropdown-arrow"></span>
+            </div>
+            {showPeriodDropdown && (
+              <div className="period-dropdown-content">
+                <div 
+                  className={`period-option ${period === "day" ? "active" : ""}`} 
+                  onClick={() => {
+                    handlePeriodChange("day");
+                    setShowPeriodDropdown(false);
+                  }}
+                >
+                  День
+                </div>
+                <div 
+                  className={`period-option ${period === "2weeks" ? "active" : ""}`}
+                  onClick={() => {
+                    handlePeriodChange("2weeks");
+                    setShowPeriodDropdown(false);
+                  }}
+                >
+                  Период
+                </div>
+                <div 
+                  className={`period-option ${period === "month" ? "active" : ""}`}
+                  onClick={() => {
+                    handlePeriodChange("month");
+                    setShowPeriodDropdown(false);
+                  }}
+                >
+                  Месяц
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
       
       <div className="main-content-wrapper">
         <div className="office-left-column">
-          <div className="office-cards-container">
-            <h3 className="section-title">Выбор офиса</h3>
-            <div className="office-cards">
-              {offices.map(office => (
-                <div
-                  key={office.id}
-                  className={`office-card ${selectedOffice?.id === office.id ? "selected" : ""}`}
-                  onClick={() => handleOfficeClick(office)}
-                >
-                  <div className="office-card-header">
-                    <h3>{office.title}</h3>
-                    {selectedOffice?.id === office.id && (
-                      <FaEdit 
-                        className="edit-icon" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          showEditModal();
-                        }} 
-                      />
-                    )}
+        <div className="top-four">
+            <div className="office-cards-container">
+              <div className="office-cards">
+                {offices.map(office => (
+                  <div
+                    key={office.id}
+                    className={`office-card ${selectedOffice?.id === office.id ? "selected" : ""}`}
+                    onClick={() => handleOfficeClick(office)}
+                  >
+                    <div className="office-card-header">
+                      <h3>{office.title}</h3>
+                      {selectedOffice?.id === office.id && (
+                        <button 
+                          className="expand-button office-info-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowOfficeInfoModal(true);
+                          }}
+                          title="Открыть информацию об офисе"
+                        >
+                          <FaArrowRight />
+                        </button>
+                      )}
+                    </div>
+                    <div className="office-card-info">
+                      <p><b>Сотрудники:</b> {office.employee_count || 0}</p>
+                      <p><b>Адрес:</b> {office.address || "Не указан"}</p>
+                    </div>
                   </div>
-                  <div className="office-card-info">
-                    <p><b>Сотрудники:</b> {office.employee_count || 0}</p>
-                    <p><b>Адрес:</b> {office.address || "Не указан"}</p>
+                ))}
+                {!isOfficeLimit && (
+                  <div className="office-add-card" onClick={showAddModal}>
+                    <div className="office-add-content">
+                      <GrAdd className="add-icon" />
+                      <span>Добавить офис</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {!isOfficeLimit && (
-                <div className="office-add-card" onClick={showAddModal}>
-                  <div className="office-add-content">
-                    <GrAdd className="add-icon" />
-                    <span>Добавить офис</span>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
-          {selectedOffice && (
-            <>
-              <div className="statCard-content">
-                <StatCard
-                  title="Приходы"
-                  value={stats.visits.toLocaleString() + ""}
-                  icon={<FaUsers />}
-                  colorIcon="#8280FF"
-                  percentage={stats.visitsChange.percentage}
-                  isIncrease={stats.visitsChange.isIncrease}
-                  description={getComparisonText(stats.visitsChange.isIncrease)}
-                />
-                <StatCard
-                  title="Общая выручка"
-                  value={stats.revenue.toLocaleString() + " ₽"}
-                  icon={<FaChartLine />}
-                  percentage={stats.revenueChange.percentage}
-                  colorIcon="#4AD991"
-                  isIncrease={stats.revenueChange.isIncrease}
-                  description={getComparisonText(stats.revenueChange.isIncrease)}
-                />
-              </div>
-
-              <div className="employee-table-container">
-                <div className="table-header">
-                  <h4 className="section-title">Сотрудники офиса {selectedOffice.title}</h4>
+            {selectedOffice && (
+              <>
+                <div className="statCard-content">
+                  <div className="expand-button-container">
+                    <button 
+                      className="expand-button" 
+                      onClick={() => setShowRevenueModal(true)}
+                      title="Открыть подробную информацию"
+                    >
+                      <FaArrowRight />
+                    </button>
+                  </div>
+                  <StatCard
+                    title="Приходы"
+                    value={stats.visits.toLocaleString() + ""}
+                    icon={<FaUsers />}
+                    colorIcon="#8280FF"
+                    percentage={stats.visitsChange.percentage}
+                    isIncrease={stats.visitsChange.isIncrease}
+                    description={getComparisonText(stats.visitsChange.isIncrease)}
+                  />
+                  <StatCard
+                    title="Общая выручка"
+                    value={stats.revenue.toLocaleString() + " ₽"}
+                    icon={<FaChartLine />}
+                    percentage={stats.revenueChange.percentage}
+                    colorIcon="#4AD991"
+                    isIncrease={stats.revenueChange.isIncrease}
+                    description={getComparisonText(stats.revenueChange.isIncrease)}
+                  />
                 </div>
-                <table className="employee-stats-table">
-                  <thead>
-                    <tr>
-                      <th>Юрист</th>
-                      <th>Касса за день</th>
-                      <th>Касса за период</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedOffice.employees.length > 0 ? (
-                      selectedOffice.employees.map(employee => (
-                        <tr key={employee.id}>
-                          <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
-                          <td>{employee.totalRevenue14Days.toLocaleString()}</td>
-                          <td>{employee.periodRevenue.toLocaleString()}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-
-        {selectedOffice && (
-          <div className="office-right-column">
-            <div className="charts-container">
-              <h4 className="section-title">Статистика {getPeriodText()}</h4>
-              
-              <div className="chart-box">
-                <PieChartComponent 
-                  title="Выручка по юристам" 
-                  data={selectedOffice.employees
-                    .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
-                    .map(emp => ({
-                      label: `${emp.surname} ${emp.name.charAt(0)}.${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
-                      value: emp.totalRevenue14Days || 0
-                    }))
-                  }
-                />
-              </div>
-              
-              <div className="chart-box">
-                <LineChartComponent 
+              </>
+            )}
+          </div>
+          <div className="chart-box-container">
+            <div className="chart-box" style={{ padding: '10px', position: 'relative' }}>
+                
+                  <button 
+                    className="expand-button" 
+                    onClick={() => setShowBarChartModal(true)}
+                    title="Открыть подробную информацию"
+                  >
+                    <FaArrowRight />
+                  </button>
+               
+                <BarChartComponent 
                   title={`Динамика выручки ${getPeriodText()}`}
                   data={officeRevenueData}
                 />
-              </div>
             </div>
           </div>
+        </div>
+        {selectedOffice && (
+              <div className="charts-container">
+                <div className="chart-employees">
+                  <div className="employee-table-container-container">
+                    <div className="employee-table-container">
+                      <button 
+                        className="expand-button" 
+                        onClick={() => setShowEmployeeModal(true)}
+                        title="Открыть полную таблицу"
+                      >
+                        <FaArrowRight />
+                      </button>
+                      <div className="table-header">
+                        <h4 className="section-title">Сотрудники офиса {selectedOffice.title}</h4>
+                      </div>
+                      <table className="employee-stats-table">
+                        <thead>
+                          <tr>
+                            <th>Юрист</th>
+                            <th>Касса за день</th>
+                            <th>Касса за период</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedOffice.employees.length > 0 ? (
+                            selectedOffice.employees.map((employee, index) => (
+                              <tr 
+                                key={employee.id} 
+                                style={{ opacity: index === 0 ? 1 : index === 1 ? 0.8 : index === 2 ? 0.6 : index === 3 ? 0.4 : index === 4 ? 0.2 : 0 }}
+                              >
+                                <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                                <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
+                                <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>    
+                  <div className="chart-box" style={{ position: 'relative' }}>
+
+                      <button 
+                        className="expand-button" 
+                        onClick={() => setShowPieChartModal(true)}
+                        title="Открыть подробную информацию"
+                      >
+                        <FaArrowRight />
+                      </button>
+                    <PieChartComponent 
+                      title="Выручка по юристам" 
+                      data={selectedOffice.employees
+                        .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                        .map(emp => ({
+                          label: `${emp.surname} ${emp.name.charAt(0)}.${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
+                          value: emp.totalRevenue14Days || 0
+                        }))
+                      }
+                    />
+                  </div>
+                  </div>
+              </div>
         )}
       </div>
 
@@ -1076,6 +1139,250 @@ const Office = () => {
           </Form.Item>
         </Form>
       </Modal>
+      
+      {/* Модальное окно с информацией об офисе */}
+      <Modal
+        title="Информация об офисе"
+        open={showOfficeInfoModal}
+        onCancel={() => setShowOfficeInfoModal(false)}
+        footer={null}
+        width={700}
+        className="office-info-modal"
+      >
+        {selectedOffice && (
+          <div className="office-info-content">
+            <div className="office-info-header">
+              <h3>{selectedOffice.title}</h3>
+              <div className="office-info-actions">
+                <Button 
+                  type="primary" 
+                  icon={<FaEdit />} 
+                  onClick={() => {
+                    setShowOfficeInfoModal(false);
+                    showEditModal();
+                  }}
+                >
+                  Редактировать
+                </Button>
+              </div>
+            </div>
+            
+            <div className="office-info-details">
+              <div className="info-section">
+                <h4>Основная информация</h4>
+                <p><strong>Адрес:</strong> {selectedOffice.address || 'Не указан'}</p>
+                <p><strong>Телефон:</strong> {selectedOffice.work_phone || 'Не указан'}</p>
+                {selectedOffice.work_phone2 && (
+                  <p><strong>Телефон 2:</strong> {selectedOffice.work_phone2}</p>
+                )}
+                <p><strong>Количество сотрудников:</strong> {selectedOffice.employee_count || 0}</p>
+              </div>
+              
+              <div className="info-section">
+                <h4>Данные ИП</h4>
+                <p><strong>ФИО:</strong> {`${selectedOffice.ip_surname || ''} ${selectedOffice.ip_name || ''} ${selectedOffice.ip_middle_name || ''}`}</p>
+                <p><strong>ИНН:</strong> {selectedOffice.inn || 'Не указан'}</p>
+                <p><strong>ОГРН:</strong> {selectedOffice.ogrn || 'Не указан'}</p>
+              </div>
+            </div>
+            
+            {offices.length > 1 && (
+              <div className="all-offices-section">
+                <h4>Все офисы</h4>
+                <div className="all-offices-list">
+                  {offices.map(office => (
+                    <div 
+                      key={office.id} 
+                      className={`office-list-item ${selectedOffice.id === office.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setSelectedOffice(office);
+                      }}
+                    >
+                      <span>{office.title}</span>
+                      {selectedOffice.id !== office.id && (
+                        <FaArrowRight className="select-office-icon" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="office-info-footer">
+              {!isOfficeLimit && (
+                <Button 
+                  type="default" 
+                  icon={<GrAdd />} 
+                  onClick={() => {
+                    setShowOfficeInfoModal(false);
+                    showAddModal();
+                  }}
+                >
+                  Добавить офис
+                </Button>
+              )}
+              <Button onClick={() => setShowOfficeInfoModal(false)}>Закрыть</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      
+      {/* Модальное окно с полной таблицей сотрудников */}
+      {selectedOffice && (
+        <div className={`employee-modal-overlay ${showEmployeeModal ? 'active' : ''}`}>
+          <div className="modal-content">
+            <span className="modal-close-icon" onClick={() => setShowEmployeeModal(false)}>
+              <FaTimes />
+            </span>
+            <h3>Сотрудники офиса {selectedOffice.title}</h3>
+            <div className="employee-table-modal">
+              <table className="employee-stats-table">
+                <thead>
+                  <tr>
+                    <th>Юрист</th>
+                    <th>Касса за день</th>
+                    <th>Касса за период</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOffice.employees.length > 0 ? (
+                    selectedOffice.employees.map(employee => (
+                      <tr key={employee.id}>
+                        <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                        <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
+                        <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно с подробной информацией о приходах и выручке */}
+      {selectedOffice && (
+        <div className={`employee-modal-overlay ${showRevenueModal ? 'active' : ''}`}>
+          <div className="modal-content">
+            <span className="modal-close-icon" onClick={() => setShowRevenueModal(false)}>
+              <FaTimes />
+            </span>
+            <h3>Подробная информация</h3>
+            <div className="revenue-info-modal">
+              <div className="modal-section">
+                <h4>Приходы</h4>
+                <p><b>Всего за {getPeriodText()}:</b> {stats.visits.toLocaleString()}</p>
+                <p><b>Изменение:</b> {stats.visitsChange.percentage}% {stats.visitsChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
+                <p><b>Средний показатель:</b> {Math.round(stats.visits / (period === "day" ? 1 : period === "2weeks" ? 14 : 30)).toLocaleString()} в день</p>
+              </div>
+              <div className="modal-section">
+                <h4>Общая выручка</h4>
+                <p><b>Всего за {getPeriodText()}:</b> {stats.revenue.toLocaleString()} ₽</p>
+                <p><b>Изменение:</b> {stats.revenueChange.percentage}% {stats.revenueChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно с подробной информацией о графике выручки */}
+      {selectedOffice && (
+        <div className={`employee-modal-overlay ${showBarChartModal ? 'active' : ''}`}>
+          <div className="modal-content">
+            <span className="modal-close-icon" onClick={() => setShowBarChartModal(false)}>
+              <FaTimes />
+            </span>
+            <h3>Динамика выручки {getPeriodText()}</h3>
+            <div className="chart-modal-content">
+              <div className="modal-section">
+                <BarChartComponent 
+                  title={`Динамика выручки ${getPeriodText()}`}
+                  data={officeRevenueData}
+                  height={400}
+                />
+              </div>
+              <div className="modal-section">
+                <h4>Анализ динамики выручки</h4>
+                <p><b>Период:</b> {getPeriodText()}</p>
+                <p><b>Общая выручка:</b> {stats.revenue.toLocaleString()} ₽</p>
+                <p><b>Средняя выручка в день:</b> {Math.round(stats.revenue / (period === "day" ? 1 : period === "2weeks" ? 14 : 30)).toLocaleString()} ₽</p>
+                <p><b>Изменение:</b> {stats.revenueChange.percentage}% {stats.revenueChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно с подробной информацией о круговой диаграмме */}
+      {selectedOffice && (
+        <div className={`employee-modal-overlay ${showPieChartModal ? 'active' : ''}`}>
+          <div className="modal-content">
+            <span className="modal-close-icon" onClick={() => setShowPieChartModal(false)}>
+              <FaTimes />
+            </span>
+            <h3>Выручка по юристам</h3>
+            <div className="chart-modal-content">
+              <div className="modal-section">
+                <PieChartComponent 
+                  title="Выручка по юристам" 
+                  data={selectedOffice.employees
+                    .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                    .map(emp => ({
+                      label: `${emp.surname} ${emp.name.charAt(0)}.${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
+                      value: emp.totalRevenue14Days || 0
+                    }))
+                  }
+                  height={400}
+                />
+              </div>
+              <div className="modal-section">
+                <h4>Детальная информация</h4>
+                <table className="employee-stats-table">
+                  <thead>
+                    <tr>
+                      <th>Юрист</th>
+                      <th>Выручка</th>
+                      <th>Доля</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedOffice.employees
+                      .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                      .map(employee => {
+                        const totalRevenue = selectedOffice.employees
+                          .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                          .reduce((sum, emp) => sum + (emp.totalRevenue14Days || 0), 0);
+                        const percentage = totalRevenue > 0 ? ((employee.totalRevenue14Days || 0) / totalRevenue * 100).toFixed(1) : '0';
+                        return (
+                          <tr key={employee.id}>
+                            <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                            <td>{employee.totalRevenue14Days?.toLocaleString() || '0'} ₽</td>
+                            <td>{percentage}%</td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+                <p><b>Средний чек:</b> {stats.visits > 0 ? Math.round(stats.revenue / stats.visits).toLocaleString() : 0} ₽</p>
+              </div>
+              <div className="modal-section">
+                <h4>Статистика по периодам</h4>
+                <div className="period-chart">
+                  <BarChartComponent 
+                    title="Динамика выручки"
+                    data={officeRevenueData}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
