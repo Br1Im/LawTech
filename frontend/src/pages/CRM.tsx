@@ -136,7 +136,7 @@ const SRM = () => {
           activeTab={activeTab}
           onTabClick={handleTabClick}
           isMobile={isMobile}
-          user={user}
+          user={user ? { ...user } : undefined}
         />
         <Sidebar
           collapsed={collapsed}
@@ -144,7 +144,7 @@ const SRM = () => {
           activeTab={activeTab}
           onTabClick={handleTabClick}
           isMobile={isMobile}
-          user={user}
+          user={user ? { ...user } : undefined}
         />
         <div style={styles.topButtons}>
           <button

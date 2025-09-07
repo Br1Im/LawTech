@@ -81,7 +81,7 @@ const Office = () => {
     visitsChange: { percentage: null as string | null, isIncrease: null as boolean | null },
     revenueChange: { percentage: null as string | null, isIncrease: null as boolean | null }
   });
-  const { officeStats, clients, subscribe } = useOffice();
+  useOffice();
   const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -103,44 +103,44 @@ const Office = () => {
   const isOfficeLimit = offices.length >= MAX_OFFICES;
 
   // Подписка на события синхронизации между вкладками
-  useEffect(() => {
-    const unsubscribe = subscribe((event) => {
-      if (event.type === 'client_added') {
-        // Обновляем статистику при добавлении клиента
-        setStats(prev => ({
-          ...prev,
-          visits: prev.visits + 1
-        }));
-      } else if (event.type === 'stats_updated') {
-        // Обновляем статистику при изменении
-        setStats(prev => ({
-          ...prev,
-          visits: prev.visits + (event.data.visits || 0),
-          revenue: prev.revenue + (event.data.revenue || 0),
-          orders: prev.orders + (event.data.orders || 0)
-        }));
-      }
-    });
+  // useEffect(() => {
+  //   const unsubscribe = subscribe((event: any) => {
+  //     if (event.type === 'client_added') {
+  //       // Обновляем статистику при добавлении клиента
+  //       setStats(prev => ({
+  //         ...prev,
+  //         visits: prev.visits + 1
+  //       }));
+  //     } else if (event.type === 'stats_updated') {
+  //       // Обновляем статистику при изменении
+  //       setStats(prev => ({
+  //         ...prev,
+  //         visits: prev.visits + (event.data.visits || 0),
+  //         revenue: prev.revenue + (event.data.revenue || 0),
+  //         orders: prev.orders + (event.data.orders || 0)
+  //       }));
+  //     }
+  //   });
 
-    return unsubscribe;
-  }, [subscribe]);
+  //   return unsubscribe;
+  // }, [subscribe]);
 
   // Синхронизация статистики с контекстом офиса
-  useEffect(() => {
-    if (officeStats) {
-      setStats(prev => ({
-        ...prev,
-        visits: officeStats.visits,
-        revenue: officeStats.revenue,
-        orders: officeStats.orders
-      }));
-    }
-  }, [officeStats]);
+  // useEffect(() => {
+  //   if (officeStats) {
+  //     setStats(prev => ({
+  //       ...prev,
+  //       visits: officeStats.visits,
+  //       revenue: officeStats.revenue,
+  //       orders: officeStats.orders
+      //     }));
+  //   }
+  // }, [officeStats]);
 
   useEffect(() => {
     const fetchOffices = async () => {
       try {
-        const response = await fetch(buildApiUrl(`/offices?period=${selectedPeriod}`), {
+        const response = await fetch(buildApiUrl(`/offices?period=${period}`), {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -379,7 +379,7 @@ const Office = () => {
       }
     };
     fetchOffices();
-  }, [selectedPeriod]);
+  }, [period]);
 
   useEffect(() => {
     if (selectedOffice) {
@@ -1352,7 +1352,7 @@ const Office = () => {
                 <BarChartComponent 
                   title={`Динамика выручки ${getPeriodText()}`}
                   data={officeRevenueData}
-                  height={400}
+
                 />
               </div>
               <div className="modal-section">
@@ -1386,7 +1386,7 @@ const Office = () => {
                       value: emp.totalRevenue14Days || 0
                     }))
                   }
-                  height={400}
+
                 />
               </div>
               <div className="modal-section">
