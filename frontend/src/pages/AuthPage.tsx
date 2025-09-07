@@ -66,6 +66,39 @@ const AuthPage = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [useAbsoluteUrls, setUseAbsoluteUrls] = useState(false);
+  const [showTestAccounts, setShowTestAccounts] = useState(false);
+
+  // Тестовые аккаунты
+  const testAccounts = [
+    {
+      name: 'Юрист - Анна Петрова',
+      email: 'lawyer@lawtech.com',
+      password: 'lawyer123',
+      role: 'lawyer'
+    },
+    {
+      name: 'Эксперт - Михаил Сидоров', 
+      email: 'expert@lawtech.com',
+      password: 'expert123',
+      role: 'expert'
+    },
+    {
+      name: 'Администратор - Елена Иванова',
+      email: 'admin@lawtech.com', 
+      password: 'admin123',
+      role: 'admin'
+    }
+  ];
+
+  // Функция для автозаполнения формы тестовыми данными
+  const fillTestAccount = (account: typeof testAccounts[0]) => {
+    form.setFieldsValue({
+      email: account.email,
+      password: account.password
+    });
+    setMode('login');
+    setShowTestAccounts(false);
+  };
 
   const handleRegisterSubmit = async (values: RegisterFormValues) => {
       try {
@@ -173,6 +206,103 @@ const AuthPage = () => {
 
   return (
     <div style={AuthContainer}>
+      {/* Скрытое меню тестовых аккаунтов */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          width: '40px',
+          height: '40px',
+          backgroundColor: showTestAccounts ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          fontSize: '18px',
+          zIndex: 1000,
+          transition: 'all 0.3s ease',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}
+        onClick={() => setShowTestAccounts(!showTestAccounts)}
+        title="Тестовые аккаунты"
+      >
+        🔧
+      </div>
+      
+      {showTestAccounts && (
+        <div style={{
+          position: 'fixed',
+          top: '70px',
+          right: '20px',
+          width: '300px',
+          backgroundColor: 'var(--color-bg)',
+          borderRadius: '8px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+          zIndex: 999,
+          padding: '16px',
+          border: '1px solid var(--color-border)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '12px',
+            borderBottom: '1px solid var(--color-border)',
+            paddingBottom: '8px'
+          }}>
+            <h3 style={{ margin: 0, color: 'var(--color-text)', fontSize: '16px' }}>Тестовые аккаунты</h3>
+            <button 
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                cursor: 'pointer',
+                color: 'var(--color-muted)',
+                padding: '0',
+                width: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onClick={() => setShowTestAccounts(false)}
+            >
+              ×
+            </button>
+          </div>
+          <div>
+            {testAccounts.map((account, index) => (
+              <div 
+                key={index}
+                style={{
+                  padding: '12px',
+                  marginBottom: '8px',
+                  backgroundColor: 'var(--color-bg-secondary, rgba(0,0,0,0.05))',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  border: '1px solid var(--color-border)',
+                  transition: 'all 0.2s ease'
+                }}
+                onClick={() => fillTestAccount(account)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-accent-light, rgba(0,0,0,0.1))';
+                  e.currentTarget.style.borderColor = 'var(--color-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary, rgba(0,0,0,0.05))';
+                  e.currentTarget.style.borderColor = 'var(--color-border)';
+                }}
+              >
+                <div style={{ fontWeight: '500', color: 'var(--color-text)', fontSize: '14px', marginBottom: '4px' }}>{account.name}</div>
+                <div style={{ color: 'var(--color-muted)', fontSize: '12px', marginBottom: '2px' }}>{account.email}</div>
+                <div style={{ color: 'var(--color-primary)', fontSize: '11px', textTransform: 'uppercase', fontWeight: '500' }}>{account.role}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{ ...AuthFormContainer, maxHeight: mode === 'register' ? '750px' : '500px' }}>
         <Tabs
           activeKey={mode}
