@@ -1,4 +1,5 @@
 const db = require('../db');
+const { query } = require('../db');
 const bcrypt = require('bcrypt');
 
 // Схема базы данных с таблицами и их структурой
@@ -112,7 +113,7 @@ async function tableExists(tableName) {
 // Функция для получения структуры таблицы
 async function getTableStructure(tableName) {
   try {
-    const result = await db.query(`PRAGMA table_info(${tableName})`);
+    const result = await query(`PRAGMA table_info(${tableName})`);
     return result.map(col => ({
       name: col.name,
       type: col.type,
@@ -157,10 +158,14 @@ async function addMissingColumns(tableName, schema, existingColumns) {
       try {
         const columnDefinition = schema.columns[columnName];
         console.log(`Добавление колонки ${columnName} в таблицу ${tableName}...`);
-        await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
+        await query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`);
         console.log(`✅ Колонка ${columnName} добавлена в таблицу ${tableName}`);
       } catch (error) {
-        console.error(`❌ Ошибка при добавлении колонки ${columnName} в таблицу ${tableName}:`, error);
+        if (error.message && error.message.includes('duplicate column name')) {
+          console.log(`⚠️  Колонка ${columnName} уже существует в таблице ${tableName}`);
+        } else {
+          console.error(`❌ Ошибка при добавлении колонки ${columnName} в таблицу ${tableName}:`, error);
+        }
       }
     }
   }
