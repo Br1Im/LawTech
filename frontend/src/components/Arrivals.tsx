@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import { useOffice } from '../shared/contexts/OfficeContext';
 import './Arrivals.css';
 
 interface Arrival {
@@ -19,6 +20,7 @@ const Arrivals: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [officeId, setOfficeId] = useState<string | null>(null);
+  const { addClient, updateStats } = useOffice();
 
   // Получение данных с сервера
   useEffect(() => {
@@ -204,6 +206,18 @@ const Arrivals: React.FC = () => {
 
       // Добавляем новый приход в список
       setArrivals(prev => [createdArrival, ...prev]);
+
+      // Синхронизируем с другими вкладками - добавляем клиента
+      addClient({
+        id: createdArrival.id.toString(),
+        name: createdArrival.clientName,
+        phone: '', // Можно добавить поле телефона в форму
+        status: 'new',
+        createdAt: new Date().toISOString()
+      });
+      
+      // Обновляем статистику офиса
+      updateStats({ visits: 1 }); // Увеличиваем количество посещений
 
       // Сбрасываем форму
       setNewArrival({

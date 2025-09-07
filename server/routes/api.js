@@ -15,6 +15,7 @@ const fileController = require('../controllers/file');
 const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
+const officeRoutes = require('./officeRoutes');
 // Эти контроллеры пока не реализованы
 // const employeeController = require('../controllers/employeeController');
 // const joinRequestController = require('../controllers/joinRequestController');
@@ -92,5 +93,8 @@ router.delete('/legal-documents/:id', authenticateToken, legalDocumentsControlle
 // Векторный поиск по документам
 router.get('/legal-documents/search', authenticateToken, legalDocumentsController.searchDocuments);
 router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsController.getSimilarDocuments);
+
+// Маршруты для офисов
+router.use('/offices', authenticateToken, officeRoutes);
 
 module.exports = router;

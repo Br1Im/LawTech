@@ -29,21 +29,43 @@ const officeController = {
   },
   
   /**
-   * Получить все офисы
+   * Получить все офисы с полными данными
    * @param {Object} req - объект запроса Express
    * @param {Object} res - объект ответа Express
    */
   async getAllOffices(req, res) {
     try {
+      const { period = 'day' } = req.query;
       const offices = await Office.getAll();
       
-      // Форматируем ответ
-      const formattedOffices = offices.map(office => formatOfficeResponse(office));
+      // Получаем полные данные для каждого офиса
+      const officesWithData = await Promise.all(
+        offices.map(async (office) => {
+          const [employees, stats, chartData] = await Promise.all([
+            Office.getEmployeesByOfficeId(office.id),
+            Office.getStatsByOfficeId(office.id, period),
+            Office.getChartDataByOfficeId(office.id)
+          ]);
+          
+          return {
+            ...office,
+            employees,
+            stats,
+            chartData
+          };
+        })
+      );
       
-      return res.json(formattedOffices);
+      res.json({
+        success: true,
+        data: officesWithData
+      });
     } catch (error) {
-      console.error('Ошибка при получении офисов:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      console.error('Error getting all offices:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка при получении офисов'
+      });
     }
   },
   
@@ -166,6 +188,43 @@ const officeController = {
     } catch (error) {
       console.error('Ошибка при удалении офиса:', error);
       return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
+  },
+
+  /**
+   * Обновить статистику офиса
+   */
+  async updateOfficeStats(req, res) {
+    try {
+      const { id } = req.params;
+      const { period = 'day', stats } = req.body;
+      
+      if (!stats || typeof stats !== 'object') {
+        return res.status(400).json({
+          success: false,
+          message: 'Данные статистики обязательны'
+        });
+      }
+      
+      const result = await Office.updateStats(id, period, stats);
+      
+      if (result) {
+        res.json({
+          success: true,
+          message: 'Статистика обновлена успешно'
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: 'Ошибка при обновлении статистики'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating office stats:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка при обновлении статистики офиса'
+      });
     }
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
 import { BulbOutlined, BellOutlined } from "@ant-design/icons";
+import { useAuth } from '../shared/lib/hooks/useAuth';
 import Office from "../components/Office";
 import AITools from '../components/AITools/AITools';
 import Employees from '../components/Employees';
@@ -17,6 +18,7 @@ import MobileTabs from "../components/ui/MobileTabs";
 const { Content } = Layout;
 
 const SRM = () => {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   const [activeTab, setActiveTab] = useState<string>("Офис");
@@ -134,6 +136,7 @@ const SRM = () => {
           activeTab={activeTab}
           onTabClick={handleTabClick}
           isMobile={isMobile}
+          user={user}
         />
         <Sidebar
           collapsed={collapsed}
@@ -141,6 +144,7 @@ const SRM = () => {
           activeTab={activeTab}
           onTabClick={handleTabClick}
           isMobile={isMobile}
+          user={user}
         />
         <div style={styles.topButtons}>
           <button

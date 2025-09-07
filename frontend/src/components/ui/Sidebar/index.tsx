@@ -12,7 +12,7 @@ import {
   RobotOutlined,
   UserOutlined,
   LogoutOutlined,
-
+  CalendarOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
@@ -25,14 +25,19 @@ interface SidebarProps {
   activeTab: string;
   onTabClick: (tab: string) => void;
   isMobile: boolean;
+  user?: {
+    role: string;
+    [key: string]: any;
+  };
 }
 
-const Sidebar: React.FC<SidebarProps> = ({
-  collapsed,
-  onCollapse,
-  activeTab,
-  onTabClick,
+const Sidebar: React.FC<SidebarProps> = ({ 
+  collapsed, 
+  onCollapse, 
+  activeTab, 
+  onTabClick, 
   isMobile,
+  user 
 }) => {
   const [isDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -62,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     console.log('Открыть настройки');
     setAccountMenuOpen(false);
   };
-  const tabNames = [
+  const allTabNames = [
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
@@ -73,6 +78,47 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
   ];
+
+  // Фильтрация пунктов меню для юристов
+  const lawyerTabNames = [
+    { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
+    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
+    { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
+    { name: "Материалы", key: "7", icon: <BookOutlined /> },
+    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+  ];
+
+  // Фильтрация пунктов меню для экспертов
+  const expertTabNames = [
+    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
+    { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
+    { name: "Материалы", key: "7", icon: <BookOutlined /> },
+    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+  ];
+
+  // Фильтрация пунктов меню для администраторов
+  const adminTabNames = [
+    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
+    { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
+    { name: "Приходы", key: "4", icon: <DollarOutlined /> },
+    { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
+    { name: "Записи", key: "11", icon: <CalendarOutlined /> },
+  ];
+
+  const getTabNamesByRole = (role: string) => {
+    switch (role) {
+      case 'lawyer':
+        return lawyerTabNames;
+      case 'expert':
+        return expertTabNames;
+      case 'admin':
+        return adminTabNames;
+      default:
+        return allTabNames;
+    }
+  };
+
+  const tabNames = user?.role ? getTabNamesByRole(user.role) : allTabNames;
 
 
 

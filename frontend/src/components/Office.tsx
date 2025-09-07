@@ -7,6 +7,7 @@ import PieChartComponent from "./PieChartComponent";
 import BarChartComponent from "./BarChartComponent";
 import { Modal, Form, Input, Button, message } from "antd";
 import { buildApiUrl } from "../shared/utils/apiUtils";
+import { useOffice } from "../shared/contexts/OfficeContext";
 
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
@@ -41,6 +42,11 @@ interface Office {
   website?: string;
   previousRevenue?: number;
   previousVisits?: number;
+  chartData?: {
+    pie: Array<{key: string, value: number, label: string}>;
+    bar: Array<{key: string, value: number, label: string}>;
+    line: Array<{key: string, value: number, label: string}>;
+  };
   // Поля для ИП
   ip_surname?: string;
   ip_name?: string;
@@ -75,6 +81,7 @@ const Office = () => {
     visitsChange: { percentage: null as string | null, isIncrease: null as boolean | null },
     revenueChange: { percentage: null as string | null, isIncrease: null as boolean | null }
   });
+  const { officeStats, clients, subscribe } = useOffice();
   const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -95,44 +102,86 @@ const Office = () => {
   // Проверка, достигнут ли лимит офисов
   const isOfficeLimit = offices.length >= MAX_OFFICES;
 
+  // Подписка на события синхронизации между вкладками
+  useEffect(() => {
+    const unsubscribe = subscribe((event) => {
+      if (event.type === 'client_added') {
+        // Обновляем статистику при добавлении клиента
+        setStats(prev => ({
+          ...prev,
+          visits: prev.visits + 1
+        }));
+      } else if (event.type === 'stats_updated') {
+        // Обновляем статистику при изменении
+        setStats(prev => ({
+          ...prev,
+          visits: prev.visits + (event.data.visits || 0),
+          revenue: prev.revenue + (event.data.revenue || 0),
+          orders: prev.orders + (event.data.orders || 0)
+        }));
+      }
+    });
+
+    return unsubscribe;
+  }, [subscribe]);
+
+  // Синхронизация статистики с контекстом офиса
+  useEffect(() => {
+    if (officeStats) {
+      setStats(prev => ({
+        ...prev,
+        visits: officeStats.visits,
+        revenue: officeStats.revenue,
+        orders: officeStats.orders
+      }));
+    }
+  }, [officeStats]);
+
   useEffect(() => {
     const fetchOffices = async () => {
       try {
-        const response = await fetch(buildApiUrl('/offices'), {
+        const response = await fetch(buildApiUrl(`/offices?period=${selectedPeriod}`), {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
         });
         if (!response.ok) throw new Error('Ошибка загрузки офисов');
-        const data = await response.json();
+        const result = await response.json();
+        const data = result.success ? result.data : [];
         const transformedOffices = data.map((office: {
           id: string;
           name?: string;
           address?: string;
-          revenue?: number;
-          orders?: number;
           employees?: Employee[];
-          data?: number[];
-          employee_count?: number;
+          stats?: {
+            visits: number;
+            orders: number;
+            revenue: number;
+            pending: number;
+          };
+          chartData?: {
+            pie: Array<{key: string, value: number, label: string}>;
+            bar: Array<{key: string, value: number, label: string}>;
+            line: Array<{key: string, value: number, label: string}>;
+          };
           contact_phone?: string | null;
           website?: string | null;
-          previousRevenue?: number;
-          previousVisits?: number;
         }) => ({
           id: office.id,
           title: office.name || "Без названия",
           description: office.address || "Нет описания",
-          revenue: office.revenue || 0,
-          orders: office.orders || 0,
+          revenue: office.stats?.revenue || 0,
+          orders: office.stats?.orders || 0,
           employees: office.employees || [],
-          data: office.data || [0, 0],
+          data: [office.stats?.visits || 0, office.stats?.pending || 0],
           address: office.address,
-          employee_count: office.employee_count,
+          employee_count: office.employees?.length || 0,
           contact_phone: office.contact_phone,
           website: office.website,
-          // Добавляем предыдущие значения для сравнения или используем случайные значения для демонстрации
-          previousRevenue: office.previousRevenue || (office.revenue !== undefined ? office.revenue * (0.9 + Math.random() * 0.2) : 0),
-          previousVisits: office.previousVisits || (office.data && office.data[0] !== undefined ? office.data[0] * (0.9 + Math.random() * 0.2) : 0)
+          chartData: office.chartData,
+          // Добавляем предыдущие значения для сравнения (используем 90% от текущих для демонстрации)
+          previousRevenue: office.stats?.revenue ? office.stats.revenue * 0.9 : 0,
+          previousVisits: office.stats?.visits ? office.stats.visits * 0.9 : 0
         }));
 
         // Если сервер вернул офисы – используем их, иначе применяем мок-данные
@@ -330,7 +379,7 @@ const Office = () => {
       }
     };
     fetchOffices();
-  }, []);
+  }, [selectedPeriod]);
 
   useEffect(() => {
     if (selectedOffice) {
