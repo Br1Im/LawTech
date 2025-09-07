@@ -19,6 +19,7 @@ interface Employee {
   position: string;
   dailyContracts: number;
   totalRevenue14Days: number;
+  periodRevenue: number;
   phone: string;
   pastRevenue: { [key: string]: number };
   closeRate: number;
@@ -119,8 +120,8 @@ const Office = () => {
           employee_count: office.employee_count,
           contact_phone: office.contact_phone,
           website: office.website,
-          // Добавляем предыдущие значения для сравнения или используем случайные значения для демонстрации
-          previousRevenue: office.previousRevenue || (office.revenue !== undefined ? office.revenue * (0.9 + Math.random() * 0.2) : 0),
+          // Вычисляем предыдущую выручку на основе данных сотрудников (используем periodRevenue как предыдущий период)
+          previousRevenue: office.employees?.reduce((total, employee) => total + (employee.periodRevenue || 0), 0) || 0,
           previousVisits: office.previousVisits || (office.data && office.data[0] !== undefined ? office.data[0] * (0.9 + Math.random() * 0.2) : 0)
         }));
         setOffices(transformedOffices);
@@ -141,7 +142,12 @@ const Office = () => {
     if (selectedOffice) {
       const currentVisits = selectedOffice.data[0] || 0;
       const previousVisits = selectedOffice.previousVisits || 0;
-      const currentRevenue = selectedOffice.revenue || 0;
+      
+      // Вычисляем общую выручку как сумму выручки всех сотрудников
+      const currentRevenue = selectedOffice.employees.reduce((total, employee) => {
+        return total + (period === "day" ? (employee.totalRevenue14Days || 0) : (employee.periodRevenue || 0));
+      }, 0);
+      
       const previousRevenue = selectedOffice.previousRevenue || 0;
 
       const visitsChange = calculatePercentageChange(currentVisits, previousVisits);
@@ -156,7 +162,7 @@ const Office = () => {
         revenueChange
       });
     }
-  }, [selectedOffice]);
+  }, [selectedOffice, period]);
 
   // Удалено получение данных из локальной генерации, 
   // теперь данные приходят только с сервера через fetchOfficeRevenueData
@@ -233,10 +239,7 @@ const Office = () => {
     return labels;
   };
 
-  // Генерация меток периода для графика - использует текущий период
-  const generatePeriodLabels = (): string[] => {
-    return generatePeriodLabelsForPeriod(period);
-  };
+
 
   const getPeriodText = () => {
     switch (period) {
@@ -537,31 +540,37 @@ const Office = () => {
               title="Посещения"
               value={stats.visits.toLocaleString()}
               icon={<FaUsers />}
-              color="#4476F0"
-              percentageChange={stats.visitsChange.percentage}
+              colorIcon="#4476F0"
+              percentage={stats.visitsChange.percentage}
               isIncrease={stats.visitsChange.isIncrease}
-              comparisonText={getComparisonText(stats.visitsChange.isIncrease)}
+              description={getComparisonText(stats.visitsChange.isIncrease)}
             />
             <StatCard 
               title="Выручка"
               value={`${stats.revenue.toLocaleString()} ₽`}
               icon={<FaChartLine />}
-              color="#67D9A4"
-              percentageChange={stats.revenueChange.percentage}
+              colorIcon="#67D9A4"
+              percentage={stats.revenueChange.percentage}
               isIncrease={stats.revenueChange.isIncrease}
-              comparisonText={getComparisonText(stats.revenueChange.isIncrease)}
+              description={getComparisonText(stats.revenueChange.isIncrease)}
             />
             <StatCard 
               title="Новые заказы"
               value={stats.orders.toString()}
               icon={<FaCalendarAlt />}
-              color="#FF8743"
+              colorIcon="#FF8743"
+              percentage={null}
+              isIncrease={null}
+              description=""
             />
             <StatCard 
               title="Ожидающие"
               value={stats.pending.toString()}
               icon={<FaCalendarAlt />}
-              color="#505D68"
+              colorIcon="#505D68"
+              percentage={null}
+              isIncrease={null}
+              description=""
             />
           </div>
           
@@ -569,13 +578,14 @@ const Office = () => {
             <div className="chart-card revenue-charts">
               <h4>Выручка по офисам</h4>
               <LineChartComponent 
+                title="Динамика выручки"
                 data={officeRevenueData}
               />
             </div>
             
             <div className="chart-card revenue-distribution">
               <h4>Распределение выручки</h4>
-              <PieChartComponent />
+              <PieChartComponent title="Распределение" />
             </div>
           </div>
         </>

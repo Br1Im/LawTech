@@ -397,29 +397,6 @@ const AuthPage = () => {
                   Войти
                 </Button>
               </Form.Item>
-              <Form.Item>
-                <Button
-                  type="default"
-                  block
-                  onClick={() => navigate('/crm')}
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'var(--color-button-bg)',
-                    color: 'var(--color-button-bg)',
-                    marginTop: '8px',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--color-button-bg)';
-                    e.currentTarget.style.color = 'var(--color-button-text)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--color-button-bg)';
-                  }}
-                >
-                  Перейти к дашбордам
-                </Button>
-              </Form.Item>
             </Form>
           </div>
         )}

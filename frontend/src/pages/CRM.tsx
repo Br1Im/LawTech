@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
 import { BulbOutlined, BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 import Office from "../components/Office";
 import AITools from '../components/AITools/AITools';
 import Employees from '../components/Employees';
@@ -19,7 +20,17 @@ const { Content } = Layout;
 
 const SRM = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Проверка авторизации
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/auth');
+      return;
+    }
+  }, [navigate]);
 
   const [activeTab, setActiveTab] = useState<string>("Офис");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);

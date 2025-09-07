@@ -179,8 +179,8 @@ const Office = () => {
           contact_phone: office.contact_phone,
           website: office.website,
           chartData: office.chartData,
-          // Добавляем предыдущие значения для сравнения (используем 90% от текущих для демонстрации)
-          previousRevenue: office.stats?.revenue ? office.stats.revenue * 0.9 : 0,
+          // Вычисляем предыдущую выручку на основе данных сотрудников (используем periodRevenue как предыдущий период)
+          previousRevenue: office.employees?.reduce((total, employee) => total + (employee.periodRevenue || 0), 0) || 0,
           previousVisits: office.stats?.visits ? office.stats.visits * 0.9 : 0
         }));
 
@@ -204,7 +204,7 @@ const Office = () => {
             id: 'demo-1',
             title: 'Демо офис',
             description: 'г. Москва, ул. Пример, д. 1',
-            revenue: 320000,
+            revenue: 0, // Будет вычисляться динамически из данных сотрудников
             orders: 120,
             employees: [
               {
@@ -356,7 +356,7 @@ const Office = () => {
             employee_count: 11,
             contact_phone: '+7 900 000-00-02',
             website: 'https://law-demo.ru',
-            previousRevenue: 280000,
+            previousRevenue: 0, // Будет вычисляться динамически
             previousVisits: 100,
           },
         ];
@@ -385,7 +385,12 @@ const Office = () => {
     if (selectedOffice) {
       const currentVisits = selectedOffice.data[0] || 0;
       const previousVisits = selectedOffice.previousVisits || 0;
-      const currentRevenue = selectedOffice.revenue || 0;
+      
+      // Вычисляем общую выручку как сумму выручки всех сотрудников
+      const currentRevenue = selectedOffice.employees.reduce((total, employee) => {
+        return total + (period === "day" ? (employee.totalRevenue14Days || 0) : (employee.periodRevenue || 0));
+      }, 0);
+      
       const previousRevenue = selectedOffice.previousRevenue || 0;
 
       const visitsChange = calculatePercentageChange(currentVisits, previousVisits);
@@ -400,7 +405,7 @@ const Office = () => {
         revenueChange
       });
     }
-  }, [selectedOffice]);
+  }, [selectedOffice, period]);
 
   // Удалено получение данных из локальной генерации, 
   // теперь данные приходят только с сервера через fetchOfficeRevenueData
