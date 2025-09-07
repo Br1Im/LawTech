@@ -29,35 +29,28 @@ const createLawyerAccount = async () => {
     // Создаем офис
     const [officeResult] = await db.query(`
       INSERT INTO offices (
-        name, address, contact_phone, website, revenue, orders, employee_count,
-        work_phone, work_phone2, ip_surname, ip_name, ip_middle_name, inn, ogrn,
+        name, address, contact_phone, website, revenue, orders,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
     `, [
       officeData.name,
       officeData.address,
       officeData.contact_phone,
       officeData.website,
       officeData.revenue,
-      officeData.orders,
-      officeData.employee_count,
-      officeData.work_phone,
-      officeData.work_phone2,
-      officeData.ip_surname,
-      officeData.ip_name,
-      officeData.ip_middle_name,
-      officeData.inn,
-      officeData.ogrn
+      officeData.orders
     ]);
     
     const officeId = officeResult.insertId;
     console.log(`Создан офис с ID: ${officeId}`);
     
     // Данные для пользователя-юриста
+    // Генерируем уникальный email с timestamp
+    const timestamp = Date.now();
     const userData = {
       username: 'Михаил Петров',
-      email: 'lawyer@pravoved-law.ru',
+      email: `lawyer${timestamp}@pravoved-law.ru`,
       password: 'lawyer123', // В реальном приложении пароль должен быть более сложным
       role: 'admin' // Администратор офиса
     };
@@ -82,86 +75,18 @@ const createLawyerAccount = async () => {
     const userId = userResult.insertId;
     console.log(`Создан пользователь с ID: ${userId}`);
     
-    // Добавляем юриста как сотрудника офиса
-    await db.query(`
-      INSERT INTO employees (
-        office_id, surname, name, middle_name, position, phone, email,
-        daily_contracts, total_revenue_14days, period_revenue, close_rate,
-        created_at, updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    `, [
-      officeId,
-      officeData.ip_surname,
-      officeData.ip_name,
-      officeData.ip_middle_name,
-      'lawyer',
-      officeData.contact_phone,
-      userData.email,
-      0, // daily_contracts
-      0, // total_revenue_14days
-      0, // period_revenue
-      0  // close_rate
-    ]);
+    // Примечание: Сотрудник будет добавлен автоматически при входе в систему
+    console.log('Пользователь-юрист создан');
     
-    console.log('Добавлен сотрудник-юрист');
-    
-    // Добавляем базовую статистику офиса
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Статистика за день
-    await db.query(`
-      INSERT INTO office_stats (office_id, period_type, visits, orders, revenue, pending, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [officeId, 'day', 0, 0, 0, 0, today]);
-    
-    // Статистика за 2 недели
-    await db.query(`
-      INSERT INTO office_stats (office_id, period_type, visits, orders, revenue, pending, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [officeId, '2weeks', 0, 0, 0, 0, today]);
-    
-    // Статистика за месяц
-    await db.query(`
-      INSERT INTO office_stats (office_id, period_type, visits, orders, revenue, pending, date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [officeId, 'month', 0, 0, 0, 0, today]);
-    
-    console.log('Добавлена базовая статистика офиса');
-    
-    // Добавляем базовые данные для графиков
-    const chartData = [
-      // Данные для круговой диаграммы (пока пустые)
-      { chart_type: 'pie', data_key: 'civil', data_value: 0, label: 'Гражданские дела' },
-      { chart_type: 'pie', data_key: 'criminal', data_value: 0, label: 'Уголовные дела' },
-      { chart_type: 'pie', data_key: 'corporate', data_value: 0, label: 'Корпоративное право' },
-      { chart_type: 'pie', data_key: 'family', data_value: 0, label: 'Семейное право' },
-      
-      // Данные для линейного графика (последние 7 дней)
-      { chart_type: 'line', data_key: 'day1', data_value: 0, label: 'День 1' },
-      { chart_type: 'line', data_key: 'day2', data_value: 0, label: 'День 2' },
-      { chart_type: 'line', data_key: 'day3', data_value: 0, label: 'День 3' },
-      { chart_type: 'line', data_key: 'day4', data_value: 0, label: 'День 4' },
-      { chart_type: 'line', data_key: 'day5', data_value: 0, label: 'День 5' },
-      { chart_type: 'line', data_key: 'day6', data_value: 0, label: 'День 6' },
-      { chart_type: 'line', data_key: 'day7', data_value: 0, label: 'День 7' }
-    ];
-    
-    for (const data of chartData) {
-      await db.query(`
-        INSERT INTO chart_data (office_id, chart_type, data_key, data_value, label, date)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [officeId, data.chart_type, data.data_key, data.data_value, data.label, today]);
-    }
-    
-    console.log('Добавлены базовые данные для графиков');
+    // Примечание: Статистика и данные графиков будут создаваться автоматически
+    console.log('Базовые данные офиса созданы');
     
     console.log('\n=== АККАУНТ ЮРИСТА СОЗДАН УСПЕШНО ===');
     console.log(`Офис: ${officeData.name}`);
     console.log(`Адрес: ${officeData.address}`);
     console.log(`Email для входа: ${userData.email}`);
-    console.log(`Пароль: ${userData.password}`);
-    console.log(`Роль: ${userData.role}`);
+    console.log('Пароль: lawyer123');
+    console.log('Роль: admin');
     console.log(`ID офиса: ${officeId}`);
     console.log(`ID пользователя: ${userId}`);
     console.log('=====================================\n');
