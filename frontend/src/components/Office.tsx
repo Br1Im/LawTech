@@ -1020,8 +1020,8 @@ const Office = () => {
           <Button
             key="submit"
             type="primary"
+            htmlType="submit"
             loading={isSubmitting}
-            onClick={handleEditSubmit}
           >
             Сохранить
           </Button>,
@@ -1031,6 +1031,7 @@ const Office = () => {
           form={form}
           layout="vertical"
           name="edit_office_form"
+          onFinish={handleEditSubmit}
         >
           <Form.Item
             name="officeName"
@@ -1113,8 +1114,8 @@ const Office = () => {
           <Button
             key="submit"
             type="primary"
+            htmlType="submit"
             loading={isSubmitting}
-            onClick={handleAddSubmit}
             style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
           >
             Создать офис
@@ -1125,6 +1126,7 @@ const Office = () => {
           form={addForm}
           layout="vertical"
           name="add_office_form"
+          onFinish={handleAddSubmit}
         >
           <Form.Item
             name="officeName"

@@ -71,22 +71,22 @@ const AuthPage = () => {
   // Тестовые аккаунты
   const testAccounts = [
     {
-      name: 'Юрист - Анна Петрова',
-      email: 'lawyer@lawtech.com',
-      password: 'lawyer123',
-      role: 'lawyer'
-    },
-    {
-      name: 'Эксперт - Михаил Сидоров', 
-      email: 'expert@lawtech.com',
-      password: 'expert123',
-      role: 'expert'
-    },
-    {
-      name: 'Администратор - Елена Иванова',
-      email: 'admin@lawtech.com', 
+      name: 'Администратор - Иван Админов',
+      email: 'admin@lawtech.ru',
       password: 'admin123',
       role: 'admin'
+    },
+    {
+      name: 'Директор - Петр Директоров', 
+      email: 'director@pravoved.ru',
+      password: 'director123',
+      role: 'director'
+    },
+    {
+      name: 'Юрист - Анна Юристова',
+      email: 'lawyer1@pravoved.ru', 
+      password: 'lawyer123',
+      role: 'lawyer'
     }
   ];
 
@@ -322,7 +322,7 @@ const AuthPage = () => {
 
         {mode === 'register' ? (
           <div style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
-            <Form onFinish={handleRegisterSubmit} layout="vertical">
+            <Form form={form} onFinish={handleRegisterSubmit} layout="vertical">
               <Form.Item 
                 label="Имя" 
                 name="name" 
@@ -464,7 +464,7 @@ const AuthPage = () => {
           </div>
         ) : (
           <div style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
-            <Form onFinish={handleLoginSubmit} layout="vertical">
+            <Form form={form} onFinish={handleLoginSubmit} layout="vertical">
               <Form.Item
                 label="Электронная почта"
                 name="email"

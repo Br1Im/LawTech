@@ -36,7 +36,18 @@ const officeController = {
   async getAllOffices(req, res) {
     try {
       const { period = 'day' } = req.query;
-      const offices = await Office.getAll();
+      const user = req.user; // Получаем пользователя из middleware
+      
+      let offices;
+      
+      // Если пользователь - юрист, возвращаем только его офис
+      if (user && user.role === 'lawyer' && user.office_id) {
+        const userOffice = await Office.getById(user.office_id);
+        offices = userOffice ? [userOffice] : [];
+      } else {
+        // Для остальных ролей возвращаем все офисы
+        offices = await Office.getAll();
+      }
       
       // Получаем полные данные для каждого офиса
       const officesWithData = await Promise.all(
