@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FaUser, FaQrcode } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose, MdContentCopy, MdCheck } from "react-icons/md";
 import { buildApiUrl } from "../shared/utils/apiUtils";
+import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
@@ -357,9 +358,18 @@ const Employees = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { isAuthenticated, user } = useAuth();
+
   // Получение списка сотрудников с сервера
   useEffect(() => {
     const fetchEmployees = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setEmployees([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -413,7 +423,7 @@ const Employees = () => {
     };
 
     fetchEmployees();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Получение заявок на присоединение
   useEffect(() => {

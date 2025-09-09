@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import { useAuth } from '../shared/lib/hooks/useAuth';
 import "./Clients.css";
 
 interface ExpertDocument {
@@ -25,9 +26,18 @@ const Clients: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [officeId, setOfficeId] = useState<string | null>(null);
 
+  const { isAuthenticated, user } = useAuth();
+
   // Получение данных с сервера
   useEffect(() => {
     const fetchClients = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setContracts([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -105,7 +115,7 @@ const Clients: React.FC = () => {
     };
 
     fetchClients();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Обработчик для связи с клиентом (заглушка)
   const handleContact = (clientId: number) => {

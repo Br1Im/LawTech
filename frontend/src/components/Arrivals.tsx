@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useOffice } from '../shared/contexts/OfficeContext';
 import './Arrivals.css';
 
@@ -23,8 +24,17 @@ const Arrivals: React.FC = () => {
   const { addClient, updateStats } = useOffice();
 
   // Получение данных с сервера
+  const { isAuthenticated, user } = useAuth();
+
   useEffect(() => {
     const fetchArrivals = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setArrivals([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -77,7 +87,7 @@ const Arrivals: React.FC = () => {
     };
 
     fetchArrivals();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Обработчик изменения статуса
   const handleStatusChange = async (id: number, type: 'contractSigned' | 'didNotArrive') => {

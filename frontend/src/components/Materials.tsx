@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./Materials.css";
 import { buildApiUrl } from "../shared/utils/apiUtils";
+import { useAuth } from "../shared/lib/hooks/useAuth";
 
 interface Employee {
   id: number;
@@ -42,6 +43,8 @@ interface TechTask {
 }
 
 const Materials: React.FC = () => {
+  const { isAuthenticated, user } = useAuth();
+  
   const [employees, setEmployees] = useState<Employee[]>([
     { id: 1, name: "Иван", middle_name: "Иванович", surname: "Иванов" },
     { id: 2, name: "Мария", middle_name: "Александровна", surname: "Смирнова" },
@@ -90,6 +93,13 @@ const Materials: React.FC = () => {
   // Получение данных с сервера
   useEffect(() => {
     const fetchData = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setCases([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -166,7 +176,7 @@ const Materials: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Обработчик изменения данных нового дела
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -598,4 +608,4 @@ const Materials: React.FC = () => {
   );
 };
 
-export default Materials; 
+export default Materials;

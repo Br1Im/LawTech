@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import { useAuth } from '../shared/lib/hooks/useAuth';
 import "./Expenses.css";
 
 interface Employee {
@@ -59,9 +60,18 @@ const Expenses: React.FC = () => {
   const [showAddCategoryForm, setShowAddCategoryForm] = useState<boolean>(false);
   const [showAddSalaryCategory, setShowAddSalaryCategory] = useState<boolean>(false);
 
+  const { isAuthenticated, user } = useAuth();
+
   // Получение данных с сервера
   useEffect(() => {
     const fetchExpenses = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setExpenses([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -114,7 +124,7 @@ const Expenses: React.FC = () => {
     };
 
     fetchExpenses();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Рассчитываем общую сумму расходов
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.total, 0);

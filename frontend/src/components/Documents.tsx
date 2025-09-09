@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import { useAuth } from '../shared/lib/hooks/useAuth';
 import './Documents.css';
 
 interface Document {
@@ -60,9 +61,18 @@ const Documents: React.FC = () => {
   // Предопределенные типы и статусы для выбора
   const documentStatuses = ['Черновик', 'На согласовании', 'Подписан', 'Расторгнут'];
 
+  const { isAuthenticated, user } = useAuth();
+
   // Загрузка договоров с сервера
   useEffect(() => {
     const fetchDocuments = async () => {
+      if (!isAuthenticated || !user) {
+        setError('Требуется авторизация');
+        setDocuments([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -115,7 +125,7 @@ const Documents: React.FC = () => {
     };
 
     fetchDocuments();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Получаем уникальные типы и статусы для фильтров
   const types = ['Все типы', ...Array.from(new Set(documents.map(doc => doc.type)))];
