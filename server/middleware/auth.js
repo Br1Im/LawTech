@@ -18,7 +18,7 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(token, config.jwt.secret, (err, user) => {
+  jwt.verify(token, config.JWT_SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({
         success: false,
