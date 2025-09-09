@@ -71,6 +71,36 @@ router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessa
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
 router.post('/documents', authenticateToken, legalDocumentsController.createDocument);
 
+// Роуты для материалов офиса
+router.get('/office/:officeId/materials', authenticateToken, (req, res) => {
+  res.json({ materials: [] });
+});
+
+// Роуты для клиентов офиса
+router.get('/office/:officeId/clients', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
+// Роуты для расходов офиса
+router.get('/office/:officeId/expenses', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
+// Роуты для приходов офиса
+router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
+// Роуты для сотрудников офиса
+router.get('/office/:officeId/employees', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
+// Роуты для заявок на присоединение к офису
+router.get('/office/:officeId/join-requests', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
 // Роуты для сотрудников офиса - временно отключены
 // router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
 // router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);
