@@ -49,6 +49,22 @@ const Sidebar: React.FC<SidebarProps> = ({
     document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
   }, [isDarkTheme]);
 
+  // Функция для перевода ролей на русский язык
+  const getRoleDisplayName = (role: string): string => {
+    const roleMap: { [key: string]: string } = {
+      'admin': 'Администратор',
+      'lawyer': 'Юрист',
+      'expert': 'Эксперт',
+      'manager': 'Менеджер',
+      'office': 'Офис',
+      'okk': 'ОКК',
+      'representative': 'Представитель',
+      'director': 'Директор',
+      'owner': 'Собственник'
+    };
+    return roleMap[role] || role || 'Пользователь';
+  };
+
 
 
   const handleLogout = () => {
@@ -425,13 +441,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                       fontWeight: 600,
                       color: 'var(--color-text)'
                     }}>
-                      Пользователь
+                      {getRoleDisplayName(user?.role || '')}
                     </div>
                     <div style={{
                       fontSize: '12px',
                       color: 'var(--color-muted)'
                     }}>
-                      user@example.com
+                      {user?.email || 'Не указан'}
                     </div>
                   </div>
                 )}

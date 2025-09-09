@@ -11,6 +11,11 @@
   --color-accent: #d4af37;
   --color-accent-light: #faedc4;
 
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-text-secondary: #4b5563;
+
   --color-header-bg: #ffffff;
   --color-button-bg: #d4af37;
   --color-button-text: #1a1a1a;
@@ -28,6 +33,11 @@
 
   --color-accent: #d4af37;
   --color-accent-light: #f5d97b;
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-text-secondary: #94a3b8;
 
   --color-header-bg: #0f172a;
   --color-button-bg: #d4af37;

@@ -19,7 +19,8 @@ export interface UserProfile {
   id: number;
   username: string;
   role: string;
-  email?: string;
+  email: string;
+  office_id?: number;
 }
 
 export const authAPI = {

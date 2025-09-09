@@ -12,6 +12,7 @@ import Expenses from '../components/Expenses';
 import Reception from '../components/Reception';
 import Materials from '../components/Materials';
 import Clients from '../components/Clients';
+import NotificationPanel from '../components/NotificationPanel';
 
 import Sidebar from "../components/ui/Sidebar";
 import MobileTabs from "../components/ui/MobileTabs";
@@ -37,6 +38,41 @@ const SRM = () => {
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   );
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    {
+      id: '1',
+      title: 'Новый документ',
+      message: 'Получен новый договор от клиента ООО "Рога и копыта"',
+      type: 'info' as const,
+      timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 минут назад
+      read: false
+    },
+    {
+      id: '2',
+      title: 'Задача выполнена',
+      message: 'Анализ договора №123 завершен успешно',
+      type: 'success' as const,
+      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 минут назад
+      read: false
+    },
+    {
+      id: '3',
+      title: 'Требуется внимание',
+      message: 'В договоре №456 обнаружены потенциальные риски',
+      type: 'warning' as const,
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 часа назад
+      read: true
+    },
+    {
+      id: '4',
+      title: 'Ошибка системы',
+      message: 'Не удалось загрузить документ. Попробуйте позже',
+      type: 'error' as const,
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 день назад
+      read: true
+    }
+  ]);
 
   // Определение мобильного вида при изменении размера окна
   useEffect(() => {
@@ -58,6 +94,30 @@ const SRM = () => {
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  const handleNotificationClick = () => {
+    setIsNotificationPanelOpen(true);
+  };
+
+  const handleCloseNotificationPanel = () => {
+    setIsNotificationPanelOpen(false);
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, read: true }))
+    );
   };
 
   const styles = {
@@ -177,11 +237,11 @@ const SRM = () => {
           </button>
           
           <button
-            onClick={() => {
-              // Здесь можно добавить логику для показа уведомлений
-              console.log('Открыть панель уведомлений');
+            onClick={handleNotificationClick}
+            style={{
+              ...styles.topButton,
+              position: 'relative' as const,
             }}
-            style={styles.topButton}
             title="Уведомления"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
@@ -195,6 +255,27 @@ const SRM = () => {
             }}
           >
             <BellOutlined style={{ fontSize: '18px' }} />
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                backgroundColor: 'var(--color-accent)',
+                color: 'white',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                padding: '2px 5px',
+                borderRadius: '10px',
+                minWidth: '16px',
+                height: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
+              }}>
+                {notifications.filter(n => !n.read).length}
+              </span>
+            )}
           </button>
         </div>
         
@@ -210,6 +291,14 @@ const SRM = () => {
           {activeTab === "Клиенты" && <Clients />}
         </Content>
       </div>
+      
+      <NotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onClose={handleCloseNotificationPanel}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+      />
     </div>
   );
 };
