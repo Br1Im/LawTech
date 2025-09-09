@@ -865,3 +865,69 @@
     width: 100%;
   }
 }
+
+/* Стили для модальных окон просмотра и редактирования */
+.document-details {
+  padding: 20px 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: var(--color-background-secondary);
+  border-radius: 8px;
+  gap: 10px;
+}
+
+.detail-row strong {
+  min-width: 100px;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.detail-row .status-badge {
+  margin-left: 10px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  font-size: 16px;
+  background: var(--color-background);
+  color: var(--color-text);
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.form-input:hover {
+  border-color: var(--color-accent);
+}
+
+/* Темная тема для новых элементов */
+[data-theme="dark"] .detail-row {
+  background: var(--color-background-secondary);
+}
+
+[data-theme="dark"] .form-input {
+  background: var(--color-background-secondary);
+  border-color: #444;
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .form-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+[data-theme="dark"] .form-input:hover {
+  border-color: var(--color-accent);
+}

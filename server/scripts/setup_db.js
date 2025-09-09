@@ -56,6 +56,20 @@ const setupDatabase = async () => {
         )
       `);
       console.log('Таблица сообщений создана успешно');
+      
+      // Создание таблицы юридических документов
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS legal_documents (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          category TEXT,
+          embedding TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Таблица юридических документов создана успешно');
     } catch (err) {
       console.error('Произошла ошибка при создании таблиц:', err.message);
     }

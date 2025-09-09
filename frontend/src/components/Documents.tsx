@@ -13,14 +13,6 @@ interface Document {
 }
 
 const Documents: React.FC = () => {
-  // Локальные демо-данные для тестирования
-  const localDocuments: Document[] = [
-    { id: 1, title: 'Договор купли-продажи №123', type: 'Купля-продажа', status: 'Подписан', date: '12.04.2023', client: 'ООО "Ромашка"' },
-    { id: 2, title: 'Договор оказания услуг №456', type: 'Услуги', status: 'На согласовании', date: '15.05.2023', client: 'ИП Петров А.А.' },
-    { id: 3, title: 'Договор аренды №789', type: 'Аренда', status: 'Черновик', date: '01.06.2023', client: 'ООО "Техносервис"' },
-    { id: 4, title: 'Трудовой договор №234', type: 'Трудовой', status: 'Подписан', date: '20.03.2023', client: 'Иванов И.И.' },
-    { id: 5, title: 'Договор поставки №567', type: 'Поставка', status: 'Расторгнут', date: '10.01.2023', client: 'ООО "Альфа"' },
-  ];
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -29,6 +21,10 @@ const Documents: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState<boolean>(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [editedDocument, setEditedDocument] = useState<Document | null>(null);
   const [officeId, setOfficeId] = useState<string | null>(null);
   
   // Состояния для нового договора
@@ -165,6 +161,78 @@ const Documents: React.FC = () => {
       remainingPaymentDate: new Date().toISOString().split('T')[0],
       materials: []
     });
+  };
+
+  // Функции для просмотра и редактирования документов
+  const handleViewDocument = (document: Document) => {
+    setSelectedDocument(document);
+    setIsViewModalOpen(true);
+  };
+
+  const handleEditDocument = (document: Document) => {
+    setSelectedDocument(document);
+    setEditedDocument({ ...document });
+    setIsEditModalOpen(true);
+  };
+
+  const closeViewModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedDocument(null);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setSelectedDocument(null);
+    setEditedDocument(null);
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    if (editedDocument) {
+      setEditedDocument(prev => prev ? { ...prev, [name]: value } : null);
+    }
+  };
+
+  const saveDocumentChanges = async () => {
+    if (editedDocument && selectedDocument) {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Требуется авторизация');
+        }
+
+        const response = await fetch(buildApiUrl(`/legal-documents/${selectedDocument.id}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            title: editedDocument.title,
+            content: editedDocument.client, // используем поле client как content
+            category: editedDocument.type
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Ошибка при сохранении изменений');
+        }
+
+        // Обновляем документ в локальном массиве только после успешного сохранения на сервере
+        setDocuments(prev => 
+          prev.map(doc => 
+            doc.id === selectedDocument.id ? editedDocument : doc
+          )
+        );
+        
+        alert('Изменения сохранены успешно!');
+        closeEditModal();
+      } catch (error) {
+        console.error('Ошибка сохранения:', error);
+        alert(`Ошибка при сохранении: ${error.message}`);
+      }
+    }
   };
 
   // Обработка изменений в форме
@@ -378,8 +446,18 @@ const Documents: React.FC = () => {
                   <td>{doc.date}</td>
                   <td>{doc.client}</td>
                   <td className="actions-cell">
-                    <button className="action-btn view-btn">Просмотр</button>
-                    <button className="action-btn edit-btn">Редактировать</button>
+                    <button 
+                      className="action-btn view-btn"
+                      onClick={() => handleViewDocument(doc)}
+                    >
+                      Просмотр
+                    </button>
+                    <button 
+                      className="action-btn edit-btn"
+                      onClick={() => handleEditDocument(doc)}
+                    >
+                      Редактировать
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -621,6 +699,121 @@ const Documents: React.FC = () => {
                 <button type="submit" className="submit-btn">Создать договор</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно просмотра документа */}
+      {isViewModalOpen && selectedDocument && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Просмотр договора</h3>
+              <button className="modal-close-btn" onClick={closeViewModal}>&times;</button>
+            </div>
+            <div className="document-details">
+              <div className="detail-row">
+                <strong>Название:</strong> {selectedDocument.title}
+              </div>
+              <div className="detail-row">
+                <strong>Тип:</strong> {selectedDocument.type}
+              </div>
+              <div className="detail-row">
+                <strong>Статус:</strong> 
+                <span className={`status-badge status-${selectedDocument.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                  {selectedDocument.status}
+                </span>
+              </div>
+              <div className="detail-row">
+                <strong>Дата:</strong> {selectedDocument.date}
+              </div>
+              <div className="detail-row">
+                <strong>Клиент:</strong> {selectedDocument.client}
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="cancel-btn" onClick={closeViewModal}>Закрыть</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно редактирования документа */}
+      {isEditModalOpen && selectedDocument && editedDocument && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Редактирование договора</h3>
+              <button className="modal-close-btn" onClick={closeEditModal}>&times;</button>
+            </div>
+            <form className="document-form">
+              <div className="form-group">
+                <label htmlFor="editTitle">Название</label>
+                <input
+                  type="text"
+                  id="editTitle"
+                  name="title"
+                  value={editedDocument.title}
+                  onChange={handleEditInputChange}
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="editType">Тип</label>
+                <input
+                  type="text"
+                  id="editType"
+                  name="type"
+                  value={editedDocument.type}
+                  onChange={handleEditInputChange}
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="editStatus">Статус</label>
+                <select 
+                  id="editStatus" 
+                  name="status"
+                  value={editedDocument.status} 
+                  onChange={handleEditInputChange}
+                  className="form-input"
+                >
+                  <option value="Черновик">Черновик</option>
+                  <option value="На согласовании">На согласовании</option>
+                  <option value="Подписан">Подписан</option>
+                  <option value="Расторгнут">Расторгнут</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="editDate">Дата</label>
+                <input
+                  type="date"
+                  id="editDate"
+                  name="date"
+                  value={editedDocument.date.split('.').reverse().join('-')}
+                  onChange={(e) => {
+                    const formattedDate = e.target.value.split('-').reverse().join('.');
+                    handleEditInputChange({ target: { name: 'date', value: formattedDate } } as any);
+                  }}
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="editClient">Клиент</label>
+                <input
+                  type="text"
+                  id="editClient"
+                  name="client"
+                  value={editedDocument.client}
+                  onChange={handleEditInputChange}
+                  className="form-input"
+                />
+              </div>
+            </form>
+            <div className="form-actions">
+              <button type="button" className="cancel-btn" onClick={closeEditModal}>Отмена</button>
+              <button type="button" className="submit-btn" onClick={saveDocumentChanges}>Сохранить изменения</button>
+            </div>
           </div>
         </div>
       )}
