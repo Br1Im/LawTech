@@ -76,6 +76,11 @@ router.get('/office/:officeId/materials', authenticateToken, (req, res) => {
   res.json({ materials: [] });
 });
 
+// Роуты для дел офиса (cases)
+router.get('/office/:officeId/cases', authenticateToken, (req, res) => {
+  res.json([]);
+});
+
 // Роуты для клиентов офиса
 router.get('/office/:officeId/clients', authenticateToken, (req, res) => {
   res.json([]);
