@@ -177,6 +177,10 @@ const SRM = () => {
           </button>
           
           <button
+            onClick={() => {
+              // Здесь можно добавить логику для показа уведомлений
+              console.log('Открыть панель уведомлений');
+            }}
             style={styles.topButton}
             title="Уведомления"
             onMouseEnter={(e) => {
