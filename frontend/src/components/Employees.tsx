@@ -201,7 +201,7 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
         }
         
         const profileData = await profileResponse.json();
-        const officeId = profileData.officeId;
+        const officeId = profileData.user?.officeId;
         
         if (!officeId) {
           throw new Error('Офис не найден');
@@ -391,7 +391,7 @@ const Employees = () => {
         }
 
         const profileData = await profileResponse.json();
-        const officeId = profileData.officeId;
+        const officeId = profileData.user?.officeId;
 
         if (!officeId) {
           throw new Error('Офис не найден');
@@ -446,7 +446,7 @@ const Employees = () => {
         }
 
         const profileData = await profileResponse.json();
-        const officeId = profileData.officeId;
+        const officeId = profileData.user?.officeId;
 
         if (!officeId) {
           throw new Error('Офис не найден');

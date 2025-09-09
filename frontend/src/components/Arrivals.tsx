@@ -56,7 +56,7 @@ const Arrivals: React.FC = () => {
         }
 
         const profileData = await profileResponse.json();
-        const officeId = profileData.officeId;
+        const officeId = profileData.user?.officeId;
         setOfficeId(officeId);
 
         if (!officeId) {
