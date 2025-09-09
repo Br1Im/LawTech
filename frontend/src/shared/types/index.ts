@@ -48,11 +48,6 @@ export interface ChartDataset {
 }
 
 // Auth types
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
 export interface RegisterData {
   name: string;
   email: string;
@@ -146,4 +141,4 @@ export interface SalesEntry {
   amount: number;
   period_type: 'daily' | 'weekly' | 'monthly';
   period_date: string;
-} 
+}

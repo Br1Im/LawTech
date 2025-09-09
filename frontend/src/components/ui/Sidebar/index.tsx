@@ -106,19 +106,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const getTabNamesByRole = (role: string) => {
+    console.log('🔍 Определение вкладок для роли:', role);
     switch (role) {
       case 'lawyer':
+        console.log('👨‍💼 Роль юриста - показываем ограниченные вкладки');
         return lawyerTabNames;
       case 'expert':
+        console.log('🔬 Роль эксперта - показываем экспертные вкладки');
         return expertTabNames;
       case 'admin':
+        console.log('👑 Роль администратора - показываем админские вкладки');
         return adminTabNames;
       default:
-        return allTabNames;
+        console.log('❓ Неизвестная роль или роль не определена - показываем вкладки юриста по умолчанию');
+        return lawyerTabNames; // Изменено с allTabNames на lawyerTabNames
     }
   };
 
-  const tabNames = user?.role ? getTabNamesByRole(user.role) : allTabNames;
+  // Добавляем отладочную информацию
+  console.log('👤 Информация о пользователе в Sidebar:', user);
+  const tabNames = user?.role ? getTabNamesByRole(user.role) : lawyerTabNames; // Изменено с allTabNames на lawyerTabNames
 
 
 

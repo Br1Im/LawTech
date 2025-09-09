@@ -41,6 +41,84 @@ if (!fs.existsSync(uploadsDir)) {
 // Статические файлы для uploads
 app.use('/uploads', express.static(uploadsDir));
 
+// Функция для проверки и создания необходимых полей в БД
+const checkAndCreateDatabaseFields = async () => {
+  const db = require('./db');
+  
+  try {
+    console.log('🔍 Проверка структуры базы данных...');
+    
+    // Проверяем существование таблицы users
+    const [userTableExists] = await db.query(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+    );
+    
+    if (userTableExists.length === 0) {
+      console.log('📋 Создание таблицы users...');
+      await db.query(`
+        CREATE TABLE users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username VARCHAR(255) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL DEFAULT 'lawyer',
+          office_id INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    }
+    
+    // Проверяем существование таблицы offices
+    const [officeTableExists] = await db.query(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='offices'"
+    );
+    
+    if (officeTableExists.length === 0) {
+      console.log('🏢 Создание таблицы offices...');
+      await db.query(`
+        CREATE TABLE offices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name VARCHAR(255) NOT NULL,
+          address TEXT,
+          contact_phone VARCHAR(50),
+          website VARCHAR(255),
+          revenue DECIMAL(15,2) DEFAULT 0,
+          orders INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    }
+    
+    // Проверяем наличие колонки role в таблице users
+    try {
+      const [userColumns] = await db.query("PRAGMA table_info(users)");
+      console.log('📋 Структура таблицы users:', userColumns);
+      const hasRoleColumn = Array.isArray(userColumns) && userColumns.some(col => col.name === 'role');
+      
+      if (!hasRoleColumn) {
+        console.log('➕ Добавляем колонку role в таблицу users...');
+        await db.query('ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT "lawyer"');
+        console.log('✅ Колонка role добавлена в таблицу users');
+      } else {
+        console.log('✅ Колонка role уже существует в таблице users');
+      }
+    } catch (error) {
+      if (error.code === 'SQLITE_ERROR' && error.message.includes('duplicate column name')) {
+        console.log('✅ Колонка role уже существует в таблице users');
+      } else {
+        throw error;
+      }
+    }
+    
+    console.log('✅ Проверка базы данных завершена успешно');
+    
+  } catch (error) {
+    console.error('❌ Ошибка при проверке базы данных:', error);
+  }
+};
+
 // Health check endpoints
 app.get('/api/status', (req, res) => {
   res.json({ message: 'LawTech API is running', status: 'healthy' });
@@ -90,6 +168,9 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 LawTech Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);
+  
+  // Проверка и создание необходимых полей в БД
+  await checkAndCreateDatabaseFields();
   
   // Инициализируем векторный поиск
   await initializeVectorSearch();

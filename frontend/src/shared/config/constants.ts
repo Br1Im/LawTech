@@ -4,7 +4,7 @@
 
 // Базовый URL API
 // Для продакшена используем относительный путь, а при разработке - полный URL
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // Абсолютный адрес API для прямых запросов (резервный вариант)
 export const API_SERVER_URL = 'https://lawtech-p225.onrender.com/api';
 

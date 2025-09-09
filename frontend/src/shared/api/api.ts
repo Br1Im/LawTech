@@ -1,4 +1,4 @@
-import type { JoinOfficeData, JoinRequestUpdateData } from '../types';
+import type { JoinOfficeData, JoinRequestUpdateData } from '../types/index.ts';
 import { apiInstance } from './instance';
 
 export const api = {

@@ -2,7 +2,7 @@ import React from 'react';
 import styled from '@emotion/styled';
 import { FiUserPlus } from 'react-icons/fi';
 import JoinRequestsWidget from '../../widgets/joinRequests/ui/JoinRequestsWidget';
-import type { User } from '../../shared/types';
+import type { User } from '../../shared/types/index.ts';
 
 interface JoinRequestsPageProps {
   user: User;
@@ -75,4 +75,4 @@ export const JoinRequestsPage: React.FC<JoinRequestsPageProps> = ({ user }) => {
   );
 };
 
-export default JoinRequestsPage; 
+export default JoinRequestsPage;

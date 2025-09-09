@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authAPI, UserProfile, LoginData } from '../../api/auth';
+import { LoginData, authAPI, UserProfile } from '../../api/auth';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -87,4 +87,4 @@ export const useAuth = () => {
     logout,
     isAuthenticated
   };
-}; 
+};

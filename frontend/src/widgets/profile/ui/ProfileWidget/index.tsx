@@ -6,7 +6,7 @@ import { UserCard } from '../../../../entities/user/ui/UserCard';
 import { ProfileEditForm } from '../../../../features/profile-edit/ui/ProfileEditForm';
 import { Button } from '../../../../shared/ui/Button';
 import { api } from '../../../../shared/api/api';
-import type { User, ProfileUpdateData } from '../../../../shared/types';
+import type { User, ProfileUpdateData } from '../../../../shared/types/index.ts';
 
 interface ProfileWidgetProps {
   className?: string;
@@ -133,4 +133,4 @@ export const ProfileWidget: React.FC<ProfileWidgetProps> = ({ className }) => {
   );
 };
 
-export default ProfileWidget; 
+export default ProfileWidget;

@@ -55,4 +55,4 @@ export const authAPI = {
   logout: () => {
     localStorage.removeItem('token');
   }
-}; 
+};

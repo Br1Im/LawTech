@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from '@emotion/styled';
 import { FiEdit2, FiSave, FiKey } from 'react-icons/fi';
 import { User } from '../../../../entities/user/model/types';
-import { ProfileUpdateData } from '../../../../shared/types';
+import { ProfileUpdateData } from '../../../../shared/types/index.ts';
 import { Button } from '../../../../shared/ui/Button';
 import { Input } from '../../../../shared/ui/Input';
 
@@ -208,4 +208,4 @@ export const ProfileEditForm: React.FC<ProfileEditFormProps> = ({
   );
 };
 
-export default ProfileEditForm; 
+export default ProfileEditForm;

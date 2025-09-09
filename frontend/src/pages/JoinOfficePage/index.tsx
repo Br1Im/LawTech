@@ -4,7 +4,7 @@ import { FiAlertCircle } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../shared/api/api';
 import { JoinOfficeForm } from '../../features/joinOffice';
-import type { User } from '../../shared/types';
+import type { User } from '../../shared/types/index.ts';
 
 interface JoinOfficePageProps {
   user: User;
@@ -130,4 +130,4 @@ export const JoinOfficePage: React.FC<JoinOfficePageProps> = ({ user }) => {
   );
 };
 
-export default JoinOfficePage; 
+export default JoinOfficePage;

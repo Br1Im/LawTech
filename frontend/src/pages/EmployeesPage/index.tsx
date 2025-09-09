@@ -5,9 +5,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
 import EmployeeCard from '../../entities/employee/ui/EmployeeCard';
 import api from '../../shared/api/api';
-import type { Employee } from '../../entities/employee/model/types';
-import type { User } from '../../shared/types';
-import type { JoinRequest } from '../../entities/joinRequest/model/types';
+import type { Employee } from '../../entities/employee/model/types.ts';
+import type { User } from '../../shared/types/index.ts';
+import type { JoinRequest } from '../../entities/joinRequest/model/types.ts';
 
 interface EmployeesPageProps {
   user: User;
@@ -437,4 +437,4 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ user }) => {
   );
 };
 
-export default EmployeesPage; 
+export default EmployeesPage;

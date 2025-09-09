@@ -3,8 +3,8 @@ import styled from '@emotion/styled';
 import { FiAlertCircle } from 'react-icons/fi';
 import OfficeCard from '../../entities/office/ui/OfficeCard';
 import api from '../../shared/api/api';
-import type { Office } from '../../entities/office/model/types';
-import type { User } from '../../shared/types';
+import type { Office } from '../../entities/office/model/types.ts';
+import type { User } from '../../shared/types/index.ts';
 
 interface OfficeInfoPageProps {
   user: User;
@@ -96,4 +96,4 @@ export const OfficeInfoPage: React.FC<OfficeInfoPageProps> = ({ user }) => {
   );
 };
 
-export default OfficeInfoPage; 
+export default OfficeInfoPage;
