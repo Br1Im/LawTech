@@ -1,22 +1,24 @@
 .calendar-container {
-  padding: 24px;
+  padding: 16px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 .calendar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .calendar-header h2 {
   margin: 0;
-  color: #1890ff;
+  color: var(--color-accent);
   font-size: 24px;
   font-weight: 600;
 }
@@ -36,7 +38,8 @@
 
 .calendar-content {
   display: flex;
-  gap: 24px;
+  gap: 16px;
+  height: calc(70vh - 120px);
 }
 
 .calendar-main {
@@ -219,17 +222,94 @@
 
 /* Улучшение внешнего вида календаря */
 .ant-picker-calendar-date-content {
-  height: 60px;
+  height: 40px;
   overflow: hidden;
 }
 
+.ant-picker-calendar {
+  height: 100% !important;
+}
+
+.ant-picker-calendar .ant-picker-panel {
+  height: 100% !important;
+}
+
+.ant-picker-calendar .ant-picker-calendar-header {
+  padding: 8px 16px !important;
+}
+
 .ant-picker-cell-selected .ant-picker-calendar-date {
-  background: #e6f7ff;
-  border-color: #1890ff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .ant-picker-cell-selected .ant-picker-calendar-date-content {
-  color: #1890ff;
+  color: white;
+  font-weight: 600;
+}
+
+/* Стили для сегодняшней даты */
+.ant-picker-calendar .ant-picker-calendar-date-today .ant-picker-calendar-date-value {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* Стили для ховера */
+.ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date {
+  background-color: var(--color-accent-light) !important;
+  border-color: var(--color-accent) !important;
+}
+
+.ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date-value {
+  color: var(--color-text) !important;
+}
+
+/* Стили для заголовка календаря (месяц и год) */
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select {
+  color: var(--color-accent) !important;
+  font-weight: 600;
+}
+
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select:hover,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select:hover {
+  color: var(--color-accent-light) !important;
+}
+
+/* Стили для активных кнопок переключения месяца/года */
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-prev-btn,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-prev-btn,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-next-btn,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-next-btn {
+  color: var(--color-accent) !important;
+}
+
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-prev-btn:hover,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-prev-btn:hover,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-next-btn:hover,
+.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-next-btn:hover {
+  color: var(--color-accent-light) !important;
+  background-color: rgba(212, 175, 55, 0.1) !important;
+}
+
+/* Стили для кнопки "Добавить событие" */
+.calendar-header .ant-btn-primary {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-button-text) !important;
+}
+
+.calendar-header .ant-btn-primary:hover {
+  background-color: var(--color-accent-light) !important;
+  border-color: var(--color-accent-light) !important;
+  color: var(--color-button-text) !important;
+}
+
+.calendar-header .ant-btn-primary:focus {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-button-text) !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2) !important;
 }
 
 .ant-picker-calendar-date:hover {

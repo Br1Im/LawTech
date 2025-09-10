@@ -24,7 +24,7 @@ const Clients: React.FC = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
+  // Removed unused state variable officeId since it was only set but never read
 
   const { isAuthenticated, user } = useAuth();
 
@@ -60,7 +60,6 @@ const Clients: React.FC = () => {
 
         const profileData = await profileResponse.json();
         const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
 
         if (!officeId) {
           throw new Error('Офис не найден');

@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar as AntCalendar, Badge, Modal, Form, Input, DatePicker, TimePicker, Select, Button, List, Card } from 'antd';
+import { Calendar as AntCalendar, Badge, Modal, Form, Input, DatePicker, TimePicker, Select, Button, List, Card, ConfigProvider } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CalendarOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/ru';
+import locale from 'antd/locale/ru_RU';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { buildApiUrl } from '../shared/utils/apiUtils';
 import './Calendar.css';
+
+// Устанавливаем русскую локаль для dayjs
+dayjs.locale('ru');
 
 interface CalendarEvent {
   id: string;
@@ -199,34 +204,35 @@ const Calendar: React.FC = () => {
   const selectedDateEvents = getEventsForDate(selectedDate);
 
   return (
-    <div className="calendar-container">
-      <div className="calendar-header">
-        <h2>
-          <CalendarOutlined /> Календарь
-        </h2>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={() => showModal()}
-        >
-          Добавить событие
-        </Button>
-      </div>
-
-      {error && (
-        <div className="error-message">
-          {error}
+    <ConfigProvider locale={locale}>
+      <div className="calendar-container">
+        <div className="calendar-header">
+          <h2>
+            <CalendarOutlined /> Календарь
+          </h2>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />}
+            onClick={() => showModal()}
+          >
+            Добавить событие
+          </Button>
         </div>
-      )}
 
-      <div className="calendar-content">
-        <div className="calendar-main">
-          <AntCalendar
-            dateCellRender={dateCellRender}
-            onSelect={handleDateSelect}
-            value={selectedDate}
-          />
-        </div>
+        {error && (
+          <div className="error-message">
+            {error}
+          </div>
+        )}
+
+        <div className="calendar-content">
+          <div className="calendar-main">
+            <AntCalendar
+              cellRender={dateCellRender}
+              onSelect={handleDateSelect}
+              value={selectedDate}
+            />
+          </div>
 
         <div className="calendar-sidebar">
           <Card 
@@ -381,7 +387,8 @@ const Calendar: React.FC = () => {
           </div>
         </Form>
       </Modal>
-    </div>
+      </div>
+    </ConfigProvider>
   );
 };
 
