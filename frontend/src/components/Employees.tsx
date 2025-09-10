@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { FaUser, FaQrcode } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose, MdContentCopy, MdCheck } from "react-icons/md";
 import { buildApiUrl } from "../shared/utils/apiUtils";
@@ -100,12 +100,10 @@ const PieChart = ({ contracts, consultations }: { contracts: number, consultatio
 // Модальное окно с информацией о сотруднике
 const EmployeeModal = ({ 
   employee, 
-  onClose, 
-  onSave 
+  onClose 
 }: { 
   employee: Employee, 
-  onClose: () => void, 
-  onSave: (employee: Employee) => void 
+  onClose: () => void 
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'month' | 'period' | 'year'>('month');
   
@@ -340,11 +338,7 @@ const Employees = () => {
     { id: 13, name: "Владимир ОККов", position: "ОКК", office: "Красноярск", role: 'admin' }
   ];
 
-  // Локальные демо-данные для заявок на присоединение
-  const localRequests: JoinRequest[] = [
-    { id: 1, name: "Сергей Новиков", email: "novikov@example.com", status: 'pending', date: "2023-05-15" },
-    { id: 2, name: "Анна Соколова", email: "sokolova@example.com", status: 'pending', date: "2023-05-16" }
-  ];
+
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
@@ -355,8 +349,7 @@ const Employees = () => {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'requests'>('all');
   const [userRole] = useState<string>("owner"); // В реальном проекте это будет приходить с сервера
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
 
   const { isAuthenticated, user } = useAuth();
 
@@ -364,14 +357,9 @@ const Employees = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       if (!isAuthenticated || !user) {
-        setError('Требуется авторизация');
         setEmployees([]);
-        setLoading(false);
         return;
       }
-
-      setLoading(true);
-      setError(null);
       try {
         // Получаем ID офиса текущего пользователя
         const token = localStorage.getItem('token');
@@ -413,12 +401,9 @@ const Employees = () => {
         setFilteredEmployees(employeesData);
       } catch (err) {
         console.error('Ошибка получения данных:', err);
-        setError((err as Error).message || 'Не удалось загрузить список сотрудников');
         // Используем демо-данные при ошибке загрузки с сервера
         setEmployees(localEmployees);
         setFilteredEmployees(localEmployees);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -511,50 +496,7 @@ const Employees = () => {
     setShowInviteModal(false);
   };
 
-  // Обработчик сохранения информации о сотруднике
-  const handleSaveEmployee = async (updatedEmployee: Employee) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
 
-      const response = await fetch(buildApiUrl(`/employees/${updatedEmployee.id}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: updatedEmployee.name,
-          position: updatedEmployee.position,
-          office: updatedEmployee.office,
-          role: updatedEmployee.role,
-          avatar: updatedEmployee.avatar
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Не удалось обновить данные сотрудника');
-      }
-
-      const updatedData = await response.json();
-
-      // Обновляем данные в локальном состоянии
-      setEmployees(prevEmployees => 
-        prevEmployees.map(emp => emp.id === updatedEmployee.id ? updatedData : emp)
-      );
-      
-      setFilteredEmployees(prevFiltered => 
-        prevFiltered.map(emp => emp.id === updatedEmployee.id ? updatedData : emp)
-      );
-
-      setSelectedEmployee(null);
-    } catch (err) {
-      console.error('Ошибка обновления сотрудника:', err);
-      alert('Не удалось обновить данные сотрудника');
-    }
-  };
   
   // Обработка заявок на присоединение
   const handleJoinRequest = async (requestId: number, status: 'approved' | 'rejected', role?: string) => {
@@ -711,7 +653,6 @@ const Employees = () => {
         <EmployeeModal
           employee={selectedEmployee}
           onClose={closeModal}
-          onSave={handleSaveEmployee}
         />
       )}
 

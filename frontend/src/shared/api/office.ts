@@ -32,7 +32,8 @@ export const officeAPI = {
    */
   getAll: async (): Promise<Office[]> => {
     const response = await apiInstance.get('/offices');
-    return response.data;
+    // Обрабатываем ответ от бэкенда, который может быть в формате {success: true, data: []}
+    return Array.isArray(response.data) ? response.data : (response.data.data || []);
   },
 
   /**
@@ -70,4 +71,4 @@ export const officeAPI = {
   delete: async (id: string): Promise<void> => {
     await apiInstance.delete(`/offices/${id}`);
   }
-}; 
+};

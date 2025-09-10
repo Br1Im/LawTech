@@ -112,6 +112,37 @@ const checkAndCreateDatabaseFields = async () => {
       }
     }
     
+    // Проверяем существование таблицы calendar_events
+    const [calendarTableExists] = await db.query(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
+    );
+    
+    if (calendarTableExists.length === 0) {
+      console.log('📅 Создание таблицы calendar_events...');
+      await db.query(`
+        CREATE TABLE calendar_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          date DATE NOT NULL,
+          time TIME NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          priority VARCHAR(20) NOT NULL,
+          participants TEXT,
+          location VARCHAR(255),
+          created_by INTEGER NOT NULL,
+          office_id INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id),
+          FOREIGN KEY (office_id) REFERENCES offices(id)
+        )
+      `);
+      console.log('✅ Таблица calendar_events создана успешно');
+    } else {
+      console.log('✅ Таблица calendar_events уже существует');
+    }
+    
     console.log('✅ Проверка базы данных завершена успешно');
     
   } catch (error) {

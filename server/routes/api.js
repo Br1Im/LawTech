@@ -15,6 +15,7 @@ const fileController = require('../controllers/file');
 const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
+const calendarController = require('../controllers/calendarController');
 const officeRoutes = require('./officeRoutes');
 // Эти контроллеры пока не реализованы
 // const employeeController = require('../controllers/employeeController');
@@ -105,6 +106,13 @@ router.get('/office/:officeId/employees', authenticateToken, (req, res) => {
 router.get('/office/:officeId/join-requests', authenticateToken, (req, res) => {
   res.json([]);
 });
+
+// Роуты для календарных событий
+router.get('/office/:officeId/calendar-events', authenticateToken, calendarController.getOfficeCalendarEvents);
+router.get('/office/:officeId/calendar-events/range', authenticateToken, calendarController.getCalendarEventsByDateRange);
+router.post('/calendar-events', authenticateToken, calendarController.createCalendarEvent);
+router.put('/calendar-events/:id', authenticateToken, calendarController.updateCalendarEvent);
+router.delete('/calendar-events/:id', authenticateToken, calendarController.deleteCalendarEvent);
 
 // Роуты для сотрудников офиса - временно отключены
 // router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);

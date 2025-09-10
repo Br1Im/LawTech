@@ -4,7 +4,6 @@ import {
   ApartmentOutlined,
   FileTextOutlined,
   DollarOutlined,
-  FallOutlined,
   BellOutlined,
   BookOutlined,
   TeamOutlined,
@@ -83,17 +82,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     console.log('Открыть настройки');
     setAccountMenuOpen(false);
   };
-  const allTabNames = [
-    { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
-    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
-    { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
-    { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
-    { name: "Приходы", key: "4", icon: <DollarOutlined /> },
-    { name: "Расходы", key: "5", icon: <FallOutlined /> },
-    { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Материалы", key: "7", icon: <BookOutlined /> },
-    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
-  ];
 
   // Фильтрация пунктов меню для юристов
   const lawyerTabNames = [
@@ -102,6 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для экспертов
@@ -110,6 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для администраторов
@@ -118,7 +108,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Записи", key: "11", icon: <CalendarOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {

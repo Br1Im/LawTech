@@ -51,7 +51,6 @@ const Materials: React.FC = () => {
   ]);
   
   const [file, setFile] = useState<File | null>(null);
-  const [files, setFiles] = useState<{name: string, url: string}[]>([]);
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -348,13 +347,7 @@ const Materials: React.FC = () => {
     setShowCaseDetailsModal(false);
   };
 
-  // Добавление документа
-  const addDocument = (docName: string) => {
-    if (selectedCase && selectedCase.id) {
-      // Эта функция использовалась для локального добавления документа
-      // Теперь мы используем uploadFile для взаимодействия с API
-    }
-  };
+
 
   return (
     <div className="materials-container">

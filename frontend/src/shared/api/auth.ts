@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { apiInstance } from './instance';
 
 export interface LoginData {

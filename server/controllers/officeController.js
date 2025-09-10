@@ -40,8 +40,8 @@ const officeController = {
       
       let offices;
       
-      // Если пользователь - юрист, возвращаем только его офис
-      if (user && user.role === 'lawyer' && user.office_id) {
+      // Если пользователь - юрист или администратор, возвращаем только его офис
+      if (user && (user.role === 'lawyer' || user.role === 'admin') && user.office_id) {
         const userOffice = await Office.getById(user.office_id);
         offices = userOffice ? [userOffice] : [];
       } else {

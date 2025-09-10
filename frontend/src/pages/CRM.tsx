@@ -12,6 +12,8 @@ import Expenses from '../components/Expenses';
 import Reception from '../components/Reception';
 import Materials from '../components/Materials';
 import Clients from '../components/Clients';
+import Appointments from '../components/Appointments';
+import Calendar from '../components/Calendar';
 import NotificationPanel from '../components/NotificationPanel';
 
 import Sidebar from "../components/ui/Sidebar";
@@ -289,6 +291,8 @@ const SRM = () => {
           {activeTab === "Ресепшен" && <Reception />}
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && <Clients />}
+          {activeTab === "Записи" && <Appointments />}
+          {activeTab === "Календарь" && <Calendar />}
         </Content>
       </div>
       

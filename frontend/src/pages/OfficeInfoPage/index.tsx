@@ -50,7 +50,6 @@ export const OfficeInfoPage: React.FC<OfficeInfoPageProps> = ({ user }) => {
     const fetchOfficeData = async () => {
       try {
         setLoading(true);
-        // Если у пользователя есть officeId, используем его, иначе получаем информацию о его офисе
         const officeId = user.officeId;
         const response = await api.office.getOffice(officeId);
         setOffice(response.office);

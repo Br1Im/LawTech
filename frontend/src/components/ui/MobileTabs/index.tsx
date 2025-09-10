@@ -63,6 +63,7 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для юристов
@@ -72,6 +73,7 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
     { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для экспертов
@@ -80,6 +82,7 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
     { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для администраторов
@@ -88,7 +91,8 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
     { name: "Договоры", key: "3", icon: <FileTextOutlined /> },
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Записи", key: "11", icon: <CalendarOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {

@@ -51,7 +51,8 @@ const Reception: React.FC = () => {
     const fetchOffices = async () => {
       setLoading(true);
       try {
-        const data = await officeAPI.getAll();
+        const response = await officeAPI.getAll();
+        const data = Array.isArray(response) ? response : (response && typeof response === 'object' && 'data' in response ? (response as { data: Office[] }).data : []);
         
         setOffices(data);
         if (data.length > 0) {
@@ -311,10 +312,12 @@ const Reception: React.FC = () => {
                   )}
                 </div>
                 <Tooltip title={office.online ? 'Онлайн' : 'Оффлайн'}>
-                  <FaCircle 
-                    className={`status-indicator ${office.online ? 'online' : 'offline'}`} 
-                    size={12}
-                  />
+                  <div>
+                    <FaCircle 
+                      className={`status-indicator ${office.online ? 'online' : 'offline'}`} 
+                      size={12}
+                    />
+                  </div>
                 </Tooltip>
               </button>
             ))
@@ -377,9 +380,11 @@ const Reception: React.FC = () => {
             />
             <div className="chat-actions">
               <Tooltip title="Загрузить файл">
-                <button className="upload-button" onClick={handleFileUpload}>
-                  <MdUpload />
-                </button>
+                <div>
+                  <button className="upload-button" onClick={handleFileUpload}>
+                    <MdUpload />
+                  </button>
+                </div>
               </Tooltip>
               <button 
                 className="send-button" 

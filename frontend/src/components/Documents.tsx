@@ -51,11 +51,7 @@ const Documents: React.FC = () => {
     'Исковое заявление'
   ];
 
-  // Состояние для отображения загрузки файлов
   const [showMaterialsUpload, setShowMaterialsUpload] = useState(false);
-
-  // Предопределенные типы и статусы для выбора
-  const documentStatuses = ['Черновик', 'На согласовании', 'Подписан', 'Расторгнут'];
 
   const { isAuthenticated, user } = useAuth();
 
@@ -230,7 +226,7 @@ const Documents: React.FC = () => {
         closeEditModal();
       } catch (error) {
         console.error('Ошибка сохранения:', error);
-        alert(`Ошибка при сохранении: ${error.message}`);
+        alert(`Ошибка при сохранении: ${(error as Error).message}`);
       }
     }
   };
@@ -338,6 +334,9 @@ const Documents: React.FC = () => {
       }
       
       const contractData = {
+        title: `Договор с ${newDocument.clientName}`,
+        content: `Клиент: ${newDocument.clientName}\nПредмет: ${contractSubject}\nСтоимость: ${newDocument.contractCost}\nДата: ${newDocument.contractDate}`,
+        category: 'contract',
         ...newDocument,
         contractSubject,
         officeId
