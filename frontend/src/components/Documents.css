@@ -38,6 +38,19 @@
   min-width: 280px;
 }
 
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
 .search-input {
   width: 100%;
   padding: 10px 14px;
@@ -47,6 +60,7 @@
   color: var(--color-text);
   font-size: 14px;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
@@ -180,6 +194,11 @@
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
 .view-btn {
@@ -597,6 +616,47 @@
   font-weight: 500;
   color: var(--color-text);
   margin-bottom: 10px;
+}
+
+/* Добавление собственного типа документа */
+.custom-type-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-direction: column;
+}
+
+.custom-type-row .form-input {
+  flex: 1;
+  height: 44px;
+}
+
+.custom-type-add-btn {
+  background: linear-gradient(135deg, var(--color-accent), #c2a030);
+  color: #fff;
+  border: none;
+  padding: 0 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  height: 44px;
+  white-space: nowrap;
+}
+
+.custom-type-add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 576px) {
+  .custom-type-row {
+    flex-direction: column;
+  }
+  .custom-type-add-btn {
+    width: 100%;
+  }
 }
 
 .checkbox-group {
