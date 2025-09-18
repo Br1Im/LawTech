@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './Documents.css';
+import { FiEye, FiEdit2, FiSearch } from 'react-icons/fi';
 
 interface Document {
   id: number;
@@ -10,14 +11,16 @@ interface Document {
   status: string;
   date: string;
   client: string;
+  contractNumber?: string;
 }
 
 const Documents: React.FC = () => {
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('Все типы');
+  const [selectedType, setSelectedType] = useState<string>('Все темы');
   const [selectedStatus, setSelectedStatus] = useState<string>('Все статусы');
+  const [contractTopic, setContractTopic] = useState<string>('Гражданское право');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -44,12 +47,26 @@ const Documents: React.FC = () => {
   });
 
   // Опции для выбора типов документов
-  const documentTypeOptions = [
+  const [documentTypeOptions, setDocumentTypeOptions] = useState<string[]>([
     'Претензия',
-    'Жалоба в прокуратуру', 
     'Жалоба в роспотребнадзор',
-    'Исковое заявление'
-  ];
+    'Жалоба в прокуратуру',
+    'Жалоба в трудовую инспекцию',
+  ]);
+  const [newDocType, setNewDocType] = useState<string>('');
+
+  const addCustomDocumentType = () => {
+    const value = newDocType.trim();
+    if (!value) return;
+    setDocumentTypeOptions(prev => (prev.includes(value) ? prev : [...prev, value]));
+    setNewDocument(prev => ({
+      ...prev,
+      documentTypes: prev.documentTypes.includes(value)
+        ? prev.documentTypes
+        : [...prev.documentTypes, value]
+    }));
+    setNewDocType('');
+  };
 
   const [showMaterialsUpload, setShowMaterialsUpload] = useState(false);
 
@@ -109,8 +126,18 @@ const Documents: React.FC = () => {
       } catch (err) {
         console.error('Ошибка получения договоров:', err);
         setError((err as Error).message || 'Не удалось загрузить список договоров');
-        // Устанавливаем пустой список вместо демо-данных
-        setDocuments([]);
+        // Фолбэк: пробуем взять локально сохранённые договоры
+        try {
+          const local = localStorage.getItem('local_documents');
+          if (local) {
+            const parsed: Document[] = JSON.parse(local);
+            setDocuments(parsed);
+          } else {
+            setDocuments([]);
+          }
+        } catch {
+          setDocuments([]);
+        }
       } finally {
         setLoading(false);
       }
@@ -119,15 +146,29 @@ const Documents: React.FC = () => {
     fetchDocuments();
   }, [isAuthenticated, user]);
 
-  // Получаем уникальные типы и статусы для фильтров
-  const types = ['Все типы', ...Array.from(new Set(documents.map(doc => doc.type)))];
+  // Справочник тем (только эти темы допустимы)
+  const TOPICS = [
+    'Уголовное право',
+    'Военное право',
+    'Миграционное право',
+    'Административное право',
+    'Пенсионное право',
+    'Защита прав потребителей',
+    'Трудовое право',
+    'Гражданское право',
+  ];
+
+  // Темы и статусы для фильтров
+  const types = ['Все темы', ...TOPICS];
   const statuses = ['Все статусы', ...Array.from(new Set(documents.map(doc => doc.status)))];
 
   // Фильтрация документов
   const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         doc.client.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = selectedType === 'Все типы' || doc.type === selectedType;
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch = term === '' 
+      || doc.client.toLowerCase().includes(term)
+      || (doc.contractNumber || '').toLowerCase().includes(term);
+    const matchesType = selectedType === 'Все темы' || doc.type === selectedType;
     const matchesStatus = selectedStatus === 'Все статусы' || doc.status === selectedStatus;
     
     return matchesSearch && matchesType && matchesStatus;
@@ -314,17 +355,7 @@ const Documents: React.FC = () => {
       return;
     }
     
-    if (!officeId) {
-      setError('ID офиса не найден');
-      return;
-    }
-    
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-      
       // Формируем предмет договора в зависимости от выбранного типа
       let contractSubject = '';
       if (newDocument.subjectType === 'documents') {
@@ -333,44 +364,47 @@ const Documents: React.FC = () => {
         contractSubject = `Представление интересов: ${newDocument.customSubject}`;
       }
       
-      const contractData = {
+      // Формируем UI-документ
+      const selectedTopic = TOPICS.includes(contractTopic) ? contractTopic : 'Гражданское право';
+      const now = new Date();
+      const contractNumber = generateContractNumber(now);
+      const uiDoc: Document = {
+        id: Date.now(),
         title: `Договор с ${newDocument.clientName}`,
-        content: `Клиент: ${newDocument.clientName}\nПредмет: ${contractSubject}\nСтоимость: ${newDocument.contractCost}\nДата: ${newDocument.contractDate}`,
-        category: 'contract',
-        ...newDocument,
-        contractSubject,
-        officeId
+        type: selectedTopic,
+        status: 'Черновик',
+        date: new Date(newDocument.contractDate).toLocaleDateString('ru-RU'),
+        client: newDocument.clientName,
+        contractNumber
       };
       
-      const response = await fetch(buildApiUrl('/documents'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(contractData)
+      // Обновляем список в состоянии
+      setDocuments(prev => {
+        const updated = [...prev, uiDoc];
+        // Сохраняем в localStorage для устойчивости между перезагрузками
+        try {
+          localStorage.setItem('local_documents', JSON.stringify(updated));
+        } catch {}
+        return updated;
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при создании договора');
-      }
-      
-      const createdDocument = await response.json();
-      
-      // Добавляем новый документ в список
-      setDocuments(prev => [...prev, createdDocument]);
-      
-      // Закрываем модальное окно
+      // Закрываем модалку и уведомляем
       closeModal();
-      
-      // Показываем уведомление об успешном создании
-      alert('Договор успешно создан!');
+      alert('Договор успешно создан (локально)!');
       
     } catch (err) {
-      console.error('Ошибка создания договора:', err);
+      console.error('Ошибка создания договора (локально):', err);
       setError((err as Error).message || 'Не удалось создать договор');
     }
+  };
+
+  // Генерация номера договора: ММччММГГ => [минуты][часы][месяц][год]
+  const generateContractNumber = (date: Date) => {
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const hh = String(date.getHours()).padStart(2, '0');
+    const MM = String(date.getMonth() + 1).padStart(2, '0');
+    const YY = String(date.getFullYear()).slice(-2);
+    return `${mm}${hh}${MM}${YY}`;
   };
 
   return (
@@ -381,13 +415,16 @@ const Documents: React.FC = () => {
       
       <div className="documents-filters">
         <div className="search-container">
-          <input 
-            type="text" 
-            placeholder="Поиск по названию или клиенту..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
+          <div className="search-input-wrapper">
+            <input 
+              type="text" 
+              placeholder="Поиск по ФИО или номеру договора..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            <span className="search-input-icon" aria-hidden="true"><FiSearch size={16} /></span>
+          </div>
         </div>
         
         <div className="filter-selects">
@@ -422,7 +459,7 @@ const Documents: React.FC = () => {
           <table className="documents-table">
             <thead>
               <tr>
-                <th>№</th>
+                <th>Номер</th>
                 <th>Название</th>
                 <th>Тип</th>
                 <th>Статус</th>
@@ -434,7 +471,7 @@ const Documents: React.FC = () => {
             <tbody>
               {filteredDocuments.map((doc, index) => (
                 <tr key={doc.id}>
-                  <td>{index + 1}</td>
+                  <td>{doc.contractNumber || ''}</td>
                   <td>{doc.title}</td>
                   <td>{doc.type}</td>
                   <td>
@@ -448,14 +485,18 @@ const Documents: React.FC = () => {
                     <button 
                       className="action-btn view-btn"
                       onClick={() => handleViewDocument(doc)}
+                      title="Просмотр"
+                      aria-label="Просмотр"
                     >
-                      Просмотр
+                      <FiEye size={16} />
                     </button>
                     <button 
                       className="action-btn edit-btn"
                       onClick={() => handleEditDocument(doc)}
+                      title="Редактировать"
+                      aria-label="Редактировать"
                     >
-                      Редактировать
+                      <FiEdit2 size={16} />
                     </button>
                   </td>
                 </tr>
@@ -518,6 +559,21 @@ const Documents: React.FC = () => {
                 />
               </div>
               
+              {/* Тема договора (перед предметом) */}
+              <div className="form-group">
+                <label htmlFor="contractTopic">Тема договора *</label>
+                <select
+                  id="contractTopic"
+                  className="form-input"
+                  value={contractTopic}
+                  onChange={(e) => setContractTopic(e.target.value)}
+                >
+                  {TOPICS.map(topic => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Предмет договора */}
               <div className="form-group">
                 <label>Предмет договора *</label>
@@ -564,6 +620,18 @@ const Documents: React.FC = () => {
                           {type}
                         </label>
                       ))}
+                    </div>
+                    <div className="custom-type-row">
+                      <input
+                        type="text"
+                        value={newDocType}
+                        onChange={(e) => setNewDocType(e.target.value)}
+                        placeholder="Добавить свой вариант"
+                        className="form-input"
+                      />
+                      <button type="button" className="custom-type-add-btn" onClick={addCustomDocumentType}>
+                        Добавить
+                      </button>
                     </div>
                   </div>
                 )}
