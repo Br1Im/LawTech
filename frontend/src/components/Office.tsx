@@ -909,7 +909,7 @@ const Office = () => {
                     description={getComparisonText(stats.visitsChange.isIncrease)}
                   />
                   <StatCard
-                    title="Общая выручка"
+                    title="Общая касса"
                     value={stats.revenue.toLocaleString() + " ₽"}
                     icon={<FaChartLine />}
                     percentage={stats.revenueChange.percentage}
@@ -1337,7 +1337,7 @@ const Office = () => {
                 <p><b>Средний показатель:</b> {Math.round(stats.visits / (period === "day" ? 1 : period === "2weeks" ? 14 : 30)).toLocaleString()} в день</p>
               </div>
               <div className="modal-section">
-                <h4>Общая выручка</h4>
+                <h4>Общая касса</h4>
                 <p><b>Всего за {getPeriodText()}:</b> {stats.revenue.toLocaleString()} ₽</p>
                 <p><b>Изменение:</b> {stats.revenueChange.percentage}% {stats.revenueChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
               </div>
