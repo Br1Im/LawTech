@@ -1,13 +1,14 @@
 .ai-tools-container {
-  padding: 20px;
+  padding: 0;
   background-color: var(--color-bg);
-  border-radius: 12px;
+  border-radius: 0;
   color: var(--color-text);
   animation: fadeIn 0.6s ease-in-out;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 0;
   min-height: auto;
+  height: 100vh;
 }
 
 .ai-tools-content {
@@ -32,4 +33,4 @@
     padding: 14px;
     gap: 14px;
   }
-} 
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { FaUser, FaQrcode } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose, MdContentCopy, MdCheck } from "react-icons/md";
 import { buildApiUrl } from "../shared/utils/apiUtils";
@@ -6,6 +6,27 @@ import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
+
+interface Employee {
+  id: number;
+  name: string;
+  position?: string;
+  office?: string;
+  avatar?: string;
+  email?: string;
+  role: string;
+  status: 'active' | 'pending' | 'rejected';
+  joinDate?: string;
+}
+
+interface JoinRequest {
+  id: number;
+  name: string;
+  email: string;
+  date: string;
+  role: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
 
 // Компонент карточки сотрудника
 const EmployeeCard = ({ employee }: { employee: Employee }) => {
@@ -300,25 +321,7 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-// Тип для сотрудника
-interface Employee {
-  id: number;
-  name: string;
-  position: string;
-  office: string;
-  avatar?: string;
-  role?: 'lawyer' | 'expert' | 'admin';
-}
 
-// Тип для заявки на присоединение
-interface JoinRequest {
-  id: number;
-  name: string;
-  email: string;
-  status: 'pending' | 'approved' | 'rejected';
-  date: string;
-  role?: string;
-}
 
 const Employees = () => {
   // Локальные демо-данные для тестирования

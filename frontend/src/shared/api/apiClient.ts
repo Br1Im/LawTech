@@ -39,8 +39,12 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response) {
+      // Отключаем автоматическое переключение на удаленный сервер в режиме разработки
+      const isLocalDevelopment = import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.includes('localhost');
+      
       // Если получаем 404, попробуем переключиться на абсолютный URL и повторить запрос
-      if (error.response.status === 404 && !shouldUseAbsoluteUrls()) {
+      // НО только если мы НЕ в режиме локальной разработки
+      if (error.response.status === 404 && !shouldUseAbsoluteUrls() && !isLocalDevelopment) {
         localStorage.setItem('useAbsoluteUrls', 'true');
         
         // Повторяем запрос с новым baseURL
@@ -72,4 +76,4 @@ export const getFullApiUrl = (path: string): string => {
   return shouldUseAbsoluteUrls() ? getAbsoluteApiUrl(path) : getApiUrl(path);
 };
 
-export default apiClient; 
+export default apiClient;

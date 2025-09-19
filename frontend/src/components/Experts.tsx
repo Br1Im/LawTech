@@ -46,7 +46,7 @@ const Experts: React.FC = () => {
     },
   ]);
   
-  const [userRole, setUserRole] = useState<string>("Руководитель экспертов"); // В реальном проекте это будет приходить с сервера
+  const userRole = "Руководитель экспертов"; // В реальном проекте это будет приходить с сервера
   
   const [experts] = useState<Expert[]>([
     { id: 1, name: "Эксперт 1" },
@@ -186,4 +186,4 @@ const Experts: React.FC = () => {
   );
 };
 
-export default Experts; 
+export default Experts;

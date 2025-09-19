@@ -83,8 +83,45 @@ router.get('/office/:officeId/cases', authenticateToken, (req, res) => {
 });
 
 // Роуты для клиентов офиса
-router.get('/office/:officeId/clients', authenticateToken, (req, res) => {
-  res.json([]);
+router.get('/office/:officeId/clients', authenticateToken, async (req, res) => {
+  try {
+    const { officeId } = req.params;
+    const db = require('../db');
+    
+    // Получаем клиентов из базы данных
+    const clients = await db.query(`
+      SELECT c.*, 
+             CASE 
+               WHEN ca.id IS NOT NULL THEN ca.title 
+               ELSE 'Без дела' 
+             END as theme,
+             CASE 
+               WHEN e.id IS NOT NULL THEN CONCAT(e.surname, ' ', e.name) 
+               ELSE 'Не назначен' 
+             END as lawyer
+      FROM clients c
+      LEFT JOIN cases ca ON c.id = ca.client_id
+      LEFT JOIN employees e ON ca.employee_id = e.id
+      WHERE c.office_id = ?
+    `, [officeId]);
+    
+    // Преобразуем данные в формат, ожидаемый фронтендом
+    const formattedClients = clients.map(client => ({
+      id: client.id,
+      clientName: `${client.surname} ${client.name}${client.middle_name ? ' ' + client.middle_name : ''}`,
+      contractNumber: `DOG-${client.id.toString().padStart(4, '0')}`,
+      theme: client.theme,
+      lawyer: client.lawyer,
+      materials: [], // Пока пустой массив, можно расширить позже
+      assignedExpert: null, // Пока null, можно расширить позже
+      expertDocuments: [] // Пока пустой массив, можно расширить позже
+    }));
+    
+    res.json(formattedClients);
+  } catch (error) {
+    console.error('Ошибка получения клиентов:', error);
+    res.status(500).json({ error: 'Не удалось получить список клиентов' });
+  }
 });
 
 // Роуты для расходов офиса
