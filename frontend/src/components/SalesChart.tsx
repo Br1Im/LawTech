@@ -173,7 +173,7 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
               <Area
                 type="monotone"
                 dataKey="sales"
-                name="Общая выручка"
+                name="Общая касса"
                 stroke="var(--color-text)"
                 fill="url(#gradient)"
                 dot={{ stroke: "#F2AC34", strokeWidth: 1, r: 5 }}
@@ -182,7 +182,7 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
               <Line
                 type="monotone"
                 dataKey="sales"
-                name="Общая выручка"
+                name="Общая касса"
                 stroke="var(--color-text)"
                 dot={{ stroke: "#F2AC34", strokeWidth: 2, r: 5 }}
                 activeDot={{ r: 8 }}

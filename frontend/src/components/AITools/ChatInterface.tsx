@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiSend, FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload, FiCamera } from 'react-icons/fi';
+import { FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload } from 'react-icons/fi';
 import { FaRobot } from 'react-icons/fa';
 import { buildApiUrl } from '../../shared/utils/apiUtils';
 import Scanner from '../Scan/Scanner';
@@ -616,13 +616,6 @@ const ChatInterface: React.FC = () => {
             >
               <FiPaperclip />
             </button>
-            <button 
-              className="attachment-button" 
-              onClick={() => setShowScanner(true)}
-              title="Сканировать документ"
-            >
-              <FiCamera />
-            </button>
             <input
               type="file"
               ref={fileInputRef}
@@ -638,7 +631,7 @@ const ChatInterface: React.FC = () => {
               placeholder="Напишите сообщение или загрузите фото документа..."
               rows={1}
               className="chat-input"
-              style={{ minHeight: '24px', alignSelf: 'center' }}
+              style={{ minHeight: '24px' }}
             />
             <button 
               className="send-button" 
@@ -646,7 +639,7 @@ const ChatInterface: React.FC = () => {
               disabled={!inputMessage.trim() && !selectedImage}
               title="Отправить"
             >
-              <FiSend size={18} />
+              ➤
             </button>
           </div>
           <div className="input-info">
