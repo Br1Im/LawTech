@@ -34,4 +34,4 @@ apiInstance.interceptors.response.use(
   }
 );
 
-export default apiInstance; 
+export default apiInstance;
