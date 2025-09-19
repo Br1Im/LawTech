@@ -16,6 +16,37 @@ interface Message {
   docxUrl?: string;
 }
 
+// Функция проверки статуса сервера
+const checkServerHealth = async (): Promise<{ isHealthy: boolean; message: string; details?: any }> => {
+  try {
+    const response = await fetch(buildApiUrl('/health'), {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000) // 5 секунд таймаут для проверки здоровья
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        isHealthy: true,
+        message: 'Сервер работает нормально',
+        details: data
+      };
+    } else {
+      return {
+        isHealthy: false,
+        message: `Сервер вернул ошибку ${response.status}`,
+        details: { status: response.status, statusText: response.statusText }
+      };
+    }
+  } catch (error: any) {
+    return {
+      isHealthy: false,
+      message: 'Сервер недоступен',
+      details: { error: error.message }
+    };
+  }
+};
+
 const ChatInterface: React.FC = () => {
   // Состояния
   const [messages, setMessages] = useState<Message[]>([]);
@@ -245,29 +276,112 @@ const ChatInterface: React.FC = () => {
       // Получаем JWT-токен из localStorage
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Требуется авторизация');
+        return '❌ **Ошибка авторизации**\n\nВы не авторизованы в системе. Пожалуйста, войдите в аккаунт для использования AI-помощника.\n\n**Что делать:**\n• Перейдите на страницу входа\n• Введите ваши учетные данные\n• Попробуйте снова';
       }
       
-      // Отправляем запрос на сервер
-      const response = await fetch(buildApiUrl('/gigachat'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ message })
-      });
+      // Проверяем доступность сервера
+      let response: Response;
+      try {
+        response = await fetch(buildApiUrl('/gigachat'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ message }),
+          signal: AbortSignal.timeout(30000) // 30 секунд таймаут
+        });
+      } catch (fetchError: any) {
+        console.error('Ошибка сети при запросе к GigaChat:', fetchError);
+        
+        // Обработка различных типов сетевых ошибок
+        if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
+          return '⏱️ **Превышено время ожидания**\n\nСервер не отвечает в течение 30 секунд.\n\n**Возможные причины:**\n• Медленное интернет-соединение\n• Высокая нагрузка на сервер GigaChat\n• Временные проблемы с сетью\n\n**Что делать:**\n• Проверьте интернет-соединение\n• Попробуйте снова через несколько секунд\n• Сократите длину сообщения';
+        }
+        
+        if (fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError')) {
+          // Проверяем статус сервера для более точной диагностики
+          try {
+            const serverHealth = await checkServerHealth();
+            if (serverHealth.isHealthy) {
+              return '🌐 **Ошибка сети при запросе к GigaChat**\n\nСервер работает, но запрос к GigaChat API не прошел.\n\n**Возможные причины:**\n• Проблемы с внешним API GigaChat\n• Временные сетевые проблемы\n• Блокировка запросов\n\n**Что делать:**\n• Попробуйте снова через несколько секунд\n• Проверьте настройки сети\n• Обратитесь к администратору';
+            } else {
+              return `🔧 **Сервер недоступен**\n\n${serverHealth.message}\n\n**Возможные причины:**\n• Сервер не запущен\n• Проблемы с подключением к базе данных\n• Технические работы\n\n**Что делать:**\n• Обновите страницу через минуту\n• Обратитесь к администратору\n• Проверьте статус сервера`;
+            }
+          } catch {
+            return '🌐 **Ошибка сети**\n\nНе удается подключиться к серверу.\n\n**Возможные причины:**\n• Отсутствует интернет-соединение\n• Сервер временно недоступен\n• Проблемы с DNS\n\n**Что делать:**\n• Проверьте подключение к интернету\n• Обновите страницу (F5)\n• Попробуйте снова через минуту\n• Обратитесь к администратору, если проблема повторяется';
+          }
+        }
+        
+        return `🔌 **Ошибка подключения**\n\nНе удается установить соединение с сервером.\n\n**Техническая информация:**\n${fetchError.message || 'Неизвестная ошибка сети'}\n\n**Что делать:**\n• Проверьте интернет-соединение\n• Попробуйте обновить страницу\n• Обратитесь в техподдержку, если проблема не решается`;
+      }
       
+      // Обработка HTTP ошибок
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+        let errorMessage = '';
+        let errorData: any = {};
+        
+        try {
+          errorData = await response.json();
+        } catch {
+          // Если не удается распарсить JSON ответ
+        }
+        
+        switch (response.status) {
+          case 400:
+            errorMessage = '📝 **Некорректный запрос**\n\nСервер не может обработать ваше сообщение.\n\n**Возможные причины:**\n• Слишком длинное сообщение\n• Некорректные символы в тексте\n• Неподдерживаемый формат\n\n**Что делать:**\n• Сократите длину сообщения\n• Уберите специальные символы\n• Попробуйте переформулировать вопрос';
+            break;
+            
+          case 401:
+            errorMessage = '🔐 **Ошибка авторизации**\n\nВаша сессия истекла или токен недействителен.\n\n**Что делать:**\n• Выйдите из аккаунта и войдите снова\n• Обновите страницу\n• Очистите кэш браузера';
+            break;
+            
+          case 403:
+            errorMessage = '🚫 **Доступ запрещен**\n\nУ вас нет прав для использования AI-помощника.\n\n**Что делать:**\n• Обратитесь к администратору\n• Проверьте ваш тарифный план\n• Убедитесь, что ваш аккаунт активен';
+            break;
+            
+          case 429:
+            errorMessage = '⏳ **Превышен лимит запросов**\n\nВы отправили слишком много запросов за короткое время.\n\n**Что делать:**\n• Подождите несколько минут\n• Сократите частоту запросов\n• Попробуйте снова позже';
+            break;
+            
+          case 500:
+            errorMessage = '⚠️ **Ошибка сервера**\n\nВнутренняя ошибка на сервере.\n\n**Что делать:**\n• Попробуйте снова через несколько минут\n• Обратитесь в техподдержку, если проблема повторяется\n• Сообщите администратору о проблеме';
+            break;
+            
+          case 502:
+          case 503:
+          case 504:
+            errorMessage = '🔧 **Сервер недоступен**\n\nСервер временно недоступен или проходит обслуживание.\n\n**Что делать:**\n• Попробуйте снова через несколько минут\n• Проверьте статус сервиса\n• Обратитесь к администратору';
+            break;
+            
+          default:
+            errorMessage = `❌ **Ошибка HTTP ${response.status}**\n\nСервер вернул неожиданную ошибку.\n\n**Техническая информация:**\n${errorData.error || errorData.message || 'Неизвестная ошибка'}\n\n**Что делать:**\n• Попробуйте снова\n• Обратитесь в техподдержку с кодом ошибки ${response.status}`;
+        }
+        
+        console.error(`HTTP Error ${response.status}:`, errorData);
+        return errorMessage;
       }
       
-      const result = await response.json();
-      return result.text;
+      // Парсинг успешного ответа
+      try {
+        const result = await response.json();
+        
+        if (!result || typeof result.text !== 'string') {
+          return '📄 **Ошибка формата ответа**\n\nСервер вернул некорректный ответ.\n\n**Что делать:**\n• Попробуйте переформулировать вопрос\n• Попробуйте снова через несколько секунд\n• Обратитесь в техподдержку, если проблема повторяется';
+        }
+        
+        return result.text;
+        
+      } catch (parseError) {
+        console.error('Ошибка парсинга ответа:', parseError);
+        return '🔧 **Ошибка обработки ответа**\n\nНе удается обработать ответ от сервера.\n\n**Что делать:**\n• Попробуйте снова\n• Обновите страницу\n• Обратитесь в техподдержку, если проблема не решается';
+      }
+      
     } catch (error: any) {
-      console.error('Ошибка при запросе к GigaChat API:', error);
-      return `Ошибка при запросе к GigaChat API: ${error.message || 'неизвестная ошибка'}`;
+      console.error('Неожиданная ошибка при запросе к GigaChat API:', error);
+      
+      // Обработка неожиданных ошибок
+      return `🚨 **Неожиданная ошибка**\n\nПроизошла непредвиденная ошибка при обращении к AI-помощнику.\n\n**Техническая информация:**\n${error.message || error.toString()}\n\n**Что делать:**\n• Обновите страницу (F5)\n• Попробуйте снова\n• Обратитесь в техподдержку с описанием проблемы\n• Сообщите время возникновения ошибки: ${new Date().toLocaleString()}`;
     }
   };
 

@@ -27,15 +27,18 @@ const config = {
   
   // GigaChat API настройки
   gigachat: {
-    AUTH_KEY: process.env.GIGACHAT_AUTH_KEY || 'ZjFmODc3YWYtMzMzMC00ZWI5LTlmZTYtZjQ5ODYxM2YwZjM3OjQzOWVlY2UzLTAxMjYtNDVkMy1iOWQ3LTg3OTI3M2NjMzI0Mw==',
+    AUTH_KEY: process.env.GIGACHAT_AUTH_KEY || 'ZjFmODc3YWYtMzMzMC00ZWI5LTlmZTYtZjQ5ODYxM2YwZjM3OmI5NzZjYzcxLTViN2MtNDUyOC1hZDJlLTQ2NGRkOGU4ZTMyYg==',
     SCOPE: process.env.GIGACHAT_SCOPE || 'GIGACHAT_API_PERS',
-    AUTH_URL: 'https://gigachat.devices.sberbank.ru/api/v1/token',
+    AUTH_URL: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
     API_URL: 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions',
     httpsAgent: new https.Agent({
       rejectUnauthorized: false,
-      timeout: 10000
+      timeout: 60000,
+      keepAlive: true,
+      maxSockets: 10,
+      secureProtocol: 'TLSv1_2_method'
     })
   }
 };
 
-module.exports = config; 
+module.exports = config;

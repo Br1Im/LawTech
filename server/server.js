@@ -155,8 +155,52 @@ app.get('/api/status', (req, res) => {
   res.json({ message: 'LawTech API is running', status: 'healthy' });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const db = require('./db');
+    
+    // Проверяем подключение к базе данных
+     let dbStatus = 'unknown';
+     try {
+       const dbModule = require('./db');
+       await dbModule.query('SELECT 1 as test');
+       dbStatus = 'connected';
+     } catch (dbError) {
+       dbStatus = 'disconnected';
+       console.error('Database health check failed:', dbError);
+     }
+    
+    // Проверяем доступность GigaChat API
+    let gigachatStatus = 'unknown';
+    try {
+      const gigachatService = require('./services/gigachat');
+      // Простая проверка доступности сервиса (без реального запроса)
+      gigachatStatus = 'configured';
+    } catch (gigachatError) {
+      gigachatStatus = 'not_configured';
+    }
+    
+    const healthData = {
+      status: dbStatus === 'connected' ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: dbStatus,
+        gigachat: gigachatStatus
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      version: require('./package.json').version || '1.0.0'
+    };
+    
+    res.json(healthData);
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Использование API маршрутов
