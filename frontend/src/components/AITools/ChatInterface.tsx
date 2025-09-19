@@ -282,7 +282,7 @@ const ChatInterface: React.FC = () => {
       // Проверяем доступность сервера
       let response: Response;
       try {
-        response = await fetch(buildApiUrl('/gigachat'), {
+        response = await fetch(buildApiUrl('/chat'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
