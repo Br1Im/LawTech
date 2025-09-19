@@ -1,10 +1,9 @@
 import { Button, Form, Input, message, Select, Tabs } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import BG from '../assets/Auth/BG.png';
 import { buildApiUrl } from '../shared/utils/apiUtils';
-import { getAbsoluteApiUrl } from '../shared/config/constants';
 
 interface LoginFormValues {
   email: string;
@@ -65,8 +64,12 @@ const AuthPage = () => {
   const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const [useAbsoluteUrls, setUseAbsoluteUrls] = useState(false);
   const [showTestAccounts, setShowTestAccounts] = useState(false);
+
+  // Очистка localStorage от флага useAbsoluteUrls при загрузке компонента
+  useEffect(() => {
+    localStorage.removeItem('useAbsoluteUrls');
+  }, []);
 
   // Тестовые аккаунты
   const testAccounts = [
@@ -102,25 +105,13 @@ const AuthPage = () => {
 
   const handleRegisterSubmit = async (values: RegisterFormValues) => {
       try {
-        let response = await fetch(buildApiUrl('/auth/register'), {
+        const response = await fetch(buildApiUrl('/auth/register'), {
           method: 'POST',
           body: JSON.stringify(values),
           headers: {
             'Content-Type': 'application/json; charset=UTF-8'
           }
         });
-
-        if (!response.ok && (response.status === 404 || response.type === 'opaque')) {
-          console.log('Попытка с абсолютным URL:', getAbsoluteApiUrl('/auth/register'));
-          setUseAbsoluteUrls(true);
-          response = await fetch(getAbsoluteApiUrl('/auth/register'), {
-            method: 'POST',
-            body: JSON.stringify(values),
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8'
-            }
-          });
-        }
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -129,7 +120,6 @@ const AuthPage = () => {
 
         const data = await response.json();
         localStorage.setItem('token', data.token);
-        localStorage.setItem('useAbsoluteUrls', String(useAbsoluteUrls));
         message.success('Регистрация успешна!');
         navigate('/crm');
         form.resetFields();
@@ -142,51 +132,13 @@ const AuthPage = () => {
 
   const handleLoginSubmit = async (values: LoginFormValues) => {
     try {
-      let response;
-
-      if (useAbsoluteUrls || localStorage.getItem('useAbsoluteUrls') === 'true') {
-        response = await fetch(getAbsoluteApiUrl('/auth/login'), {
-          method: 'POST',
-          body: JSON.stringify(values),
-          headers: {
-            'Content-Type': 'application/json; charset=UTF-8'
-          }
-        });
-      } else {
-        try {
-          response = await fetch(buildApiUrl('/auth/login'), {
-            method: 'POST',
-            body: JSON.stringify(values),
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8'
-            }
-          });
-
-          if (!response.ok && (response.status === 404 || response.type === 'opaque')) {
-            console.log('Попытка с абсолютным URL:', getAbsoluteApiUrl('/auth/login'));
-            setUseAbsoluteUrls(true);
-            localStorage.setItem('useAbsoluteUrls', 'true');
-            response = await fetch(getAbsoluteApiUrl('/auth/login'), {
-              method: 'POST',
-              body: JSON.stringify(values),
-              headers: {
-                'Content-Type': 'application/json; charset=UTF-8'
-              }
-            });
-          }
-        } catch (error) {
-          console.log('Ошибка при использовании относительного URL, пробуем абсолютный');
-          setUseAbsoluteUrls(true);
-          localStorage.setItem('useAbsoluteUrls', 'true');
-          response = await fetch(getAbsoluteApiUrl('/auth/login'), {
-            method: 'POST',
-            body: JSON.stringify(values),
-            headers: {
-              'Content-Type': 'application/json; charset=UTF-8'
-            }
-          });
+      const response = await fetch(buildApiUrl('/auth/login'), {
+        method: 'POST',
+        body: JSON.stringify(values),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8'
         }
-      }
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -195,7 +147,6 @@ const AuthPage = () => {
       
       const data = await response.json();
       localStorage.setItem('token', data.token);
-      localStorage.setItem('useAbsoluteUrls', String(useAbsoluteUrls));
       message.success('Вход успешно выполнен!');
       navigate('/crm');
       form.resetFields();

@@ -1365,7 +1365,7 @@ const Office = () => {
               <div className="modal-section">
                 <h4>Анализ динамики выручки</h4>
                 <p><b>Период:</b> {getPeriodText()}</p>
-                <p><b>Общая выручка:</b> {stats.revenue.toLocaleString()} ₽</p>
+                <p><b>Общая касса:</b> {stats.revenue.toLocaleString()} ₽</p>
                 <p><b>Средняя выручка в день:</b> {Math.round(stats.revenue / (period === "day" ? 1 : period === "2weeks" ? 14 : 30)).toLocaleString()} ₽</p>
                 <p><b>Изменение:</b> {stats.revenueChange.percentage}% {stats.revenueChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
               </div>

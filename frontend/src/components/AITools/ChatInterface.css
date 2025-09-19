@@ -1,12 +1,19 @@
 /* Основной контейнер чата */
 .chat-container {
   display: flex;
-  flex-direction: column;
-  height: 100vh;
+  height: auto;
+  min-height: 680px;
+  max-height: 850px;
+  background: var(--color-bg-alt);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--color-border);
   width: 100%;
-  background: linear-gradient(-45deg, 
-    var(--chat-bg-primary), 
-    var(--chat-bg-secondary), 
+  max-width: 900px;
+  margin: 0 auto;
+  backdrop-filter: blur(10px);
+  position: relative; 
     var(--chat-bg-tertiary), 
     var(--chat-bg-quaternary), 
     var(--chat-bg-quinary), 
@@ -56,12 +63,116 @@
   }
 }
 
+/* Основной золотой градиент (уменьшенный) */
+.chat-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, 
+    #ffd700 0%, 
+    #ffed4e 15%, 
+    #ffc107 25%, 
+    #ff9800 35%, 
+    #ff8f00 45%, 
+    #ff6f00 55%, 
+    #e65100 65%, 
+    #bf360c 75%, 
+    rgba(191, 54, 12, 0.3) 85%, 
+    transparent 100%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: goldenShimmer 15s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Внутреннее свечение */
+.chat-container::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, 
+    rgba(255, 215, 0, 0.4) 0%, 
+    rgba(255, 193, 7, 0.3) 30%, 
+    rgba(255, 152, 0, 0.2) 60%, 
+    transparent 100%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: innerGlow 10s ease-in-out infinite reverse;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Анимация золотого переливания */
+@keyframes goldenShimmer {
+  0% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+  20% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.15) rotate(72deg);
+    filter: hue-rotate(10deg) brightness(1.2);
+  }
+  40% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(0.95) rotate(144deg);
+    filter: hue-rotate(-5deg) brightness(0.9);
+  }
+  60% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.1) rotate(216deg);
+    filter: hue-rotate(15deg) brightness(1.1);
+  }
+  80% {
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1.05) rotate(288deg);
+    filter: hue-rotate(5deg) brightness(1.05);
+  }
+  100% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1) rotate(360deg);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+}
+
+/* Анимация внутреннего свечения */
+@keyframes innerGlow {
+  0% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  33% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  66% {
+    opacity: 0.4;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+
+
 /* Основная часть чата */
 .chat-main {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 /* Заголовок чата */
@@ -73,8 +184,21 @@
   padding: 1rem 1.5rem;
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   justify-content: space-between;
   position: sticky;
+=======
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  position: relative;
+}
+
+.chat-header::before {
+  content: '';
+  position: absolute;
+>>>>>>> d08d40f
   top: 0;
   z-index: 10;
   box-shadow: 0 4px 20px var(--chat-header-shadow);
@@ -125,7 +249,8 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: var(--color-bg);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
 }
 
 .chat-messages::-webkit-scrollbar {
@@ -162,14 +287,14 @@
 .empty-chat::before {
   content: '💬';
   font-size: 64px;
-  opacity: 0.3;
+  opacity: 0.7;
   margin-bottom: 8px;
 }
 
 .empty-chat h2 {
   font-size: 24px;
   margin: 0;
-  color: #334155;
+  color: #e2e8f0;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -178,7 +303,8 @@
   font-size: 16px;
   margin: 0;
   line-height: 1.6;
-  opacity: 0.8;
+  color: #cbd5e1;
+  opacity: 0.9;
 }
 
 /* Сообщения */
@@ -438,8 +564,14 @@
 
 /* Поле ввода */
 .chat-input-container {
+<<<<<<< HEAD
   padding: 1.5rem;
   background: var(--chat-input-bg);
+=======
+  padding: 20px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+>>>>>>> d08d40f
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--chat-input-border);
@@ -450,9 +582,21 @@
 
 .chat-input-wrapper {
   display: flex;
+<<<<<<< HEAD
   align-items: flex-end;
   gap: 0.75rem;
   max-width: 100%;
+=======
+  gap: 12px;
+  align-items: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  min-height: 56px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+>>>>>>> d08d40f
   position: relative;
 }
 
@@ -469,9 +613,18 @@
   min-height: 3rem;
   max-height: 8rem;
   outline: none;
+<<<<<<< HEAD
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+=======
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  display: block;
+  position: relative;
+  z-index: 1;
+>>>>>>> d08d40f
 }
 
 .chat-input::placeholder {
@@ -485,8 +638,8 @@
 }
 
 .send-button {
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-light) 100%);
-  color: white;
+  background: var(--color-accent);
+  color: #ffffff;
   border: none;
   border-radius: 12px;
   width: 44px;
@@ -495,47 +648,47 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   flex-shrink: 0;
   padding: 0;
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.3), 0 2px 8px rgba(212, 175, 55, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-.send-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
-  pointer-events: none;
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .send-button:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4), 0 4px 12px rgba(212, 175, 55, 0.3);
+  background: var(--color-accent-light);
+  transform: scale(1.05);
 }
 
 .send-button:active {
-  transform: translateY(-1px) scale(1.02);
+  transform: scale(0.95);
 }
 
 .send-button:disabled {
-  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  background: #e2e8f0;
+  color: #94a3b8;
   cursor: not-allowed;
   transform: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.send-button:disabled svg {
+  fill: none !important;
+  stroke: #94a3b8 !important;
+  stroke-width: 2.5;
+  opacity: 1 !important;
 }
 
 .send-button svg {
-  fill: white;
-  stroke: white;
-  stroke-width: 2;
+  fill: none !important;
+  stroke: #ffffff !important;
+  stroke-width: 2.5;
   position: relative;
-  z-index: 1;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+  display: block !important;
+  pointer-events: none;
+  opacity: 1 !important;
 }
 
 .input-info {
@@ -774,14 +927,17 @@
   
   .empty-chat h2 {
     font-size: 20px;
+    color: #e2e8f0;
   }
   
   .empty-chat p {
     font-size: 14px;
+    color: #cbd5e1;
   }
   
   .empty-chat::before {
     font-size: 48px;
+    opacity: 0.7;
   }
 }
 
