@@ -147,6 +147,15 @@
   background-color: rgba(212, 175, 55, 0.05);
 }
 
+.documents-table tr.selected-contract {
+  background-color: rgba(212, 175, 55, 0.15);
+  border-left: 4px solid var(--color-accent);
+}
+
+.documents-table tr.selected-contract:hover {
+  background-color: rgba(212, 175, 55, 0.2);
+}
+
 .documents-table tr:last-child td {
   border-bottom: none;
 }
@@ -464,6 +473,22 @@
   background-color: #c2a030 !important;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.delete-btn {
+  border: 1px solid #dc3545 !important;
+  background-color: #dc3545 !important;
+  color: white !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-btn:hover {
+  background-color: #c82333 !important;
+  border-color: #c82333 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
 }
 
 .modal-content button {

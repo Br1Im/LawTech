@@ -78,8 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleSettings = () => {
-    // Здесь будет логика для настроек
-    console.log('Открыть настройки');
+    navigate('/settings');
     setAccountMenuOpen(false);
   };
 

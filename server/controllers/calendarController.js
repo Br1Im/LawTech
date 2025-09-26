@@ -10,6 +10,8 @@ const calendarController = {
       const { officeId } = req.params;
       const userId = req.user.id;
 
+      console.log(`🔍 Запрос календарных событий для офиса ${officeId} от пользователя ${userId}`);
+
       // Проверяем, что пользователь принадлежит к этому офису
       const [userCheck] = await db.query(
         'SELECT office_id FROM users WHERE id = ?',
@@ -17,12 +19,16 @@ const calendarController = {
       );
 
       if (!userCheck.length || userCheck[0].office_id != officeId) {
+        console.log(`❌ Доступ запрещен для пользователя ${userId} к офису ${officeId}`);
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
         });
       }
 
+      console.log(`✅ Пользователь ${userId} имеет доступ к офису ${officeId}`);
+
+      // Получаем обычные календарные события
       const [events] = await db.query(
         `SELECT * FROM calendar_events 
          WHERE office_id = ? 
@@ -30,9 +36,72 @@ const calendarController = {
         [officeId]
       );
 
+      console.log(`📅 Найдено обычных событий: ${events.length}`);
+
+      // Получаем договоры для создания событий
+      console.log(`🔍 Запрашиваем договоры для офиса ${officeId}`);
+      
+      // Проверяем наличие таблицы contracts
+      const [tables] = await db.query(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='contracts'`
+      );
+      
+      console.log(`📊 Таблица contracts существует: ${tables.length > 0}`);
+      
+      // Если таблица существует, запрашиваем договоры
+      let contracts = [];
+      if (tables.length > 0) {
+        // Запрашиваем договоры для конкретного офиса - используем текстовое сравнение для SQLite
+        [contracts] = await db.query(
+          `SELECT id, client_name, contract_number, contract_type, status, contract_date
+           FROM contracts 
+           WHERE office_id = ? AND contract_date IS NOT NULL
+           ORDER BY contract_date ASC`,
+          [officeId]
+        );
+        
+        console.log(`🔍 Найдено договоров для офиса ${officeId}: ${contracts.length}`);
+      }
+
+      console.log(`📝 Найдено договоров с датами: ${contracts.length}`);
+
+      // Преобразуем договоры в формат для фронтенда
+      const contractEvents = contracts.map(contract => {
+        // Преобразуем формат даты из "YYYY-MM-DD" в "DD.MM.YYYY" если необходимо
+        let formattedDate = contract.contract_date;
+        if (contract.contract_date && contract.contract_date.includes('-')) {
+          const [year, month, day] = contract.contract_date.split('-');
+          formattedDate = `${day}.${month}.${year}`;
+        }
+        
+        return {
+          id: `contract-${contract.id}`,
+          title: `${contract.contract_type}: ${contract.client_name}`,
+          description: `Договор №${contract.contract_number}, статус: ${contract.status}`,
+          date: formattedDate,
+          time: '',
+          type: 'contract',
+          priority: 'medium',
+          participants: [],
+          location: '',
+          createdBy: 'system',
+          officeId: officeId.toString(),
+          contract_id: contract.id,
+          contract_number: contract.contract_number,
+          status: contract.status
+        };
+      });
+
+      console.log(`🎯 Создано событий договоров: ${contractEvents.length}`);
+
+      // Объединяем обычные события и события договоров
+      const allEvents = [...events, ...contractEvents];
+
+      console.log(`📋 Всего событий для отправки: ${allEvents.length}`);
+
       res.json({
         success: true,
-        events: events
+        events: allEvents
       });
     } catch (error) {
       console.error('Error getting calendar events:', error);

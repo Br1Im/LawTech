@@ -137,6 +137,11 @@ router.delete('/legal-documents/:id', authenticateToken, legalDocumentsControlle
 router.get('/legal-documents/search', authenticateToken, legalDocumentsController.searchDocuments);
 router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsController.getSimilarDocuments);
 
+// Маршруты для работы с договорами (contracts)
+router.get('/office/:officeId/contracts', authenticateToken, legalDocumentsController.getOfficeContracts);
+router.post('/contracts', authenticateToken, legalDocumentsController.createContract);
+router.get('/contracts/:id', authenticateToken, legalDocumentsController.getContractById);
+
 // Маршруты для офисов
 router.use('/offices', authenticateToken, officeRoutes);
 

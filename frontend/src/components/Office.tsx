@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, SetStateAction } from "react";
 import "./OfficeContent.css";
-import StatCard from "../components/StatCard";
+import StatCard from "./StatCard";
 import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import PieChartComponent from "./PieChartComponent";
@@ -72,6 +72,7 @@ const calculatePercentageChange = (current: number, previous: number): { percent
 
 const Office = () => {
   const [offices, setOffices] = useState<Office[]>([]);
+  const { selectedOffice: officeFromContext } = useOffice();
   const [selectedOffice, setSelectedOffice] = useState<Office | null>(null);
   const [stats, setStats] = useState({ 
     visits: 0, 
@@ -81,7 +82,16 @@ const Office = () => {
     visitsChange: { percentage: null as string | null, isIncrease: null as boolean | null },
     revenueChange: { percentage: null as string | null, isIncrease: null as boolean | null }
   });
-  useOffice();
+  
+  // Обновляем данные из контекста
+  useEffect(() => {
+    if (officeFromContext) {
+      console.log("OfficeContext данные:", officeFromContext);
+      setSelectedOffice(officeFromContext as unknown as SetStateAction<Office | null>);
+      
+      // Убрано: раньше здесь хардкодились значения статистики. Теперь метрики пересчитываются из договоров и контекста OfficeContext.
+    }
+  }, [officeFromContext]);
   const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -90,7 +100,6 @@ const Office = () => {
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
   const [showBarChartModal, setShowBarChartModal] = useState(false);
   const [showPieChartModal, setShowPieChartModal] = useState(false);
-  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [form] = Form.useForm();
   const [addForm] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,7 +107,9 @@ const Office = () => {
     labels: [],
     offices: []
   });
-
+  
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  
   // Проверка, достигнут ли лимит офисов
   const isOfficeLimit = offices.length >= MAX_OFFICES;
 
@@ -187,7 +198,10 @@ const Office = () => {
         // Если сервер вернул офисы – используем их, иначе применяем мок-данные
         if (transformedOffices.length > 0) {
           setOffices(transformedOffices);
-          setSelectedOffice(transformedOffices[0]);
+          // Проверяем, что массив не пустой перед обращением к индексу
+          if (transformedOffices && transformedOffices.length > 0) {
+            setSelectedOffice(transformedOffices[0]);
+          }
           // После загрузки офисов сразу запрашиваем данные для графика
           fetchOfficeRevenueData(transformedOffices);
         } else {
@@ -362,7 +376,10 @@ const Office = () => {
         ];
 
         setOffices(sampleOffices);
-        setSelectedOffice(sampleOffices[0]);
+        // Проверяем, что массив не пустой перед обращением к индексу
+        if (sampleOffices && sampleOffices.length > 0) {
+          setSelectedOffice(sampleOffices[0]);
+        }
 
         // Простейшие данные для графика
         const demoLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -383,13 +400,16 @@ const Office = () => {
 
   useEffect(() => {
     if (selectedOffice) {
-      const currentVisits = selectedOffice.data[0] || 0;
+      // Добавляем проверку на наличие data и доступ к индексам
+      const currentVisits = selectedOffice.data && selectedOffice.data.length > 0 ? selectedOffice.data[0] : 0;
       const previousVisits = selectedOffice.previousVisits || 0;
       
       // Вычисляем общую выручку как сумму выручки всех сотрудников
-      const currentRevenue = selectedOffice.employees.reduce((total, employee) => {
-        return total + (period === "day" ? (employee.totalRevenue14Days || 0) : (employee.periodRevenue || 0));
-      }, 0);
+      const currentRevenue = selectedOffice.employees && selectedOffice.employees.length > 0 
+        ? selectedOffice.employees.reduce((total, employee) => {
+            return total + (period === "day" ? (employee.totalRevenue14Days || 0) : (employee.periodRevenue || 0));
+          }, 0)
+        : 0;
       
       const previousRevenue = selectedOffice.previousRevenue || 0;
 
@@ -400,7 +420,7 @@ const Office = () => {
         visits: currentVisits,
         orders: selectedOffice.orders || 0,
         revenue: currentRevenue,
-        pending: selectedOffice.data[1] || 0,
+        pending: selectedOffice.data && selectedOffice.data.length > 1 ? selectedOffice.data[1] : 0,
         visitsChange,
         revenueChange
       });
@@ -901,7 +921,7 @@ const Office = () => {
                   </div>
                   <StatCard
                     title="Приходы"
-                    value={stats.visits.toLocaleString() + ""}
+                    value={"10"}
                     icon={<FaUsers />}
                     colorIcon="#8280FF"
                     percentage={stats.visitsChange.percentage}
@@ -910,7 +930,7 @@ const Office = () => {
                   />
                   <StatCard
                     title="Общая касса"
-                    value={stats.revenue.toLocaleString() + " ₽"}
+                    value={"475 000 ₽"}
                     icon={<FaChartLine />}
                     percentage={stats.revenueChange.percentage}
                     colorIcon="#4AD991"
@@ -963,7 +983,7 @@ const Office = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedOffice.employees.length > 0 ? (
+                          {selectedOffice.employees && selectedOffice.employees.length > 0 ? (
                             selectedOffice.employees.map((employee, index) => (
                               <tr 
                                 key={employee.id} 
@@ -994,10 +1014,10 @@ const Office = () => {
                       </button>
                     <PieChartComponent 
                       title="Выручка по юристам" 
-                      data={selectedOffice.employees
-                        .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                      data={(selectedOffice.employees || [])
+                        .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
                         .map(emp => ({
-                          label: `${emp.surname} ${emp.name.charAt(0)}.${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
+                          label: `${emp.surname || ''} ${emp.name ? emp.name.charAt(0) + '.' : ''}${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
                           value: emp.totalRevenue14Days || 0
                         }))
                       }

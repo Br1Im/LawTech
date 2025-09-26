@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
 import { BulbOutlined, BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Office from "../components/Office";
 import AITools from '../components/AITools/AITools';
 import Employees from '../components/Employees';
@@ -35,7 +35,15 @@ const SRM = () => {
     }
   }, [navigate]);
 
-  const [activeTab, setActiveTab] = useState<string>("Офис");
+  const location = useLocation();
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  
+  // Получаем параметры из URL
+  const searchParams = new URLSearchParams(location.search);
+  const tabParam = searchParams.get('tab');
+  const contractIdParam = searchParams.get('contractId');
+  
+  const [activeTab, setActiveTab] = useState<string>(tabParam || "Офис");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -96,6 +104,17 @@ const SRM = () => {
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
+    // Сбрасываем выбранный договор при переключении на другую вкладку
+    if (tab !== "Договоры") {
+      setSelectedContractId(null);
+    }
+  };
+
+  const handleContractSelect = (contractId: number) => {
+    setSelectedContractId(contractId.toString());
+    // Обновляем URL с новым contractId
+    const newUrl = `/crm?tab=Договоры&contractId=${contractId}`;
+    window.history.pushState({}, '', newUrl);
   };
 
   const handleNotificationClick = () => {
@@ -285,14 +304,15 @@ const SRM = () => {
           {activeTab === "Офис" && <Office />}
           {activeTab === "AI инструменты" && <AITools />}
           {activeTab === "Сотрудники" && <Employees />}
-          {activeTab === "Договоры" && <Documents />}
+          {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
           {activeTab === "Приходы" && <Arrivals />}
           {activeTab === "Расходы" && <Expenses />}
           {activeTab === "Ресепшен" && <Reception />}
           {activeTab === "Материалы" && <Materials />}
-          {activeTab === "Клиенты" && <Clients />}
+          {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
           {activeTab === "Записи" && <Appointments />}
-          {activeTab === "Календарь" && <Calendar />}
+          {activeTab === "Календарь" && <Calendar />
+            /* Календарь загружается здесь */}
         </Content>
       </div>
       

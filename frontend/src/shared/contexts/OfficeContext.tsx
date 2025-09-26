@@ -62,6 +62,7 @@ interface Office {
   expenses: Expense[];
   documents: Document[];
   stats: OfficeStats;
+  contracts?: any[]; // Added contracts property
 }
 
 // Контекст офиса

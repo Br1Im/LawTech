@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './Documents.css';
-import { FiEye, FiEdit2, FiSearch } from 'react-icons/fi';
+import { FiEye, FiEdit2, FiSearch, FiTrash2 } from 'react-icons/fi';
 
 interface Document {
   id: number;
@@ -14,7 +14,11 @@ interface Document {
   contractNumber?: string;
 }
 
-const Documents: React.FC = () => {
+interface DocumentsProps {
+  contractId?: string | null;
+}
+
+const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -111,7 +115,7 @@ const Documents: React.FC = () => {
         }
 
         // Получаем список договоров для данного офиса
-        const documentsResponse = await fetch(buildApiUrl(`/office/${officeId}/documents`), {
+        const documentsResponse = await fetch(buildApiUrl(`/office/${officeId}/contracts`), {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -122,7 +126,31 @@ const Documents: React.FC = () => {
         }
 
         const documentsData = await documentsResponse.json();
-        setDocuments(documentsData.documents || []);
+        // Преобразуем contracts в формат Document для совместимости с UI
+        const transformedDocuments = (documentsData.contracts || []).map((contract: any) => ({
+          id: contract.id,
+          title: `Договор с ${contract.client_name}`,
+          type: contract.contract_type,
+          status: contract.status,
+          date: new Date(contract.created_at).toLocaleDateString('ru-RU'),
+          client: contract.client_name,
+          contractNumber: contract.contract_number
+        }));
+        setDocuments(transformedDocuments);
+        
+        // Если передан ID договора, просто выделяем его (без открытия модального окна)
+        if (contractId) {
+          const contractIdNum = parseInt(contractId);
+          if (!isNaN(contractIdNum)) {
+            // Найдем договор и выделим его
+            const foundDocument = transformedDocuments.find((doc: any) => doc.id === contractIdNum);
+            if (foundDocument) {
+              setSelectedDocument(foundDocument);
+              // Убираем автоматическое открытие модального окна
+              // setIsViewModalOpen(true);
+            }
+          }
+        }
       } catch (err) {
         console.error('Ошибка получения договоров:', err);
         setError((err as Error).message || 'Не удалось загрузить список договоров');
@@ -272,6 +300,58 @@ const Documents: React.FC = () => {
     }
   };
 
+  const deleteDocument = async () => {
+    if (editedDocument) {
+      // Подтверждение удаления
+      const confirmDelete = window.confirm(
+        `Вы уверены, что хотите удалить договор "${editedDocument.title}"?\nЭто действие нельзя отменить.`
+      );
+      
+      if (!confirmDelete) {
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Требуется авторизация');
+        }
+
+        console.log('Удаление документа с ID:', editedDocument.id);
+        
+        const response = await fetch(buildApiUrl(`/legal-documents/${editedDocument.id}`), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('Ответ сервера:', response.status, response.statusText);
+
+        if (!response.ok) {
+          let errorMessage = 'Ошибка при удалении договора';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
+        }
+
+        // Удаляем документ из локального массива
+        setDocuments(prev => prev.filter(doc => doc.id !== editedDocument.id));
+        
+        alert('Договор успешно удален!');
+        closeEditModal();
+      } catch (error) {
+        console.error('Ошибка удаления:', error);
+        alert(`Ошибка при удалении: ${(error as Error).message}`);
+      }
+    }
+  };
+
   // Обработка изменений в форме
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -364,48 +444,66 @@ const Documents: React.FC = () => {
         contractSubject = `Представление интересов: ${newDocument.customSubject}`;
       }
       
-      // Формируем UI-документ
       const selectedTopic = TOPICS.includes(contractTopic) ? contractTopic : 'Гражданское право';
-      const now = new Date();
-      const contractNumber = generateContractNumber(now);
+      
+      // Отправляем запрос на сервер для создания договора
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Требуется авторизация');
+      }
+
+      const contractData = {
+        client_name: newDocument.clientName,
+        contract_type: selectedTopic,
+        subject: contractSubject,
+        amount: parseFloat(newDocument.contractCost),
+        status: 'active',
+        contract_date: newDocument.contractDate
+      };
+
+      const response = await fetch(buildApiUrl('/contracts'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(contractData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Ошибка при создании договора');
+      }
+
+      const result = await response.json();
+      const createdContract = result.contract;
+      
+      // Преобразуем созданный договор в формат Document для UI
       const uiDoc: Document = {
-        id: Date.now(),
-        title: `Договор с ${newDocument.clientName}`,
-        type: selectedTopic,
-        status: 'Черновик',
-        date: new Date(newDocument.contractDate).toLocaleDateString('ru-RU'),
-        client: newDocument.clientName,
-        contractNumber
+        id: createdContract.id,
+        title: `Договор с ${createdContract.client_name}`,
+        type: createdContract.contract_type,
+        status: createdContract.status,
+        date: new Date(createdContract.created_at).toLocaleDateString('ru-RU'),
+        client: createdContract.client_name,
+        contractNumber: createdContract.contract_number
       };
       
       // Обновляем список в состоянии
-      setDocuments(prev => {
-        const updated = [...prev, uiDoc];
-        // Сохраняем в localStorage для устойчивости между перезагрузками
-        try {
-          localStorage.setItem('local_documents', JSON.stringify(updated));
-        } catch {}
-        return updated;
-      });
+      setDocuments(prev => [...prev, uiDoc]);
       
       // Закрываем модалку и уведомляем
       closeModal();
-      alert('Договор успешно создан (локально)!');
+      alert('Договор успешно создан!');
       
     } catch (err) {
-      console.error('Ошибка создания договора (локально):', err);
+      console.error('Ошибка создания договора:', err);
       setError((err as Error).message || 'Не удалось создать договор');
+      alert(`Ошибка при создании договора: ${(err as Error).message}`);
     }
   };
 
-  // Генерация номера договора: ММччММГГ => [минуты][часы][месяц][год]
-  const generateContractNumber = (date: Date) => {
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    const hh = String(date.getHours()).padStart(2, '0');
-    const MM = String(date.getMonth() + 1).padStart(2, '0');
-    const YY = String(date.getFullYear()).slice(-2);
-    return `${mm}${hh}${MM}${YY}`;
-  };
+
 
   return (
     <div className="documents-container">
@@ -469,8 +567,11 @@ const Documents: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredDocuments.map((doc, index) => (
-                <tr key={doc.id}>
+              {filteredDocuments.map((doc) => (
+                <tr 
+                  key={doc.id}
+                  className={contractId && doc.id.toString() === contractId ? 'selected-contract' : ''}
+                >
                   <td>{doc.contractNumber || ''}</td>
                   <td>{doc.title}</td>
                   <td>{doc.type}</td>
@@ -482,14 +583,6 @@ const Documents: React.FC = () => {
                   <td>{doc.date}</td>
                   <td>{doc.client}</td>
                   <td className="actions-cell">
-                    <button 
-                      className="action-btn view-btn"
-                      onClick={() => handleViewDocument(doc)}
-                      title="Просмотр"
-                      aria-label="Просмотр"
-                    >
-                      <FiEye size={16} />
-                    </button>
                     <button 
                       className="action-btn edit-btn"
                       onClick={() => handleEditDocument(doc)}
@@ -879,6 +972,10 @@ const Documents: React.FC = () => {
             </form>
             <div className="form-actions">
               <button type="button" className="cancel-btn" onClick={closeEditModal}>Отмена</button>
+              <button type="button" className="delete-btn" onClick={deleteDocument} title="Удалить договор">
+                <FiTrash2 size={16} />
+                Удалить
+              </button>
               <button type="button" className="submit-btn" onClick={saveDocumentChanges}>Сохранить изменения</button>
             </div>
           </div>

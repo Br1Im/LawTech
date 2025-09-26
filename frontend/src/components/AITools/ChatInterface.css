@@ -295,17 +295,27 @@
 .empty-chat h2 {
   font-size: 24px;
   margin: 0;
-  color: #e2e8f0;
+  color: var(--color-text-primary, #1a202c);
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Добавляем специальные стили для темной темы */
+[data-theme="dark"] .empty-chat h2 {
+  color: #f7fafc;
 }
 
 .empty-chat p {
   font-size: 16px;
   margin: 0;
   line-height: 1.6;
-  color: #cbd5e1;
+  color: var(--color-text-secondary, #4a5568);
   opacity: 0.9;
+}
+
+/* Добавляем специальные стили для темной темы */
+[data-theme="dark"] .empty-chat p {
+  color: #e2e8f0;
 }
 
 /* Сообщения */

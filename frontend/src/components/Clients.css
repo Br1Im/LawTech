@@ -3,18 +3,6 @@
   background: var(--color-bg-alt);
   border-radius: 15px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.5s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .clients-title {
@@ -35,15 +23,21 @@
   padding: 18px;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
   display: flex;
   flex-direction: column;
+  /* Явно отключаем все возможные анимации */
+  transition: none !important;
+  transform: none !important;
+  animation: none !important;
 }
 
 .client-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   border-left: 3px solid var(--color-accent);
+  /* Явно отключаем все возможные анимации при наведении */
+  transition: none !important;
+  transform: none !important;
+  animation: none !important;
 }
 
 .client-header {
@@ -112,7 +106,6 @@
 .expert-documents a {
   color: var(--color-accent);
   text-decoration: none;
-  transition: all 0.3s ease;
 }
 
 .expert-documents a:hover {
@@ -145,13 +138,11 @@
   color: var(--color-text);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
 .action-btn:hover {
   background: var(--color-accent);
   color: white;
-  transform: translateY(-2px);
 }
 
 @media (max-width: 768px) {
@@ -196,4 +187,4 @@
   background-color: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
   width: 100%;
-} 
+}

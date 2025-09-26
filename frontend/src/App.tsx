@@ -4,6 +4,7 @@ import AuthPage from './pages/AuthPage';
 import WelcomePage from './pages/WelcomePage';
 import CRM from './pages/CRM';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage.tsx';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
@@ -26,6 +27,7 @@ function App() {
           <Route path='/welcome' element={<WelcomePage />} />
           <Route path='/crm' element={<CRM />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
           <Route path="/pending-request" element={<PendingRequestPage />} />
           <Route path="*" element={<h1>Страница не найдена</h1>} />

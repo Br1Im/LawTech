@@ -29,6 +29,12 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Логирование всех запросов для отладки
+app.use((req, res, next) => {
+  console.log(`📝 ${req.method} ${req.url} - ${new Date().toISOString()}`);
+  next();
+});
+
 // Отдача статических файлов фронтенда
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
