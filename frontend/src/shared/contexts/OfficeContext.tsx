@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { useOfficeSync } from '../hooks/useOfficeSync';
+import { useOfficeLoader } from '../lib/hooks/useOfficeLoader';
 
 // Интерфейсы
 interface Employee {
@@ -79,10 +80,17 @@ interface OfficeContextType {
 
 const OfficeContext = createContext<OfficeContextType | undefined>(undefined);
 
+// Интерфейс для пропсов OfficeProvider
+interface OfficeProviderProps {
+  children: ReactNode;
+  user?: { office_id?: number | string } | null;
+}
+
 // Провайдер контекста
-export const OfficeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children, user }) => {
   const [selectedOffice, setSelectedOfficeState] = useState<Office | null>(null);
   const { broadcast, subscribe } = useOfficeSync();
+  const { loadUserOffice } = useOfficeLoader();
 
   // Подписка на события синхронизации
   useEffect(() => {
@@ -164,6 +172,25 @@ export const OfficeProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };
   }, [subscribe, selectedOffice?.id]);
+
+  // Автоматическая загрузка данных офиса пользователя
+  useEffect(() => {
+    const loadOfficeData = async () => {
+      if (user?.office_id && !selectedOffice) {
+        console.log('Автоматическая загрузка данных офиса для пользователя:', user.office_id);
+        try {
+          const officeData = await loadUserOffice(user.office_id);
+          if (officeData) {
+            setSelectedOfficeState(officeData);
+          }
+        } catch (error) {
+          console.error('Ошибка при автоматической загрузке данных офиса:', error);
+        }
+      }
+    };
+
+    loadOfficeData();
+  }, [user?.office_id, selectedOffice, loadUserOffice]);
 
   // Функции для обновления данных
   const setSelectedOffice = (office: Office | null) => {

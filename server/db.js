@@ -1,75 +1,79 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// Путь к файлу базы данных SQLite
-const dbPath = path.join(__dirname, 'lawtech.db');
+// Конфигурация подключения к MySQL
+const dbConfig = {
+  host: process.env.DB_HOST || 'db',
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || 'lawtech_user',
+  password: process.env.DB_PASSWORD || 'lawtech_password',
+  database: process.env.DB_NAME || 'lawtech_db',
+  charset: 'utf8mb4',
+  acquireTimeout: 60000,
+  timeout: 60000,
+  reconnect: true
+};
 
-// Создание подключения к SQLite
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('❌ Ошибка подключения к базе данных SQLite:', err.message);
-  } else {
-    console.log('✅ Успешное подключение к базе данных SQLite');
+let connection = null;
+
+// Функция для создания подключения
+async function createConnection() {
+  try {
+    connection = await mysql.createConnection(dbConfig);
+    console.log('✅ Успешное подключение к базе данных MySQL');
+    return connection;
+  } catch (err) {
+    console.error('❌ Ошибка подключения к базе данных MySQL:', err.message);
+    throw err;
   }
-});
+}
 
-console.log('Инициализация подключения к базе данных SQLite');
+// Инициализация подключения
+createConnection().catch(console.error);
 
-// Включаем поддержку внешних ключей
-db.run('PRAGMA foreign_keys = ON');
+console.log('Инициализация подключения к базе данных MySQL');
 
 module.exports = {
   query: async (sql, params = []) => {
-    return new Promise((resolve, reject) => {
+    try {
+      if (!connection) {
+        await createConnection();
+      }
+      
       console.log('Выполнение запроса:', sql.substring(0, 50) + '...', params);
       
-      // Определяем тип запроса
-      const sqlType = sql.trim().toUpperCase();
+      const [rows] = await connection.execute(sql, params);
+      return [rows];
+    } catch (err) {
+      console.error('Ошибка выполнения запроса:', err.message);
       
-      if (sqlType.startsWith('SELECT')) {
-        db.all(sql, params, (err, rows) => {
-          if (err) {
-            console.error('Ошибка выполнения SELECT запроса:', err.message);
-            reject(err);
-          } else {
-            resolve([rows]); // Возвращаем в формате [rows] для совместимости с MySQL
-          }
-        });
-      } else if (sqlType.startsWith('INSERT')) {
-        db.run(sql, params, function(err) {
-          if (err) {
-            console.error('Ошибка выполнения INSERT запроса:', err.message);
-            reject(err);
-          } else {
-            resolve([{ insertId: this.lastID, affectedRows: this.changes }]);
-          }
-        });
-      } else {
-        // UPDATE, DELETE, CREATE TABLE и другие
-        db.run(sql, params, function(err) {
-          if (err) {
-            console.error('Ошибка выполнения запроса:', err.message);
-            reject(err);
-          } else {
-            resolve([{ affectedRows: this.changes }]);
-          }
-        });
+      // Попытка переподключения при ошибке соединения
+      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+        console.log('Попытка переподключения к базе данных...');
+        try {
+          await createConnection();
+          const [rows] = await connection.execute(sql, params);
+          return [rows];
+        } catch (reconnectErr) {
+          console.error('Ошибка переподключения:', reconnectErr.message);
+          throw reconnectErr;
+        }
       }
-    });
+      
+      throw err;
+    }
   },
   
   // Метод для закрытия соединения
-  close: () => {
-    return new Promise((resolve) => {
-      db.close((err) => {
-        if (err) {
-          console.error('Ошибка при закрытии базы данных:', err.message);
-        } else {
-          console.log('База данных закрыта');
-        }
-        resolve();
-      });
-    });
+  close: async () => {
+    try {
+      if (connection) {
+        await connection.end();
+        connection = null;
+        console.log('База данных закрыта');
+      }
+    } catch (err) {
+      console.error('Ошибка при закрытии базы данных:', err.message);
+    }
   }
 };

@@ -42,6 +42,9 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Подключаем маршруты офисов
+router.use('/offices', authenticateToken, officeRoutes);
+
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);

@@ -43,7 +43,7 @@ const calendarController = {
       
       // Проверяем наличие таблицы contracts
       const [tables] = await db.query(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name='contracts'`
+        `SELECT TABLE_NAME as name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'lawtech' AND TABLE_NAME = 'contracts'`
       );
       
       console.log(`📊 Таблица contracts существует: ${tables.length > 0}`);

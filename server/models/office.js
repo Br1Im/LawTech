@@ -12,8 +12,9 @@ class Office {
     try {
       const query = `
         SELECT o.*, 
+               COUNT(DISTINCT u.id) as employees_count,
                CASE 
-                 WHEN MAX(u.last_active) > datetime('now', '-5 minutes') THEN 1 
+                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
                  ELSE 0 
                END as online,
                MAX(u.last_active) as last_activity
@@ -29,6 +30,10 @@ class Office {
         office.employees = await this.getEmployeesByOfficeId(office.id);
         office.stats = await this.getStatsByOfficeId(office.id, 'day');
         office.chartData = await this.getChartDataByOfficeId(office.id);
+        
+        // Определяем онлайн-статус на основе last_activity
+        office.online = office.last_activity && 
+          new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
       }
       
       return offices;
@@ -47,8 +52,9 @@ class Office {
     try {
       const query = `
         SELECT o.*, 
+               COUNT(u.id) as employees_count,
                CASE 
-                 WHEN MAX(u.last_active) > datetime('now', '-5 minutes') THEN 1 
+                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
                  ELSE 0 
                END as online,
                MAX(u.last_active) as last_activity
@@ -58,7 +64,18 @@ class Office {
         GROUP BY o.id
       `;
       const [offices] = await db.query(query, [id]);
-      return offices.length > 0 ? offices[0] : null;
+      
+      if (offices.length > 0) {
+        const office = offices[0];
+        
+        // Определяем онлайн-статус на основе last_activity
+        office.online = office.last_activity && 
+          new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
+          
+        return office;
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error getting office by ID:', error);
       throw error;
@@ -75,7 +92,7 @@ class Office {
       const { name, address, contact_phone, website } = office;
       const query = `
         INSERT INTO offices (name, address, contact_phone, website, created_at) 
-        VALUES (?, ?, ?, ?, datetime('now'))
+        VALUES (?, ?, ?, ?, NOW())
       `;
       const [result] = await db.query(query, [name, address, contact_phone, website]);
       
@@ -110,7 +127,7 @@ class Office {
             address = ?, 
             contact_phone = ?, 
             website = ?,
-            updated_at = datetime('now')
+            updated_at = NOW()
         WHERE id = ?
       `;
       await db.query(query, [name, address, contact_phone, website, id]);
@@ -171,7 +188,6 @@ class Office {
       const query = `
         SELECT * FROM office_stats 
         WHERE office_id = ? AND period_type = ? 
-        ORDER BY date DESC 
         LIMIT 1
       `;
       const [stats] = await db.query(query, [officeId, period]);
@@ -194,74 +210,14 @@ class Office {
    */
   static async getChartDataByOfficeId(officeId) {
     try {
-      const query = `
-        SELECT chart_type, data_key, data_value, label 
-        FROM chart_data 
-        WHERE office_id = ? 
-        ORDER BY chart_type, data_key
-      `;
-      const [chartData] = await db.query(query, [officeId]);
-      
-      // Группируем данные по типу графика
-      const groupedData = {
+      // Заглушка для данных графиков
+      return {
         pie: [],
         bar: [],
         line: []
       };
-      
-      chartData.forEach(item => {
-        if (groupedData[item.chart_type]) {
-          groupedData[item.chart_type].push({
-            key: item.data_key,
-            value: item.data_value,
-            label: item.label
-          });
-        }
-      });
-      
-      return groupedData;
     } catch (error) {
       console.error('Error getting chart data:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Обновить статистику офиса
-   * @param {number} officeId - ID офиса
-   * @param {string} period - Период
-   * @param {Object} stats - Статистика
-   * @returns {Promise<boolean>} - Результат операции
-   */
-  static async updateStats(officeId, period, stats) {
-    try {
-      const { visits, orders, revenue, pending } = stats;
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Проверяем, есть ли уже запись за сегодня
-      const [existing] = await db.query(`
-        SELECT id FROM office_stats 
-        WHERE office_id = ? AND period_type = ? AND date = ?
-      `, [officeId, period, today]);
-      
-      if (existing.length > 0) {
-        // Обновляем существующую запись
-        await db.query(`
-          UPDATE office_stats 
-          SET visits = ?, orders = ?, revenue = ?, pending = ? 
-          WHERE id = ?
-        `, [visits, orders, revenue, pending, existing[0].id]);
-      } else {
-        // Создаем новую запись
-        await db.query(`
-          INSERT INTO office_stats (office_id, period_type, visits, orders, revenue, pending, date)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [officeId, period, visits, orders, revenue, pending, today]);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating office stats:', error);
       throw error;
     }
   }
@@ -297,5 +253,3 @@ class Office {
     }
   }
 }
-
-module.exports = Office;

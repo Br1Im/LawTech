@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LoginData, authAPI, UserProfile } from '../../api/auth';
 import { useNavigate } from 'react-router-dom';
+import { useOfficeLoader } from './useOfficeLoader';
 
 /**
  * Хук для управления аутентификацией пользователя
@@ -10,6 +11,7 @@ export const useAuth = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { loadUserOffice } = useOfficeLoader();
 
   // Проверка статуса аутентификации при загрузке приложения
   useEffect(() => {
@@ -23,6 +25,11 @@ export const useAuth = () => {
 
         const userData = await authAPI.getCurrentUser();
         setUser(userData);
+        
+        // Загружаем данные офиса пользователя, если у него есть office_id
+        if (userData.office_id) {
+          await loadUserOffice(userData.office_id);
+        }
       } catch (err) {
         console.error('Ошибка при проверке аутентификации:', err);
         // Очищаем токен, если он недействителен
@@ -51,6 +58,11 @@ export const useAuth = () => {
       
       // Устанавливаем данные пользователя
       setUser(response.user);
+      
+      // Загружаем данные офиса пользователя, если у него есть office_id
+      if (response.user.office_id) {
+        await loadUserOffice(response.user.office_id);
+      }
       
       // Перенаправляем пользователя после успешного входа
       navigate('/welcome');

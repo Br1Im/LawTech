@@ -9,9 +9,11 @@ import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
+import { useAuth } from './shared/lib/hooks/useAuth';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user } = useAuth();
   
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -19,7 +21,7 @@ function App() {
   }, []);
   
   return (
-    <OfficeProvider>
+    <OfficeProvider user={user}>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
