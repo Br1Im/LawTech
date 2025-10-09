@@ -28,16 +28,10 @@ apiInstance.interceptors.request.use(
 apiInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Проверяем, истек ли токен (ошибка 401)
-    if (error.response && error.response.status === 401) {
-      // Если токен истек, перенаправляем на страницу входа
-      localStorage.removeItem('token');
-      if (window.location.pathname !== '/auth') {
-        window.location.href = '/auth';
-      }
-    }
+    // Просто передаем ошибку дальше, пусть компоненты сами решают что делать
+    // Автоматический редирект убран, чтобы не конфликтовать с логикой компонентов
     return Promise.reject(error);
   }
 );
 
-export default apiInstance; 
+export default apiInstance;

@@ -42,6 +42,9 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Подключаем маршруты офисов
+router.use('/offices', authenticateToken, officeRoutes);
+
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
@@ -173,6 +176,11 @@ router.delete('/legal-documents/:id', authenticateToken, legalDocumentsControlle
 // Векторный поиск по документам
 router.get('/legal-documents/search', authenticateToken, legalDocumentsController.searchDocuments);
 router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsController.getSimilarDocuments);
+
+// Маршруты для работы с договорами (contracts)
+router.get('/office/:officeId/contracts', authenticateToken, legalDocumentsController.getOfficeContracts);
+router.post('/contracts', authenticateToken, legalDocumentsController.createContract);
+router.get('/contracts/:id', authenticateToken, legalDocumentsController.getContractById);
 
 // Маршруты для офисов
 router.use('/offices', authenticateToken, officeRoutes);

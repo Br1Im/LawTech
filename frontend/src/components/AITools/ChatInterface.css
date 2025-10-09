@@ -226,6 +226,7 @@
   backdrop-filter: blur(10px);
   position: relative;
   z-index: 1;
+  margin-right: 12px;
 }
 
 .clear-chat-button:hover {
@@ -294,17 +295,27 @@
 .empty-chat h2 {
   font-size: 24px;
   margin: 0;
-  color: #e2e8f0;
+  color: var(--color-text-primary, #1a202c);
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Добавляем специальные стили для темной темы */
+[data-theme="dark"] .empty-chat h2 {
+  color: #f7fafc;
 }
 
 .empty-chat p {
   font-size: 16px;
   margin: 0;
   line-height: 1.6;
-  color: #cbd5e1;
+  color: var(--color-text-secondary, #4a5568);
   opacity: 0.9;
+}
+
+/* Добавляем специальные стили для темной темы */
+[data-theme="dark"] .empty-chat p {
+  color: #e2e8f0;
 }
 
 /* Сообщения */
@@ -338,10 +349,16 @@
 .user-message {
   align-self: flex-end;
   flex-direction: row-reverse;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .ai-message {
   align-self: flex-start;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .message-avatar {
@@ -602,29 +619,22 @@
 
 .chat-input {
   flex: 1;
-  background: var(--chat-input-bg);
-  border: 2px solid var(--chat-input-border);
-  border-radius: 1.5rem;
-  padding: 1rem 1.25rem;
-  color: var(--chat-input-text);
-  font-size: 0.95rem;
-  line-height: 1.5;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 12px 16px;
+  color: var(--color-text);
+  font-size: 16px;
   resize: none;
-  min-height: 3rem;
-  max-height: 8rem;
   outline: none;
-<<<<<<< HEAD
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-=======
-  height: 44px;
-  padding: 0;
-  margin: 0;
-  display: block;
-  position: relative;
-  z-index: 1;
->>>>>>> d08d40f
+  font-family: inherit;
+  line-height: 1.4;
+  min-height: 44px;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .chat-input::placeholder {

@@ -141,8 +141,25 @@ const AuthPage = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Ошибка: ${response.status} ${response.statusText}`);
+        let errorMessage = `Ошибка: ${response.status} ${response.statusText}`;
+        
+        // Клонируем response для возможности повторного чтения
+        const responseClone = response.clone();
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // Если не удается парсить JSON, используем клонированный response для текста
+          try {
+            const errorText = await responseClone.text();
+            errorMessage = errorText || errorMessage;
+          } catch {
+            // Если и текст не удается прочитать, используем стандартное сообщение
+            errorMessage = `Ошибка: ${response.status} ${response.statusText}`;
+          }
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();

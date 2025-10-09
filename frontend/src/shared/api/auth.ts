@@ -11,6 +11,7 @@ export interface LoginResponse {
     id: number;
     username: string;
     role: string;
+    office_id?: number;
   };
 }
 

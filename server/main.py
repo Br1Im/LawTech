@@ -343,7 +343,7 @@ async def get_current_user(user_id: int = Depends(verify_token)):
 # API роуты для офисов
 @app.get("/api/offices", response_model=List[OfficeResponse])
 async def get_offices(current_user: dict = Depends(get_current_user)):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect('lawtech.db')
     conn.row_factory = sqlite3.Row
     
     try:
