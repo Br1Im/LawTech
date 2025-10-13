@@ -11,7 +11,8 @@ import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
 import { useAuth } from './shared/lib/hooks/useAuth';
 
-function App() {
+// Компонент для маршрутов, который использует useAuth внутри BrowserRouter
+function AppRoutes() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { user } = useAuth();
   
@@ -22,20 +23,26 @@ function App() {
   
   return (
     <OfficeProvider user={user}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path='/welcome' element={<WelcomePage />} />
-          <Route path='/crm' element={<CRM />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
-          <Route path="/pending-request" element={<PendingRequestPage />} />
-          <Route path="*" element={<h1>Страница не найдена</h1>} />
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path='/welcome' element={<WelcomePage />} />
+        <Route path='/crm' element={<CRM />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
+        <Route path="/pending-request" element={<PendingRequestPage />} />
+        <Route path="*" element={<h1>Страница не найдена</h1>} />
+      </Routes>
     </OfficeProvider>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

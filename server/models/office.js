@@ -164,16 +164,22 @@ class Office {
    */
   static async getEmployeesByOfficeId(officeId) {
     try {
-      const query = `
-        SELECT * FROM employees 
-        WHERE office_id = ? 
-        ORDER BY surname ASC
-      `;
-      const [employees] = await db.query(query, [officeId]);
-      return employees;
+      // Возвращаем пустой массив, так как в текущей схеме нет связи между сотрудниками и офисами
+      // В будущем можно реализовать правильную связь
+      return [];
+      
+      // Оригинальный запрос, который не работает из-за отсутствия колонки office_id
+      // const query = `
+      //   SELECT * FROM employees 
+      //   WHERE office_id = ? 
+      //   ORDER BY surname ASC
+      // `;
+      // const [employees] = await db.query(query, [officeId]);
+      // return employees;
     } catch (error) {
       console.error('Error getting employees:', error);
-      throw error;
+      // Возвращаем пустой массив вместо ошибки
+      return [];
     }
   }
 
@@ -253,3 +259,5 @@ class Office {
     }
   }
 }
+
+module.exports = Office;

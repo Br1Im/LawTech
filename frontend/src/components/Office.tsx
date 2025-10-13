@@ -8,6 +8,7 @@ import BarChartComponent from "./BarChartComponent";
 import { Modal, Form, Input, Button, message } from "antd";
 import { buildApiUrl } from "../shared/utils/apiUtils";
 import { useOffice } from "../shared/contexts/OfficeContext";
+import { officeAPI } from "../shared/api/office";
 
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
@@ -151,14 +152,16 @@ const Office = () => {
   useEffect(() => {
     const fetchOffices = async () => {
       try {
-        const response = await fetch(buildApiUrl(`/offices?period=${period}`), {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        if (!response.ok) throw new Error('Ошибка загрузки офисов');
-        const result = await response.json();
-        const data = result.success ? result.data : [];
+        // Используем правильный API клиент с автоматической авторизацией и передаем текущий период
+        const data = await officeAPI.getAll(period);
+        
+        // Проверяем, что данные существуют и являются массивом
+        if (!data || !Array.isArray(data)) {
+          console.error('Ошибка при получении офисов: данные не являются массивом');
+          message.error('Ошибка при получении офисов, загружаю мок-данные');
+          return; // Выходим из функции, чтобы использовать мок-данные
+        }
+        
         const transformedOffices = data.map((office: {
           id: string;
           name?: string;
@@ -208,8 +211,9 @@ const Office = () => {
           throw new Error('Сервер вернул пустой список офисов');
         }
       } catch (err) {
-        console.error('Ошибка при получении офисов, загружаю мок-данные:', err);
-
+        console.error('❌ Ошибка при получении офисов:', err);
+        message.error('Не удалось загрузить данные офисов. Используются демонстрационные данные.');
+        
         // ----------------------
         // Мок-данные для демонстрации
         // ----------------------

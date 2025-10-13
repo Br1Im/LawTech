@@ -30,10 +30,41 @@ export const officeAPI = {
   /**
    * Получить список всех офисов
    */
-  getAll: async (): Promise<Office[]> => {
-    const response = await apiInstance.get('/offices');
-    // Обрабатываем ответ от бэкенда, который может быть в формате {success: true, data: []}
-    return Array.isArray(response.data) ? response.data : (response.data.data || []);
+  getAll: async (period: string = 'day'): Promise<Office[]> => {
+    try {
+      // Используем правильный путь к API с параметром period
+      const response = await apiInstance.get('/offices', {
+        params: { period }
+      });
+      
+      // Обрабатываем ответ от бэкенда, который должен быть в формате {success: true, data: []}
+      if (response.data && response.data.success === false) {
+        throw new Error(response.data.message || 'Ошибка получения данных');
+      }
+      
+      // Проверяем формат ответа и извлекаем данные
+      let officesData;
+      if (Array.isArray(response.data)) {
+        officesData = response.data;
+      } else if (response.data && response.data.success && Array.isArray(response.data.data)) {
+        officesData = response.data.data;
+      } else if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+        officesData = response.data.data;
+      } else {
+        officesData = [];
+        console.warn('Сервер вернул данные в неожиданном формате');
+      }
+      
+      // Проверяем, не пустой ли список офисов
+      if (!officesData || officesData.length === 0) {
+        console.warn('Сервер вернул пустой список офисов');
+      }
+      
+      return officesData;
+    } catch (error) {
+      console.error('Ошибка при получении списка офисов:', error);
+      throw new Error('Ошибка загрузки офисов');
+    }
   },
 
   /**

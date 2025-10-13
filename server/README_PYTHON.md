@@ -25,14 +25,11 @@ pip install -r requirements.txt
 
 ### Запуск сервера
 ```bash
-# Вариант 1: Через main.py
-python main.py
-
-# Вариант 2: Через start.py (с автоперезагрузкой)
+# Вариант 1: Через start.py (с автоперезагрузкой)
 python start.py
 
-# Вариант 3: Напрямую через uvicorn
-uvicorn main:app --host 0.0.0.0 --port 3001 --reload
+# Вариант 2: Напрямую через uvicorn
+uvicorn start:app --host 0.0.0.0 --port 3001 --reload
 ```
 
 Сервер будет доступен по адресу: http://localhost:3001

@@ -42,9 +42,6 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Подключаем маршруты офисов
-router.use('/offices', authenticateToken, officeRoutes);
-
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
@@ -58,18 +55,21 @@ router.post('/chat', authenticateToken, legalController.handleChatRequest);
 router.post('/upload', authenticateToken, upload.single('file'), fileController.handleFileUpload);
 
 // Роуты для офисов
-router.get('/offices', authMiddleware, officeController.getAllOffices);
-router.get('/offices/revenue', authMiddleware, officeController.getOfficesRevenue);
-router.get('/offices/:officeId', authMiddleware, officeController.getOfficeById);
-router.post('/offices', authMiddleware, officeController.createOffice);
-router.put('/offices/:officeId', authMiddleware, officeController.updateOffice);
-router.delete('/offices/:officeId', authMiddleware, officeController.deleteOffice);
+router.get('/offices', authenticateToken, officeController.getAllOffices);
+router.get('/offices/revenue', authenticateToken, officeController.getOfficesRevenue);
+router.get('/offices/:officeId', authenticateToken, officeController.getOfficeById);
+router.post('/offices', authenticateToken, officeController.createOffice);
+router.put('/offices/:officeId', authenticateToken, officeController.updateOffice);
+router.delete('/offices/:officeId', authenticateToken, officeController.deleteOffice);
+
+// Подключаем дополнительные маршруты офисов
+router.use('/offices', authenticateToken, officeRoutes);
 
 // Роуты для чата
-router.get('/offices/:officeId/messages', authMiddleware, chatController.getOfficeMessages);
-router.post('/offices/:officeId/messages', authMiddleware, chatController.sendMessage);
-router.put('/messages/:messageId/read', authMiddleware, chatController.markMessageAsRead);
-router.delete('/messages/:messageId', authMiddleware, chatController.deleteMessage);
+router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
+router.post('/offices/:officeId/messages', authenticateToken, chatController.sendMessage);
+router.put('/messages/:messageId/read', authenticateToken, chatController.markMessageAsRead);
+router.delete('/messages/:messageId', authenticateToken, chatController.deleteMessage);
 
 // Роуты для документов офиса
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
@@ -181,8 +181,5 @@ router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsCont
 router.get('/office/:officeId/contracts', authenticateToken, legalDocumentsController.getOfficeContracts);
 router.post('/contracts', authenticateToken, legalDocumentsController.createContract);
 router.get('/contracts/:id', authenticateToken, legalDocumentsController.getContractById);
-
-// Маршруты для офисов
-router.use('/offices', authenticateToken, officeRoutes);
 
 module.exports = router;

@@ -23,6 +23,7 @@ services:
       - PORT=3001
       - FAISS_SERVICE_URL=http://faiss-service:5000
       - DB_HOST=db
+      - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=password
       - DB_NAME=lawtech
