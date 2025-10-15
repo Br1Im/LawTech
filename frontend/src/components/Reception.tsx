@@ -288,7 +288,6 @@ const Reception: React.FC = () => {
 
   return (
     <div className="reception-container">
-      {/* Header removed as per new design */}
       
       <div className="chat-container">
         <div className="office-list">

@@ -387,7 +387,6 @@ const Materials: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно добавления дела */}
       {showModal && (
         <div className="modal">
           <div className="modal-content">
@@ -487,7 +486,6 @@ const Materials: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно технического задания */}
       {showTechTaskModal && (
         <div className="modal">
           <div className="modal-content">
@@ -545,7 +543,6 @@ const Materials: React.FC = () => {
         </div>
       )}
 
-      {/* Модальное окно с деталями дела */}
       {showCaseDetailsModal && selectedCase && (
         <div className="modal">
           <div className="modal-content">

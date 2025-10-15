@@ -1032,7 +1032,6 @@ const Office = () => {
         )}
       </div>
 
-      {/* Модальное окно редактирования офиса */}
       <Modal
         title="Редактирование офиса"
         open={isEditModalVisible}
@@ -1065,7 +1064,6 @@ const Office = () => {
             <Input placeholder="Введите название офиса" />
           </Form.Item>
           
-          {/* Подпункт ИП */}
           <div style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d9d9d9', borderRadius: '6px', backgroundColor: '#fafafa' }}>
             <h4 style={{ margin: '0 0 16px 0', color: '#1890ff' }}>ИП (Индивидуальный предприниматель)</h4>
             <Form.Item
@@ -1126,7 +1124,6 @@ const Office = () => {
         </Form>
       </Modal>
 
-      {/* Модальное окно добавления офиса */}
       <Modal
         title="Добавление нового офиса"
         open={isAddModalVisible}
@@ -1160,7 +1157,6 @@ const Office = () => {
             <Input placeholder="Введите название офиса" />
           </Form.Item>
           
-          {/* Блок полей для ИП */}
           <div style={{ border: '1px solid #e8e8e8', padding: '16px', marginBottom: '16px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
             <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#1890ff' }}>ИП</div>
             <Form.Item
@@ -1220,7 +1216,6 @@ const Office = () => {
         </Form>
       </Modal>
       
-      {/* Модальное окно с информацией об офисе */}
       <Modal
         title="Информация об офисе"
         open={showOfficeInfoModal}
@@ -1307,7 +1302,6 @@ const Office = () => {
         )}
       </Modal>
       
-      {/* Модальное окно с полной таблицей сотрудников */}
       {selectedOffice && (
         <div className={`employee-modal-overlay ${showEmployeeModal ? 'active' : ''}`}>
           <div className="modal-content">
@@ -1345,7 +1339,6 @@ const Office = () => {
         </div>
       )}
 
-      {/* Модальное окно с подробной информацией о приходах и выручке */}
       {selectedOffice && (
         <div className={`employee-modal-overlay ${showRevenueModal ? 'active' : ''}`}>
           <div className="modal-content">
@@ -1370,7 +1363,6 @@ const Office = () => {
         </div>
       )}
 
-      {/* Модальное окно с подробной информацией о графике выручки */}
       {selectedOffice && (
         <div className={`employee-modal-overlay ${showBarChartModal ? 'active' : ''}`}>
           <div className="modal-content">
@@ -1398,7 +1390,6 @@ const Office = () => {
         </div>
       )}
 
-      {/* Модальное окно с подробной информацией о круговой диаграмме */}
       {selectedOffice && (
         <div className={`employee-modal-overlay ${showPieChartModal ? 'active' : ''}`}>
           <div className="modal-content">

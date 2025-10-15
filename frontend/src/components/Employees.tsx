@@ -85,14 +85,12 @@ const PieChart = ({ contracts, consultations }: { contracts: number, consultatio
       <svg width="200" height="200" viewBox="0 0 200 200">
         {total > 0 ? (
           <>
-            {/* Заключённые договора (зелёный) */}
             <path
               d={`M ${centerX} ${centerY} L ${centerX} ${centerY - radius} A ${radius} ${radius} 0 ${contractsLargeArc} 1 ${contractsEnd.x} ${contractsEnd.y} Z`}
               fill="#4CAF50"
               stroke="white"
               strokeWidth="2"
             />
-            {/* Консультации (красный) */}
             <path
               d={`M ${centerX} ${centerY} L ${contractsEnd.x} ${contractsEnd.y} A ${radius} ${radius} 0 ${consultationsLargeArc} 1 ${consultationsEnd.x} ${consultationsEnd.y} Z`}
               fill="#F44336"

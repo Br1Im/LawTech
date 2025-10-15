@@ -71,7 +71,6 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
       </div>
       <ResponsiveContainer width="95%" height={280}>
         <AreaChart data={data} margin={{ top: 15, right: 25, left: 25, bottom: 15 }}>
-          {/* Определение градиента */}
           <defs>
             <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.3} />
@@ -113,7 +112,6 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
           />
           {filter === "daily" ? (
             <>
-              {/* Кемерово */}
               <Area
                 type="monotone"
                 dataKey="Кемерово"
@@ -131,7 +129,6 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
                 dot={{ stroke: "#F2AC34", strokeWidth: 2, r: 5 }}
                 activeDot={{ r: 8 }}
               />
-              {/* Красноярск */}
               <Area
                 type="monotone"
                 dataKey="Красноярск"
@@ -149,7 +146,6 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
                 dot={{ stroke: "#F2AC34", strokeWidth: 2, r: 5 }}
                 activeDot={{ r: 8 }}
               />
-              {/* Новокузнецк */}
               <Area
                 type="monotone"
                 dataKey="Новокузнецк"
@@ -170,7 +166,6 @@ const SalesChart: React.FC<SalesChartProps> = ({ filter, setFilter }) => {
             </>
           ) : (
             <>
-              {/* Для недель и месяцев */}
               <Area
                 type="monotone"
                 dataKey="sales"

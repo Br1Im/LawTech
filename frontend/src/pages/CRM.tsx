@@ -17,7 +17,8 @@ import Calendar from '../components/Calendar';
 import NotificationPanel from '../components/NotificationPanel';
 
 import Sidebar from "../components/ui/Sidebar";
-import MobileTabs from "../components/ui/MobileTabs";
+import MobileSidebar from "../components/ui/MobileSidebar";
+import HamburgerButton from "../components/ui/HamburgerButton";
 
 const { Content } = Layout;
 
@@ -45,6 +46,7 @@ const SRM = () => {
   
   const [activeTab, setActiveTab] = useState<string>(tabParam || "Офис");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(window.innerWidth <= 768);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   );
@@ -87,7 +89,9 @@ const SRM = () => {
   // Определение мобильного вида при изменении размера окна
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
+      const isMobileView = window.innerWidth <= 768;
+      setIsMobile(isMobileView);
+      setIsMobileSidebarOpen(isMobileView);
     };
 
     window.addEventListener('resize', handleResize);
@@ -139,6 +143,10 @@ const SRM = () => {
     setNotifications(prev => 
       prev.map(notification => ({ ...notification, read: true }))
     );
+  };
+
+  const toggleMobileSidebar = () => {
+    setIsMobileSidebarOpen(!isMobileSidebarOpen);
   };
 
   const styles = {
@@ -224,10 +232,21 @@ const SRM = () => {
       </style>
 
       <div style={styles.mainLayout}>
-        <MobileTabs
-          activeTab={activeTab}
-          onTabClick={handleTabClick}
+        {isMobile && (
+          <HamburgerButton
+            isOpen={isMobileSidebarOpen}
+            onClick={toggleMobileSidebar}
+          />
+        )}
+        <MobileSidebar
+          isOpen={isMobileSidebarOpen}
           isMobile={isMobile}
+          onClose={() => setIsMobileSidebarOpen(false)}
+          activeTab={activeTab}
+          onTabClick={(tab) => {
+            handleTabClick(tab);
+            setIsMobileSidebarOpen(false);
+          }}
           user={user ? { ...user } : undefined}
         />
         <Sidebar
@@ -311,8 +330,7 @@ const SRM = () => {
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
           {activeTab === "Записи" && <Appointments />}
-          {activeTab === "Календарь" && <Calendar />
-            /* Календарь загружается здесь */}
+          {activeTab === "Календарь" && <Calendar />}
         </Content>
       </div>
       

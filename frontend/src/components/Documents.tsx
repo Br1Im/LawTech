@@ -281,7 +281,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Ошибка при сохранении изменений');
+          throw new Error(errorData.error || 'Ошибка при сохранениих');
         }
 
         // Обновляем документ в локальном массиве только после успешного сохранения на сервере
@@ -639,7 +639,6 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                 />
               </div>
               
-              {/* Дата заключения */}
               <div className="form-group">
                 <label htmlFor="contractDate">Дата заключения *</label>
                 <input
@@ -744,7 +743,6 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                 )}
               </div>
               
-              {/* Стоимость договора */}
               <div className="form-group">
                 <label htmlFor="contractCost">Стоимость договора *</label>
                 <input

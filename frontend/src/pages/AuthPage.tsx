@@ -174,7 +174,6 @@ const AuthPage = () => {
 
   return (
     <div style={AuthContainer}>
-      {/* Скрытое меню тестовых аккаунтов */}
       <div 
         style={{
           position: 'fixed',
