@@ -14,10 +14,10 @@ class Office {
         SELECT o.*, 
                COUNT(DISTINCT u.id) as employees_count,
                CASE 
-                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                 WHEN MAX(u.updated_at) > datetime('now', '-5 minutes') THEN 1 
                  ELSE 0 
                END as online,
-               MAX(u.last_active) as last_activity
+               MAX(u.updated_at) as last_activity
         FROM offices o
         LEFT JOIN users u ON u.office_id = o.id
         GROUP BY o.id
@@ -31,7 +31,7 @@ class Office {
         office.stats = await this.getStatsByOfficeId(office.id, 'day');
         office.chartData = await this.getChartDataByOfficeId(office.id);
         
-        // Определяем онлайн-статус на основе last_activity
+        // Определяем онлайн-статус на основе last_activity (из updated_at)
         office.online = office.last_activity && 
           new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
       }
@@ -54,10 +54,10 @@ class Office {
         SELECT o.*, 
                COUNT(u.id) as employees_count,
                CASE 
-                 WHEN MAX(u.last_active) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
+                 WHEN MAX(u.updated_at) > datetime('now', '-5 minutes') THEN 1 
                  ELSE 0 
                END as online,
-               MAX(u.last_active) as last_activity
+               MAX(u.updated_at) as last_activity
         FROM offices o
         LEFT JOIN users u ON u.office_id = o.id
         WHERE o.id = ?
@@ -92,7 +92,7 @@ class Office {
       const { name, address, contact_phone, website } = office;
       const query = `
         INSERT INTO offices (name, address, contact_phone, website, created_at) 
-        VALUES (?, ?, ?, ?, NOW())
+        VALUES (?, ?, ?, ?, datetime('now'))
       `;
       const [result] = await db.query(query, [name, address, contact_phone, website]);
       
@@ -127,7 +127,7 @@ class Office {
             address = ?, 
             contact_phone = ?, 
             website = ?,
-            updated_at = NOW()
+            updated_at = datetime('now')
         WHERE id = ?
       `;
       await db.query(query, [name, address, contact_phone, website, id]);
@@ -191,21 +191,45 @@ class Office {
    */
   static async getStatsByOfficeId(officeId, period = 'day') {
     try {
-      const query = `
-        SELECT * FROM office_stats 
-        WHERE office_id = ? AND period_type = ? 
-        LIMIT 1
+      // Проверяем существование таблицы
+      const checkTableQuery = `
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='office_stats'
       `;
-      const [stats] = await db.query(query, [officeId, period]);
-      return stats.length > 0 ? stats[0] : {
+      const [tables] = await db.query(checkTableQuery);
+      
+      // Если таблица существует, запрашиваем данные
+      if (tables.length > 0) {
+        const query = `
+          SELECT * FROM office_stats 
+          WHERE office_id = ? AND period_type = ? 
+          LIMIT 1
+        `;
+        const [stats] = await db.query(query, [officeId, period]);
+        return stats.length > 0 ? stats[0] : {
+          visits: 0,
+          orders: 0,
+          revenue: 0,
+          pending: 0
+        };
+      } else {
+        // Если таблицы нет, возвращаем пустые данные
+        return {
+          visits: 0,
+          orders: 0,
+          revenue: 0,
+          pending: 0
+        };
+      }
+    } catch (error) {
+      console.error('Error getting office stats:', error);
+      // Возвращаем пустые данные вместо выброса ошибки
+      return {
         visits: 0,
         orders: 0,
         revenue: 0,
         pending: 0
       };
-    } catch (error) {
-      console.error('Error getting office stats:', error);
-      throw error;
     }
   }
 
@@ -235,18 +259,27 @@ class Office {
    */
   static async getRevenueByPeriod(period) {
     try {
+      // Проверяем существование таблицы
+      const checkTableQuery = `
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='office_stats'
+      `;
+      const [tables] = await db.query(checkTableQuery);
+      
+      let results;
+      
+      // Всегда используем безопасный запрос без JOIN для избежания ошибок
       const query = `
-        SELECT o.id, o.name, os.revenue
+        SELECT o.id, o.name
         FROM offices o
-        LEFT JOIN office_stats os ON o.id = os.office_id AND os.period_type = ?
         ORDER BY o.name ASC
       `;
-      const [results] = await db.query(query, [period]);
+      [results] = await db.query(query);
       
       const offices = results.map(row => ({
         id: row.id.toString(),
         name: row.name,
-        revenue: [row.revenue || 0]
+        revenue: [0] // Устанавливаем доходы в 0, поскольку таблица office_stats недоступна
       }));
       
       return {

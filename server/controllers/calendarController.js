@@ -32,7 +32,7 @@ const calendarController = {
       const [events] = await db.query(
         `SELECT * FROM calendar_events 
          WHERE office_id = ? 
-         ORDER BY date ASC, time ASC`,
+         ORDER BY start_date ASC`,
         [officeId]
       );
 
@@ -43,7 +43,7 @@ const calendarController = {
       
       // Проверяем наличие таблицы contracts
       const [tables] = await db.query(
-        `SELECT TABLE_NAME as name FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'lawtech' AND TABLE_NAME = 'contracts'`
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='contracts'`
       );
       
       console.log(`📊 Таблица contracts существует: ${tables.length > 0}`);
@@ -53,10 +53,16 @@ const calendarController = {
       if (tables.length > 0) {
         // Запрашиваем договоры для конкретного офиса - используем текстовое сравнение для SQLite
         [contracts] = await db.query(
-          `SELECT id, client_name, contract_number, contract_type, status, contract_date
-           FROM contracts 
-           WHERE office_id = ? AND contract_date IS NOT NULL
-           ORDER BY contract_date ASC`,
+          `SELECT c.id, 
+               COALESCE(cl.first_name || ' ' || cl.last_name, cl.company, 'Неизвестный клиент') as client_name,
+               c.title as contract_number, 
+               'consultation' as contract_type, 
+               c.status, 
+               c.start_date as contract_date
+        FROM contracts c
+        LEFT JOIN clients cl ON c.client_id = cl.id
+        WHERE c.office_id = ? AND c.start_date IS NOT NULL
+        ORDER BY c.start_date ASC`,
           [officeId]
         );
         
@@ -67,25 +73,18 @@ const calendarController = {
 
       // Преобразуем договоры в формат для фронтенда
       const contractEvents = contracts.map(contract => {
-        // Преобразуем формат даты из "YYYY-MM-DD" в "DD.MM.YYYY" если необходимо
-        let formattedDate = contract.contract_date;
-        if (contract.contract_date && contract.contract_date.includes('-')) {
-          const [year, month, day] = contract.contract_date.split('-');
-          formattedDate = `${day}.${month}.${year}`;
-        }
+        // Используем дату договора как start_date
+        const startDate = contract.contract_date;
         
         return {
           id: `contract-${contract.id}`,
           title: `${contract.contract_type}: ${contract.client_name}`,
           description: `Договор №${contract.contract_number}, статус: ${contract.status}`,
-          date: formattedDate,
-          time: '',
-          type: 'contract',
-          priority: 'medium',
-          participants: [],
-          location: '',
-          createdBy: 'system',
-          officeId: officeId.toString(),
+          start_date: startDate,
+          end_date: null,
+          event_type: 'contract',
+          office_id: parseInt(officeId),
+          user_id: null,
           contract_id: contract.id,
           contract_number: contract.contract_number,
           status: contract.status
@@ -118,21 +117,18 @@ const calendarController = {
       const {
         title,
         description,
-        date,
-        time,
-        type,
-        priority,
-        participants,
-        location,
+        start_date,
+        end_date,
+        event_type,
         officeId
       } = req.body;
       const userId = req.user.id;
 
       // Проверяем обязательные поля
-      if (!title || !date || !time || !type || !priority) {
+      if (!title || !start_date || !event_type) {
         return res.status(400).json({
           success: false,
-          message: 'Название, дата, время, тип и приоритет обязательны'
+          message: 'Название, дата начала и тип события обязательны'
         });
       }
 
@@ -151,17 +147,14 @@ const calendarController = {
 
       const [result] = await db.query(
         `INSERT INTO calendar_events 
-         (title, description, date, time, type, priority, participants, location, created_by, office_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+         (title, description, start_date, end_date, event_type, user_id, office_id, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
         [
           title,
           description || null,
-          date,
-          time,
-          type,
-          priority,
-          participants || null,
-          location || null,
+          start_date,
+          end_date || null,
+          event_type,
           userId,
           officeId
         ]
@@ -194,12 +187,9 @@ const calendarController = {
       const {
         title,
         description,
-        date,
-        time,
-        type,
-        priority,
-        participants,
-        location
+        start_date,
+        end_date,
+        event_type
       } = req.body;
       const userId = req.user.id;
 
@@ -221,10 +211,9 @@ const calendarController = {
 
       await db.query(
         `UPDATE calendar_events 
-         SET title = ?, description = ?, date = ?, time = ?, type = ?, 
-             priority = ?, participants = ?, location = ?, updated_at = CURRENT_TIMESTAMP 
+         SET title = ?, description = ?, start_date = ?, end_date = ?, event_type = ?
          WHERE id = ?`,
-        [title, description, date, time, type, priority, participants, location, id]
+        [title, description, start_date, end_date, event_type, id]
       );
 
       // Получаем обновленное событие
@@ -308,17 +297,17 @@ const calendarController = {
       let params = [officeId];
 
       if (startDate && endDate) {
-        query += ` AND date BETWEEN ? AND ?`;
+        query += ` AND start_date BETWEEN ? AND ?`;
         params.push(startDate, endDate);
       } else if (startDate) {
-        query += ` AND date >= ?`;
+        query += ` AND start_date >= ?`;
         params.push(startDate);
       } else if (endDate) {
-        query += ` AND date <= ?`;
+        query += ` AND start_date <= ?`;
         params.push(endDate);
       }
 
-      query += ` ORDER BY date ASC, time ASC`;
+      query += ` ORDER BY start_date ASC`;
 
       const [events] = await db.query(query, params);
 

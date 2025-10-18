@@ -59,7 +59,7 @@ const checkAndCreateDatabaseFields = async () => {
     
     // Проверяем существование таблицы users
     const [userTableExists] = await db.query(
-      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
     );
     
     if (userTableExists.length === 0) {
@@ -80,7 +80,7 @@ const checkAndCreateDatabaseFields = async () => {
     
     // Проверяем существование таблицы offices
     const [officeTableExists] = await db.query(
-      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'offices'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='offices'"
     );
     
     if (officeTableExists.length === 0) {
@@ -103,7 +103,7 @@ const checkAndCreateDatabaseFields = async () => {
     // Проверяем наличие колонки role в таблице users
     try {
       const [userColumns] = await db.query(
-        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role'"
+        "SELECT name FROM pragma_table_info('users') WHERE name = 'role'"
       );
       console.log('📋 Проверка колонки role в таблице users...');
       
@@ -124,7 +124,7 @@ const checkAndCreateDatabaseFields = async () => {
     
     // Проверяем существование таблицы calendar_events
     const [calendarTableExists] = await db.query(
-      "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'calendar_events'"
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
     );
     
     if (calendarTableExists.length === 0) {

@@ -196,12 +196,28 @@ exports.getOfficeContracts = async (req, res) => {
       return res.status(400).json({ error: 'Office ID is required' });
     }
     
+    // Проверяем существование таблицы contracts
+    const [tables] = await db.query(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='contracts'
+    `);
+    
+    if (tables.length === 0) {
+      // Если таблица не существует, возвращаем пустой массив
+      return res.json({ contracts: [] });
+    }
+    
     const [contracts] = await db.query(`
       SELECT 
         c.*,
-        u.username as created_by_name
+        cl.first_name,
+        cl.last_name,
+        cl.email,
+        cl.phone,
+        cl.company,
+        (cl.first_name || ' ' || cl.last_name) as client_name
       FROM contracts c
-      LEFT JOIN users u ON c.created_by = u.id
+      LEFT JOIN clients cl ON c.client_id = cl.id
       WHERE c.office_id = ?
       ORDER BY c.created_at DESC
     `, [officeId]);
@@ -215,16 +231,22 @@ exports.getOfficeContracts = async (req, res) => {
 
 /**
  * Создать новый договор
+ * При создании договора автоматически создается клиент
  */
 exports.createContract = async (req, res) => {
   try {
-    const { 
-      client_name, 
+    const {
+      client_name,
+      client_email,
+      client_phone,
+      client_address,
+      client_company,
       contract_type, 
       subject, 
       amount, 
       status = 'active',
-      contract_date 
+      start_date,
+      end_date
     } = req.body;
     
     const userId = req.user?.id;
@@ -237,54 +259,93 @@ exports.createContract = async (req, res) => {
     if (!client_name || !contract_type || !amount) {
       return res.status(400).json({ error: 'Client name, contract type, and amount are required' });
     }
+
+    // Разбираем имя клиента на имя и фамилию
+    const nameParts = client_name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+    
+    // Создаем клиента автоматически
+    let clientId;
+    try {
+      const clientResult = await db.query(`
+        INSERT INTO clients (
+          office_id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          address,
+          company,
+          notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        officeId,
+        firstName,
+        lastName,
+        client_email || null,
+        client_phone || null,
+        client_address || null,
+        client_company || null,
+        `Клиент создан автоматически при создании договора`
+      ]);
+     
+     clientId = clientResult[0].insertId;
+   } catch (clientError) {
+     console.error('Error creating client:', clientError);
+     throw new Error(`Failed to create client: ${clientError.message}`);
+   }
     
     // Генерируем уникальный номер договора
     const contractNumber = `DOG-${Date.now()}`;
     
-    const [result] = await db.query(`
+    // Создаем договор с привязкой к клиенту
+    const contractResult = await db.query(`
       INSERT INTO contracts (
         office_id, 
-        created_by, 
-        client_name, 
-        contract_number, 
-        contract_type, 
-        subject, 
+        client_id,
+        title, 
+        description, 
         amount, 
         status, 
-        contract_date,
-        created_at,
-        updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        start_date,
+        end_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       officeId,
-      userId,
-      client_name,
-      contractNumber,
-      contract_type,
-      subject,
+      clientId,
+      `${contract_type} - ${client_name}`,
+      subject || `Договор ${contract_type}`,
       amount,
       status,
-      contract_date
+      start_date || new Date().toISOString().split('T')[0],
+      end_date || null
     ]);
     
     // Обновляем финансы офиса
     await updateOfficeRevenue(officeId, amount);
     
-    // Получаем созданный договор с информацией об авторе
+    // Получаем созданный договор с информацией о клиенте
     const [contracts] = await db.query(`
       SELECT 
         c.*,
-        u.username as created_by_name
+        cl.first_name,
+        cl.last_name,
+        cl.email,
+        cl.phone,
+        cl.company,
+        (cl.first_name || ' ' || cl.last_name) as client_name
       FROM contracts c
-      LEFT JOIN users u ON c.created_by = u.id
+      LEFT JOIN clients cl ON c.client_id = cl.id
       WHERE c.id = ?
-    `, [result.insertId]);
+    `, [contractResult.insertId]);
     
     const contract = contracts[0];
     
     res.status(201).json({ 
-      message: 'Contract created successfully',
-      contract: contract
+      message: 'Contract and client created successfully',
+      contract: contract,
+      client_id: clientId
     });
   } catch (error) {
     console.error('Error creating contract:', error);
@@ -334,7 +395,7 @@ exports.getContractById = async (req, res) => {
     const [contracts] = await db.query(`
       SELECT 
         c.*,
-        u.username as created_by_name
+        (u.first_name || ' ' || u.last_name) as created_by_name
       FROM contracts c
       LEFT JOIN users u ON c.created_by = u.id
       WHERE c.id = ?

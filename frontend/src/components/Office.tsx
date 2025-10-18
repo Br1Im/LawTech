@@ -925,7 +925,7 @@ const Office = () => {
                   </div>
                   <StatCard
                     title="Приходы"
-                    value={"10"}
+                    value={"0"}
                     icon={<FaUsers />}
                     colorIcon="#8280FF"
                     percentage={stats.visitsChange.percentage}
@@ -934,7 +934,7 @@ const Office = () => {
                   />
                   <StatCard
                     title="Общая касса"
-                    value={"475 000 ₽"}
+                    value={"0 ₽"}
                     icon={<FaChartLine />}
                     percentage={stats.revenueChange.percentage}
                     colorIcon="#4AD991"

@@ -570,7 +570,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
               {filteredDocuments.map((doc) => (
                 <tr 
                   key={doc.id}
-                  className={contractId && doc.id.toString() === contractId ? 'selected-contract' : ''}
+                  className={contractId && doc.id && doc.id.toString() === contractId ? 'selected-contract' : ''}
                 >
                   <td>{doc.contractNumber || ''}</td>
                   <td>{doc.title}</td>

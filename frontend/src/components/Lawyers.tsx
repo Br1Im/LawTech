@@ -168,7 +168,7 @@ const Lawyers = () => {
             onChange={(e) => setSelectedRole(e.target.value)}
           >
             {roles.map((role, index) => (
-              <option key={index} value={role}>
+              <option key={`role-${role}-${index}`} value={role}>
                 {role}
               </option>
             ))}
@@ -181,7 +181,7 @@ const Lawyers = () => {
             onChange={(e) => setSelectedOffice(e.target.value)}
           >
             {offices.map((office, index) => (
-              <option key={index} value={office}>
+              <option key={`office-${office}-${index}`} value={office}>
                 {office}
               </option>
             ))}
@@ -218,4 +218,4 @@ const Lawyers = () => {
   );
 };
 
-export default Lawyers; 
+export default Lawyers;

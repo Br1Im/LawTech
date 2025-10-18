@@ -168,7 +168,7 @@ const Experts: React.FC = () => {
                       <h4>Загруженные документы:</h4>
                       <ul>
                         {contract.expertDocuments.map((doc, index) => (
-                          <li key={index}>
+                          <li key={`${contract.id}-doc-${index}-${doc.name}`}>
                             <a href={doc.url} download>
                               {doc.name}
                             </a>

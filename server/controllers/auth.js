@@ -36,9 +36,9 @@ const register = async (req, res) => {
 
         // Создаем нового пользователя в БД
         const [result] = await db.query(`
-            INSERT INTO users (username, email, password, office_id, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-        `, [name, email, hashedPassword, finalOfficeId, userType]);
+            INSERT INTO users (first_name, last_name, email, password, office_id, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+        `, [name, '', email, hashedPassword, finalOfficeId, userType]);
 
         const newUserId = result.insertId;
 
@@ -58,7 +58,8 @@ const register = async (req, res) => {
         // Отправляем токен и данные пользователя (без пароля)
         const newUser = {
             id: newUserId,
-            username: name,
+            first_name: name,
+            last_name: '',
             email: email,
             role: userType,
             office_id: finalOfficeId
@@ -91,8 +92,8 @@ const login = async (req, res) => {
 
         // Поиск пользователя в базе данных
         const [users] = await db.query(
-            'SELECT id, username, email, password, role, office_id FROM users WHERE email = ? OR username = ?', 
-            [email, email]
+            'SELECT id, first_name, last_name, email, password, role, office_id FROM users WHERE email = ?', 
+            [email]
         );
 
         if (users.length === 0) {
@@ -152,7 +153,7 @@ const getCurrentUser = async (req, res) => {
 
         // Находим полную информацию о пользователе
         const [users] = await db.query(
-            'SELECT id, username, email, role, office_id, created_at FROM users WHERE id = ?', 
+            'SELECT id, first_name, last_name, email, role, office_id, created_at FROM users WHERE id = ?', 
             [req.user.id]
         );
         

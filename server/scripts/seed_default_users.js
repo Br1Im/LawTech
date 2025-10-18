@@ -41,17 +41,18 @@ async function createUserIfNotExists(userData) {
     
     // Создаем пользователя
     const [result] = await db.query(`
-      INSERT INTO users (username, email, password, office_id, role)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO users (first_name, last_name, email, password, office_id, role)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
-      userData.username,
+      userData.first_name,
+      userData.last_name,
       userData.email,
       hashedPassword,
       officeId,
       userData.role
     ]);
-    
-    console.log(`✅ Создан пользователь ${userData.username} (${userData.email}) с ролью ${userData.role}`);
+
+    console.log(`✅ Создан пользователь ${userData.first_name} ${userData.last_name} (${userData.email}) с ролью ${userData.role}`);
     return result.insertId;
   } catch (error) {
     console.error('❌ Ошибка при создании пользователя:', error);
@@ -69,7 +70,8 @@ async function seedDefaultUsers() {
     // Массив тестовых пользователей
     const defaultUsers = [
       {
-        username: 'Анна Петрова',
+        first_name: 'Анна',
+        last_name: 'Петрова',
         email: 'lawyer@lawtech.com',
         password: 'lawyer123',
         role: 'lawyer',
@@ -81,7 +83,8 @@ async function seedDefaultUsers() {
         }
       },
       {
-        username: 'Анна Юристова',
+        first_name: 'Анна',
+        last_name: 'Юристова',
         email: 'lawyer1@pravoved.ru',
         password: 'lawyer123',
         role: 'lawyer',
@@ -93,19 +96,22 @@ async function seedDefaultUsers() {
         }
       },
       {
-        username: 'Михаил Сидоров',
+        first_name: 'Михаил',
+        last_name: 'Сидоров',
         email: 'expert@lawtech.com',
         password: 'expert123',
         role: 'expert'
       },
       {
-        username: 'Иван Админов',
+        first_name: 'Иван',
+        last_name: 'Админов',
         email: 'admin@lawtech.ru',
         password: 'admin123',
         role: 'admin'
       },
       {
-        username: 'Петр Директоров',
+        first_name: 'Петр',
+        last_name: 'Директоров',
         email: 'director@pravoved.ru',
         password: 'director123',
         role: 'director'

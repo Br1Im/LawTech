@@ -273,7 +273,7 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
     <div className="simple-qr-placeholder">
       <div className="qr-grid">
         {Array(9).fill(0).map((_, i) => (
-          <div key={i} className="qr-block"></div>
+          <div key={`qr-block-${i}`} className="qr-block"></div>
         ))}
       </div>
       <div className="qr-text">Ошибка загрузки QR-кода</div>
@@ -324,19 +324,19 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
 const Employees = () => {
   // Локальные демо-данные для тестирования
   const localEmployees: Employee[] = [
-    { id: 1, name: "Иван Иванов", position: "Юрист", office: "Кемерово", role: 'lawyer' },
-    { id: 2, name: "Петр Петров", position: "Юрист", office: "Красноярск", role: 'lawyer' },
-    { id: 3, name: "Алексей Смирнов", position: "Менеджер", office: "Новокузнецк", role: 'admin' },
-    { id: 4, name: "Елена Кузнецова", position: "Юрист", office: "Кемерово", role: 'lawyer' },
-    { id: 5, name: "Дмитрий Морозов", position: "Юрист", office: "Красноярск", role: 'lawyer' },
-    { id: 6, name: "Мария Васильева", position: "Эксперт", office: "Новокузнецк", role: 'expert' },
-    { id: 7, name: "Роман Гордеев", position: "Эксперт", office: "Красноярск", role: 'expert' },
-    { id: 8, name: "Юлия Чистякова", position: "Юрист", office: "Кемерово", role: 'lawyer' },
-    { id: 9, name: "Андрей Менеджеров", position: "Менеджер", office: "Кемерово", role: 'admin' },
-    { id: 10, name: "Светлана Представителева", position: "Представитель", office: "Красноярск", role: 'admin' },
-    { id: 11, name: "Михаил Юристов", position: "Юрист", office: "Новокузнецк", role: 'lawyer' },
-    { id: 12, name: "Ольга Экспертова", position: "Эксперт", office: "Кемерово", role: 'expert' },
-    { id: 13, name: "Владимир ОККов", position: "ОКК", office: "Красноярск", role: 'admin' }
+    { id: 1, name: "Иван Иванов", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
+    { id: 2, name: "Петр Петров", position: "Юрист", office: "Красноярск", role: 'lawyer', status: 'active' },
+    { id: 3, name: "Алексей Смирнов", position: "Менеджер", office: "Новокузнецк", role: 'admin', status: 'active' },
+    { id: 4, name: "Елена Кузнецова", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
+    { id: 5, name: "Дмитрий Морозов", position: "Юрист", office: "Красноярск", role: 'lawyer', status: 'active' },
+    { id: 6, name: "Мария Васильева", position: "Эксперт", office: "Новокузнецк", role: 'expert', status: 'active' },
+    { id: 7, name: "Роман Гордеев", position: "Эксперт", office: "Красноярск", role: 'expert', status: 'active' },
+    { id: 8, name: "Юлия Чистякова", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
+    { id: 9, name: "Андрей Менеджеров", position: "Менеджер", office: "Кемерово", role: 'admin', status: 'active' },
+    { id: 10, name: "Светлана Представителева", position: "Представитель", office: "Красноярск", role: 'admin', status: 'active' },
+    { id: 11, name: "Михаил Юристов", position: "Юрист", office: "Новокузнецк", role: 'lawyer', status: 'active' },
+    { id: 12, name: "Ольга Экспертова", position: "Эксперт", office: "Кемерово", role: 'expert', status: 'active' },
+    { id: 13, name: "Владимир ОККов", position: "ОКК", office: "Красноярск", role: 'admin', status: 'active' }
   ];
 
 
@@ -582,7 +582,7 @@ const Employees = () => {
                 onChange={(e) => setSelectedRole(e.target.value)}
               >
                 {roles.map((role, index) => (
-                  <option key={index} value={role}>
+                  <option key={`role-${role}-${index}`} value={role}>
                     {role}
                   </option>
                 ))}
@@ -595,7 +595,7 @@ const Employees = () => {
                 onChange={(e) => setSelectedOffice(e.target.value)}
               >
                 {offices.map((office, index) => (
-                  <option key={index} value={office}>
+                  <option key={`office-${office}-${index}`} value={office}>
                     {office}
                   </option>
                 ))}

@@ -188,7 +188,9 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       padding: "12px 20px",
       cursor: "pointer",
       transition: "background-color 0.2s ease",
-      borderLeft: "3px solid transparent",
+      borderLeftWidth: "3px",
+      borderLeftStyle: "solid",
+      borderLeftColor: "transparent",
       color: "var(--color-text)",
     } satisfies React.CSSProperties,
     menuItemActive: {

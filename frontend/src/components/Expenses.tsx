@@ -510,7 +510,7 @@ const Expenses: React.FC = () => {
                             <div className="expense-edit-container">
                               <ul className="expense-details-list editable">
                                 {editedDetails.map((detail, i) => (
-                                  <li key={i}>
+                                  <li key={`edited-detail-${i}-${detail.item || 'empty'}`}>
                                     <input
                                       type="text"
                                       value={detail.item}
@@ -563,7 +563,7 @@ const Expenses: React.FC = () => {
                           ) : (
                             <ul className="expense-details-list">
                               {expense.details.map((detail, i) => (
-                                <li key={i}>
+                                <li key={`detail-${i}-${detail.item}`}>
                                   <span>{detail.item}</span>
                                   <span>{detail.amount.toLocaleString('ru-RU')} ₽</span>
                                 </li>

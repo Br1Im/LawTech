@@ -47,6 +47,7 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
 
       setLoading(true);
       setError(null);
+      
       try {
         // Получаем токен авторизации
         const token = localStorage.getItem('token');
@@ -61,133 +62,15 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
         if (!officeId) {
           throw new Error('Офис не найден');
         }
-
-        // Пробуем получить данные из API
-        try {
-          // Сначала пробуем получить клиентов напрямую из офиса
-          // Поправленный путь: получаем контракты конкретного офиса
-          const officeResponse = await fetch(buildApiUrl(`/office/${officeId}/contracts`), {
-             headers: {
-               Authorization: `Bearer ${token}`
-             }
-           });
-
-          // Проверяем, что ответ успешен и содержит JSON
-          const isJson = officeResponse.headers.get('content-type')?.includes('application/json');
-
-          if (officeResponse.ok && isJson) {
-            const officeData = await officeResponse.json();
-            console.log('Данные офиса получены:', officeData);
-
-            let contractsArray: any[] = [];
-
-            if (Array.isArray(officeData)) {
-              contractsArray = officeData;
-            } else if (officeData.contracts && Array.isArray(officeData.contracts)) {
-              contractsArray = officeData.contracts;
-            }
-
-            if (contractsArray.length > 0) {
-              console.log('Найдены контракты:', contractsArray.length);
-
-              const clientsFromContracts = contractsArray.map((contract: any) => ({
-                   id: contract.id,
-                   clientName: contract.client_name || 'Без имени',
-                   contractNumber: contract.contract_number || contract.contractNumber || `Д-${contract.id}`,
-                   theme: contract.subject || contract.contract_type || 'Не указано',
-                   lawyer: contract.lawyer_name || 'Не назначен',
-                   materials: contract.materials || [],
-                   assignedExpert: contract.assignedExpert || null,
-                   expertDocuments: contract.expertDocuments || [],
-                 }));
-                 
-                 setContracts(clientsFromContracts);
-                 return; // Выходим, так как данные успешно получены
-               } else {
-                 console.log('В данных офиса нет контрактов, пробуем другой метод');
-               }
-          }
-          
-          // Если не удалось получить из офиса, пробуем получить клиентов напрямую
-          const clientsResponse = await fetch(buildApiUrl(`/office/${officeId}/clients`), {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-
-          if (clientsResponse.ok) {
-            const clientsData = await clientsResponse.json();
-            console.log('Данные клиентов получены:', clientsData);
-            setContracts(clientsData);
-            return; // Выходим, так как данные успешно получены
-          }
-          
-          // Если и этот метод не сработал, пробуем получить контракты напрямую
-          const contractsResponse = await fetch(buildApiUrl(`/contracts?office_id=${officeId}`), {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          });
-          
-          if (contractsResponse.ok) {
-            const contractsData = await contractsResponse.json();
-            console.log('Данные контрактов получены:', contractsData);
-            
-            if (Array.isArray(contractsData) && contractsData.length > 0) {
-              // Преобразуем контракты в формат клиентов
-              const clientsFromContracts = contractsData.map(contract => ({
-                id: contract.id,
-                clientName: contract.client_name || 'Без имени',
-                contractNumber: contract.contract_number || contract.contractNumber || `Д-${contract.id}`,
-                theme: contract.subject || contract.contract_type || 'Не указано',
-                lawyer: contract.lawyer_name || 'Не назначен',
-                materials: contract.materials || [],
-                assignedExpert: contract.assignedExpert || null,
-                expertDocuments: contract.expertDocuments || [],
-              }));
-              
-              setContracts(clientsFromContracts);
-              return; // Выходим, так как данные успешно получены
-            }
-          }
-          
-          // Если все методы не сработали, выбрасываем ошибку
-          throw new Error('Не удалось получить данные клиентов');
-          
-        } catch (apiError) {
-          console.error('Ошибка API при получении клиентов:', apiError);
-          throw new Error('Не удалось получить список клиентов');
-        }
+        
+        // Намеренно устанавливаем пустой массив клиентов
+        console.log('Клиенты отключены по запросу пользователя');
+        setContracts([]);
+        
       } catch (err) {
         console.error('Ошибка получения клиентов:', err);
         setError((err as Error).message || 'Не удалось загрузить список клиентов');
-        
-        // Для тестирования используем демо-данные
-        setContracts([
-          {
-            id: 1,
-            clientName: "Петров Алексей Викторович",
-            contractNumber: "Д-001",
-            theme: "Уголовное право",
-            lawyer: "Иван Алексеевич Сидоров",
-            materials: ["Документ 1.pdf", "Документ 2.pdf"],
-            assignedExpert: null,
-            expertDocuments: [],
-          },
-          {
-            id: 2,
-            clientName: "Смирнова Екатерина Сергеевна",
-            contractNumber: "Д-002",
-            theme: "Семейное право",
-            lawyer: "Иван Алексеевич Сидоров",
-            materials: ["Документ 3.pdf"],
-            assignedExpert: null,
-            expertDocuments: [
-              { name: "Анализ ситуации.docx", url: "#" },
-              { name: "Рекомендации.pdf", url: "#" }
-            ],
-          }
-        ]);
+        setContracts([]);
       } finally {
         setLoading(false);
       }
@@ -234,10 +117,10 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
                       <h3>{contract.clientName || 'Клиент без имени'}</h3>
                       <span 
                         className="contract-number"
-                        onClick={() => handleViewDocuments(contract.id)}
+                        onClick={() => handleViewDocuments(contract.id || 0)}
                         style={{ cursor: 'pointer' }}
                       >
-                        {contract.contractNumber || `Договор №${contract.id}`}
+                        {contract.contractNumber || `Договор №${contract.id || 0}`}
                       </span>
                     </div>
                     
@@ -265,7 +148,7 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
                         <h4>Документы от эксперта:</h4>
                         <ul>
                           {contract.expertDocuments.map((doc, index) => (
-                            <li key={index}>
+                            <li key={`${contract.id}-expert-doc-${index}-${doc.name}`}>
                               <a href={doc.url} download>
                                 {doc.name}
                               </a>
@@ -280,13 +163,13 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
                     <div className="client-actions">
                       <button 
                         className="action-btn"
-                        onClick={() => handleContact(contract.id)}
+                        onClick={() => handleContact(contract.id || 0)}
                       >
                         Связаться
                       </button>
                       <button 
                         className="action-btn"
-                        onClick={() => handleViewDocuments(contract.id)}
+                        onClick={() => handleViewDocuments(contract.id || 0)}
                       >
                         Документы
                       </button>

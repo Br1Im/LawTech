@@ -55,7 +55,7 @@ const chatController = {
       
       const messageData = {
         text: text.trim(),
-        sender: req.user.username,
+        sender: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email,
         office_id: officeId,
         user_id: req.user.id
       };
@@ -110,4 +110,4 @@ const chatController = {
   }
 };
 
-module.exports = chatController; 
+module.exports = chatController;

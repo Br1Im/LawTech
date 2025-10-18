@@ -115,9 +115,10 @@ const SRM = () => {
   };
 
   const handleContractSelect = (contractId: number) => {
-    setSelectedContractId(contractId.toString());
+    const safeContractId = contractId || 0;
+    setSelectedContractId(safeContractId.toString());
     // Обновляем URL с новым contractId
-    const newUrl = `/crm?tab=Договоры&contractId=${contractId}`;
+    const newUrl = `/crm?tab=Договоры&contractId=${safeContractId}`;
     window.history.pushState({}, '', newUrl);
   };
 

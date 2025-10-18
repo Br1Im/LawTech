@@ -93,28 +93,20 @@ router.get('/office/:officeId/clients', authenticateToken, async (req, res) => {
     
     // Получаем клиентов из базы данных
     const clients = await db.query(`
-      SELECT c.*, 
-             CASE 
-               WHEN ca.id IS NOT NULL THEN ca.title 
-               ELSE 'Без дела' 
-             END as theme,
-             CASE 
-               WHEN e.id IS NOT NULL THEN CONCAT(e.surname, ' ', e.name) 
-               ELSE 'Не назначен' 
-             END as lawyer
+      SELECT c.*,
+             'Без дела' as theme,
+             'Не назначен' as lawyer
       FROM clients c
-      LEFT JOIN cases ca ON c.id = ca.client_id
-      LEFT JOIN employees e ON ca.employee_id = e.id
       WHERE c.office_id = ?
     `, [officeId]);
     
     // Преобразуем данные в формат, ожидаемый фронтендом
     const formattedClients = clients.map(client => ({
       id: client.id,
-      clientName: `${client.surname} ${client.name}${client.middle_name ? ' ' + client.middle_name : ''}`,
-      contractNumber: `DOG-${client.id.toString().padStart(4, '0')}`,
-      theme: client.theme,
-      lawyer: client.lawyer,
+      clientName: `${client.last_name || ''} ${client.first_name || ''}`.trim(),
+      contractNumber: `DOG-${(client.id || 0).toString().padStart(4, '0')}`,
+      theme: client.theme || 'Без дела',
+      lawyer: client.lawyer || 'Не назначен',
       materials: [], // Пока пустой массив, можно расширить позже
       assignedExpert: null, // Пока null, можно расширить позже
       expertDocuments: [] // Пока пустой массив, можно расширить позже
