@@ -146,6 +146,9 @@ router.post('/calendar-events', authenticateToken, calendarController.createCale
 router.put('/calendar-events/:id', authenticateToken, calendarController.updateCalendarEvent);
 router.delete('/calendar-events/:id', authenticateToken, calendarController.deleteCalendarEvent);
 
+// Роут для получения всех событий календаря для всех офисов пользователя
+router.get('/calendar-events/all', authenticateToken, calendarController.getAllCalendarEvents);
+
 // Роуты для сотрудников офиса - временно отключены
 // router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
 // router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);
@@ -173,5 +176,6 @@ router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsCont
 router.get('/office/:officeId/contracts', authenticateToken, legalDocumentsController.getOfficeContracts);
 router.post('/contracts', authenticateToken, legalDocumentsController.createContract);
 router.get('/contracts/:id', authenticateToken, legalDocumentsController.getContractById);
+router.delete('/contracts/:id', authenticateToken, legalDocumentsController.deleteContract);
 
 module.exports = router;

@@ -20,7 +20,6 @@ import { useNavigate } from "react-router-dom";
 interface MobileSidebarProps {
   activeTab: string;
   onTabClick: (tab: string) => void;
-  isMobile: boolean;
   isOpen: boolean;
   onClose: () => void;
   user?: {
@@ -32,7 +31,6 @@ interface MobileSidebarProps {
 const MobileSidebar: React.FC<MobileSidebarProps> = ({
   activeTab,
   onTabClick,
-  isMobile,
   isOpen,
   onClose,
   user,

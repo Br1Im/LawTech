@@ -54,8 +54,41 @@ class LegalDocument {
       VALUES (?, ?, ?, ?)
     `;
     
-    const result = await db.query(sql, [title, content, category, embedding]);
-    return { id: result.insertId, ...document };
+    try {
+      const result = await db.query(sql, [title, content, category, embedding]);
+      return { id: result.insertId, ...document };
+    } catch (err) {
+      // If any column is missing, attempt to add it and retry
+      if (/(no such column|has no column named)/i.test(err.message)) {
+        console.warn('Missing columns detected in legal_documents table, performing automatic migration...');
+        
+        // Add missing columns one by one
+        const columnsToAdd = [
+          { name: 'category', definition: 'TEXT' },
+          { name: 'embedding', definition: 'TEXT' },
+          { name: 'office_id', definition: 'INTEGER' },
+          { name: 'tags', definition: 'TEXT' },
+          { name: 'file_path', definition: 'TEXT' }
+        ];
+        
+        for (const column of columnsToAdd) {
+          try {
+            await db.query(`ALTER TABLE legal_documents ADD COLUMN ${column.name} ${column.definition}`);
+            console.log(`✅ Added column ${column.name} to legal_documents table`);
+          } catch (addErr) {
+            // Column might already exist, ignore duplicate column errors
+            if (!/(duplicate column|already exists)/i.test(addErr.message)) {
+              console.warn(`Failed to add column ${column.name}:`, addErr.message);
+            }
+          }
+        }
+        
+        // Retry the original query
+        const result = await db.query(sql, [title, content, category, embedding]);
+        return { id: result.insertId, ...document };
+      }
+      throw err;
+    }
   }
   
   static async update(id, document) {

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { buildApiUrl } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import "./Clients.css";
-import { useNavigate } from 'react-router-dom';
 
 interface ExpertDocument {
   id?: number;
@@ -33,7 +31,6 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
   // Removed unused state variable officeId since it was only set but never read
 
   const { isAuthenticated, user } = useAuth();
-  const navigate = useNavigate();
 
   // Получение данных с сервера
   useEffect(() => {

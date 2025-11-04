@@ -322,6 +322,90 @@ const calendarController = {
         message: 'Ошибка при получении событий календаря'
       });
     }
+  },
+
+  // Получить все события календаря для всех офисов пользователя
+  getAllCalendarEvents: async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      console.log(`🔍 Запрос всех календарных событий для пользователя ${userId}`);
+
+      // Получаем все офисы, к которым принадлежит пользователь
+      const [userOffices] = await db.query(
+        'SELECT office_id FROM users WHERE id = ?',
+        [userId]
+      );
+
+      if (!userOffices.length) {
+        console.log(`❌ У пользователя ${userId} нет связанных офисов`);
+        return res.json({ success: true, events: [] });
+      }
+
+      const officeIds = userOffices.map(uo => uo.office_id);
+      console.log(`🏢 Пользователь ${userId} имеет доступ к офисам: ${officeIds.join(', ')}`);
+
+      // Получаем обычные календарные события для всех офисов
+      const [events] = await db.query(
+        `SELECT * FROM calendar_events 
+         WHERE office_id IN (?) 
+         ORDER BY start_date ASC`,
+        [officeIds]
+      );
+
+      console.log(`📅 Найдено обычных событий: ${events.length}`);
+
+      // Получаем договоры для всех офисов
+      const [contracts] = await db.query(
+        `SELECT c.id, 
+               COALESCE(cl.first_name || ' ' || cl.last_name, cl.company, 'Неизвестный клиент') as client_name,
+               c.title as contract_number, 
+               'consultation' as contract_type, 
+               c.status, 
+               c.start_date as contract_date,
+               c.office_id
+        FROM contracts c
+        LEFT JOIN clients cl ON c.client_id = cl.id
+        WHERE c.office_id IN (?) AND c.start_date IS NOT NULL
+        ORDER BY c.start_date ASC`,
+        [officeIds]
+      );
+        
+      console.log(`📝 Найдено договоров с датами: ${contracts.length}`);
+
+      // Преобразуем договоры в формат для фронтенда
+      const contractEvents = contracts.map(contract => ({
+        id: `contract-${contract.id}`,
+        title: `${contract.contract_type}: ${contract.client_name}`,
+        description: `Договор №${contract.contract_number}, статус: ${contract.status}`,
+        start_date: contract.contract_date,
+        end_date: null,
+        event_type: 'contract',
+        office_id: contract.office_id,
+        user_id: null,
+        contract_id: contract.id,
+        contract_number: contract.contract_number,
+        status: contract.status
+      }));
+
+      console.log(`🎯 Создано событий договоров: ${contractEvents.length}`);
+
+      // Объединяем все события
+      const allEvents = [...events, ...contractEvents];
+
+      console.log(`📋 Всего событий для отправки: ${allEvents.length}`);
+
+      res.json({
+        success: true,
+        events: allEvents
+      });
+    } catch (error) {
+      console.error('Error getting all calendar events:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Ошибка при получении всех событий календаря'
+      });
+    }
   }
 };
 

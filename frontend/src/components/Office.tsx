@@ -190,8 +190,8 @@ const Office = () => {
           data: [office.stats?.visits || 0, office.stats?.pending || 0],
           address: office.address,
           employee_count: office.employees?.length || 0,
-          contact_phone: office.contact_phone,
-          website: office.website,
+          contact_phone: office.contact_phone || undefined,
+          website: office.website || undefined,
           chartData: office.chartData,
           // Вычисляем предыдущую выручку на основе данных сотрудников (используем periodRevenue как предыдущий период)
           previousRevenue: office.employees?.reduce((total, employee) => total + (employee.periodRevenue || 0), 0) || 0,
@@ -993,7 +993,7 @@ const Office = () => {
                                 key={employee.id} 
                                 style={{ opacity: index === 0 ? 1 : index === 1 ? 0.8 : index === 2 ? 0.6 : index === 3 ? 0.4 : index === 4 ? 0.2 : 0 }}
                               >
-                                <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                                <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
                                 <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
                                 <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
                               </tr>
@@ -1322,7 +1322,7 @@ const Office = () => {
                   {selectedOffice.employees.length > 0 ? (
                     selectedOffice.employees.map(employee => (
                       <tr key={employee.id}>
-                        <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                        <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''}${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
                         <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
                         <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
                       </tr>
@@ -1402,9 +1402,9 @@ const Office = () => {
                 <PieChartComponent 
                   title="Выручка по юристам" 
                   data={selectedOffice.employees
-                    .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                    .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
                     .map(emp => ({
-                      label: `${emp.surname} ${emp.name.charAt(0)}.${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
+                      label: `${emp.surname} ${emp.name ? emp.name.charAt(0) + '.' : ''} ${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
                       value: emp.totalRevenue14Days || 0
                     }))
                   }
@@ -1423,15 +1423,15 @@ const Office = () => {
                   </thead>
                   <tbody>
                     {selectedOffice.employees
-                      .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                      .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
                       .map(employee => {
                         const totalRevenue = selectedOffice.employees
-                          .filter(emp => emp.position.toLowerCase().includes('юрист') || emp.position.toLowerCase().includes('адвокат'))
+                          .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
                           .reduce((sum, emp) => sum + (emp.totalRevenue14Days || 0), 0);
                         const percentage = totalRevenue > 0 ? ((employee.totalRevenue14Days || 0) / totalRevenue * 100).toFixed(1) : '0';
                         return (
                           <tr key={employee.id}>
-                            <td>{`${employee.surname} ${employee.name.charAt(0)}.${employee.middle_name.charAt(0)}.`}</td>
+                            <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
                             <td>{employee.totalRevenue14Days?.toLocaleString() || '0'} ₽</td>
                             <td>{percentage}%</td>
                           </tr>

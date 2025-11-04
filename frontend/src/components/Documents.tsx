@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import { useNotification } from '../hooks/useNotification';
+import { ToastContainer } from './Toast';
 import './Documents.css';
-import { FiEye, FiEdit2, FiSearch, FiTrash2 } from 'react-icons/fi';
+import { FiEdit2, FiSearch, FiTrash2 } from 'react-icons/fi';
+
+// Функция для перевода статусов на русский язык
+const getStatusText = (status: string) => {
+  const statusMap: { [key: string]: string } = {
+    'draft': 'Черновик',
+    'active': 'Подписан',
+    'completed': 'Завершен',
+    'cancelled': 'Расторгнут',
+    'Подписан': 'Подписан',
+    'Завершен': 'Завершен',
+    'Расторгнут': 'Расторгнут'
+  };
+  return statusMap[status] || status;
+};
 
 interface Document {
   id: number;
@@ -19,6 +35,7 @@ interface DocumentsProps {
 }
 
 const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
+  const { notifications, removeNotification, showSuccess, showError, showWarning } = useNotification();
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -32,7 +49,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [editedDocument, setEditedDocument] = useState<Document | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
   
   // Состояния для нового договора
   const [newDocument, setNewDocument] = useState({
@@ -72,6 +90,33 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     setNewDocType('');
   };
 
+  // Функция автозаполнения тестовыми данными
+  const fillWithTestData = () => {
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+    
+    const formattedToday = today.toISOString().split('T')[0];
+    const formattedNextMonth = nextMonth.toISOString().split('T')[0];
+    
+    setNewDocument({
+      clientName: 'Иванов Иван Иванович',
+      representativeName: 'Петров Петр Петрович',
+      contractDate: formattedToday,
+      subjectType: 'documents',
+      documentTypes: ['Претензия', 'Жалоба в роспотребнадзор'],
+      customSubject: '',
+      contractCost: '150000',
+      paymentDate: formattedToday,
+      paidAmount: '75000',
+      remainingAmount: '75000',
+      remainingPaymentDate: formattedNextMonth,
+      materials: []
+    });
+    
+    setContractTopic('Гражданское право');
+  };
+
   const [showMaterialsUpload, setShowMaterialsUpload] = useState(false);
 
   const { isAuthenticated, user } = useAuth();
@@ -108,7 +153,6 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
         const profileData = await profileResponse.json();
         const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
 
         if (!officeId) {
           throw new Error('Офис не найден');
@@ -229,11 +273,6 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
   };
 
   // Функции для просмотра и редактирования документов
-  const handleViewDocument = (document: Document) => {
-    setSelectedDocument(document);
-    setIsViewModalOpen(true);
-  };
-
   const handleEditDocument = (document: Document) => {
     setSelectedDocument(document);
     setEditedDocument({ ...document });
@@ -291,65 +330,88 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
           )
         );
         
-        alert('Изменения сохранены успешно!');
+        showSuccess('Изменения сохранены успешно!');
         closeEditModal();
       } catch (error) {
         console.error('Ошибка сохранения:', error);
-        alert(`Ошибка при сохранении: ${(error as Error).message}`);
+        showError(`Ошибка при сохранении: ${(error as Error).message}`);
       }
     }
   };
 
-  const deleteDocument = async () => {
-    if (editedDocument) {
-      // Подтверждение удаления
-      const confirmDelete = window.confirm(
-        `Вы уверены, что хотите удалить договор "${editedDocument.title}"?\nЭто действие нельзя отменить.`
-      );
-      
-      if (!confirmDelete) {
-        return;
-      }
-
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-
-        console.log('Удаление документа с ID:', editedDocument.id);
-        
-        const response = await fetch(buildApiUrl(`/legal-documents/${editedDocument.id}`), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('Ответ сервера:', response.status, response.statusText);
-
-        if (!response.ok) {
-          let errorMessage = 'Ошибка при удалении договора';
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (e) {
-            errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-          }
-          throw new Error(errorMessage);
-        }
-
-        // Удаляем документ из локального массива
-        setDocuments(prev => prev.filter(doc => doc.id !== editedDocument.id));
-        
-        alert('Договор успешно удален!');
-        closeEditModal();
-      } catch (error) {
-        console.error('Ошибка удаления:', error);
-        alert(`Ошибка при удалении: ${(error as Error).message}`);
-      }
+  const deleteDocument = async (documentId?: string) => {
+    // Определяем документ для удаления
+    const docToDelete = documentId 
+      ? documents.find(doc => doc.id === documentId)
+      : editedDocument;
+    
+    if (!docToDelete) {
+      showError('Документ не найден');
+      return;
     }
+
+    // Открываем модальное окно подтверждения
+    setDocumentToDelete(docToDelete);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Требуется авторизация');
+      }
+
+      console.log('Удаление документа с ID:', documentToDelete.id);
+      
+      const response = await fetch(buildApiUrl(`/legal-documents/${documentToDelete.id}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Ответ сервера:', response.status, response.statusText);
+
+      if (!response.ok) {
+        let errorMessage = 'Ошибка при удалении договора';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Удаляем документ из локального массива
+      setDocuments(prev => prev.filter(doc => doc.id !== documentToDelete.id));
+      
+      showSuccess('Договор успешно удален!');
+      
+      // Закрываем модальное окно подтверждения
+      setIsDeleteModalOpen(false);
+      setDocumentToDelete(null);
+      
+      // Закрываем модальное окно редактирования если удаляем текущий редактируемый документ
+      if (editedDocument?.id === documentToDelete.id) {
+        closeEditModal();
+      }
+    } catch (error) {
+      console.error('Ошибка удаления:', error);
+      showError(`Ошибка при удалении: ${(error as Error).message}`);
+      // Закрываем модальное окно подтверждения даже при ошибке
+      setIsDeleteModalOpen(false);
+      setDocumentToDelete(null);
+    }
+  };
+
+  const cancelDeleteDocument = () => {
+    setIsDeleteModalOpen(false);
+    setDocumentToDelete(null);
   };
 
   // Обработка изменений в форме
@@ -406,36 +468,45 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     
     // Валидация обязательных полей
     if (!newDocument.clientName.trim()) {
-      alert('Пожалуйста, введите ФИО клиента');
+      showWarning('Пожалуйста, введите ФИО клиента');
       return;
     }
     
     if (!newDocument.subjectType) {
-      alert('Пожалуйста, выберите предмет договора');
+      showWarning('Пожалуйста, выберите предмет договора');
       return;
     }
     
     if (newDocument.subjectType === 'documents' && newDocument.documentTypes.length === 0) {
-      alert('Пожалуйста, выберите хотя бы один тип документа');
+      showWarning('Пожалуйста, выберите хотя бы один тип документа');
       return;
     }
     
     if (newDocument.subjectType === 'representation' && !newDocument.customSubject.trim()) {
-      alert('Пожалуйста, опишите предмет представления интересов');
+      showWarning('Пожалуйста, опишите предмет представления интересов');
       return;
     }
     
     if (!newDocument.contractCost || parseFloat(newDocument.contractCost) <= 0) {
-      alert('Пожалуйста, введите корректную стоимость договора');
+      showWarning('Пожалуйста, введите корректную стоимость договора');
       return;
     }
     
     if (!newDocument.paidAmount || parseFloat(newDocument.paidAmount) < 0) {
-      alert('Пожалуйста, введите корректную сумму внесения');
+      showWarning('Пожалуйста, введите корректную сумму внесения');
       return;
     }
     
     try {
+      // Проверяем аутентификацию пользователя
+      if (!isAuthenticated || !user) {
+        throw new Error('Требуется авторизация');
+      }
+      
+      if (!user.office_id) {
+        throw new Error('Не указан офис пользователя');
+      }
+      
       // Формируем предмет договора в зависимости от выбранного типа
       let contractSubject = '';
       if (newDocument.subjectType === 'documents') {
@@ -476,17 +547,25 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       }
 
       const result = await response.json();
+      console.log('Server response:', result); // Для отладки
       const createdContract = result.contract;
+      
+      // Проверяем, что договор был создан успешно
+      if (!createdContract || !createdContract.id) {
+        throw new Error('Договор не был создан или отсутствует ID');
+      }
       
       // Преобразуем созданный договор в формат Document для UI
       const uiDoc: Document = {
         id: createdContract.id,
-        title: `Договор с ${createdContract.client_name}`,
-        type: createdContract.contract_type,
-        status: createdContract.status,
-        date: new Date(createdContract.created_at).toLocaleDateString('ru-RU'),
-        client: createdContract.client_name,
-        contractNumber: createdContract.contract_number
+        title: `Договор с ${createdContract.client_name || newDocument.clientName}`,
+        type: createdContract.title || selectedTopic,
+        status: createdContract.status || 'active',
+        date: createdContract.created_at 
+          ? new Date(createdContract.created_at).toLocaleDateString('ru-RU')
+          : new Date().toLocaleDateString('ru-RU'),
+        client: createdContract.client_name || newDocument.clientName,
+        contractNumber: createdContract.id ? `DOG-${createdContract.id}` : 'N/A'
       };
       
       // Обновляем список в состоянии
@@ -494,12 +573,12 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       
       // Закрываем модалку и уведомляем
       closeModal();
-      alert('Договор успешно создан!');
+      showSuccess('Договор успешно создан!');
       
     } catch (err) {
       console.error('Ошибка создания договора:', err);
       setError((err as Error).message || 'Не удалось создать договор');
-      alert(`Ошибка при создании договора: ${(err as Error).message}`);
+      showError(`Ошибка при создании договора: ${(err as Error).message}`);
     }
   };
 
@@ -577,7 +656,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                   <td>{doc.type}</td>
                   <td>
                     <span className={`status-badge status-${doc.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {doc.status}
+                      {getStatusText(doc.status)}
                     </span>
                   </td>
                   <td>{doc.date}</td>
@@ -590,6 +669,14 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                       aria-label="Редактировать"
                     >
                       <FiEdit2 size={16} />
+                    </button>
+                    <button 
+                      className="action-btn delete-btn"
+                      onClick={() => deleteDocument(doc.id)}
+                      title="Удалить"
+                      aria-label="Удалить"
+                    >
+                      <FiTrash2 size={16} />
                     </button>
                   </td>
                 </tr>
@@ -609,6 +696,14 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
           <div className="modal-content contract-modal">
             <div className="modal-header">
               <h3>Создание нового договора</h3>
+              <button 
+                type="button" 
+                className="auto-fill-btn" 
+                onClick={fillWithTestData}
+                title="Заполнить тестовыми данными"
+              >
+                📝 Автозаполнение
+              </button>
               <button className="modal-close-btn" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={createNewDocument} className="document-form">
@@ -680,7 +775,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                         onChange={handleInputChange}
                       />
                       <span className="radio-custom"></span>
-                      Документы
+                      <span className="radio-text">Документы</span>
                     </label>
                     <label className="radio-label">
                       <input
@@ -691,7 +786,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                         onChange={handleInputChange}
                       />
                       <span className="radio-custom"></span>
-                      Представление интересов
+                      <span className="radio-text">Представление интересов</span>
                     </label>
                   </div>
                 </div>
@@ -970,7 +1065,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
             </form>
             <div className="form-actions">
               <button type="button" className="cancel-btn" onClick={closeEditModal}>Отмена</button>
-              <button type="button" className="delete-btn" onClick={deleteDocument} title="Удалить договор">
+              <button type="button" className="delete-btn" onClick={() => deleteDocument()} title="Удалить договор">
                 <FiTrash2 size={16} />
                 Удалить
               </button>
@@ -979,6 +1074,47 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
           </div>
         </div>
       )}
+
+      {/* Модальное окно подтверждения удаления */}
+      {isDeleteModalOpen && documentToDelete && (
+        <div className="modal-overlay">
+          <div className="modal delete-modal">
+            <div className="modal-header">
+              <h3>Подтверждение удаления</h3>
+            </div>
+            <div className="modal-content">
+              <div className="delete-warning">
+                <FiTrash2 size={48} className="warning-icon" />
+                <p>Вы уверены, что хотите удалить договор?</p>
+                <div className="document-info">
+                  <strong>"{documentToDelete.title}"</strong>
+                  <br />
+                  <span className="client-name">Клиент: {documentToDelete.client}</span>
+                </div>
+                <p className="warning-text">Это действие нельзя отменить.</p>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="cancel-btn" onClick={cancelDeleteDocument}>
+                Отмена
+              </button>
+              <button type="button" className="delete-btn confirm-delete" onClick={confirmDeleteDocument}>
+                <FiTrash2 size={16} />
+                Удалить договор
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Toast Container для уведомлений */}
+      <ToastContainer 
+        toasts={notifications.map(notification => ({
+          ...notification,
+          onClose: removeNotification
+        }))} 
+        onClose={removeNotification} 
+      />
     </div>
   );
 };

@@ -50,6 +50,7 @@ const SRM = () => {
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
   );
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([
     {
@@ -102,8 +103,35 @@ const SRM = () => {
     document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
   }, [isDarkTheme]);
 
+  // Закрытие меню темы при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isThemeMenuOpen && !target.closest('[data-theme-menu]')) {
+        setIsThemeMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isThemeMenuOpen]);
+
   const toggleTheme = () => {
     setIsDarkTheme(!isDarkTheme);
+  };
+
+  const toggleThemeMenu = () => {
+    setIsThemeMenuOpen(!isThemeMenuOpen);
+  };
+
+  const selectTheme = (theme: 'light' | 'dark' | 'auto') => {
+    if (theme === 'auto') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkTheme(prefersDark);
+    } else {
+      setIsDarkTheme(theme === 'dark');
+    }
+    setIsThemeMenuOpen(false);
   };
 
   const handleTabClick = (tab: string) => {
@@ -183,6 +211,38 @@ const SRM = () => {
       gap: "8px",
       zIndex: 999,
     } satisfies React.CSSProperties,
+    themeMenuContainer: {
+      position: "relative" as const,
+    } satisfies React.CSSProperties,
+    themeMenu: {
+      position: "absolute" as const,
+      top: "50px",
+      right: "0",
+      backgroundColor: "var(--color-bg)",
+      border: "1px solid var(--color-border)",
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+      padding: "8px",
+      minWidth: "180px",
+      zIndex: 1000,
+      opacity: isThemeMenuOpen ? 1 : 0,
+      visibility: isThemeMenuOpen ? "visible" : "hidden",
+      transform: isThemeMenuOpen ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.95)",
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      backdropFilter: "blur(10px)",
+    } satisfies React.CSSProperties,
+    themeOption: {
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      padding: "12px 16px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      transition: "all 0.2s ease",
+      fontSize: "14px",
+      fontWeight: "500",
+      color: "var(--color-text)",
+    } satisfies React.CSSProperties,
     topButton: {
       width: "40px",
       height: "40px",
@@ -259,23 +319,85 @@ const SRM = () => {
           user={user ? { ...user } : undefined}
         />
         <div style={styles.topButtons}>
-          <button
-            onClick={toggleTheme}
-            style={styles.topButton}
-            title={isDarkTheme ? 'Светлая тема' : 'Темная тема'}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
-              e.currentTarget.style.color = 'var(--color-accent)';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
-              e.currentTarget.style.color = 'var(--color-muted)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <BulbOutlined style={{ fontSize: '18px' }} />
-          </button>
+          <div style={styles.themeMenuContainer} data-theme-menu>
+            <button
+              onClick={toggleThemeMenu}
+              style={styles.topButton}
+              title="Выбор темы"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
+                e.currentTarget.style.color = 'var(--color-accent)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--color-bg)';
+                e.currentTarget.style.color = 'var(--color-muted)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <BulbOutlined style={{ fontSize: '18px' }} />
+            </button>
+            
+            <div style={styles.themeMenu}>
+              <div 
+                style={{
+                  ...styles.themeOption,
+                  backgroundColor: !isDarkTheme ? 'var(--color-accent-light)' : 'transparent',
+                  color: !isDarkTheme ? 'var(--color-accent)' : 'var(--color-text)',
+                }}
+                onClick={() => selectTheme('light')}
+                onMouseEnter={(e) => {
+                  if (!(!isDarkTheme)) {
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!(!isDarkTheme)) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>☀️</span>
+                Светлая тема
+              </div>
+              
+              <div 
+                style={{
+                  ...styles.themeOption,
+                  backgroundColor: isDarkTheme ? 'var(--color-accent-light)' : 'transparent',
+                  color: isDarkTheme ? 'var(--color-accent)' : 'var(--color-text)',
+                }}
+                onClick={() => selectTheme('dark')}
+                onMouseEnter={(e) => {
+                  if (!(isDarkTheme)) {
+                    e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!(isDarkTheme)) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>🌙</span>
+                Темная тема
+              </div>
+              
+              <div 
+                style={styles.themeOption}
+                onClick={() => selectTheme('auto')}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>🔄</span>
+                Системная тема
+              </div>
+            </div>
+          </div>
           
           <button
             onClick={handleNotificationClick}

@@ -164,21 +164,16 @@ class Office {
    */
   static async getEmployeesByOfficeId(officeId) {
     try {
-      // Возвращаем пустой массив, так как в текущей схеме нет связи между сотрудниками и офисами
-      // В будущем можно реализовать правильную связь
-      return [];
-      
-      // Оригинальный запрос, который не работает из-за отсутствия колонки office_id
-      // const query = `
-      //   SELECT * FROM employees 
-      //   WHERE office_id = ? 
-      //   ORDER BY surname ASC
-      // `;
-      // const [employees] = await db.query(query, [officeId]);
-      // return employees;
+      const query = `
+        SELECT id, first_name, last_name, email, position, phone, is_active 
+        FROM users 
+        WHERE office_id = ?
+        ORDER BY last_name ASC
+      `;
+      const [employees] = await db.query(query, [officeId]);
+      return employees;
     } catch (error) {
       console.error('Error getting employees:', error);
-      // Возвращаем пустой массив вместо ошибки
       return [];
     }
   }
@@ -198,37 +193,48 @@ class Office {
       `;
       const [tables] = await db.query(checkTableQuery);
       
-      // Если таблица существует, запрашиваем данные
-      if (tables.length > 0) {
-        const query = `
-          SELECT * FROM office_stats 
-          WHERE office_id = ? AND period_type = ? 
-          LIMIT 1
-        `;
-        const [stats] = await db.query(query, [officeId, period]);
-        return stats.length > 0 ? stats[0] : {
-          visits: 0,
-          orders: 0,
-          revenue: 0,
-          pending: 0
-        };
-      } else {
-        // Если таблицы нет, возвращаем пустые данные
+      // Если таблица не существует, создаем её
+      if (tables.length === 0) {
+        const fs = require('fs');
+        const path = require('path');
+        const createTableSQL = fs.readFileSync(
+          path.join(__dirname, '..', 'database', 'create_office_stats.sql'),
+          'utf8'
+        );
+        await db.query(createTableSQL);
+      }
+      
+      // Запрашиваем данные
+      const query = `
+        SELECT * FROM office_stats 
+        WHERE office_id = ? AND period_type = ?
+      `;
+      const [stats] = await db.query(query, [officeId, period]);
+      
+      // Если данных нет, возвращаем пустую статистику
+      if (stats.length === 0) {
         return {
-          visits: 0,
-          orders: 0,
           revenue: 0,
-          pending: 0
+          orders: 0,
+          clients: 0,
+          employees: 0,
+          expenses: 0,
+          documents: 0,
+          visits: 0
         };
       }
+      
+      return stats[0];
     } catch (error) {
       console.error('Error getting office stats:', error);
-      // Возвращаем пустые данные вместо выброса ошибки
       return {
-        visits: 0,
-        orders: 0,
         revenue: 0,
-        pending: 0
+        orders: 0,
+        clients: 0,
+        employees: 0,
+        expenses: 0,
+        documents: 0,
+        visits: 0
       };
     }
   }

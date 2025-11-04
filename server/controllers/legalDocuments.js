@@ -38,27 +38,49 @@ exports.getDocumentById = async (req, res) => {
 
 exports.createDocument = async (req, res) => {
   try {
-    const { title, content, category } = req.body;
-    
+    const { title, content, category, office_id } = req.body;
+
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
     }
+
+    // Проверяем наличие office_id в запросе или в данных пользователя
+    const documentOfficeId = office_id || (req.user && req.user.office_id);
     
-    const embedding = await vectorSearch.generateEmbedding(content);
-    
+    if (!documentOfficeId) {
+      return res.status(400).json({ error: 'office_id is required. Please provide it in the request body.' });
+    }
+
+    let embedding = null;
+    try {
+      embedding = await vectorSearch.generateEmbedding(content);
+    } catch (embedErr) {
+      console.warn('Embedding generation failed:', embedErr.message || embedErr);
+      embedding = null;
+    }
+
     const document = await LegalDocument.create({
       title,
       content,
       category,
-      embedding: JSON.stringify(embedding)
+      office_id: documentOfficeId,
+      embedding: JSON.stringify(embedding || [])
     });
-    
-    await vectorSearch.addDocument(document, embedding);
-    
-    res.status(201).json({ document });
+
+    try {
+      if (embedding) {
+        await vectorSearch.addDocument(document, embedding);
+      } else {
+        console.warn(`Skip indexing document ${document.id}: no embedding`);
+      }
+    } catch (indexErr) {
+      console.warn(`Failed to index document ${document.id} in vector search:`, indexErr.message || indexErr);
+    }
+
+    return res.status(201).json({ document });
   } catch (error) {
     console.error('Error creating document:', error);
-    res.status(500).json({ error: 'Failed to create document' });
+    return res.status(500).json({ error: 'Failed to create document' });
   }
 };
 
@@ -215,7 +237,9 @@ exports.getOfficeContracts = async (req, res) => {
         cl.email,
         cl.phone,
         cl.company,
-        (cl.first_name || ' ' || cl.last_name) as client_name
+        (cl.first_name || ' ' || cl.last_name) as client_name,
+        c.contract_type,
+        c.contract_number
       FROM contracts c
       LEFT JOIN clients cl ON c.client_id = cl.id
       WHERE c.office_id = ?
@@ -309,8 +333,10 @@ exports.createContract = async (req, res) => {
         amount, 
         status, 
         start_date,
-        end_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        end_date,
+        contract_type,
+        contract_number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       officeId,
       clientId,
@@ -319,11 +345,16 @@ exports.createContract = async (req, res) => {
       amount,
       status,
       start_date || new Date().toISOString().split('T')[0],
-      end_date || null
+      end_date || null,
+      contract_type,
+      contractNumber
     ]);
     
     // Обновляем финансы офиса
     await updateOfficeRevenue(officeId, amount);
+    
+    console.log('Contract creation result:', contractResult);
+    console.log('Contract insertId:', contractResult[0].insertId);
     
     // Получаем созданный договор с информацией о клиенте
     const [contracts] = await db.query(`
@@ -338,9 +369,15 @@ exports.createContract = async (req, res) => {
       FROM contracts c
       LEFT JOIN clients cl ON c.client_id = cl.id
       WHERE c.id = ?
-    `, [contractResult.insertId]);
+    `, [contractResult[0].insertId]);
     
+    console.log('Found contracts:', contracts);
     const contract = contracts[0];
+    console.log('Selected contract:', contract);
+    
+    if (!contract) {
+      throw new Error('Failed to retrieve created contract');
+    }
     
     res.status(201).json({ 
       message: 'Contract and client created successfully',
@@ -358,10 +395,14 @@ exports.createContract = async (req, res) => {
  */
 const updateOfficeRevenue = async (officeId, amount) => {
   try {
-    // Получаем текущую статистику офиса
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1; // getMonth() возвращает 0-11, поэтому добавляем 1
+    const currentYear = currentDate.getFullYear();
+    
+    // Получаем текущую статистику офиса за текущий месяц и год
     const [statsRows] = await db.query(`
-      SELECT revenue FROM office_stats WHERE office_id = ?
-    `, [officeId]);
+      SELECT revenue FROM office_stats WHERE office_id = ? AND month = ? AND year = ?
+    `, [officeId, currentMonth, currentYear]);
     
     const stats = statsRows[0];
     
@@ -369,15 +410,15 @@ const updateOfficeRevenue = async (officeId, amount) => {
       // Обновляем существующую статистику
       await db.query(`
         UPDATE office_stats 
-        SET revenue = revenue + ? 
-        WHERE office_id = ?
-      `, [amount, officeId]);
+        SET revenue = revenue + ?, profit = revenue + ? - expenses
+        WHERE office_id = ? AND month = ? AND year = ?
+      `, [amount, amount, officeId, currentMonth, currentYear]);
     } else {
-      // Создаем новую статистику
+      // Создаем новую статистику с обязательными полями month и year
       await db.query(`
-        INSERT INTO office_stats (office_id, revenue, expenses, profit)
-        VALUES (?, ?, 0, ?)
-      `, [officeId, amount, amount]);
+        INSERT INTO office_stats (office_id, month, year, revenue, expenses, profit, cases_count, clients_count)
+        VALUES (?, ?, ?, ?, 0, ?, 1, 1)
+      `, [officeId, currentMonth, currentYear, amount, amount]);
     }
   } catch (error) {
     console.error('Error updating office revenue:', error);
@@ -441,5 +482,30 @@ exports.deleteContract = async (req, res) => {
   } catch (error) {
     console.error('Error deleting contract:', error);
     res.status(500).json({ error: 'Failed to delete contract' });
+  }
+};
+
+/**
+ * Функция для удаления договора с фронтенда
+ */
+exports.deleteContractFromFrontend = async (contractId, token) => {
+  try {
+    const response = await fetch(`/api/contracts/${contractId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Ошибка при удалении договора');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Ошибка удаления договора:', error);
+    throw error;
   }
 };

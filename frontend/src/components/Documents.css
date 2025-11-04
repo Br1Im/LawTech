@@ -113,119 +113,254 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Улучшенные стили для таблицы документов с фирменными цветами */
 .documents-table-container {
-  overflow-x: auto;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-alt);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  margin-top: 20px;
 }
 
 .documents-table {
   width: 100%;
   border-collapse: collapse;
-  background-color: var(--color-bg);
-  border-radius: 10px;
-  overflow: hidden;
+  font-size: 14px;
+  background: var(--color-bg-alt);
 }
 
 .documents-table th,
 .documents-table td {
-  padding: 14px 16px;
+  padding: 16px 20px;
   text-align: left;
-  border-bottom: 1px solid var(--color-accent-light);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.3);
+  vertical-align: middle;
 }
 
 .documents-table th {
-  background-color: var(--color-bg);
-  color: var(--color-accent);
+  background: var(--color-accent);
+  color: #ffffff;
   font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.documents-table th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.documents-table th:last-child {
+  border-top-right-radius: 12px;
+}
+
+.documents-table tr {
+  transition: all 0.2s ease;
 }
 
 .documents-table tr:hover {
-  background-color: rgba(212, 175, 55, 0.05);
+  background-color: var(--color-accent-light);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.15);
 }
 
 .documents-table tr.selected-contract {
-  background-color: rgba(212, 175, 55, 0.15);
+  background-color: rgba(212, 175, 55, 0.1);
   border-left: 4px solid var(--color-accent);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.2);
 }
 
 .documents-table tr.selected-contract:hover {
-  background-color: rgba(212, 175, 55, 0.2);
+  background-color: rgba(212, 175, 55, 0.15);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.25);
 }
 
 .documents-table tr:last-child td {
   border-bottom: none;
 }
 
+.documents-table tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.documents-table tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+/* Стили для ячеек с данными в фирменных цветах */
+.documents-table td:first-child {
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.documents-table td:nth-child(2) {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.documents-table td:nth-child(3) {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+.documents-table td:nth-child(5) {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.documents-table td:nth-child(6) {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
 .status-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
+  text-transform: capitalize;
   text-align: center;
-  min-width: 100px;
+  min-width: 80px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
-.status-подписан {
-  background-color: rgba(46, 204, 113, 0.2);
-  color: #27ae60;
+.status-active,
+.status-активный {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  color: #2e7d32;
+  border-color: #4caf50;
 }
 
+.status-draft,
 .status-черновик {
-  background-color: rgba(241, 196, 15, 0.2);
-  color: #f39c12;
+  background: linear-gradient(135deg, #fff3e0, #ffcc02);
+  color: #f57c00;
+  border-color: #ff9800;
+}
+
+.status-completed,
+.status-подписан {
+  background: linear-gradient(135deg, #e3f2fd, #90caf9);
+  color: #1976d2;
+  border-color: #2196f3;
 }
 
 .status-на-согласовании {
-  background-color: rgba(52, 152, 219, 0.2);
-  color: #2980b9;
+  background: linear-gradient(135deg, #f3e5f5, #ce93d8);
+  color: #7b1fa2;
+  border-color: #9c27b0;
 }
 
 .status-расторгнут {
-  background-color: rgba(231, 76, 60, 0.2);
-  color: #c0392b;
+  background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  color: #c62828;
+  border-color: #f44336;
 }
 
+/* Улучшенные стили для кнопок действий в фирменных цветах */
 .actions-cell {
   display: flex;
   gap: 8px;
-  white-space: nowrap;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 .action-btn {
-  padding: 6px 10px;
+  padding: 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.action-btn:hover::before {
+  left: 100%;
 }
 
 .view-btn {
-  background-color: rgba(52, 152, 219, 0.2);
-  color: #2980b9;
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  color: white;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
 }
 
 .view-btn:hover {
-  background-color: rgba(52, 152, 219, 0.3);
+  background: linear-gradient(135deg, var(--color-primary), #1e40af);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.4);
 }
 
 .edit-btn {
-  background-color: rgba(241, 196, 15, 0.2);
-  color: #f39c12;
+  background: linear-gradient(135deg, var(--color-accent), #b8941f);
+  color: white;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
 }
 
 .edit-btn:hover {
-  background-color: rgba(241, 196, 15, 0.3);
+  background: linear-gradient(135deg, #b8941f, #9d7e1a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+}
+
+/* Элегантные стили для кнопки удаления в фирменных цветах */
+.documents-table .action-btn.delete-btn {
+  background: linear-gradient(135deg, var(--color-error), #dc2626);
+  color: white;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  border: none;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  padding: 8px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.documents-table .action-btn.delete-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+/* Стили для SVG иконки внутри кнопки удаления */
+.documents-table .action-btn.delete-btn svg {
+  color: white !important;
+  stroke: white !important;
+  fill: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+  width: 18px !important;
+  height: 18px !important;
 }
 
 .no-documents {
@@ -379,6 +514,33 @@
   background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
+.auto-fill-btn {
+  background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  position: absolute !important;
+  left: 20px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  min-width: unset !important;
+  height: 36px !important;
+}
+
+.auto-fill-btn:hover {
+  background: linear-gradient(135deg, #45a049, #3d8b40) !important;
+  transform: translateY(-50%) scale(1.05) !important;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
+}
+
 .document-form {
   padding: 20px;
   max-width: 600px;
@@ -475,7 +637,9 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.delete-btn {
+/* Стили для кнопок удаления в модальных окнах */
+.modal-content .delete-btn,
+.delete-confirmation-modal .delete-btn {
   border: 1px solid #dc3545 !important;
   background-color: #dc3545 !important;
   color: white !important;
@@ -484,7 +648,8 @@
   gap: 8px;
 }
 
-.delete-btn:hover {
+.modal-content .delete-btn:hover,
+.delete-confirmation-modal .delete-btn:hover {
   background-color: #c82333 !important;
   border-color: #c82333 !important;
   transform: translateY(-2px);
@@ -542,7 +707,7 @@
 
 .radio-group {
   display: flex;
-  gap: 20px;
+  gap: 15px;
   margin-bottom: 15px;
   flex-wrap: wrap;
 }
@@ -554,12 +719,15 @@
   font-weight: 500;
   color: var(--color-text);
   transition: all 0.3s ease;
-  padding: 10px 15px;
+  padding: 12px 20px;
   border-radius: 8px;
   border: 1px solid var(--color-accent-light);
   background-color: var(--color-bg);
   min-width: 180px;
   justify-content: flex-start;
+  flex: 0 0 auto;
+  max-width: 250px;
+  line-height: 1;
 }
 
 .radio-label:hover {
@@ -578,8 +746,10 @@
 }
 
 .radio-custom {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
   border: 2px solid var(--color-accent-light);
   border-radius: 50%;
   margin-right: 12px;
@@ -587,6 +757,14 @@
   transition: all 0.3s ease;
   flex-shrink: 0;
   background-color: var(--color-bg);
+  display: inline-block;
+  align-self: center;
+}
+
+.radio-text {
+  display: flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .radio-label input[type="radio"]:checked + .radio-custom {
@@ -685,9 +863,9 @@
 }
 
 .checkbox-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
   margin-top: 10px;
 }
 
@@ -698,9 +876,11 @@
   font-weight: 400;
   color: var(--color-text);
   transition: all 0.3s ease;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid transparent;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .checkbox-label:hover {
@@ -715,11 +895,16 @@
 .checkbox-custom {
   width: 18px;
   height: 18px;
+  min-width: 18px;
+  min-height: 18px;
   border: 2px solid var(--color-accent-light);
-  border-radius: 4px;
-  margin-right: 10px;
+  border-radius: 50%;
+  margin-right: 12px;
   position: relative;
   transition: all 0.3s ease;
+  flex-shrink: 0;
+  background-color: var(--color-bg);
+  display: inline-block;
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
@@ -728,14 +913,15 @@
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
-  content: '✓';
+  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
+  width: 8px;
+  height: 8px;
+  background-color: white;
+  border-radius: 50%;
   animation: checkboxCheck 0.3s ease;
 }
 
@@ -926,7 +1112,22 @@
   
   .radio-group {
     flex-direction: column;
-    gap: 10px;
+    gap: 15px;
+  }
+  
+  .radio-label {
+    min-width: 100%;
+    padding: 15px 20px;
+    font-size: 16px;
+  }
+  
+  .radio-custom {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    margin-right: 12px;
+    display: inline-block;
   }
   
   .checkbox-group {
@@ -1014,4 +1215,318 @@
 
 [data-theme="dark"] .form-input:hover {
   border-color: var(--color-accent);
+}
+
+/* Модальное окно подтверждения удаления */
+.delete-modal {
+  max-width: 600px;
+  width: 95%;
+  min-width: 500px;
+}
+
+.delete-modal .modal-content {
+  padding: 30px;
+  min-height: 300px;
+}
+
+.delete-warning {
+  text-align: center;
+  padding: 30px 20px;
+}
+
+.warning-icon {
+  color: #dc3545;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.delete-warning p {
+  margin: 12px 0;
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+.document-info {
+  background: var(--color-bg-alt);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.document-info strong {
+  color: var(--color-accent);
+  font-size: 16px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.client-name {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.warning-text {
+  color: #dc3545;
+  font-weight: 500;
+  font-size: 14px;
+  margin-top: 16px !important;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 20px;
+  border-top: 1px solid #e0e0e0;
+  background: var(--color-bg-alt);
+}
+
+.confirm-delete {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.confirm-delete:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.confirm-delete:active {
+  transform: translateY(0);
+}
+
+/* Темная тема для модального окна удаления */
+[data-theme="dark"] .document-info {
+  background: var(--color-background-secondary);
+  border-color: #444;
+}
+
+[data-theme="dark"] .modal-actions {
+  background: var(--color-background-secondary);
+  border-color: #444;
+}
+
+/* ===== АДАПТИВНЫЕ СТИЛИ ===== */
+
+/* Планшеты (до 1024px) */
+@media (max-width: 1024px) {
+  .documents-container {
+    padding: 16px;
+  }
+  
+  .documents-title {
+    font-size: 22px;
+    margin-bottom: 16px;
+  }
+  
+  .documents-filters {
+    gap: 12px;
+  }
+  
+  .search-container {
+    min-width: 250px;
+  }
+  
+  .filter-selects {
+    gap: 8px;
+  }
+}
+
+/* Мобильные устройства (до 768px) */
+@media (max-width: 768px) {
+  .documents-container {
+    padding: 12px;
+    border-radius: 8px;
+  }
+  
+  .documents-title {
+    font-size: 20px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  
+  .documents-filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .search-container {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .filter-selects {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .filter-select {
+    width: 100%;
+    font-size: 14px;
+  }
+  
+  /* Адаптивная таблица - карточный вид */
+  .documents-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+  }
+  
+  .documents-table {
+    min-width: 600px;
+    font-size: 13px;
+  }
+  
+  .documents-table th,
+  .documents-table td {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+  
+  .documents-table th {
+    font-size: 11px;
+  }
+  
+  /* Скрываем некоторые колонки на мобильных */
+  .documents-table th:nth-child(3),
+  .documents-table td:nth-child(3) {
+    display: none; /* Скрываем колонку "Тип" */
+  }
+  
+  .documents-table th:nth-child(5),
+  .documents-table td:nth-child(5) {
+    display: none; /* Скрываем колонку "Дата" */
+  }
+  
+  .documents-table th:nth-child(6),
+  .documents-table td:nth-child(6) {
+    display: none; /* Скрываем колонку "Клиент" */
+  }
+  
+  /* Адаптация кнопок действий */
+  .actions-cell {
+    min-width: 80px;
+  }
+  
+  .action-btn {
+    padding: 6px;
+    min-width: 32px;
+    height: 32px;
+  }
+  
+  /* Адаптация модального окна */
+  .modal-overlay {
+    padding: 10px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-width: none;
+    margin: 0;
+    border-radius: 8px;
+  }
+  
+  .modal-header {
+    padding: 16px;
+  }
+  
+  .modal-title {
+    font-size: 18px;
+  }
+  
+  .modal-body {
+    padding: 16px;
+    max-height: 70vh;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .form-group.half-width {
+    width: 100%;
+  }
+  
+  .modal-actions {
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Очень маленькие экраны (до 480px) */
+@media (max-width: 480px) {
+  .documents-container {
+    padding: 8px;
+  }
+  
+  .documents-title {
+    font-size: 18px;
+  }
+  
+  .documents-table {
+    min-width: 400px;
+  }
+  
+  .documents-table th,
+  .documents-table td {
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  
+  .documents-table th {
+    font-size: 10px;
+  }
+  
+  /* Показываем только основные колонки */
+  .documents-table th:nth-child(1),
+  .documents-table td:nth-child(1),
+  .documents-table th:nth-child(2),
+  .documents-table td:nth-child(2),
+  .documents-table th:nth-child(4),
+  .documents-table td:nth-child(4),
+  .documents-table th:nth-child(7),
+  .documents-table td:nth-child(7) {
+    display: table-cell;
+  }
+  
+  .action-btn {
+    padding: 4px;
+    min-width: 28px;
+    height: 28px;
+  }
+  
+  .modal-content {
+    width: 98%;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-actions {
+    padding: 12px;
+  }
 }

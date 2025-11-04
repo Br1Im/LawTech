@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { FaUser, FaQrcode } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose, MdContentCopy, MdCheck } from "react-icons/md";
 import { buildApiUrl } from "../shared/utils/apiUtils";

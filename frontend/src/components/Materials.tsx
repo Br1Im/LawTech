@@ -195,6 +195,32 @@ const Materials: React.FC = () => {
     }));
   };
 
+  // Автозаполнение формы тестовыми данными
+  const fillFormWithTestData = () => {
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const formattedToday = today.toISOString().split('T')[0];
+    const formattedNextWeek = nextWeek.toISOString().split('T')[0];
+    
+    setNewCase({
+      client_name: "Иванов Иван Иванович",
+      phone_number: "+7 (999) 123-45-67",
+      case_description: "Тестовое описание дела для проверки функциональности",
+      lawyer_id: employees[0]?.id || 1,
+      date: formattedToday,
+      deadline: formattedNextWeek,
+      topic: "Тестовая тема",
+      value: "100000",
+      contract_number: "TEST-2023/01",
+      contract_sum: "50000",
+      paid_sum: "25000",
+      remaining_sum: "25000",
+      documents: []
+    });
+  };
+
   // Добавляем новый кейс
   const addCase = async () => {
     if (!officeId) {
@@ -214,15 +240,18 @@ const Materials: React.FC = () => {
         throw new Error('Требуется авторизация');
       }
 
-      const response = await fetch(buildApiUrl('/cases'), {
+      // Исправляем URL с /cases на /documents, так как маршрут /cases отсутствует на бэкенде
+      const response = await fetch(buildApiUrl('/documents'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          ...newCase,
-          officeId
+          title: newCase.topic || 'Новое дело',
+          content: newCase.case_description || 'Описание отсутствует',
+          category: 'case',
+          office_id: user?.office_id || officeId
         })
       });
 
@@ -231,7 +260,26 @@ const Materials: React.FC = () => {
         throw new Error(errorData.error || 'Ошибка при создании дела');
       }
 
-      const createdCase = await response.json();
+      const createdDocument = await response.json();
+      
+      // Создаем объект дела из документа для локального хранилища
+      const createdCase = {
+        id: createdDocument.document.id,
+        client_name: newCase.client_name,
+        phone_number: newCase.phone_number,
+        case_description: newCase.case_description,
+        lawyer_id: newCase.lawyer_id,
+        date: newCase.date,
+        deadline: newCase.deadline,
+        topic: newCase.topic,
+        value: newCase.value,
+        contract_number: newCase.contract_number,
+        contract_sum: newCase.contract_sum,
+        paid_sum: newCase.paid_sum,
+        remaining_sum: newCase.remaining_sum,
+        documents: []
+      };
+      
       setCases(prevCases => [...prevCases, createdCase]);
       
       setShowModal(false);
@@ -394,6 +442,22 @@ const Materials: React.FC = () => {
               ×
             </span>
             <h3>Добавить новое дело</h3>
+            <div style={{ marginBottom: '15px' }}>
+              <button 
+                type="button" 
+                onClick={fillFormWithTestData}
+                style={{ 
+                  padding: '5px 10px', 
+                  backgroundColor: '#4CAF50', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Автозаполнить форму
+              </button>
+            </div>
             <form>
               <input
                 type="text"
