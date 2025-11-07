@@ -1,21 +1,55 @@
 version: '3.8'
 
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: lawtech-db
+    restart: unless-stopped
     ports:
-      - "80:80"
-    depends_on:
-      - backend
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=lawtech_root_password_2024
+      - MYSQL_DATABASE=lawtech_crm
+      - MYSQL_USER=lawtech_user
+      - MYSQL_PASSWORD=lawtech_password_2024
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./server/database/migrations:/docker-entrypoint-initdb.d
     networks:
       - lawtech-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
+  # FAISS AI Service
+  faiss-service:
+    build:
+      context: ./server/scripts
+      dockerfile: Dockerfile
+    container_name: lawtech-faiss
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=5000
+    networks:
+      - lawtech-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend API
   backend:
     build:
       context: ./server
       dockerfile: Dockerfile
+    container_name: lawtech-backend
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
@@ -24,43 +58,51 @@ services:
       - FAISS_SERVICE_URL=http://faiss-service:5000
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASSWORD=password
-      - DB_NAME=lawtech
+      - DB_USER=lawtech_user
+      - DB_PASSWORD=lawtech_password_2024
+      - DB_NAME=lawtech_crm
+      - JWT_SECRET=your_super_secret_jwt_key_change_this_in_production_2024
+      - JWT_EXPIRES_IN=7d
+      - CORS_ORIGIN=*
+      - UPLOAD_DIR=/app/uploads
+      - MAX_FILE_SIZE=10485760
     depends_on:
-      - db
-      - faiss-service
+      db:
+        condition: service_healthy
+      faiss-service:
+        condition: service_healthy
     volumes:
       - ./server/uploads:/app/uploads
     networks:
       - lawtech-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  faiss-service:
+  # Frontend
+  frontend:
     build:
-      context: ./server/scripts
+      context: ./frontend
       dockerfile: Dockerfile
+    container_name: lawtech-frontend
+    restart: unless-stopped
     ports:
-      - "5000:5000"
-    environment:
-      - PYTHONUNBUFFERED=1
-      - PORT=5000
+      - "80:80"
+    depends_on:
+      - backend
     networks:
       - lawtech-network
-
-  db:
-    image: mysql:8.0
-    ports:
-      - "3307:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=lawtech
-    volumes:
-      - mysql-data:/var/lib/mysql
-    networks:
-      - lawtech-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   mysql-data:
+    driver: local
 
 networks:
   lawtech-network:
