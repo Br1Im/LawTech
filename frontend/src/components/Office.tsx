@@ -1,5 +1,7 @@
-import { useState, useEffect, SetStateAction } from "react";
+import { useState, useEffect } from "react";
 import "./OfficeContent.css";
+import "./OfficeAnimated.css";
+import "./OfficeMobile.css";
 import StatCard from "./StatCard";
 import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
@@ -84,15 +86,16 @@ const Office = () => {
     revenueChange: { percentage: null as string | null, isIncrease: null as boolean | null }
   });
   
-  // Обновляем данные из контекста
-  useEffect(() => {
-    if (officeFromContext) {
-      console.log("OfficeContext данные:", officeFromContext);
-      setSelectedOffice(officeFromContext as unknown as SetStateAction<Office | null>);
-      
-      // Убрано: раньше здесь хардкодились значения статистики. Теперь метрики пересчитываются из договоров и контекста OfficeContext.
-    }
-  }, [officeFromContext]);
+  // ВРЕМЕННО ОТКЛЮЧЕНО: Обновляем данные из контекста
+  // useEffect(() => {
+  //   if (officeFromContext && officeFromContext !== null && Object.keys(officeFromContext).length > 0) {
+  //     console.log("📥 OfficeContext обновляет данные офиса:", officeFromContext);
+  //     // Проверяем, что это действительно офис с данными
+  //     if ((officeFromContext as any).id) {
+  //       setSelectedOffice(officeFromContext as unknown as SetStateAction<Office | null>);
+  //     }
+  //   }
+  // }, [officeFromContext]);
   const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -203,6 +206,7 @@ const Office = () => {
           setOffices(transformedOffices);
           // Проверяем, что массив не пустой перед обращением к индексу
           if (transformedOffices && transformedOffices.length > 0) {
+            console.log("🏢 Выбираем первый офис при загрузке:", transformedOffices[0].title);
             setSelectedOffice(transformedOffices[0]);
           }
           // После загрузки офисов сразу запрашиваем данные для графика
@@ -401,6 +405,16 @@ const Office = () => {
     };
     fetchOffices();
   }, [period]);
+
+
+
+  // Гарантируем выбор первого офиса, если ничего не выбрано
+  useEffect(() => {
+    if (!selectedOffice && offices.length > 0) {
+      console.log("🔄 Принудительно выбираем первый офис:", offices[0].title);
+      setSelectedOffice(offices[0]);
+    }
+  }, [offices, selectedOffice]);
 
   useEffect(() => {
     if (selectedOffice) {
@@ -869,8 +883,9 @@ const Office = () => {
       </div>
       
       <div className="main-content-wrapper">
+        {/* Блок 1: Верхний левый - Карточки офисов и статистика */}
         <div className="office-left-column">
-        <div className="top-four">
+          <div className="top-four">
             <div className="office-cards-container">
               <div className="office-cards">
                 {offices.map(office => (
@@ -912,123 +927,124 @@ const Office = () => {
             </div>
 
             {selectedOffice && (
-              <>
-                <div className="statCard-content">
-                  <div className="expand-button-container">
-                    <button 
-                      className="expand-button" 
-                      onClick={() => setShowRevenueModal(true)}
-                      title="Открыть подробную информацию"
-                    >
-                      <FaArrowRight />
-                    </button>
-                  </div>
-                  <StatCard
-                    title="Приходы"
-                    value={"0"}
-                    icon={<FaUsers />}
-                    colorIcon="#8280FF"
-                    percentage={stats.visitsChange.percentage}
-                    isIncrease={stats.visitsChange.isIncrease}
-                    description={getComparisonText(stats.visitsChange.isIncrease)}
-                  />
-                  <StatCard
-                    title="Общая касса"
-                    value={"0 ₽"}
-                    icon={<FaChartLine />}
-                    percentage={stats.revenueChange.percentage}
-                    colorIcon="#4AD991"
-                    isIncrease={stats.revenueChange.isIncrease}
-                    description={getComparisonText(stats.revenueChange.isIncrease)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-          <div className="chart-box-container">
-            <div className="chart-box" style={{ padding: '10px', position: 'relative' }}>
-                
+              <div className="statCard-content">
+                <div className="expand-button-container">
                   <button 
                     className="expand-button" 
-                    onClick={() => setShowBarChartModal(true)}
+                    onClick={() => setShowRevenueModal(true)}
                     title="Открыть подробную информацию"
                   >
                     <FaArrowRight />
                   </button>
-               
-                <BarChartComponent 
-                  title={`Динамика выручки ${getPeriodText()}`}
-                  data={officeRevenueData}
+                </div>
+                <StatCard
+                  title="Приходы"
+                  value={"0"}
+                  icon={<FaUsers />}
+                  colorIcon="#8280FF"
+                  percentage={stats.visitsChange.percentage}
+                  isIncrease={stats.visitsChange.isIncrease}
+                  description={getComparisonText(stats.visitsChange.isIncrease)}
                 />
-            </div>
+                <StatCard
+                  title="Общая касса"
+                  value={"0 ₽"}
+                  icon={<FaChartLine />}
+                  percentage={stats.revenueChange.percentage}
+                  colorIcon="#4AD991"
+                  isIncrease={stats.revenueChange.isIncrease}
+                  description={getComparisonText(stats.revenueChange.isIncrease)}
+                />
+              </div>
+            )}
           </div>
         </div>
-        {selectedOffice && (
-              <div className="charts-container">
-                <div className="chart-employees">
-                  <div className="employee-table-container-container">
-                    <div className="employee-table-container">
-                      <button 
-                        className="expand-button" 
-                        onClick={() => setShowEmployeeModal(true)}
-                        title="Открыть полную таблицу"
-                      >
-                        <FaArrowRight />
-                      </button>
-                      <div className="table-header">
-                        <h4 className="section-title">Сотрудники офиса {selectedOffice.title}</h4>
-                      </div>
-                      <table className="employee-stats-table">
-                        <thead>
-                          <tr>
-                            <th>Юрист</th>
-                            <th>Касса за день</th>
-                            <th>Касса за период</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedOffice.employees && selectedOffice.employees.length > 0 ? (
-                            selectedOffice.employees.map((employee, index) => (
-                              <tr 
-                                key={employee.id} 
-                                style={{ opacity: index === 0 ? 1 : index === 1 ? 0.8 : index === 2 ? 0.6 : index === 3 ? 0.4 : index === 4 ? 0.2 : 0 }}
-                              >
-                                <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
-                                <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
-                                <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>    
-                  <div className="chart-box" style={{ position: 'relative' }}>
 
-                      <button 
-                        className="expand-button" 
-                        onClick={() => setShowPieChartModal(true)}
-                        title="Открыть подробную информацию"
-                      >
-                        <FaArrowRight />
-                      </button>
-                    <PieChartComponent 
-                      title="Выручка по юристам" 
-                      data={(selectedOffice.employees || [])
-                        .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
-                        .map(emp => ({
-                          label: `${emp.surname || ''} ${emp.name ? emp.name.charAt(0) + '.' : ''}${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
-                          value: emp.totalRevenue14Days || 0
-                        }))
-                      }
-                    />
-                  </div>
-                  </div>
+        {/* Блок 2: Верхний правый - График динамики выручки */}
+        <div className="chart-box-container">
+          <div className="chart-box" style={{ padding: '10px', position: 'relative' }}>
+            <button 
+              className="expand-button" 
+              onClick={() => setShowBarChartModal(true)}
+              title="Открыть подробную информацию"
+            >
+              <FaArrowRight />
+            </button>
+            <BarChartComponent 
+              title={`Динамика выручки ${getPeriodText()}`}
+              data={officeRevenueData}
+            />
+          </div>
+        </div>
+
+        {/* Блок 3: Нижний левый - Таблица сотрудников */}
+        {selectedOffice && (
+          <div className="employee-table-container-container">
+            <div className="employee-table-container">
+              <button 
+                className="expand-button" 
+                onClick={() => setShowEmployeeModal(true)}
+                title="Открыть полную таблицу"
+              >
+                <FaArrowRight />
+              </button>
+              <div className="table-header">
+                <h4 className="section-title">Сотрудники офиса {selectedOffice.title}</h4>
               </div>
+              <table className="employee-stats-table">
+                <thead>
+                  <tr>
+                    <th>Юрист</th>
+                    <th>Касса за день</th>
+                    <th>Касса за период</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOffice.employees && selectedOffice.employees.length > 0 ? (
+                    selectedOffice.employees.map((employee, index) => (
+                      <tr 
+                        key={employee.id} 
+                        style={{ opacity: index === 0 ? 1 : index === 1 ? 0.8 : index === 2 ? 0.6 : index === 3 ? 0.4 : index === 4 ? 0.2 : 0 }}
+                      >
+                        <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
+                        <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
+                        <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Блок 4: Нижний правый - Pie Chart */}
+        {selectedOffice && (
+          <div className="charts-container">
+            <div className="chart-box" style={{ position: 'relative' }}>
+              <button 
+                className="expand-button" 
+                onClick={() => setShowPieChartModal(true)}
+                title="Открыть подробную информацию"
+              >
+                <FaArrowRight />
+              </button>
+              <PieChartComponent 
+                title="Выручка по юристам" 
+                data={(selectedOffice.employees || [])
+                  .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
+                  .map(emp => ({
+                    label: `${emp.surname || ''} ${emp.name ? emp.name.charAt(0) + '.' : ''}${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
+                    value: emp.totalRevenue14Days || 0
+                  }))
+                }
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -1322,7 +1338,7 @@ const Office = () => {
                   {selectedOffice.employees.length > 0 ? (
                     selectedOffice.employees.map(employee => (
                       <tr key={employee.id}>
-                        <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''}${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
+                        <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''}${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
                         <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
                         <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
                       </tr>
@@ -1431,7 +1447,7 @@ const Office = () => {
                         const percentage = totalRevenue > 0 ? ((employee.totalRevenue14Days || 0) / totalRevenue * 100).toFixed(1) : '0';
                         return (
                           <tr key={employee.id}>
-                            <td>{`${employee.surname} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
+                            <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
                             <td>{employee.totalRevenue14Days?.toLocaleString() || '0'} ₽</td>
                             <td>{percentage}%</td>
                           </tr>

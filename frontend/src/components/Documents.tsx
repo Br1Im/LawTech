@@ -651,16 +651,16 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                   key={doc.id}
                   className={contractId && doc.id && doc.id.toString() === contractId ? 'selected-contract' : ''}
                 >
-                  <td>{doc.contractNumber || ''}</td>
-                  <td>{doc.title}</td>
-                  <td>{doc.type}</td>
-                  <td>
+                  <td data-label="Номер">{doc.contractNumber || ''}</td>
+                  <td data-label="Название">{doc.title}</td>
+                  <td data-label="Тип">{doc.type}</td>
+                  <td data-label="Статус">
                     <span className={`status-badge status-${doc.status.toLowerCase().replace(/\s+/g, '-')}`}>
                       {getStatusText(doc.status)}
                     </span>
                   </td>
-                  <td>{doc.date}</td>
-                  <td>{doc.client}</td>
+                  <td data-label="Дата">{doc.date}</td>
+                  <td data-label="Клиент">{doc.client}</td>
                   <td className="actions-cell">
                     <button 
                       className="action-btn edit-btn"

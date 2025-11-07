@@ -17,6 +17,8 @@ const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
 const calendarController = require('../controllers/calendarController');
 const officeRoutes = require('./officeRoutes');
+const contractRoutes = require('./contracts');
+const clientRoutes = require('./clients');
 // Эти контроллеры пока не реализованы
 // const employeeController = require('../controllers/employeeController');
 // const joinRequestController = require('../controllers/joinRequestController');
@@ -65,6 +67,14 @@ router.delete('/offices/:officeId', authenticateToken, officeController.deleteOf
 // Подключаем дополнительные маршруты офисов
 router.use('/offices', authenticateToken, officeRoutes);
 
+// Подключаем маршруты для договоров и клиентов
+router.use('/contracts', contractRoutes);
+router.use('/clients', clientRoutes);
+
+// Дополнительные маршруты для совместимости
+const contractController = require('../controllers/contractController');
+router.get('/office/:officeId/contracts', authenticateToken, contractController.getAllContracts);
+
 // Роуты для чата
 router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
 router.post('/offices/:officeId/messages', authenticateToken, chatController.sendMessage);
@@ -85,39 +95,9 @@ router.get('/office/:officeId/cases', authenticateToken, (req, res) => {
   res.json([]);
 });
 
-// Роуты для клиентов офиса
-router.get('/office/:officeId/clients', authenticateToken, async (req, res) => {
-  try {
-    const { officeId } = req.params;
-    const db = require('../db');
-    
-    // Получаем клиентов из базы данных
-    const clients = await db.query(`
-      SELECT c.*,
-             'Без дела' as theme,
-             'Не назначен' as lawyer
-      FROM clients c
-      WHERE c.office_id = ?
-    `, [officeId]);
-    
-    // Преобразуем данные в формат, ожидаемый фронтендом
-    const formattedClients = clients.map(client => ({
-      id: client.id,
-      clientName: `${client.last_name || ''} ${client.first_name || ''}`.trim(),
-      contractNumber: `DOG-${(client.id || 0).toString().padStart(4, '0')}`,
-      theme: client.theme || 'Без дела',
-      lawyer: client.lawyer || 'Не назначен',
-      materials: [], // Пока пустой массив, можно расширить позже
-      assignedExpert: null, // Пока null, можно расширить позже
-      expertDocuments: [] // Пока пустой массив, можно расширить позже
-    }));
-    
-    res.json(formattedClients);
-  } catch (error) {
-    console.error('Ошибка получения клиентов:', error);
-    res.status(500).json({ error: 'Не удалось получить список клиентов' });
-  }
-});
+// Роуты для клиентов офиса - используем новый контроллер
+const clientController = require('../controllers/clientController');
+router.get('/office/:officeId/clients', authenticateToken, clientController.getAllClients);
 
 // Роуты для расходов офиса
 router.get('/office/:officeId/expenses', authenticateToken, (req, res) => {
@@ -172,10 +152,7 @@ router.delete('/legal-documents/:id', authenticateToken, legalDocumentsControlle
 router.get('/legal-documents/search', authenticateToken, legalDocumentsController.searchDocuments);
 router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsController.getSimilarDocuments);
 
-// Маршруты для работы с договорами (contracts)
-router.get('/office/:officeId/contracts', authenticateToken, legalDocumentsController.getOfficeContracts);
-router.post('/contracts', authenticateToken, legalDocumentsController.createContract);
-router.get('/contracts/:id', authenticateToken, legalDocumentsController.getContractById);
-router.delete('/contracts/:id', authenticateToken, legalDocumentsController.deleteContract);
+// Маршруты для работы с договорами (contracts) - используем новый контроллер через contractRoutes
+// Старые маршруты удалены, используются новые из ./contracts.js
 
 module.exports = router;

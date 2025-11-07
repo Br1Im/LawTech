@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage.tsx';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
 import { useAuth } from './shared/lib/hooks/useAuth';
@@ -24,14 +25,43 @@ function AppRoutes() {
   return (
     <OfficeProvider user={user}>
       <Routes>
+        {/* Публичные маршруты */}
         <Route path="/" element={<Home />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route path='/welcome' element={<WelcomePage />} />
-        <Route path='/crm' element={<CRM />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/join" element={<JoinPage isAuthenticated={isAuthenticated} />} />
-        <Route path="/pending-request" element={<PendingRequestPage />} />
+        
+        {/* Защищенные маршруты */}
+        <Route path='/welcome' element={
+          <ProtectedRoute>
+            <WelcomePage />
+          </ProtectedRoute>
+        } />
+        <Route path='/crm' element={
+          <ProtectedRoute>
+            <CRM />
+          </ProtectedRoute>
+        } />
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/join" element={
+          <ProtectedRoute>
+            <JoinPage isAuthenticated={isAuthenticated} />
+          </ProtectedRoute>
+        } />
+        <Route path="/pending-request" element={
+          <ProtectedRoute>
+            <PendingRequestPage />
+          </ProtectedRoute>
+        } />
+        
+        {/* 404 */}
         <Route path="*" element={<h1>Страница не найдена</h1>} />
       </Routes>
     </OfficeProvider>

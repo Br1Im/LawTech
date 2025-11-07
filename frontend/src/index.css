@@ -67,6 +67,29 @@ body {
   min-height: 100vh;
 }
 
+/* ===== АДАПТИВНЫЕ УТИЛИТЫ ===== */
+* {
+  box-sizing: border-box;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Адаптивная типографика */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  html {
+    font-size: 13px;
+  }
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;

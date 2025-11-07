@@ -1,0 +1,467 @@
+/* Специальные стили для мобильных устройств */
+
+/* Touch-friendly элементы */
+@media (max-width: 768px) {
+  /* Увеличенные области нажатия */
+  .office-card,
+  .office-add-card,
+  .period-option,
+  .expand-button,
+  .office-list-item {
+    min-height: 44px; /* Минимальный размер для touch */
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(68, 118, 240, 0.2);
+  }
+  
+  /* Убираем hover эффекты на touch устройствах */
+  @media (hover: none) {
+    .office-card:hover,
+    .chart-box:hover,
+    .expand-button:hover {
+      transform: none;
+    }
+    
+    /* Активное состояние вместо hover */
+    .office-card:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+    
+    .expand-button:active {
+      transform: rotate(-45deg) scale(0.95);
+    }
+  }
+  
+  /* Оптимизация прокрутки */
+  .office-cards {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 12px;
+  }
+  
+  .office-card {
+    scroll-snap-align: start;
+  }
+  
+  /* Индикатор прокрутки */
+  .office-cards::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--color-accent) 50%,
+      transparent
+    );
+    opacity: 0.3;
+  }
+  
+  /* Улучшенная таблица для мобильных */
+  .employee-stats-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .employee-stats-table thead,
+  .employee-stats-table tbody,
+  .employee-stats-table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+  }
+  
+  /* Компактные модальные окна */
+  .employee-modal-overlay .modal-content {
+    border-radius: 16px 16px 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-height: 90vh;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .employee-modal-overlay.active .modal-content {
+    transform: translateY(0);
+  }
+  
+  /* Свайп-индикатор для модальных окон */
+  .modal-content::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--color-muted);
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+  
+  /* Оптимизация графиков */
+  .chart-wrapper canvas {
+    touch-action: pan-y;
+  }
+  
+  /* Компактный header */
+  .office-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg-alt);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Floating action button для добавления офиса */
+  .office-add-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(68, 118, 240, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.3s ease;
+  }
+  
+  .office-add-fab:active {
+    transform: scale(0.9);
+  }
+  
+  /* Скрываем обычную кнопку добавления на мобильных */
+  .office-add-card {
+    display: none;
+  }
+  
+  /* Pull to refresh индикатор */
+  .pull-to-refresh {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: top 0.3s ease;
+  }
+  
+  .pull-to-refresh.active {
+    top: 10px;
+  }
+  
+  /* Оптимизация для маленьких экранов */
+  @media (max-width: 480px) {
+    /* Компактные карточки */
+    .office-card {
+      padding: 12px;
+      min-width: 160px;
+    }
+    
+    .office-card h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    
+    .office-card p {
+      font-size: 12px;
+      margin: 4px 0;
+    }
+    
+    /* Компактная статистика */
+    .statCard-content {
+      gap: 12px;
+    }
+    
+    /* Уменьшенные графики */
+    .chart-box {
+      padding: 8px;
+      height: auto;
+      min-height: 200px;
+    }
+    
+    .chart-wrapper {
+      min-height: 150px;
+    }
+    
+    /* Компактная таблица */
+    .employee-stats-table th,
+    .employee-stats-table td {
+      padding: 8px 6px;
+      font-size: 12px;
+    }
+    
+    /* Уменьшенные кнопки */
+    .expand-button {
+      padding: 6px;
+      padding-bottom: 4px;
+    }
+    
+    .modal-edit-btn,
+    .modal-save-btn,
+    .modal-close-btn {
+      padding: 8px 16px;
+      font-size: 14px;
+    }
+  }
+  
+  /* Landscape ориентация */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .office-header {
+      padding: 8px 12px;
+    }
+    
+    .office-header h2 {
+      font-size: 16px;
+    }
+    
+    .chart-box {
+      height: auto;
+      min-height: 180px;
+    }
+    
+    .employee-modal-overlay .modal-content {
+      max-height: 95vh;
+      overflow-y: auto;
+    }
+  }
+}
+
+/* Темная тема для мобильных */
+@media (max-width: 768px) {
+  [data-theme='dark'] .office-header {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  
+  [data-theme='dark'] .office-add-fab {
+    box-shadow: 0 4px 12px rgba(68, 118, 240, 0.6);
+  }
+}
+
+/* Accessibility для мобильных */
+@media (max-width: 768px) {
+  /* Увеличенный фокус для клавиатурной навигации */
+  .office-card:focus,
+  .expand-button:focus,
+  .period-option:focus {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  
+  /* Скрытие элементов для screen readers */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Оптимизация производительности */
+@media (max-width: 768px) {
+  /* Отключаем сложные анимации на слабых устройствах */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  
+  /* GPU acceleration */
+  .office-card,
+  .chart-box,
+  .expand-button,
+  .modal-content {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+/* Safe area для iPhone X и новее */
+@supports (padding: max(0px)) {
+  @media (max-width: 768px) {
+    .office-content {
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    
+    .office-add-fab {
+      bottom: max(20px, env(safe-area-inset-bottom));
+      right: max(20px, env(safe-area-inset-right));
+    }
+    
+    .employee-modal-overlay .modal-content {
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* Оптимизация для fold устройств */
+@media (max-width: 768px) and (min-aspect-ratio: 1/1) {
+  .office-left-column {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  
+  .chart-employees {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Swipe gestures индикаторы */
+@media (max-width: 768px) {
+  .swipe-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    background: rgba(68, 118, 240, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+  
+  .swipe-indicator.left {
+    left: 10px;
+  }
+  
+  .swipe-indicator.right {
+    right: 10px;
+  }
+  
+  .swipe-indicator.active {
+    opacity: 1;
+  }
+}
+
+/* Loading states для мобильных */
+@media (max-width: 768px) {
+  .loading-skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-alt) 25%,
+      var(--color-bg) 50%,
+      var(--color-bg-alt) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 8px;
+  }
+  
+  .loading-card {
+    height: 140px;
+    margin-bottom: 12px;
+  }
+  
+  .loading-stat {
+    height: 80px;
+    margin-bottom: 12px;
+  }
+  
+  .loading-chart {
+    height: 200px;
+  }
+}
+
+/* Haptic feedback simulation */
+@media (max-width: 768px) {
+  .haptic-light:active {
+    animation: haptic-pulse 0.1s ease;
+  }
+  
+  .haptic-medium:active {
+    animation: haptic-pulse 0.15s ease;
+  }
+  
+  .haptic-heavy:active {
+    animation: haptic-pulse 0.2s ease;
+  }
+  
+  @keyframes haptic-pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(0.98);
+    }
+  }
+}
+
+/* Bottom sheet для модальных окон */
+@media (max-width: 768px) {
+  .bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-bg-alt);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  .bottom-sheet.open {
+    transform: translateY(0);
+  }
+  
+  .bottom-sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--color-muted);
+    border-radius: 2px;
+    margin: 12px auto;
+    opacity: 0.5;
+  }
+}
+
+/* Оптимизация шрифтов для мобильных */
+@media (max-width: 768px) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Предотвращение масштабирования при фокусе на input */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

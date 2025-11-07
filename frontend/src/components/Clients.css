@@ -3,6 +3,10 @@
   background: var(--color-bg-alt);
   border-radius: 15px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .clients-title {
@@ -16,6 +20,15 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
+  width: 100%;
+}
+
+/* Адаптивная сетка для планшетов */
+@media (max-width: 1024px) {
+  .clients-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
 }
 
 .client-item {
@@ -145,9 +158,79 @@
   color: white;
 }
 
+/* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
+  .clients-container {
+    padding: 12px;
+    border-radius: 12px;
+  }
+  
+  .clients-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  
   .clients-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .client-item {
+    padding: 14px;
+  }
+  
+  .client-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .contract-number {
+    align-self: flex-start;
+  }
+  
+  .client-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .action-btn {
+    width: 100%;
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .clients-container {
+    padding: 8px;
+    border-radius: 8px;
+  }
+  
+  .clients-title {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  
+  .client-item {
+    padding: 12px;
+  }
+  
+  .client-header h3 {
+    font-size: 16px;
+  }
+  
+  .client-details p {
+    font-size: 13px;
+    margin: 6px 0;
+  }
+  
+  .expert-documents h4 {
+    font-size: 14px;
+  }
+  
+  .expert-documents li {
+    font-size: 13px;
   }
 }
 

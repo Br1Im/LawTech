@@ -8,6 +8,31 @@ const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
+const float = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+`;
+
+const rotate = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+`;
+
+const shimmer = keyframes`
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+`;
+
+const scaleIn = keyframes`
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+`;
+
 const ContentWrapper = styled.div`
   max-width: 1200px;
   width: 100%;
@@ -43,24 +68,49 @@ const TextContent = styled.div`
 `;
 
 const Tagline = styled.div`
-  background-color: var(--color-accent);
+  background: linear-gradient(135deg, #d4af37, #f5d97b);
   color: #fff;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 15px;
+  padding: 8px 20px;
+  border-radius: 25px;
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-weight: bold;
+  font-weight: 600;
   margin-bottom: 20px;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: ${shimmer} 3s infinite;
+  }
+
+  &::after {
+    content: '✨';
+    margin-left: 4px;
+  }
 `;
 
 const Title = styled.h1`
-  color: var(--color-accent);
-  font-size: 48px;
-  font-weight: bold;
+  background: linear-gradient(135deg, #d4af37 0%, #f5d97b 50%, #d4af37 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 52px;
+  font-weight: 800;
   line-height: 1.2;
   margin-bottom: 16px;
+  animation: ${shimmer} 3s linear infinite;
+  text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
 
   @media (max-width: 768px) {
     font-size: 36px;
@@ -88,26 +138,47 @@ const Subtitle = styled.p`
 `;
 
 const GetStartedButton = styled(Link)`
-  background-color: var(--color-button-bg);
-  color: var(--color-button-text);
-  border: 1px solid var(--color-accent);
-  padding: 12px 24px;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #d4af37, #f5d97b);
+  color: #fff;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 30px;
   font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   text-decoration: none;
   display: inline-block;
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+  }
 
   &:hover {
-    background-color: var(--color-bg);
-    color: var(--color-accent);
-    border: 1px solid var(--color-accent);
-    transform: scale(1.05);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.6);
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 768px) {
-    padding: 10px 20px;
+    padding: 12px 24px;
     font-size: 14px;
   }
 `;
@@ -119,9 +190,9 @@ const ImageWrapper = styled.div`
   max-width: 100%;
   margin-left: auto;
   margin-right: auto;
-  animation: ${fadeIn} 1s ease forwards;
-  animation-delay: 0.6s;
+  animation: ${float} 6s ease-in-out infinite;
   opacity: 0;
+  animation: ${fadeIn} 1s ease forwards, ${float} 6s ease-in-out infinite 1s;
 
   @media (max-width: 768px) {
     width: 300px;
@@ -132,19 +203,37 @@ const ImageWrapper = styled.div`
 
 const OuterCircle = styled.div`
   position: absolute;
-  top: -40px;
-  left: -60px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 600px;
   height: 600px;
   background: radial-gradient(circle, rgba(212, 175, 55, 0.15), transparent 70%);
   border-radius: 50%;
   z-index: 0;
+  animation: ${pulse} 4s ease-in-out infinite;
 
   @media (max-width: 768px) {
     width: 360px;
     height: 360px;
-    top: -30px;
-    left: -50px;
+  }
+`;
+
+const RotatingRing = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  height: 520px;
+  border: 2px dashed rgba(212, 175, 55, 0.3);
+  border-radius: 50%;
+  animation: ${rotate} 20s linear infinite;
+  z-index: 0;
+
+  @media (max-width: 768px) {
+    width: 320px;
+    height: 320px;
   }
 `;
 
@@ -154,37 +243,92 @@ const InnerCircle = styled.div`
   border-radius: 50%;
   overflow: hidden;
   border: 4px solid #d4af37;
-  box-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
+  box-shadow: 
+    0 0 30px rgba(212, 175, 55, 0.5),
+    inset 0 0 20px rgba(212, 175, 55, 0.1);
   position: relative;
   z-index: 1;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(212,175,55,0.05) 100%);
+  animation: ${scaleIn} 1s ease forwards;
+  animation-delay: 0.6s;
+  transform: scale(0.8);
 `;
 
 const HeroImage = styled.img`
-  width: 700px;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  animation: pulse 5s ease-in-out infinite;
+  object-position: center;
+  transition: transform 0.3s ease;
 
-  @keyframes pulse {
-    0%, 100% {
-      transform: translate(-80px, 50px) scale(1);
-    }
-    50% {
-      transform: translate(-80px, 50px) scale(1.05);
-    }
+  &:hover {
+    transform: scale(1.1);
   }
 
   @media (max-width: 768px) {
-    width: 400px;
-
-    @keyframes pulse {
-    0%, 100% {
-      transform: translate(-50px, 40px) scale(1);
-    }
-    50% {
-      transform: translate(-50px, 40px) scale(1.05);
-    }
+    object-fit: cover;
   }
+`;
+
+const FloatingParticle = styled.div<{ delay: number; duration: number; left: string; top: string }>`
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #d4af37, #f5d97b);
+  border-radius: 50%;
+  left: ${props => props.left};
+  top: ${props => props.top};
+  animation: ${float} ${props => props.duration}s ease-in-out infinite;
+  animation-delay: ${props => props.delay}s;
+  opacity: 0.6;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+  z-index: 0;
+`;
+
+const StatsContainer = styled.div`
+  display: flex;
+  gap: 30px;
+  margin-top: 40px;
+  animation: ${fadeIn} 1s ease forwards;
+  animation-delay: 0.9s;
+  opacity: 0;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+    gap: 20px;
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: center;
+  }
+`;
+
+const StatItem = styled.div`
+  text-align: center;
+`;
+
+const StatNumber = styled.div`
+  font-size: 36px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #d4af37, #f5d97b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 4px;
+
+  @media (max-width: 768px) {
+    font-size: 28px;
+  }
+`;
+
+const StatLabel = styled.div`
+  font-size: 14px;
+  color: var(--color-muted);
+  font-weight: 500;
+
+  @media (max-width: 768px) {
+    font-size: 12px;
   }
 `;
 
@@ -200,10 +344,32 @@ const HeroSection = () => {
           Оптимизируйте процессы, управляйте клиентами и делами с нашей современной
           CRM-системой, созданной специально для юристов.
         </Subtitle>
-        <GetStartedButton to="/auth">ПОПРОБОВАТЬ СЕЙЧАС</GetStartedButton>
+        <GetStartedButton to="/auth">ПОПРОБОВАТЬ СЕЙЧАС →</GetStartedButton>
+        
+        <StatsContainer>
+          <StatItem>
+            <StatNumber>500+</StatNumber>
+            <StatLabel>Довольных клиентов</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatNumber>10K+</StatNumber>
+            <StatLabel>Обработанных дел</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatNumber>99%</StatNumber>
+            <StatLabel>Удовлетворенность</StatLabel>
+          </StatItem>
+        </StatsContainer>
       </TextContent>
       <ImageWrapper>
+        <FloatingParticle delay={0} duration={3} left="10%" top="20%" />
+        <FloatingParticle delay={0.5} duration={4} left="80%" top="30%" />
+        <FloatingParticle delay={1} duration={3.5} left="15%" top="70%" />
+        <FloatingParticle delay={1.5} duration={4.5} left="85%" top="60%" />
+        <FloatingParticle delay={2} duration={3.8} left="50%" top="10%" />
+        <FloatingParticle delay={2.5} duration={4.2} left="50%" top="90%" />
         <OuterCircle />
+        <RotatingRing />
         <InnerCircle>
           <HeroImage src={Femida} alt="Femida" />
         </InnerCircle>

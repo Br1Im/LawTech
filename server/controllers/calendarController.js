@@ -30,9 +30,9 @@ const calendarController = {
 
       // Получаем обычные календарные события
       const [events] = await db.query(
-        `SELECT * FROM calendar_events 
+        `SELECT *, date as start_date FROM calendar_events 
          WHERE office_id = ? 
-         ORDER BY start_date ASC`,
+         ORDER BY date ASC`,
         [officeId]
       );
 
@@ -43,7 +43,8 @@ const calendarController = {
       
       // Проверяем наличие таблицы contracts
       const [tables] = await db.query(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name='contracts'`
+        `SELECT TABLE_NAME as name FROM INFORMATION_SCHEMA.TABLES 
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'contracts'`
       );
       
       console.log(`📊 Таблица contracts существует: ${tables.length > 0}`);
@@ -51,18 +52,20 @@ const calendarController = {
       // Если таблица существует, запрашиваем договоры
       let contracts = [];
       if (tables.length > 0) {
-        // Запрашиваем договоры для конкретного офиса - используем текстовое сравнение для SQLite
+        // Запрашиваем договоры для конкретного офиса через employees
         [contracts] = await db.query(
           `SELECT c.id, 
-               COALESCE(cl.first_name || ' ' || cl.last_name, cl.company, 'Неизвестный клиент') as client_name,
-               c.title as contract_number, 
+               COALESCE(cl.full_name, 'Неизвестный клиент') as client_name,
+               c.id as contract_number, 
                'consultation' as contract_type, 
                c.status, 
-               c.start_date as contract_date
+               c.contract_date,
+               e.id_office
         FROM contracts c
-        LEFT JOIN clients cl ON c.client_id = cl.id
-        WHERE c.office_id = ? AND c.start_date IS NOT NULL
-        ORDER BY c.start_date ASC`,
+        LEFT JOIN clients cl ON c.id_client = cl.id
+        LEFT JOIN employees e ON c.id_employee = e.id
+        WHERE e.id_office = ? AND c.contract_date IS NOT NULL
+        ORDER BY c.contract_date ASC`,
           [officeId]
         );
         
@@ -73,21 +76,29 @@ const calendarController = {
 
       // Преобразуем договоры в формат для фронтенда
       const contractEvents = contracts.map(contract => {
-        // Используем дату договора как start_date
-        const startDate = contract.contract_date;
+        // Сокращаем имя клиента если оно слишком длинное
+        const clientName = contract.client_name.length > 20 
+          ? contract.client_name.substring(0, 20) + '...' 
+          : contract.client_name;
         
         return {
           id: `contract-${contract.id}`,
-          title: `${contract.contract_type}: ${contract.client_name}`,
-          description: `Договор №${contract.contract_number}, статус: ${contract.status}`,
-          start_date: startDate,
-          end_date: null,
+          title: `Договор: ${clientName}`,
+          description: `Договор №${contract.contract_number}, статус: ${contract.status || 'active'}`,
+          date: contract.contract_date,
+          start_date: contract.contract_date,
+          time: '10:00:00',
+          type: 'contract',
           event_type: 'contract',
+          priority: 'high',
           office_id: parseInt(officeId),
+          created_by: null,
           user_id: null,
           contract_id: contract.id,
           contract_number: contract.contract_number,
-          status: contract.status
+          status: contract.status || 'active',
+          participants: contract.client_name,
+          location: null
         };
       });
 
@@ -147,13 +158,12 @@ const calendarController = {
 
       const [result] = await db.query(
         `INSERT INTO calendar_events 
-         (title, description, start_date, end_date, event_type, user_id, office_id, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+         (title, description, date, time, type, priority, created_by, office_id, created_at) 
+         VALUES (?, ?, ?, '10:00:00', ?, 'medium', ?, ?, NOW())`,
         [
           title,
           description || null,
           start_date,
-          end_date || null,
           event_type,
           userId,
           officeId
@@ -211,9 +221,9 @@ const calendarController = {
 
       await db.query(
         `UPDATE calendar_events 
-         SET title = ?, description = ?, start_date = ?, end_date = ?, event_type = ?
+         SET title = ?, description = ?, date = ?, type = ?
          WHERE id = ?`,
-        [title, description, start_date, end_date, event_type, id]
+        [title, description, start_date, event_type, id]
       );
 
       // Получаем обновленное событие
@@ -297,17 +307,17 @@ const calendarController = {
       let params = [officeId];
 
       if (startDate && endDate) {
-        query += ` AND start_date BETWEEN ? AND ?`;
+        query += ` AND date BETWEEN ? AND ?`;
         params.push(startDate, endDate);
       } else if (startDate) {
-        query += ` AND start_date >= ?`;
+        query += ` AND date >= ?`;
         params.push(startDate);
       } else if (endDate) {
-        query += ` AND start_date <= ?`;
+        query += ` AND date <= ?`;
         params.push(endDate);
       }
 
-      query += ` ORDER BY start_date ASC`;
+      query += ` ORDER BY date ASC`;
 
       const [events] = await db.query(query, params);
 
@@ -347,46 +357,60 @@ const calendarController = {
 
       // Получаем обычные календарные события для всех офисов
       const [events] = await db.query(
-        `SELECT * FROM calendar_events 
+        `SELECT *, date as start_date FROM calendar_events 
          WHERE office_id IN (?) 
-         ORDER BY start_date ASC`,
+         ORDER BY date ASC`,
         [officeIds]
       );
 
       console.log(`📅 Найдено обычных событий: ${events.length}`);
 
-      // Получаем договоры для всех офисов
+      // Получаем договоры для всех офисов через employees
       const [contracts] = await db.query(
         `SELECT c.id, 
-               COALESCE(cl.first_name || ' ' || cl.last_name, cl.company, 'Неизвестный клиент') as client_name,
-               c.title as contract_number, 
+               COALESCE(cl.full_name, 'Неизвестный клиент') as client_name,
+               c.id as contract_number, 
                'consultation' as contract_type, 
                c.status, 
-               c.start_date as contract_date,
-               c.office_id
+               c.contract_date,
+               e.id_office as office_id
         FROM contracts c
-        LEFT JOIN clients cl ON c.client_id = cl.id
-        WHERE c.office_id IN (?) AND c.start_date IS NOT NULL
-        ORDER BY c.start_date ASC`,
+        LEFT JOIN clients cl ON c.id_client = cl.id
+        LEFT JOIN employees e ON c.id_employee = e.id
+        WHERE e.id_office IN (?) AND c.contract_date IS NOT NULL
+        ORDER BY c.contract_date ASC`,
         [officeIds]
       );
         
       console.log(`📝 Найдено договоров с датами: ${contracts.length}`);
 
       // Преобразуем договоры в формат для фронтенда
-      const contractEvents = contracts.map(contract => ({
-        id: `contract-${contract.id}`,
-        title: `${contract.contract_type}: ${contract.client_name}`,
-        description: `Договор №${contract.contract_number}, статус: ${contract.status}`,
-        start_date: contract.contract_date,
-        end_date: null,
-        event_type: 'contract',
-        office_id: contract.office_id,
-        user_id: null,
-        contract_id: contract.id,
-        contract_number: contract.contract_number,
-        status: contract.status
-      }));
+      const contractEvents = contracts.map(contract => {
+        // Сокращаем имя клиента если оно слишком длинное
+        const clientName = contract.client_name.length > 20 
+          ? contract.client_name.substring(0, 20) + '...' 
+          : contract.client_name;
+        
+        return {
+          id: `contract-${contract.id}`,
+          title: `Договор: ${clientName}`,
+          description: `Договор №${contract.contract_number}, статус: ${contract.status || 'active'}`,
+          date: contract.contract_date,
+          start_date: contract.contract_date,
+          time: '10:00:00',
+          type: 'contract',
+          event_type: 'contract',
+          priority: 'high',
+          office_id: contract.office_id,
+          created_by: null,
+          user_id: null,
+          contract_id: contract.id,
+          contract_number: contract.contract_number,
+          status: contract.status || 'active',
+          participants: contract.client_name,
+          location: null
+        };
+      });
 
       console.log(`🎯 Создано событий договоров: ${contractEvents.length}`);
 

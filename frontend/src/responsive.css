@@ -1,0 +1,682 @@
+/* ===== АДАПТИВНЫЕ СТИЛИ ДЛЯ CRM СИСТЕМЫ ===== */
+
+/* Базовые адаптивные утилиты */
+.container-responsive {
+  width: 100%;
+  max-width: 100%;
+  padding-left: 20px;
+  padding-right: 20px;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+/* Адаптивная сетка */
+.grid-responsive {
+  display: grid;
+  gap: 20px;
+  width: 100%;
+}
+
+.grid-responsive-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-responsive-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-responsive-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Адаптивные отступы */
+.p-responsive {
+  padding: 20px;
+}
+
+.m-responsive {
+  margin: 20px;
+}
+
+/* Скрытие элементов на разных устройствах */
+.hide-mobile {
+  display: block;
+}
+
+.hide-desktop {
+  display: none;
+}
+
+.show-mobile {
+  display: none;
+}
+
+/* ===== ПЛАНШЕТЫ (до 1024px) ===== */
+@media (max-width: 1024px) {
+  .container-responsive {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .grid-responsive {
+    gap: 16px;
+  }
+  
+  .grid-responsive-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .p-responsive {
+    padding: 16px;
+  }
+  
+  .m-responsive {
+    margin: 16px;
+  }
+}
+
+/* ===== МОБИЛЬНЫЕ УСТРОЙСТВА (до 768px) ===== */
+@media (max-width: 768px) {
+  .container-responsive {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  .grid-responsive {
+    gap: 12px;
+  }
+  
+  .grid-responsive-2,
+  .grid-responsive-3,
+  .grid-responsive-4 {
+    grid-template-columns: 1fr;
+  }
+  
+  .p-responsive {
+    padding: 12px;
+  }
+  
+  .m-responsive {
+    margin: 12px;
+  }
+  
+  .hide-mobile {
+    display: none !important;
+  }
+  
+  .show-mobile {
+    display: block !important;
+  }
+  
+  .hide-desktop {
+    display: block !important;
+  }
+  
+  /* Адаптивные кнопки */
+  button,
+  .btn {
+    min-height: 44px;
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+  
+  /* Адаптивные инпуты */
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px; /* Предотвращает зум на iOS */
+  }
+  
+  /* Адаптивные модальные окна */
+  .modal-content {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 10px auto;
+  }
+  
+  /* Адаптивные таблицы - горизонтальный скролл */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table-responsive table {
+    min-width: 600px;
+  }
+}
+
+/* ===== МАЛЕНЬКИЕ МОБИЛЬНЫЕ (до 480px) ===== */
+@media (max-width: 480px) {
+  .container-responsive {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  
+  .grid-responsive {
+    gap: 8px;
+  }
+  
+  .p-responsive {
+    padding: 8px;
+  }
+  
+  .m-responsive {
+    margin: 8px;
+  }
+  
+  /* Заголовки */
+  h1 {
+    font-size: 24px;
+  }
+  
+  h2 {
+    font-size: 20px;
+  }
+  
+  h3 {
+    font-size: 18px;
+  }
+  
+  h4 {
+    font-size: 16px;
+  }
+  
+  /* Кнопки на всю ширину */
+  .btn-full-mobile {
+    width: 100%;
+  }
+  
+  /* Модальные окна на весь экран */
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ КАРТОЧКИ ===== */
+.card-responsive {
+  background: var(--color-bg-alt);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .card-responsive {
+    padding: 12px;
+    border-radius: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-responsive {
+    padding: 10px;
+    border-radius: 6px;
+  }
+}
+
+/* ===== АДАПТИВНАЯ ТИПОГРАФИКА ===== */
+.text-responsive-lg {
+  font-size: 18px;
+}
+
+.text-responsive-md {
+  font-size: 16px;
+}
+
+.text-responsive-sm {
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .text-responsive-lg {
+    font-size: 16px;
+  }
+  
+  .text-responsive-md {
+    font-size: 14px;
+  }
+  
+  .text-responsive-sm {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .text-responsive-lg {
+    font-size: 15px;
+  }
+  
+  .text-responsive-md {
+    font-size: 13px;
+  }
+  
+  .text-responsive-sm {
+    font-size: 12px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ FLEX КОНТЕЙНЕРЫ ===== */
+.flex-responsive {
+  display: flex;
+  gap: 16px;
+}
+
+.flex-responsive-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-responsive-column-mobile {
+  flex-direction: row;
+}
+
+@media (max-width: 768px) {
+  .flex-responsive {
+    gap: 12px;
+  }
+  
+  .flex-responsive-column-mobile {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .flex-responsive {
+    gap: 8px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ИЗОБРАЖЕНИЯ ===== */
+.img-responsive {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ===== АДАПТИВНОЕ ВИДЕО ===== */
+.video-responsive {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+  overflow: hidden;
+}
+
+.video-responsive iframe,
+.video-responsive video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== TOUCH-FRIENDLY ЭЛЕМЕНТЫ ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Увеличиваем размер кликабельных элементов для touch устройств */
+  button,
+  a,
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Убираем hover эффекты на touch устройствах */
+  *:hover {
+    transition: none;
+  }
+}
+
+/* ===== АДАПТИВНАЯ НАВИГАЦИЯ ===== */
+.nav-responsive {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .nav-responsive {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .nav-responsive > * {
+    width: 100%;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ФОРМЫ ===== */
+.form-responsive {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row-responsive {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .form-row-responsive {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ СТАТИСТИЧЕСКИЕ КАРТОЧКИ ===== */
+.stat-card-responsive {
+  background: var(--color-bg-alt);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .stat-card-responsive {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card-responsive {
+    padding: 12px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ГРАФИКИ ===== */
+.chart-responsive {
+  width: 100%;
+  height: 300px;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .chart-responsive {
+    height: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-responsive {
+    height: 200px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ СПИСКИ ===== */
+.list-responsive {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.list-responsive li {
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+@media (max-width: 768px) {
+  .list-responsive li {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .list-responsive li {
+    padding: 8px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ БЕЙДЖИ ===== */
+.badge-responsive {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (max-width: 480px) {
+  .badge-responsive {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ АЛЕРТЫ ===== */
+.alert-responsive {
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 768px) {
+  .alert-responsive {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .alert-responsive {
+    padding: 10px;
+    font-size: 13px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ВКЛАДКИ ===== */
+.tabs-responsive {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabs-responsive::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs-responsive .tab {
+  flex-shrink: 0;
+  padding: 12px 20px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tabs-responsive .tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tabs-responsive .tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ДРОПДАУНЫ ===== */
+.dropdown-responsive {
+  position: relative;
+}
+
+.dropdown-responsive .dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .dropdown-responsive .dropdown-menu {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ТУЛТИПЫ ===== */
+.tooltip-responsive {
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  .tooltip-responsive .tooltip-text {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ПАГИНАЦИИ ===== */
+.pagination-responsive {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.pagination-responsive .page-item {
+  min-width: 40px;
+  height: 40px;
+}
+
+@media (max-width: 768px) {
+  .pagination-responsive .page-item {
+    min-width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-responsive .page-item {
+    min-width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ BREADCRUMBS ===== */
+.breadcrumb-responsive {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .breadcrumb-responsive {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .breadcrumb-responsive {
+    font-size: 12px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ АККОРДЕОНЫ ===== */
+.accordion-responsive .accordion-header {
+  padding: 16px;
+  cursor: pointer;
+}
+
+.accordion-responsive .accordion-body {
+  padding: 16px;
+}
+
+@media (max-width: 768px) {
+  .accordion-responsive .accordion-header,
+  .accordion-responsive .accordion-body {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .accordion-responsive .accordion-header,
+  .accordion-responsive .accordion-body {
+    padding: 10px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ ПРОГРЕСС-БАРЫ ===== */
+.progress-responsive {
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .progress-responsive {
+    height: 6px;
+  }
+}
+
+/* ===== АДАПТИВНЫЕ СПИННЕРЫ ===== */
+.spinner-responsive {
+  width: 40px;
+  height: 40px;
+}
+
+@media (max-width: 768px) {
+  .spinner-responsive {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .spinner-responsive {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* ===== УТИЛИТЫ ДЛЯ ОТЛАДКИ ===== */
+.debug-responsive {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+}
+
+.debug-responsive::before {
+  content: 'Desktop';
+}
+
+@media (max-width: 1024px) {
+  .debug-responsive::before {
+    content: 'Tablet';
+  }
+}
+
+@media (max-width: 768px) {
+  .debug-responsive::before {
+    content: 'Mobile';
+  }
+}
+
+@media (max-width: 480px) {
+  .debug-responsive::before {
+    content: 'Small Mobile';
+  }
+}

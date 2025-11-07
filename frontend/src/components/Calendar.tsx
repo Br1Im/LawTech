@@ -93,7 +93,13 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
   }, [token, selectedOffice, showAllEvents]);
 
   const fetchEvents = async () => {
-    if (!token) return;
+    console.log('📅 fetchEvents called', { token: !!token, selectedOffice: selectedOffice?.id, showAllEvents });
+    
+    if (!token) {
+      console.log('❌ No token, skipping fetch');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
 
@@ -103,10 +109,13 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     } else if (selectedOffice) {
       url = buildApiUrl(`/office/${selectedOffice.id}/calendar-events`);
     } else {
+      console.log('❌ No office selected, skipping fetch');
       setEvents([]);
       setLoading(false);
       return;
     }
+
+    console.log('🔍 Fetching calendar events from:', url);
 
     try {
       const response = await fetch(url, {
@@ -115,14 +124,17 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
         },
       });
       const data = await response.json();
+      console.log('📊 Calendar API response:', { ok: response.ok, success: data.success, eventsCount: data.events?.length });
+      
       if (response.ok && data.success) {
+        console.log('✅ Setting events:', data.events);
         setEvents(data.events);
       } else {
         throw new Error(data.message || 'Failed to fetch events');
       }
     } catch (error: any) {
+      console.error('❌ Error fetching events:', error);
       setError(error.message);
-      console.error('Error fetching events:', error);
     } finally {
       setLoading(false);
     }
@@ -138,9 +150,22 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
 
   const dateCellRender = (date: Dayjs) => {
     const dayEvents = getEventsForDate(date);
+    
+    // Группируем договоры
+    const contracts = dayEvents.filter(e => e.type === 'contract');
+    const otherEvents = dayEvents.filter(e => e.type !== 'contract');
+    
     return (
       <ul className="events">
-        {dayEvents.slice(0, 3).map(event => (
+        {contracts.length > 0 && (
+          <li key="contracts">
+            <Badge
+              status="success"
+              text={`Договор (${contracts.length})`}
+            />
+          </li>
+        )}
+        {otherEvents.slice(0, 2).map(event => (
           <li key={event.id}>
             <Badge
               status={getEventBadgeStatus(event.type)}
@@ -148,8 +173,8 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
             />
           </li>
         ))}
-        {dayEvents.length > 3 && (
-          <li className="more-events">+{dayEvents.length - 3} еще</li>
+        {(contracts.length + otherEvents.length) > 3 && (
+          <li className="more-events">+{(contracts.length + otherEvents.length) - 3} еще</li>
         )}
       </ul>
     );
@@ -269,42 +294,25 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
   const selectedDateEvents = getEventsForDate(selectedDate);
 
   const renderContractEventDetails = (event: CalendarEvent) => {
-    if (!event || event.type !== 'contract' || !selectedOffice) return null;
-    if (showAllEvents) return null;
+    if (!event || event.type !== 'contract') return null;
 
-    if (!selectedOffice.contracts || !Array.isArray(selectedOffice.contracts)) {
-      return <div className="no-contracts"><p>Не удалось загрузить договоры</p></div>;
-    }
+    // Получаем все события-договоры на выбранную дату
+    const contractEvents = selectedDateEvents.filter(e => e.type === 'contract');
 
-    const contractsForDate = selectedOffice.contracts.filter(contract => {
-      if (!contract || !contract.contract_date) return false;
-      const contractDate = dayjs(contract.contract_date.split('.').reverse().join('-'));
-      return contractDate.isSame(event.date, 'day');
-    });
-
-    if (contractsForDate.length === 0) {
+    if (contractEvents.length === 0) {
       return <div className="no-contracts"><p>Нет договоров на эту дату</p></div>;
     }
 
-    const handleContractClick = (contract: Contract) => {
-      const contractNumber = contract.contractNumber || contract.contract_number || contract.id;
-      if (onOpenContract && contractNumber) {
-        onOpenContract(contractNumber);
+    const handleContractClick = (contractEvent: CalendarEvent) => {
+      const contractId = (contractEvent as any).contract_id;
+      if (onOpenContract && contractId) {
+        onOpenContract(contractId);
       } else {
-        notification.error({
-          message: 'Не удалось открыть договор',
-          description: 'Проверьте наличие номера договора.',
+        notification.info({
+          message: 'Информация о договоре',
+          description: contractEvent.description || 'Детали договора',
         });
       }
-    };
-
-    const formatAmount = (amount: number) => {
-      return new Intl.NumberFormat('ru-RU', {
-        style: 'currency',
-        currency: 'RUB',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount);
     };
 
     const getStatusText = (status: string) => {
@@ -321,30 +329,27 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
       <div className="contract-details">
         <div className="contract-summary">
           <Badge status={getEventBadgeStatus(event.type)} />
-          <span>Договоры ({contractsForDate.length})</span>
+          <span>Договоры ({contractEvents.length})</span>
           <span className="event-time">{event.time}</span>
         </div>
         <div className="contract-list">
-          {contractsForDate.map((contract) => (
+          {contractEvents.map((contractEvent) => (
             <div
-              key={contract.id}
+              key={contractEvent.id}
               className="contract-item clickable"
-              onClick={() => handleContractClick(contract)}
-              title="Нажмите для перехода к деталям договора"
+              onClick={() => handleContractClick(contractEvent)}
+              title="Нажмите для просмотра деталей договора"
             >
               <div className="contract-main-info">
-                <span className="contract-client">📄 {contract.client_name}</span>
-                <span className="contract-amount">{formatAmount(contract.amount)}</span>
+                <span className="contract-client">📄 {contractEvent.title}</span>
+                <span className="contract-status">{getStatusText((contractEvent as any).status || 'active')}</span>
               </div>
               <div className="contract-secondary-info">
-                <span className="contract-type">{contract.contract_type}</span>
-                <span className={`contract-status status-${contract.status}`}>
-                  {getStatusText(contract.status)}
-                </span>
+                <span className="contract-time">⏰ {contractEvent.time}</span>
               </div>
-              {contract.subject && (
+              {contractEvent.description && (
                 <div className="contract-subject">
-                  {contract.subject}
+                  {contractEvent.description}
                 </div>
               )}
             </div>

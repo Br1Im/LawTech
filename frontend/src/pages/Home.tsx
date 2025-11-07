@@ -1,5 +1,7 @@
 import Header from '../widgets/homePage/Header';
 import HeroSection from '../widgets/homePage/HeroSection';
+import InteractiveFeatures from '../widgets/homePage/InteractiveFeatures';
+import AnimatedStats from '../widgets/homePage/AnimatedStats';
 import FeaturesSection from '../widgets/homePage/FeaturesSection';
 import Offer from '../widgets/homePage/Offer';
 import FAQ from '../widgets/homePage/FAQ';
@@ -39,6 +41,8 @@ const Home = () => {
     <LandingMainContainer bg="../assets/bg.jpg">
       <Header />
       <HeroSection />
+      <AnimatedStats />
+      <InteractiveFeatures />
       <FeaturesSection />
       <Offer />
       <FAQ />
