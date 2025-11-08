@@ -20,4 +20,6 @@ jobs:
         command_timeout: 45m
         script: |
           cd ~/LawTech
+          git fetch origin
+          git reset --hard origin/main
           bash auto-deploy.sh
