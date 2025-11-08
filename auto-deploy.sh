@@ -14,68 +14,37 @@ cd ~/LawTech
 echo "📥 Подтягиваем изменения из Git..."
 git pull origin main
 
-# Проверяем что изменилось
-CHANGED_FILES=$(git diff --name-only HEAD@{1} HEAD)
+# Останавливаем все контейнеры
+echo "🛑 Останавливаем контейнеры..."
+docker-compose down || true
 
-echo "📝 Изменённые файлы:"
-echo "$CHANGED_FILES"
+# Очищаем старые образы и контейнеры
+echo "🧹 Очищаем старые образы..."
+docker system prune -f || true
 
-# Определяем что нужно пересобрать
-REBUILD_BACKEND=false
-REBUILD_FRONTEND=false
-REBUILD_FAISS=false
+# Удаляем проблемные контейнеры
+docker rm -f lawtech-faiss lawtech-frontend lawtech-backend || true
 
-if echo "$CHANGED_FILES" | grep -q "^server/"; then
-    REBUILD_BACKEND=true
-    echo "🔧 Обнаружены изменения в backend"
-fi
+# Пересобираем все сервисы
+echo "🔨 Пересобираем все сервисы..."
+docker-compose build --no-cache
 
-if echo "$CHANGED_FILES" | grep -q "^frontend/"; then
-    REBUILD_FRONTEND=true
-    echo "🎨 Обнаружены изменения в frontend"
-fi
+# Запускаем контейнеры
+echo "🚀 Запускаем контейнеры..."
+docker-compose up -d
 
-if echo "$CHANGED_FILES" | grep -q "^server/scripts/"; then
-    REBUILD_FAISS=true
-    echo "🤖 Обнаружены изменения в FAISS сервисе"
-fi
-
-if echo "$CHANGED_FILES" | grep -q "docker-compose.yml"; then
-    REBUILD_BACKEND=true
-    REBUILD_FRONTEND=true
-    REBUILD_FAISS=true
-    echo "🐳 Обнаружены изменения в docker-compose.yml"
-fi
-
-# Пересобираем только то, что изменилось
-if [ "$REBUILD_BACKEND" = true ]; then
-    echo "🔨 Пересобираем backend..."
-    docker-compose build --no-cache backend
-    docker-compose up -d backend
-fi
-
-if [ "$REBUILD_FRONTEND" = true ]; then
-    echo "🔨 Пересобираем frontend..."
-    docker-compose build --no-cache frontend
-    docker-compose up -d frontend
-fi
-
-if [ "$REBUILD_FAISS" = true ]; then
-    echo "🔨 Пересобираем FAISS сервис..."
-    docker-compose build --no-cache faiss-service
-    docker-compose up -d faiss-service
-fi
-
-# Если ничего не изменилось, просто перезапускаем
-if [ "$REBUILD_BACKEND" = false ] && [ "$REBUILD_FRONTEND" = false ] && [ "$REBUILD_FAISS" = false ]; then
-    echo "♻️  Перезапускаем сервисы..."
-    docker-compose restart
-fi
+# Ждём запуска
+echo "⏳ Ждём запуска сервисов..."
+sleep 15
 
 # Проверяем статус
 echo ""
 echo "📊 Статус сервисов:"
 docker-compose ps
+
+echo ""
+echo "📋 Последние логи:"
+docker-compose logs --tail=30
 
 echo ""
 echo "✅ Деплой завершён успешно!"
