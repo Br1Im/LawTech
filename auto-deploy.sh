@@ -12,7 +12,8 @@ cd ~/LawTech
 
 # Подтягиваем изменения
 echo "📥 Подтягиваем изменения из Git..."
-git pull origin main
+git fetch origin
+git reset --hard origin/main
 
 # Проверяем какие файлы изменились
 CHANGED_FILES=$(git diff --name-only HEAD@{1} HEAD 2>/dev/null || echo "all")
