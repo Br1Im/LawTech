@@ -14,35 +14,29 @@ cd ~/LawTech
 echo "📥 Подтягиваем изменения из Git..."
 git pull origin main
 
-# Останавливаем все контейнеры проекта
-echo "🛑 Останавливаем контейнеры..."
-docker-compose down -v --remove-orphans || true
+# Проверяем какие файлы изменились
+CHANGED_FILES=$(git diff --name-only HEAD@{1} HEAD 2>/dev/null || echo "all")
 
-# Останавливаем ВСЕ контейнеры с lawtech в имени
-echo "🧹 Останавливаем все контейнеры lawtech..."
-docker ps -a --format '{{.Names}}' | grep -i lawtech | xargs -r docker stop || true
-docker ps -a --format '{{.Names}}' | grep -i lawtech | xargs -r docker rm -f || true
+echo "📝 Изменённые файлы: $CHANGED_FILES"
 
-# Удаляем контейнеры по ID (включая c4f307ee96ef)
-docker ps -a --format '{{.ID}} {{.Names}}' | grep -i lawtech | awk '{print $1}' | xargs -r docker rm -f || true
+# Определяем нужно ли пересобирать
+NEED_REBUILD=false
 
-# Удаляем все образы lawtech
-echo "🗑️  Удаляем образы lawtech..."
-docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | grep -i lawtech | awk '{print $2}' | xargs -r docker rmi -f || true
+if echo "$CHANGED_FILES" | grep -q "server/scripts/\|Dockerfile\|docker-compose.yml\|requirements.txt"; then
+    echo "🔨 Обнаружены изменения требующие пересборки"
+    NEED_REBUILD=true
+fi
 
-# Удаляем dangling образы
-docker images -f "dangling=true" -q | xargs -r docker rmi -f || true
-
-# Очищаем volumes
-echo "🧼 Очищаем volumes..."
-docker volume ls -q | grep -i lawtech | xargs -r docker volume rm -f || true
-
-# Полная очистка системы
-docker system prune -af --volumes || true
-
-# Пересобираем все сервисы
-echo "🔨 Пересобираем все сервисы..."
-docker-compose build --no-cache --pull
+if [ "$NEED_REBUILD" = true ]; then
+    echo "🛑 Останавливаем контейнеры..."
+    docker-compose down || true
+    
+    echo "🔨 Пересобираем сервисы..."
+    docker-compose build --no-cache
+else
+    echo "♻️  Пересборка не требуется, просто перезапускаем..."
+    docker-compose down || true
+fi
 
 # Запускаем контейнеры
 echo "🚀 Запускаем контейнеры..."
@@ -50,7 +44,7 @@ docker-compose up -d
 
 # Ждём запуска
 echo "⏳ Ждём запуска сервисов..."
-sleep 25
+sleep 15
 
 # Проверяем статус
 echo ""
@@ -58,9 +52,9 @@ echo "📊 Статус сервисов:"
 docker-compose ps
 
 echo ""
-echo "📋 Последние логи:"
-docker-compose logs --tail=50
+echo "📋 Логи (последние 30 строк):"
+docker-compose logs --tail=30
 
 echo ""
-echo "✅ Деплой завершён успешно!"
-echo "🌐 Сайт доступен: https://law-tech.online"
+echo "✅ Деплой завершён!"
+echo "🌐 Сайт: https://law-tech.online"
