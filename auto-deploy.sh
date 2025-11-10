@@ -36,6 +36,15 @@ docker-compose down --remove-orphans || true
 echo "🧹 Очищаем зависшие контейнеры..."
 docker ps -a | grep lawtech | awk '{print $1}' | xargs -r docker rm -f || true
 
+# Проверяем что занимает порт 80 и освобождаем его
+echo "🔍 Проверяем порт 80..."
+PORT_PID=$(lsof -ti:80 || true)
+if [ ! -z "$PORT_PID" ]; then
+    echo "⚠️  Порт 80 занят процессом $PORT_PID, освобождаем..."
+    kill -9 $PORT_PID || true
+    sleep 2
+fi
+
 if [ "$NEED_REBUILD" = true ]; then
     echo "🔨 Пересобираем сервисы..."
     docker-compose build --no-cache
