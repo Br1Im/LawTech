@@ -28,15 +28,17 @@ if echo "$CHANGED_FILES" | grep -q "server/scripts/\|Dockerfile\|docker-compose.
     NEED_REBUILD=true
 fi
 
+# Принудительно останавливаем и удаляем все контейнеры проекта
+echo "🛑 Останавливаем все контейнеры..."
+docker-compose down --remove-orphans || true
+
+# Удаляем зависшие контейнеры если есть
+echo "🧹 Очищаем зависшие контейнеры..."
+docker ps -a | grep lawtech | awk '{print $1}' | xargs -r docker rm -f || true
+
 if [ "$NEED_REBUILD" = true ]; then
-    echo "🛑 Останавливаем контейнеры..."
-    docker-compose down || true
-    
     echo "🔨 Пересобираем сервисы..."
     docker-compose build --no-cache
-else
-    echo "♻️  Пересборка не требуется, просто перезапускаем..."
-    docker-compose down || true
 fi
 
 # Запускаем контейнеры
