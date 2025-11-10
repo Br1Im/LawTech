@@ -10,9 +10,27 @@ echo "🔄 Начинаем автоматический деплой..."
 # Переходим в директорию проекта
 cd ~/LawTech
 
-# Подтягиваем изменения
+# Подтягиваем изменения с retry логикой
 echo "📥 Подтягиваем изменения из Git..."
-git fetch origin
+RETRY_COUNT=0
+MAX_RETRIES=3
+
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if git fetch origin --timeout=30; then
+        echo "✅ Git fetch успешен"
+        break
+    else
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Попытка $RETRY_COUNT не удалась, повторяем через 5 секунд..."
+            sleep 5
+        else
+            echo "❌ Не удалось подключиться к GitHub после $MAX_RETRIES попыток"
+            exit 1
+        fi
+    fi
+done
+
 git reset --hard origin/main
 
 # Проверяем какие файлы изменились
