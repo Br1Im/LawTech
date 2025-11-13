@@ -1,23 +1,71 @@
 -- Миграция для добавления CRM-синхронизации
 
--- Обновляем таблицу contracts
-ALTER TABLE contracts 
-ADD COLUMN IF NOT EXISTS title VARCHAR(255),
-ADD COLUMN IF NOT EXISTS description TEXT,
-ADD COLUMN IF NOT EXISTS start_date DATE,
-ADD COLUMN IF NOT EXISTS end_date DATE,
-ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+-- Обновляем таблицу contracts (проверяем существование колонок через процедуру)
+DELIMITER //
+CREATE PROCEDURE IF NOT EXISTS add_contract_columns()
+BEGIN
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='title') THEN
+    ALTER TABLE contracts ADD COLUMN title VARCHAR(255);
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='description') THEN
+    ALTER TABLE contracts ADD COLUMN description TEXT;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='start_date') THEN
+    ALTER TABLE contracts ADD COLUMN start_date DATE;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='end_date') THEN
+    ALTER TABLE contracts ADD COLUMN end_date DATE;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='created_at') THEN
+    ALTER TABLE contracts ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='contracts' AND column_name='updated_at') THEN
+    ALTER TABLE contracts ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+  END IF;
+END//
+DELIMITER ;
+
+CALL add_contract_columns();
+DROP PROCEDURE IF EXISTS add_contract_columns;
 
 -- Обновляем таблицу clients
-ALTER TABLE clients 
-ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+DELIMITER //
+CREATE PROCEDURE IF NOT EXISTS add_client_columns()
+BEGIN
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='clients' AND column_name='created_at') THEN
+    ALTER TABLE clients ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='clients' AND column_name='updated_at') THEN
+    ALTER TABLE clients ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+  END IF;
+END//
+DELIMITER ;
+
+CALL add_client_columns();
+DROP PROCEDURE IF EXISTS add_client_columns;
 
 -- Обновляем таблицу employees для связи с офисами
-ALTER TABLE employees 
-ADD COLUMN IF NOT EXISTS office_id INT,
-ADD FOREIGN KEY IF NOT EXISTS (office_id) REFERENCES offices(id) ON DELETE SET NULL;
+DELIMITER //
+CREATE PROCEDURE IF NOT EXISTS add_employee_office()
+BEGIN
+  IF NOT EXISTS (SELECT * FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='employees' AND column_name='office_id') THEN
+    ALTER TABLE employees ADD COLUMN office_id INT;
+  END IF;
+  
+  IF NOT EXISTS (SELECT * FROM information_schema.table_constraints WHERE table_schema=DATABASE() AND table_name='employees' AND constraint_name='fk_employees_office') THEN
+    ALTER TABLE employees ADD CONSTRAINT fk_employees_office FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE SET NULL;
+  END IF;
+END//
+DELIMITER ;
+
+CALL add_employee_office();
+DROP PROCEDURE IF EXISTS add_employee_office;
 
 -- Создаем таблицу для платежей (payments)
 CREATE TABLE IF NOT EXISTS payments (
@@ -56,93 +104,3 @@ CREATE INDEX IF NOT EXISTS idx_payments_contract ON payments(contract_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_office ON expenses(office_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_office ON calendar_events(office_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(start_date);
-
--- Создаем триггер для автоматического обновления статистики офиса при создании договора
-DELIMITER //
-CREATE TRIGGER IF NOT EXISTS after_contract_insert
-AFTER INSERT ON contracts
-FOR EACH ROW
-BEGIN
-  DECLARE v_office_id INT;
-  
-  -- Получаем office_id сотрудника
-  SELECT office_id INTO v_office_id FROM employees WHERE id = NEW.id_employee;
-  
-  IF v_office_id IS NOT NULL THEN
-    -- Обновляем статистику для всех периодов
-    INSERT INTO office_stats (office_id, period_type, revenue, orders, updated_at)
-    VALUES (v_office_id, 'day', NEW.amount, 1, NOW())
-    ON DUPLICATE KEY UPDATE 
-      revenue = revenue + NEW.amount,
-      orders = orders + 1,
-      updated_at = NOW();
-      
-    INSERT INTO office_stats (office_id, period_type, revenue, orders, updated_at)
-    VALUES (v_office_id, 'week', NEW.amount, 1, NOW())
-    ON DUPLICATE KEY UPDATE 
-      revenue = revenue + NEW.amount,
-      orders = orders + 1,
-      updated_at = NOW();
-      
-    INSERT INTO office_stats (office_id, period_type, revenue, orders, updated_at)
-    VALUES (v_office_id, 'month', NEW.amount, 1, NOW())
-    ON DUPLICATE KEY UPDATE 
-      revenue = revenue + NEW.amount,
-      orders = orders + 1,
-      updated_at = NOW();
-      
-    INSERT INTO office_stats (office_id, period_type, revenue, orders, updated_at)
-    VALUES (v_office_id, 'year', NEW.amount, 1, NOW())
-    ON DUPLICATE KEY UPDATE 
-      revenue = revenue + NEW.amount,
-      orders = orders + 1,
-      updated_at = NOW();
-  END IF;
-END//
-DELIMITER ;
-
--- Создаем триггер для автоматического обновления статистики при обновлении договора
-DELIMITER //
-CREATE TRIGGER IF NOT EXISTS after_contract_update
-AFTER UPDATE ON contracts
-FOR EACH ROW
-BEGIN
-  DECLARE v_office_id INT;
-  DECLARE v_amount_diff DECIMAL(15,2);
-  
-  -- Получаем office_id сотрудника
-  SELECT office_id INTO v_office_id FROM employees WHERE id = NEW.id_employee;
-  
-  -- Вычисляем разницу в сумме
-  SET v_amount_diff = NEW.amount - OLD.amount;
-  
-  IF v_office_id IS NOT NULL AND v_amount_diff != 0 THEN
-    -- Обновляем статистику для всех периодов
-    UPDATE office_stats 
-    SET revenue = revenue + v_amount_diff, updated_at = NOW()
-    WHERE office_id = v_office_id;
-  END IF;
-END//
-DELIMITER ;
-
--- Создаем триггер для автоматического обновления статистики при удалении договора
-DELIMITER //
-CREATE TRIGGER IF NOT EXISTS after_contract_delete
-AFTER DELETE ON contracts
-FOR EACH ROW
-BEGIN
-  DECLARE v_office_id INT;
-  
-  -- Получаем office_id сотрудника
-  SELECT office_id INTO v_office_id FROM employees WHERE id = OLD.id_employee;
-  
-  IF v_office_id IS NOT NULL THEN
-    -- Обновляем статистику для всех периодов
-    UPDATE office_stats 
-    SET revenue = revenue - OLD.amount, 
-        orders = orders - 1,
-        updated_at = NOW()
-    WHERE office_id = v_office_id;
-  END IF;
-END//
-DELIMITER ;
