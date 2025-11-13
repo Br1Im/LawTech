@@ -58,70 +58,33 @@ const checkAndCreateDatabaseFields = async () => {
   try {
     console.log('🔍 Проверка структуры базы данных...');
     
-    // Проверяем существование таблицы users
-    const [userTableExists] = await db.query(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-    );
+    // Проверяем существование таблицы users (MySQL синтаксис)
+    const [userTableExists] = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE() 
+      AND table_name = 'users'
+    `);
     
-    if (userTableExists.length === 0) {
-      console.log('📋 Создание таблицы users...');
-      await db.query(`
-        CREATE TABLE users (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          username VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
-          password VARCHAR(255) NOT NULL,
-          role VARCHAR(50) NOT NULL DEFAULT 'lawyer',
-          office_id INT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-      `);
+    if (userTableExists[0].count === 0) {
+      console.log('⚠️  Таблица users не найдена. Убедитесь что миграции выполнены.');
+    } else {
+      console.log('✅ Таблица users существует');
     }
     
     // Проверяем существование таблицы offices
-    const [officeTableExists] = await db.query(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='offices'"
-    );
+    const [officeTableExists] = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE() 
+      AND table_name = 'offices'
+    `);
     
-    if (officeTableExists.length === 0) {
-      console.log('🏢 Создание таблицы offices...');
-      await db.query(`
-        CREATE TABLE offices (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          address TEXT,
-          contact_phone VARCHAR(50),
-          website VARCHAR(255),
-          revenue DECIMAL(15,2) DEFAULT 0,
-          orders INT DEFAULT 0,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-      `);
+    if (officeTableExists[0].count === 0) {
+      console.log('⚠️  Таблица offices не найдена. Убедитесь что миграции выполнены.');
     }
     
-    // Проверяем наличие колонки role в таблице users
-    try {
-      const [userColumns] = await db.query(
-        "SELECT name FROM pragma_table_info('users') WHERE name = 'role'"
-      );
-      console.log('📋 Проверка колонки role в таблице users...');
-      
-      if (userColumns.length === 0) {
-        console.log('➕ Добавляем колонку role в таблицу users...');
-        await db.query('ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT "lawyer"');
-        console.log('✅ Колонка role добавлена в таблицу users');
-      } else {
-        console.log('✅ Колонка role уже существует в таблице users');
-      }
-    } catch (error) {
-      if (error.code === 'ER_DUP_FIELDNAME') {
-        console.log('✅ Колонка role уже существует в таблице users');
-      } else {
-        throw error;
-      }
-    }
+    console.log('✅ Проверка структуры базы данных завершена');
     
     // Проверяем существование таблицы calendar_events
     const [calendarTableExists] = await db.query(

@@ -23,15 +23,15 @@ async function createUserIfNotExists(userData) {
     const hashedPassword = await bcrypt.hash(userData.password, 10);
     
     // Создаем офис, если указаны данные офиса и не указан office_id
-    let officeId = userData.office_id;
+    let officeId = userData.office_id || null;
     if (!officeId && userData.office) {
       const [officeResult] = await db.query(`
-        INSERT INTO offices (name, address, contact_phone, website)
+        INSERT INTO offices (name, address, phone, website)
         VALUES (?, ?, ?, ?)
       `, [
         userData.office.name,
         userData.office.address,
-        userData.office.contact_phone,
+        userData.office.phone || userData.office.contact_phone,
         userData.office.website
       ]);
       
