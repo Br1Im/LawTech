@@ -3,8 +3,6 @@
 # 🚀 Скрипт автоматического деплоя для LawTech
 # Запускается на сервере после git pull
 
-set -e
-
 echo "🔄 Начинаем автоматический деплой..."
 
 # Переходим в директорию проекта
@@ -16,7 +14,7 @@ RETRY_COUNT=0
 MAX_RETRIES=3
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if git fetch origin --timeout=30; then
+    if git fetch origin --timeout=30 2>&1; then
         echo "✅ Git fetch успешен"
         break
     else
@@ -26,43 +24,42 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             sleep 5
         else
             echo "❌ Не удалось подключиться к GitHub после $MAX_RETRIES попыток"
-            exit 1
+            echo "⚠️  Продолжаем с текущей версией кода..."
         fi
     fi
 done
 
-git reset --hard origin/main
+git reset --hard origin/main || echo "⚠️  Используем текущую версию"
 
 # Проверяем какие файлы изменились
 CHANGED_FILES=$(git diff --name-only HEAD@{1} HEAD 2>/dev/null || echo "all")
-
 echo "📝 Изменённые файлы: $CHANGED_FILES"
 
 # Определяем нужно ли пересобирать
 NEED_REBUILD=false
-
 if echo "$CHANGED_FILES" | grep -q "server/scripts/\|Dockerfile\|docker-compose.yml\|requirements.txt"; then
     echo "🔨 Обнаружены изменения требующие пересборки"
     NEED_REBUILD=true
 fi
 
-# Принудительно останавливаем и удаляем все контейнеры проекта
+# Останавливаем все контейнеры
 echo "🛑 Останавливаем все контейнеры..."
-docker-compose down --remove-orphans || true
+docker-compose down --remove-orphans 2>/dev/null || true
 
-# Удаляем зависшие контейнеры если есть
+# Удаляем зависшие контейнеры
 echo "🧹 Очищаем зависшие контейнеры..."
-docker ps -a | grep lawtech | awk '{print $1}' | xargs -r docker rm -f || true
+docker ps -a 2>/dev/null | grep lawtech | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
 
-# Проверяем что занимает порт 80 и освобождаем его
+# Освобождаем порт 80
 echo "🔍 Проверяем порт 80..."
-PORT_PID=$(lsof -ti:80 || true)
+PORT_PID=$(lsof -ti:80 2>/dev/null || true)
 if [ ! -z "$PORT_PID" ]; then
     echo "⚠️  Порт 80 занят процессом $PORT_PID, освобождаем..."
-    kill -9 $PORT_PID || true
+    kill -9 $PORT_PID 2>/dev/null || true
     sleep 2
 fi
 
+# Пересборка если нужно
 if [ "$NEED_REBUILD" = true ]; then
     echo "🔨 Пересобираем сервисы..."
     docker-compose build --no-cache
