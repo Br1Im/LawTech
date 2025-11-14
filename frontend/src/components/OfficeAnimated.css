@@ -91,8 +91,8 @@
 }
 
 .office-card.selected {
-  animation: pulse 0.5s ease-out;
-  box-shadow: 0 8px 32px rgba(68, 118, 240, 0.3);
+  /* Убрали анимацию pulse */
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
 }
 
 .office-add-card {
@@ -312,15 +312,8 @@
 }
 
 .office-card.selected::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  border-radius: 12px;
-  animation: attention 2s infinite;
-  pointer-events: none;
+  /* Убрали анимацию attention */
+  display: none;
 }
 
 /* Адаптивные улучшения */
@@ -362,7 +355,7 @@
 }
 
 [data-theme='dark'] .office-card.selected {
-  box-shadow: 0 8px 32px rgba(68, 118, 240, 0.5);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
 
 /* Плавное появление контента */
