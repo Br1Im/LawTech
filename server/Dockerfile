@@ -17,5 +17,5 @@ RUN mkdir -p uploads
 # Открываем порт
 EXPOSE 3001
 
-# Запускаем сервер
-CMD ["node", "server.js"]
+# Запускаем сервер (сначала ждем базу данных)
+CMD ["sh", "-c", "node wait-for-db.js && node server.js"]
