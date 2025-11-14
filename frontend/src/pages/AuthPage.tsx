@@ -506,10 +506,22 @@ const AuthPage = () => {
       }
       
       const data = await response.json();
-      console.log('✅ Успешный вход');
+      console.log('✅ Успешный вход, данные:', data);
       
+      if (!data.token) {
+        throw new Error('Сервер не вернул токен');
+      }
+      
+      console.log('💾 Сохраняем токен в localStorage');
       localStorage.setItem('token', data.token);
+      
+      // Проверяем что токен сохранился
+      const savedToken = localStorage.getItem('token');
+      console.log('✅ Токен сохранен:', savedToken ? 'Да' : 'Нет');
+      
       message.success('Вход выполнен успешно!');
+      
+      console.log('🔄 Переход на /crm');
       navigate('/crm');
       form.resetFields();
     } catch (error) {

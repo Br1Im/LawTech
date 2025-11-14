@@ -12,17 +12,21 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   useEffect(() => {
     const checkAuth = () => {
-      // Проверяем наличие токена и его валидность
+      // Просто проверяем наличие токена
       const authenticated = isAuthenticated();
-      const tokenValid = isTokenValid();
       
-      if (authenticated && tokenValid) {
-        setIsAuth(true);
-      } else if (authenticated && !tokenValid) {
-        // Токен есть, но он невалиден - выполняем выход
-        console.warn('Токен истек, выполняем выход из системы');
-        logout();
-        setIsAuth(false);
+      if (authenticated) {
+        // Проверяем валидность только если токен есть
+        const tokenValid = isTokenValid();
+        
+        if (tokenValid) {
+          setIsAuth(true);
+        } else {
+          // Токен невалиден - выполняем выход
+          console.warn('Токен невалиден, выполняем выход');
+          logout();
+          setIsAuth(false);
+        }
       } else {
         setIsAuth(false);
       }
