@@ -12,7 +12,6 @@ const authController = require('../controllers/auth');
 const legalController = require('../controllers/legal');
 const legalDocumentsController = require('../controllers/legalDocuments');
 const fileController = require('../controllers/file');
-const authMiddleware = require('../middleware/authMiddleware');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
 const calendarController = require('../controllers/calendarController');
