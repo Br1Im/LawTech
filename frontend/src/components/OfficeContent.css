@@ -1731,3 +1731,49 @@
   min-height: auto;
   max-height: none;
 }
+
+
+/* Стили для таблицы сотрудников - убираем любую прозрачность */
+.employee-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  opacity: 1 !important;
+}
+
+.employee-stats-table thead {
+  background-color: var(--color-accent);
+  color: white;
+  opacity: 1 !important;
+}
+
+.employee-stats-table th,
+.employee-stats-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  opacity: 1 !important;
+  color: var(--color-text) !important;
+}
+
+.employee-stats-table tbody tr {
+  opacity: 1 !important;
+  background-color: var(--color-bg) !important;
+}
+
+.employee-stats-table tbody tr:hover {
+  background-color: var(--color-bg-hover) !important;
+  opacity: 1 !important;
+}
+
+.employee-table-modal {
+  max-height: 400px;
+  overflow-y: auto;
+  opacity: 1 !important;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+  opacity: 1 !important;
+}
