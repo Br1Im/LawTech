@@ -53,38 +53,7 @@ const { seedDefaultUsers } = require('./scripts/seed_default_users');
 
 // Функция для проверки и создания необходимых полей в БД
 const checkAndCreateDatabaseFields = async () => {
-  const db = require('./db');
-  
-  try {
-    console.log('🔍 Проверка структуры базы данных...');
-    
-    // Проверяем существование таблицы users (MySQL синтаксис)
-    const [userTableExists] = await db.query(`
-      SELECT COUNT(*) as count 
-      FROM information_schema.tables 
-      WHERE table_schema = DATABASE() 
-      AND table_name = 'users'
-    `);
-    
-    if (userTableExists[0].count === 0) {
-      console.log('⚠️  Таблица users не найдена. Убедитесь что миграции выполнены.');
-    } else {
-      console.log('✅ Таблица users существует');
-    }
-    
-    // Проверяем существование таблицы offices
-    const [officeTableExists] = await db.query(`
-      SELECT COUNT(*) as count 
-      FROM information_schema.tables 
-      WHERE table_schema = DATABASE() 
-      AND table_name = 'offices'
-    `);
-    
-    if (officeTableExists[0].count === 0) {
-      console.log('⚠️  Таблица offices не найдена. Убедитесь что миграции выполнены.');
-    }
-    
-    console.log('✅ Проверка структуры базы данных завершена');
+  console.log('✅ Пропускаем проверку БД - используем миграции');
     
     // Проверяем существование таблицы calendar_events
     const [calendarTableExists] = await db.query(
