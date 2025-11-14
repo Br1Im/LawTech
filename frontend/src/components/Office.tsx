@@ -77,6 +77,7 @@ const Office = () => {
   const [offices, setOffices] = useState<Office[]>([]);
   const { selectedOffice: officeFromContext } = useOffice();
   const [selectedOffice, setSelectedOffice] = useState<Office | null>(null);
+  const [hasError, setHasError] = useState(false);
   const [stats, setStats] = useState({ 
     visits: 0, 
     orders: 0, 
@@ -216,36 +217,10 @@ const Office = () => {
         }
       } catch (err) {
         console.error('❌ Ошибка при получении офисов:', err);
-        message.error('Не удалось загрузить данные офисов. Используются демонстрационные данные.');
-        
-        // Пустые данные вместо демо-данных
-        const sampleOffices: Office[] = [
-          {
-            id: 'demo-1',
-            title: 'Демо офис',
-            description: 'Нет данных',
-            revenue: 0,
-            orders: 0,
-            employees: [],
-            data: [0, 0],
-            address: '',
-            employee_count: 0,
-            previousRevenue: 0,
-            previousVisits: 0,
-          },
-        ];
-
-        setOffices(sampleOffices);
-        // Проверяем, что массив не пустой перед обращением к индексу
-        if (sampleOffices && sampleOffices.length > 0) {
-          setSelectedOffice(sampleOffices[0]);
-        }
-
-        // Пустые данные для графика
-        setOfficeRevenueData({
-          labels: [],
-          offices: [],
-        });
+        // Устанавливаем состояние ошибки вместо показа пустых данных
+        setHasError(true);
+        setOffices([]);
+        setSelectedOffice(null);
       }
     };
     fetchOffices();
@@ -676,6 +651,28 @@ const Office = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Если есть ошибка загрузки данных - показываем красивое сообщение
+  if (hasError) {
+    return (
+      <div className="error-container">
+        <div className="error-content">
+          <div className="error-icon">⚠️</div>
+          <h2>Ошибка подключения к серверу</h2>
+          <p>Не удалось загрузить данные офисов. Проверьте подключение к интернету или попробуйте позже.</p>
+          <button 
+            className="retry-button" 
+            onClick={() => {
+              setHasError(false);
+              window.location.reload();
+            }}
+          >
+            Попробовать снова
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="office-content">
