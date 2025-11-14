@@ -1,225 +1,141 @@
-<div align="center">
-
 # 🏛️ LawTech
 
-### Интеллектуальная юридическая платформа
-
-[![React](https://img.shields.io/badge/React-18.2.0-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-18.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.18.2-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
-
-</div>
-
-## 📋 Описание
-
-LawTech — это современная платформа для работы с юридическими документами, использующая искусственный интеллект и векторный поиск для анализа, классификации и поиска информации в юридических текстах. Платформа помогает юристам и правовым специалистам эффективно работать с большими объемами правовой информации.
-
-### ✨ Ключевые возможности
-
-- 🤖 **ИИ-ассистент** — интеллектуальный помощник для ответов на юридические вопросы
-- 🔍 **Векторный поиск** — семантический поиск по базе юридических документов
-- 📄 **Управление документами** — загрузка, классификация и хранение юридических документов
-- 👥 **Многопользовательский режим** — работа в команде с разграничением прав доступа
-- 📊 **Аналитика** — статистика и отчеты по работе с документами
-
-## 🏗️ Архитектура
-
-<div align="center">
-
-```mermaid
-graph TD
-    Client["📱 Frontend (React + TypeScript)"] ---> API["🖥️ Backend API (Node.js + Express)"]
-    API ---> DB[("💾 Database (MySQL)")]
-    API ---> AI["🧠 AI Service (Python + FAISS)"]
-    AI ---> VectorDB[("🔢 Vector Database")]
-```
-
-</div>
-
-- **Frontend**: React + TypeScript + Vite + Ant Design
-- **Backend**: Node.js + Express
-- **AI Service**: Python + FAISS для векторного поиска
-- **База данных**: MySQL
+Интеллектуальная CRM-система для юридических компаний с AI-ассистентом и векторным поиском.
 
 ## 🚀 Быстрый старт
-
-### Запуск с использованием Docker
-
-Для быстрого запуска всего проекта с помощью Docker выполните:
 
 ```bash
 # Клонирование репозитория
 git clone https://github.com/Br1Im/LawTech.git
 cd LawTech
 
-# Запуск всех сервисов
-docker-compose up -d
+# Запуск проекта
+docker-compose up -d --build
 ```
 
-Подробная информация о запуске с Docker доступна в [DOCKER_GUIDE.md](./DOCKER_GUIDE.md).
+Приложение будет доступно по адресу: http://localhost
 
-### Требования для локальной разработки
+## 📋 Основные возможности
 
-- Node.js 18+
-- Python 3.8+
-- MySQL 8.0+
+- 👥 **CRM для клиентов** — управление клиентской базой
+- 🏢 **Управление офисами** — мультиофисная структура
+- 📊 **Аналитика и отчеты** — статистика по офисам и сотрудникам
+- 🤖 **AI-ассистент** — помощник для работы с документами
+- 🔍 **Векторный поиск** — семантический поиск по документам
+- 📄 **База знаний** — хранение и поиск юридических документов
+- 📅 **Календарь** — планирование встреч и задач
 
-### Установка
-
-1. **Клонирование репозитория**
-
-```bash
-git clone https://github.com/Br1Im/LawTech.git
-cd LawTech
-```
-
-2. **Установка зависимостей для backend**
-
-```bash
-cd server
-npm install
-```
-
-3. **Установка зависимостей для frontend**
-
-```bash
-cd ../frontend
-npm install
-```
-
-4. **Установка Python зависимостей**
-
-```bash
-cd ../server/scripts
-pip install -r requirements.txt
-```
-
-### Запуск
-
-1. **Запуск FAISS сервиса**
-
-```bash
-# В директории server/scripts
-python faiss_service.py
-```
-
-2. **Запуск backend**
-
-```bash
-# В директории server
-npm run dev
-```
-
-3. **Запуск frontend**
-
-```bash
-# В директории frontend
-npm run dev
-```
-
-## 📁 Структура проекта
+## 🏗️ Архитектура
 
 ```
-├── frontend/          # React приложение
-│   ├── src/           # Исходный код
-│   │   ├── app/       # Конфигурация приложения
-│   │   ├── components/# Компоненты UI
-│   │   ├── context/   # React контексты
-│   │   ├── entities/  # Бизнес-сущности
-│   │   ├── features/  # Функциональные модули
-│   │   ├── pages/     # Страницы приложения
-│   │   ├── shared/    # Общие утилиты и типы
-│   │   └── widgets/   # Составные компоненты
-│   ├── public/        # Статические файлы
-│   └── package.json   # Зависимости и скрипты
+LawTech/
+├── frontend/              # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── components/    # UI компоненты
+│   │   ├── shared/        # Общие утилиты и API
+│   │   └── App.tsx        # Главный компонент
+│   └── Dockerfile
 │
-└── server/            # Node.js API
-    ├── controllers/   # Контроллеры API
-    ├── models/        # Модели данных
-    ├── middleware/    # Промежуточные обработчики
-    ├── routes/        # Маршруты API
-    ├── services/      # Бизнес-логика
-    ├── scripts/       # Python сервисы
-    ├── utils/         # Утилиты
-    └── package.json   # Зависимости и скрипты
+├── server/                # Node.js + Express
+│   ├── controllers/       # Контроллеры API
+│   ├── routes/            # Маршруты
+│   ├── middleware/        # Middleware
+│   ├── database/          # Миграции БД
+│   ├── scripts/           # Python FAISS сервис
+│   └── Dockerfile
+│
+├── scripts/               # Утилиты для разработки
+│   ├── dev.sh            # Запуск в dev режиме
+│   ├── restart.sh        # Перезапуск контейнеров
+│   ├── stop.sh           # Остановка
+│   ├── logs.sh           # Просмотр логов
+│   └── clean.sh          # Полная очистка
+│
+└── docker-compose.yml     # Конфигурация Docker
 ```
 
-## 🔌 API Endpoints
+## 🛠️ Технологии
+
+**Frontend:**
+- React 18 + TypeScript
+- Vite
+- Ant Design
+- Recharts
+
+**Backend:**
+- Node.js + Express
+- MySQL
+- JWT Authentication
+
+**AI Service:**
+- Python + FAISS
+- Векторный поиск
+
+## 📦 Скрипты для разработки
+
+```bash
+# Запуск в режиме разработки
+./scripts/dev.sh
+
+# Перезапуск контейнеров
+./scripts/restart.sh
+
+# Остановка контейнеров
+./scripts/stop.sh
+
+# Просмотр логов
+./scripts/logs.sh [service_name]
+
+# Полная очистка (volumes, images)
+./scripts/clean.sh
+```
+
+## 🔧 Конфигурация
+
+### Переменные окружения
+
+**Backend (.env):**
+```env
+NODE_ENV=production
+PORT=3001
+JWT_SECRET=your_secret_key
+DB_HOST=db
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=lawtech
+FAISS_SERVICE_URL=http://faiss-service:5000
+```
+
+**Frontend (.env):**
+```env
+VITE_API_URL=http://localhost:3001
+```
+
+## 📊 API Endpoints
 
 | Метод | Endpoint | Описание |
 |-------|----------|----------|
-| GET | `/api/health` | Проверка работоспособности |
-| POST | `/api/auth/login` | Авторизация пользователя |
-| POST | `/api/auth/register` | Регистрация пользователя |
-| GET | `/api/user/profile` | Получение профиля пользователя |
-| POST | `/api/chat` | Взаимодействие с ИИ-ассистентом |
+| POST | `/api/auth/login` | Авторизация |
+| POST | `/api/auth/register` | Регистрация |
+| GET | `/api/profile` | Профиль пользователя |
+| GET | `/api/offices` | Список офисов |
+| POST | `/api/office` | Создание офиса |
+| GET | `/api/clients` | Список клиентов |
+| POST | `/api/client` | Создание клиента |
+| POST | `/api/chat` | AI-ассистент |
 | POST | `/api/upload` | Загрузка документов |
-| GET | `/api/legal-documents` | Получение списка документов |
-| GET | `/api/legal-documents/:id` | Получение документа по ID |
 
-## ⚙️ Переменные окружения
+## 🐳 Docker Services
 
-### Backend (.env)
+- **frontend** — React приложение (порт 80)
+- **backend** — Node.js API (порт 3001)
+- **db** — MySQL база данных (порт 3306)
+- **faiss-service** — Python FAISS сервис (порт 5000)
 
-```
-NODE_ENV=development
-PORT=3001
-JWT_SECRET=your_jwt_secret
-FAISS_SERVICE_URL=http://localhost:5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=password
-DB_NAME=lawtech
-```
-
-### FAISS Service (.env)
-
-```
-PYTHONUNBUFFERED=1
-PORT=5000
-```
-
-## 👨‍💻 Разработка
-
-### Команды для разработки
-
-**Backend:**
-
-```bash
-# Запуск в режиме разработки
-npm run dev
-
-# Запуск FAISS сервиса
-npm run start:faiss
-```
-
-**Frontend:**
-
-```bash
-# Запуск в режиме разработки
-npm run dev
-
-# Сборка для продакшена
-npm run build
-
-# Предпросмотр сборки
-npm run preview
-
-# Проверка кода линтером
-npm run lint
-```
-
-## 📄 Лицензия
+## 📝 Лицензия
 
 MIT License
 
 ---
 
-<div align="center">
-
-**LawTech** — Разработано с ❤️ для юридического сообщества
-
-</div>
+Разработано с ❤️ для юридического сообщества

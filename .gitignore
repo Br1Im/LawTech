@@ -102,3 +102,12 @@ wheels/
 # Temporary files
 *.tmp
 *.temp
+temp_*
+
+# Archive
+archive/
+*.backup
+*.old
+
+# Scripts output
+*.sh.log
