@@ -208,11 +208,17 @@ const SRM = () => {
     } satisfies React.CSSProperties,
     topButtons: {
       position: "fixed" as const,
-      top: isMobile ? "12px" : "12px",
-      right: isMobile ? "12px" : "180px",
+      top: "16px",
+      right: "24px",
       display: "flex",
-      gap: isMobile ? "6px" : "12px",
+      alignItems: "center",
+      gap: "12px",
       zIndex: 1001,
+      padding: "8px",
+      backgroundColor: "var(--color-bg)",
+      borderRadius: "50px",
+      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
+      border: "1px solid var(--color-border)",
     } satisfies React.CSSProperties,
     themeMenuContainer: {
       position: "relative" as const,
@@ -400,39 +406,50 @@ const SRM = () => {
           <button
             onClick={handleNotificationClick}
             style={{
-              ...styles.topButton,
+              width: isMobile ? '36px' : '40px',
+              height: isMobile ? '36px' : '40px',
+              borderRadius: '50%',
+              border: '2px solid var(--color-border)',
+              backgroundColor: 'var(--color-bg)',
+              color: 'var(--color-text)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s ease',
               position: 'relative' as const,
             }}
             title="Уведомления"
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
-              e.currentTarget.style.color = 'var(--color-accent)';
-              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.transform = 'scale(1.1)';
+              e.currentTarget.style.borderColor = 'var(--color-accent)';
+              e.currentTarget.style.boxShadow = '0 4px 16px rgba(212, 175, 55, 0.3)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--color-bg)';
-              e.currentTarget.style.color = 'var(--color-muted)';
               e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.borderColor = 'var(--color-border)';
+              e.currentTarget.style.boxShadow = 'none';
             }}
           >
             <BellOutlined style={{ fontSize: '18px' }} />
             {notifications.filter(n => !n.read).length > 0 && (
               <span style={{
                 position: 'absolute',
-                top: '-2px',
-                right: '-2px',
-                backgroundColor: 'var(--color-accent)',
+                top: '-4px',
+                right: '-4px',
+                backgroundColor: '#ef4444',
                 color: 'white',
-                fontSize: '10px',
+                fontSize: '11px',
                 fontWeight: 'bold',
-                padding: '2px 5px',
-                borderRadius: '10px',
-                minWidth: '16px',
-                height: '16px',
+                padding: '2px 6px',
+                borderRadius: '12px',
+                minWidth: '20px',
+                height: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+                border: '2px solid var(--color-bg)',
               }}>
                 {notifications.filter(n => !n.read).length}
               </span>
