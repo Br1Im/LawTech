@@ -276,14 +276,14 @@
 
 .office-card.selected {
   background: #FFFFFF !important;
-  border: 2px solid #FFA500 !important;
+  border: 2px solid var(--color-accent) !important;
 }
 
 .office-card.selected:focus,
 .office-card.selected:active,
 .office-card.selected:focus-visible {
   background: #FFFFFF !important;
-  border: 2px solid #FFA500 !important;
+  border: 2px solid var(--color-accent) !important;
   outline: none !important;
 }
 
@@ -1504,24 +1504,7 @@
 }
 
 .office-info-button {
-  border-radius: 100px;
-  padding: 10px;
-  padding-bottom: 7px;
-  transform: rotate(-45deg);
-  background-color: var(--color-accent);
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  z-index: 10;
-  border: none;
-  color: white;
-  cursor: pointer;
-  transition: transform 0.3s ease, background-color 0.3s ease;
-}
-
-.office-info-button:hover {
-  transform: rotate(-45deg) scale(1.1);
-  background-color: var(--color-accent-dark);
+  display: none; /* Скрываем кнопку */
 }
 
 /* Fix chart overflow */
@@ -1724,6 +1707,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  overflow: hidden; /* Убираем горизонтальную прокрутку */
 }
 
 .office-card.selected {
