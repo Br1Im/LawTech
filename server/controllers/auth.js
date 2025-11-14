@@ -37,7 +37,7 @@ const register = async (req, res) => {
         // Создаем нового пользователя в БД
         const [result] = await db.query(`
             INSERT INTO users (first_name, last_name, email, password, office_id, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [name, '', email, hashedPassword, finalOfficeId, userType]);
 
         const newUserId = result.insertId;
