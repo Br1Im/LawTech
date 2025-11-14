@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
-import { BulbOutlined, BellOutlined } from "@ant-design/icons";
+import { BellOutlined } from "@ant-design/icons";
+import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Office from "../components/Office";
@@ -321,23 +322,18 @@ const SRM = () => {
           user={user ? { ...user } : undefined}
         />
         <div style={styles.topButtons}>
-          <div style={styles.themeMenuContainer} data-theme-menu>
+          <ThemeToggle 
+            isDark={isDarkTheme} 
+            onToggle={toggleTheme}
+            isMobile={isMobile}
+          />
+          
+          <div style={styles.themeMenuContainer} data-theme-menu style={{ display: 'none' }}>
             <button
               onClick={toggleThemeMenu}
               style={styles.topButton}
               title="Выбор темы"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-accent-light)';
-                e.currentTarget.style.color = 'var(--color-accent)';
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--color-bg)';
-                e.currentTarget.style.color = 'var(--color-muted)';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
             >
-              <BulbOutlined style={{ fontSize: '18px' }} />
             </button>
             
             <div style={styles.themeMenu}>
