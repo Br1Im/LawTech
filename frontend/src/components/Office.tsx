@@ -218,168 +218,20 @@ const Office = () => {
         console.error('❌ Ошибка при получении офисов:', err);
         message.error('Не удалось загрузить данные офисов. Используются демонстрационные данные.');
         
-        // ----------------------
-        // Мок-данные для демонстрации
-        // ----------------------
+        // Пустые данные вместо демо-данных
         const sampleOffices: Office[] = [
           {
             id: 'demo-1',
             title: 'Демо офис',
-            description: 'г. Москва, ул. Пример, д. 1',
-            revenue: 0, // Будет вычисляться динамически из данных сотрудников
-            orders: 120,
-            employees: [
-              {
-                id: 'emp-1',
-                surname: 'Иванов',
-                name: 'Иван',
-                middle_name: 'Иванович',
-                position: 'Юрист',
-                dailyContracts: 5,
-                totalRevenue14Days: 210000,
-                periodRevenue: 180000,
-                phone: '+7 900 000-00-00',
-                pastRevenue: {},
-                closeRate: 0.8,
-              },
-              {
-                id: 'emp-2',
-                surname: 'Петров',
-                name: 'Пётр',
-                middle_name: 'Петрович',
-                position: 'Адвокат',
-                dailyContracts: 3,
-                totalRevenue14Days: 110000,
-                periodRevenue: 95000,
-                phone: '+7 900 000-00-01',
-                pastRevenue: {},
-                closeRate: 0.7,
-              },
-              {
-                id: 'emp-3',
-                surname: 'Сидорова',
-                name: 'Анна',
-                middle_name: 'Александровна',
-                position: 'Юрист',
-                dailyContracts: 4,
-                totalRevenue14Days: 150000,
-                periodRevenue: 130000,
-                phone: '+7 900 000-00-02',
-                pastRevenue: {},
-                closeRate: 0.75,
-              },
-              {
-                id: 'emp-4',
-                surname: 'Козлов',
-                name: 'Михаил',
-                middle_name: 'Сергеевич',
-                position: 'Адвокат',
-                dailyContracts: 6,
-                totalRevenue14Days: 280000,
-                periodRevenue: 250000,
-                phone: '+7 900 000-00-03',
-                pastRevenue: {},
-                closeRate: 0.85,
-              },
-              {
-                id: 'emp-5',
-                surname: 'Морозова',
-                name: 'Елена',
-                middle_name: 'Викторовна',
-                position: 'Юрист',
-                dailyContracts: 3,
-                totalRevenue14Days: 120000,
-                periodRevenue: 105000,
-                phone: '+7 900 000-00-04',
-                pastRevenue: {},
-                closeRate: 0.72,
-              },
-              {
-                id: 'emp-6',
-                surname: 'Волков',
-                name: 'Дмитрий',
-                middle_name: 'Андреевич',
-                position: 'Адвокат',
-                dailyContracts: 5,
-                totalRevenue14Days: 190000,
-                periodRevenue: 170000,
-                phone: '+7 900 000-00-05',
-                pastRevenue: {},
-                closeRate: 0.78,
-              },
-              {
-                id: 'emp-7',
-                surname: 'Смирнов',
-                name: 'Алексей',
-                middle_name: 'Владимирович',
-                position: 'Менеджер',
-                dailyContracts: 7,
-                totalRevenue14Days: 220000,
-                periodRevenue: 200000,
-                phone: '+7 900 000-00-06',
-                pastRevenue: {},
-                closeRate: 0.82,
-              },
-              {
-                id: 'emp-8',
-                surname: 'Федорова',
-                name: 'Ольга',
-                middle_name: 'Николаевна',
-                position: 'Представитель',
-                dailyContracts: 4,
-                totalRevenue14Days: 160000,
-                periodRevenue: 140000,
-                phone: '+7 900 000-00-07',
-                pastRevenue: {},
-                closeRate: 0.76,
-              },
-              {
-                id: 'emp-9',
-                surname: 'Кузнецов',
-                name: 'Сергей',
-                middle_name: 'Игоревич',
-                position: 'Юрист',
-                dailyContracts: 6,
-                totalRevenue14Days: 240000,
-                periodRevenue: 210000,
-                phone: '+7 900 000-00-08',
-                pastRevenue: {},
-                closeRate: 0.84,
-              },
-              {
-                id: 'emp-10',
-                surname: 'Новикова',
-                name: 'Мария',
-                middle_name: 'Дмитриевна',
-                position: 'Эксперт',
-                dailyContracts: 3,
-                totalRevenue14Days: 130000,
-                periodRevenue: 115000,
-                phone: '+7 900 000-00-09',
-                pastRevenue: {},
-                closeRate: 0.73,
-              },
-              {
-                id: 'emp-11',
-                surname: 'Лебедев',
-                name: 'Андрей',
-                middle_name: 'Максимович',
-                position: 'ОКК',
-                dailyContracts: 5,
-                totalRevenue14Days: 180000,
-                periodRevenue: 160000,
-                phone: '+7 900 000-00-10',
-                pastRevenue: {},
-                closeRate: 0.79,
-              },
-            ],
-            data: [20, 8], // visits / pending
-            address: 'г. Москва, ул. Пример, д. 1',
-            employee_count: 11,
-            contact_phone: '+7 900 000-00-02',
-            website: 'https://law-demo.ru',
-            previousRevenue: 0, // Будет вычисляться динамически
-            previousVisits: 100,
+            description: 'Нет данных',
+            revenue: 0,
+            orders: 0,
+            employees: [],
+            data: [0, 0],
+            address: '',
+            employee_count: 0,
+            previousRevenue: 0,
+            previousVisits: 0,
           },
         ];
 
@@ -389,17 +241,10 @@ const Office = () => {
           setSelectedOffice(sampleOffices[0]);
         }
 
-        // Простейшие данные для графика
-        const demoLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        // Пустые данные для графика
         setOfficeRevenueData({
-          labels: demoLabels,
-          offices: [
-            {
-              id: 'demo-1',
-              name: 'Демо офис',
-              revenue: [50000, 45000, 40000, 60000, 55000, 35000],
-            },
-          ],
+          labels: [],
+          offices: [],
         });
       }
     };
