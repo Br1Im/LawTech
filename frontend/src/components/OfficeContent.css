@@ -1707,7 +1707,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  overflow: hidden; /* Убираем горизонтальную прокрутку */
+  overflow: visible; /* Показываем рамку полностью */
+  padding-bottom: 4px; /* Добавляем отступ снизу для рамки */
 }
 
 .office-card.selected {

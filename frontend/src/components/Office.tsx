@@ -193,7 +193,7 @@ const Office = () => {
           employees: office.employees || [],
           data: [office.stats?.visits || 0, office.stats?.pending || 0],
           address: office.address,
-          employee_count: office.employees?.length || 0,
+          employee_count: Math.max(office.employees?.length || 0, 1), // Минимум 1 (текущий пользователь)
           contact_phone: office.contact_phone || undefined,
           website: office.website || undefined,
           chartData: office.chartData,
@@ -752,7 +752,7 @@ const Office = () => {
                       )}
                     </div>
                     <div className="office-card-info">
-                      <p><b>Сотрудники:</b> {office.employee_count || 0}</p>
+                      <p><b>Сотрудники:</b> {Math.max(office.employee_count || 0, 1)}</p>
                       <p><b>Адрес:</b> {office.address || "Не указан"}</p>
                     </div>
                   </div>
@@ -1108,7 +1108,7 @@ const Office = () => {
                 {selectedOffice.work_phone2 && (
                   <p><strong>Телефон 2:</strong> {selectedOffice.work_phone2}</p>
                 )}
-                <p><strong>Количество сотрудников:</strong> {selectedOffice.employee_count || 0}</p>
+                <p><strong>Количество сотрудников:</strong> {Math.max(selectedOffice.employee_count || 0, 1)}</p>
               </div>
               
               <div className="info-section">

@@ -208,11 +208,11 @@ const SRM = () => {
     } satisfies React.CSSProperties,
     topButtons: {
       position: "fixed" as const,
-      top: isMobile ? "12px" : "18px",
-      right: isMobile ? "12px" : "24px",
+      top: isMobile ? "12px" : "12px",
+      right: isMobile ? "12px" : "180px",
       display: "flex",
-      gap: isMobile ? "6px" : "8px",
-      zIndex: 999,
+      gap: isMobile ? "6px" : "12px",
+      zIndex: 1001,
     } satisfies React.CSSProperties,
     themeMenuContainer: {
       position: "relative" as const,
