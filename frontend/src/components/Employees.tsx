@@ -322,25 +322,6 @@ const InviteModal = ({ onClose }: { onClose: () => void }) => {
 
 
 const Employees = () => {
-  // Локальные демо-данные для тестирования
-  const localEmployees: Employee[] = [
-    { id: 1, name: "Иван Иванов", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
-    { id: 2, name: "Петр Петров", position: "Юрист", office: "Красноярск", role: 'lawyer', status: 'active' },
-    { id: 3, name: "Алексей Смирнов", position: "Менеджер", office: "Новокузнецк", role: 'admin', status: 'active' },
-    { id: 4, name: "Елена Кузнецова", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
-    { id: 5, name: "Дмитрий Морозов", position: "Юрист", office: "Красноярск", role: 'lawyer', status: 'active' },
-    { id: 6, name: "Мария Васильева", position: "Эксперт", office: "Новокузнецк", role: 'expert', status: 'active' },
-    { id: 7, name: "Роман Гордеев", position: "Эксперт", office: "Красноярск", role: 'expert', status: 'active' },
-    { id: 8, name: "Юлия Чистякова", position: "Юрист", office: "Кемерово", role: 'lawyer', status: 'active' },
-    { id: 9, name: "Андрей Менеджеров", position: "Менеджер", office: "Кемерово", role: 'admin', status: 'active' },
-    { id: 10, name: "Светлана Представителева", position: "Представитель", office: "Красноярск", role: 'admin', status: 'active' },
-    { id: 11, name: "Михаил Юристов", position: "Юрист", office: "Новокузнецк", role: 'lawyer', status: 'active' },
-    { id: 12, name: "Ольга Экспертова", position: "Эксперт", office: "Кемерово", role: 'expert', status: 'active' },
-    { id: 13, name: "Владимир ОККов", position: "ОКК", office: "Красноярск", role: 'admin', status: 'active' }
-  ];
-
-
-
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
@@ -402,9 +383,9 @@ const Employees = () => {
         setFilteredEmployees(employeesData);
       } catch (err) {
         console.error('Ошибка получения данных:', err);
-        // Используем демо-данные при ошибке загрузки с сервера
-        setEmployees(localEmployees);
-        setFilteredEmployees(localEmployees);
+        // Показываем пустой список при ошибке
+        setEmployees([]);
+        setFilteredEmployees([]);
       }
     };
 
