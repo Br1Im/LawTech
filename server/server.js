@@ -54,50 +54,13 @@ const { seedDefaultUsers } = require('./scripts/seed_default_users');
 // Функция для проверки и создания необходимых полей в БД
 const checkAndCreateDatabaseFields = async () => {
   console.log('✅ Пропускаем проверку БД - используем миграции');
-    
-    // Проверяем существование таблицы calendar_events
-    const [calendarTableExists] = await db.query(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='calendar_events'"
-    );
-    
-    if (calendarTableExists.length === 0) {
-      console.log('📅 Создание таблицы calendar_events...');
-      await db.query(`
-        CREATE TABLE calendar_events (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          title VARCHAR(255) NOT NULL,
-          description TEXT,
-          date DATE NOT NULL,
-          time TIME NOT NULL,
-          type VARCHAR(50) NOT NULL,
-          priority VARCHAR(20) NOT NULL,
-          participants TEXT,
-          location VARCHAR(255),
-          created_by INT NOT NULL,
-          office_id INT NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          FOREIGN KEY (created_by) REFERENCES users(id),
-          FOREIGN KEY (office_id) REFERENCES offices(id)
-        )
-      `);
-      console.log('✅ Таблица calendar_events создана успешно');
-    } else {
-      console.log('✅ Таблица calendar_events уже существует');
-    }
-    
-    console.log('✅ Проверка базы данных завершена успешно');
-    
-    // Создаем тестовые аккаунты
-    try {
-      console.log('👤 Проверка и создание тестовых аккаунтов...');
-      await seedDefaultUsers();
-    } catch (userError) {
-      console.error('❌ Ошибка при создании тестовых аккаунтов:', userError);
-    }
-    
-  } catch (error) {
-    console.error('❌ Ошибка при проверке базы данных:', error);
+  
+  // Создаем тестовые аккаунты
+  try {
+    console.log('👤 Создание тестовых аккаунтов...');
+    await seedDefaultUsers();
+  } catch (userError) {
+    console.error('❌ Ошибка при создании тестовых аккаунтов:', userError);
   }
 };
 
