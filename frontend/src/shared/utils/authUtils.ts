@@ -53,6 +53,7 @@ export const isTokenValid = (): boolean => {
   const token = getToken();
   
   if (!token) {
+    console.log('🔐 Токен отсутствует');
     return false;
   }
   
@@ -60,26 +61,32 @@ export const isTokenValid = (): boolean => {
     // Декодируем JWT токен (без проверки подписи)
     const parts = token.split('.');
     if (parts.length !== 3) {
+      console.warn('🔐 Неверный формат токена');
       return false;
     }
     
     const payload = JSON.parse(atob(parts[1]));
+    console.log('🔐 Payload токена:', payload);
     
     // Проверяем срок действия только если он указан
     if (payload.exp) {
       const expirationTime = payload.exp * 1000; // Конвертируем в миллисекунды
       const currentTime = Date.now();
+      const timeLeft = expirationTime - currentTime;
+      
+      console.log('🔐 Время до истечения токена:', Math.floor(timeLeft / 1000 / 60), 'минут');
       
       // Добавляем буфер в 10 секунд чтобы избежать проблем с синхронизацией времени
       if (currentTime >= (expirationTime - 10000)) {
-        console.warn('Токен истек');
+        console.warn('🔐 Токен истек');
         return false;
       }
     }
     
+    console.log('✅ Токен валиден');
     return true;
   } catch (error) {
-    console.error('Ошибка при проверке токена:', error);
+    console.error('❌ Ошибка при проверке токена:', error);
     // Если не можем декодировать - считаем токен валидным (пусть сервер решает)
     return true;
   }
