@@ -170,15 +170,20 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         }
 
         const documentsData = await documentsResponse.json();
+        console.log('Loaded contracts from server:', documentsData);
+        
         // Преобразуем contracts в формат Document для совместимости с UI
-        const transformedDocuments = (documentsData.contracts || []).map((contract: any) => ({
+        const contracts = documentsData.data || documentsData.contracts || [];
+        const transformedDocuments = contracts.map((contract: any) => ({
           id: contract.id,
-          title: `Договор с ${contract.client_name}`,
-          type: contract.contract_type,
-          status: contract.status,
-          date: new Date(contract.created_at).toLocaleDateString('ru-RU'),
-          client: contract.client_name,
-          contractNumber: contract.contract_number
+          title: contract.title || `Договор с ${contract.client_name}`,
+          type: contract.contract_type || contract.type || 'Гражданское право',
+          status: contract.status || 'active',
+          date: contract.contract_date 
+            ? new Date(contract.contract_date).toLocaleDateString('ru-RU')
+            : new Date(contract.created_at).toLocaleDateString('ru-RU'),
+          client: contract.client_name || 'Неизвестный клиент',
+          contractNumber: contract.contract_number || `DOG-${contract.id}`
         }));
         setDocuments(transformedDocuments);
         
@@ -364,9 +369,9 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         throw new Error('Требуется авторизация');
       }
 
-      console.log('Удаление документа с ID:', documentToDelete.id);
+      console.log('Удаление договора с ID:', documentToDelete.id);
       
-      const response = await fetch(buildApiUrl(`/legal-documents/${documentToDelete.id}`), {
+      const response = await fetch(buildApiUrl(`/contracts/${documentToDelete.id}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -523,13 +528,59 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         throw new Error('Требуется авторизация');
       }
 
+      // Сначала создаем клиента, если нужно
+      let clientId = null;
+      const clientResponse = await fetch(buildApiUrl('/clients'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newDocument.clientName,
+          phone: '',
+          email: '',
+          address: ''
+        })
+      });
+
+      if (clientResponse.ok) {
+        const clientResult = await clientResponse.json();
+        clientId = clientResult.data?.id;
+      }
+
+      if (!clientId) {
+        throw new Error('Не удалось создать клиента');
+      }
+
+      // Создаем сотрудника для текущего пользователя, если его нет
+      const employeeResponse = await fetch(buildApiUrl('/employees/ensure'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          office_id: user.office_id
+        })
+      });
+
+      let employeeId = user.id; // По умолчанию используем user.id
+      if (employeeResponse.ok) {
+        const employeeResult = await employeeResponse.json();
+        employeeId = employeeResult.data?.id || user.id;
+      }
+
       const contractData = {
-        client_name: newDocument.clientName,
-        contract_type: selectedTopic,
-        subject: contractSubject,
+        id_employee: employeeId,
+        id_client: clientId,
+        contract_date: newDocument.contractDate,
         amount: parseFloat(newDocument.contractCost),
+        paid_amount: parseFloat(newDocument.paidAmount),
         status: 'active',
-        contract_date: newDocument.contractDate
+        title: `${selectedTopic} - ${contractSubject}`,
+        description: contractSubject
       };
 
       const response = await fetch(buildApiUrl('/contracts'), {
@@ -548,10 +599,11 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
       const result = await response.json();
       console.log('Server response:', result); // Для отладки
-      const createdContract = result.contract;
+      const createdContract = result.data; // Backend возвращает data, а не contract
       
       // Проверяем, что договор был создан успешно
       if (!createdContract || !createdContract.id) {
+        console.error('Invalid contract data:', createdContract);
         throw new Error('Договор не был создан или отсутствует ID');
       }
       
@@ -570,6 +622,19 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       
       // Обновляем список в состоянии
       setDocuments(prev => [...prev, uiDoc]);
+      
+      // Отправляем события для обновления других компонентов
+      window.dispatchEvent(new CustomEvent('clientCreated', { 
+        detail: { clientId, clientName: newDocument.clientName } 
+      }));
+      
+      window.dispatchEvent(new CustomEvent('contractCreated', { 
+        detail: { 
+          contractId: createdContract.id,
+          amount: parseFloat(newDocument.contractCost),
+          officeId: user.office_id
+        } 
+      }));
       
       // Закрываем модалку и уведомляем
       closeModal();
@@ -1077,24 +1142,23 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
       {/* Модальное окно подтверждения удаления */}
       {isDeleteModalOpen && documentToDelete && (
-        <div className="modal-overlay">
-          <div className="modal delete-modal">
+        <div className="modal-overlay" onClick={cancelDeleteDocument}>
+          <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Подтверждение удаления</h3>
+              <button className="modal-close-btn" onClick={cancelDeleteDocument}>&times;</button>
             </div>
-            <div className="modal-content">
-              <div className="delete-warning">
-                <FiTrash2 size={48} className="warning-icon" />
-                <p>Вы уверены, что хотите удалить договор?</p>
-                <div className="document-info">
-                  <strong>"{documentToDelete.title}"</strong>
-                  <br />
-                  <span className="client-name">Клиент: {documentToDelete.client}</span>
-                </div>
-                <p className="warning-text">Это действие нельзя отменить.</p>
+            <div className="delete-warning">
+              <FiTrash2 size={48} className="warning-icon" />
+              <p>Вы уверены, что хотите удалить договор?</p>
+              <div className="document-info">
+                <strong>"{documentToDelete.title}"</strong>
+                <br />
+                <span className="client-name">Клиент: {documentToDelete.client}</span>
               </div>
+              <p className="warning-text">Это действие нельзя отменить.</p>
             </div>
-            <div className="modal-actions">
+            <div className="form-actions">
               <button type="button" className="cancel-btn" onClick={cancelDeleteDocument}>
                 Отмена
               </button>

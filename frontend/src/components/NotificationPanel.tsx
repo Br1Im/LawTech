@@ -60,23 +60,25 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      zIndex: 1500,
       display: 'flex',
-      justifyContent: 'flex-end',
-      alignItems: 'flex-start',
-      paddingTop: '70px',
-      paddingRight: '24px',
+      justifyContent: window.innerWidth <= 768 ? 'center' : 'flex-end',
+      alignItems: window.innerWidth <= 768 ? 'flex-start' : 'flex-start',
+      paddingTop: window.innerWidth <= 768 ? '70px' : '70px',
+      paddingRight: window.innerWidth <= 768 ? '0' : '24px',
+      paddingBottom: window.innerWidth <= 768 ? '0' : '0',
     } satisfies React.CSSProperties,
     panel: {
-      width: '400px',
-      maxHeight: '80vh',
+      width: window.innerWidth <= 768 ? '100%' : '400px',
+      maxWidth: window.innerWidth <= 768 ? '100vw' : '400px',
+      maxHeight: window.innerWidth <= 768 ? 'calc(100vh - 70px)' : '80vh',
       backgroundColor: 'var(--color-bg)',
-      borderRadius: '12px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+      borderRadius: window.innerWidth <= 768 ? '0 0 16px 16px' : '12px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
       border: '1px solid var(--color-border)',
       overflow: 'hidden',
-      animation: 'slideIn 0.3s ease-out',
+      animation: window.innerWidth <= 768 ? 'slideDown 0.3s ease-out' : 'slideIn 0.3s ease-out',
     } satisfies React.CSSProperties,
     header: {
       padding: '16px 20px',
@@ -180,6 +182,17 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
             }
             to {
               transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes slideDown {
+            from {
+              transform: translateY(-100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
               opacity: 1;
             }
           }

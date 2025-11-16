@@ -128,6 +128,49 @@ router.delete('/calendar-events/:id', authenticateToken, calendarController.dele
 // Роут для получения всех событий календаря для всех офисов пользователя
 router.get('/calendar-events/all', authenticateToken, calendarController.getAllCalendarEvents);
 
+// Роуты для сотрудников офиса
+router.post('/employees/ensure', authenticateToken, async (req, res) => {
+  try {
+    const { user_id, office_id } = req.body;
+    const user = req.user;
+    
+    // Проверяем, существует ли уже employee для этого пользователя
+    const db = require('../db');
+    const [existing] = await db.query(
+      'SELECT id FROM employees WHERE id = ?',
+      [user_id]
+    );
+    
+    if (existing.length > 0) {
+      return res.json({ success: true, data: existing[0] });
+    }
+    
+    // Создаем нового employee на основе данных пользователя
+    const [userResult] = await db.query(
+      'SELECT first_name, last_name, email FROM users WHERE id = ?',
+      [user_id]
+    );
+    
+    if (userResult.length === 0) {
+      return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+    }
+    
+    const userData = userResult[0];
+    
+    // Вставляем employee с тем же ID что и user
+    await db.query(
+      `INSERT INTO employees (id, first_name, last_name, email, office_id, position) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [user_id, userData.first_name, userData.last_name, userData.email, office_id, 'Юрист']
+    );
+    
+    res.json({ success: true, data: { id: user_id } });
+  } catch (error) {
+    console.error('Error ensuring employee:', error);
+    res.status(500).json({ success: false, message: 'Ошибка при создании сотрудника' });
+  }
+});
+
 // Роуты для сотрудников офиса - временно отключены
 // router.get('/office/:officeId/employees', authenticateToken, employeeController.getOfficeEmployees);
 // router.get('/employees/:employeeId', authenticateToken, employeeController.getEmployeeById);

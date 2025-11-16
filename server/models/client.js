@@ -16,7 +16,7 @@ class Client {
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         LEFT JOIN employees e ON c.id_employee = e.id
-        WHERE e.id_office = ? OR cl.id NOT IN (
+        WHERE e.office_id = ? OR cl.id NOT IN (
           SELECT DISTINCT id_client FROM contracts
         )
         GROUP BY cl.id
@@ -57,12 +57,13 @@ class Client {
    */
   static async create(clientData) {
     try {
-      const { full_name, phone, email, address } = clientData;
+      const { name, full_name, phone, email, address } = clientData;
+      const clientName = name || full_name || '';
       
       const [result] = await db.query(
-        `INSERT INTO clients (full_name, phone, email, address) 
+        `INSERT INTO clients (name, phone, email, address) 
          VALUES (?, ?, ?, ?)`,
-        [full_name || '', phone || '', email || '', address || '']
+        [clientName, phone || '', email || '', address || '']
       );
 
       return await this.getById(result.insertId);
@@ -77,13 +78,14 @@ class Client {
    */
   static async update(id, clientData) {
     try {
-      const { full_name, phone, email, address } = clientData;
+      const { name, full_name, phone, email, address } = clientData;
+      const clientName = name || full_name || '';
       
       await db.query(
         `UPDATE clients 
-         SET full_name = ?, phone = ?, email = ?, address = ?
+         SET name = ?, phone = ?, email = ?, address = ?
          WHERE id = ?`,
-        [full_name || '', phone || '', email || '', address || '', id]
+        [clientName, phone || '', email || '', address || '', id]
       );
 
       return await this.getById(id);
@@ -128,9 +130,9 @@ class Client {
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         LEFT JOIN employees e ON c.id_employee = e.id
-        WHERE (e.id_office = ? OR cl.id NOT IN (SELECT DISTINCT id_client FROM contracts))
+        WHERE (e.office_id = ? OR cl.id NOT IN (SELECT DISTINCT id_client FROM contracts))
         AND (
-          cl.full_name LIKE ? OR 
+          cl.name LIKE ? OR 
           cl.phone LIKE ? OR 
           cl.email LIKE ?
         )

@@ -1,8 +1,6 @@
 .clients-container {
-  padding: 20px;
-  background: var(--color-bg-alt);
-  border-radius: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  background: var(--color-bg);
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -10,10 +8,13 @@
 }
 
 .clients-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--color-accent);
-  margin-bottom: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .clients-grid {
@@ -32,25 +33,20 @@
 }
 
 .client-item {
-  background: var(--color-bg);
-  padding: 18px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-left: 3px solid transparent;
+  background: var(--color-bg-alt);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  /* Явно отключаем все возможные анимации */
-  transition: none !important;
-  transform: none !important;
-  animation: none !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .client-item:hover {
-  border-left: 3px solid var(--color-accent);
-  /* Явно отключаем все возможные анимации при наведении */
-  transition: none !important;
-  transform: none !important;
-  animation: none !important;
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.15);
+  transform: translateY(-2px);
 }
 
 .client-header {
@@ -161,29 +157,27 @@
 /* Адаптивность для мобильных устройств */
 @media (max-width: 768px) {
   .clients-container {
-    padding: 12px;
-    border-radius: 12px;
+    padding: 16px;
   }
   
   .clients-title {
-    font-size: 20px;
-    margin-bottom: 16px;
-    text-align: center;
+    font-size: 22px;
+    margin-bottom: 20px;
   }
   
   .clients-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 16px;
   }
   
   .client-item {
-    padding: 14px;
+    padding: 16px;
   }
   
   .client-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
   }
   
   .contract-number {
@@ -192,46 +186,94 @@
   
   .client-actions {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   
   .action-btn {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
+    font-size: 15px;
   }
 }
 
 @media (max-width: 480px) {
   .clients-container {
-    padding: 8px;
-    border-radius: 8px;
-  }
-  
-  .clients-title {
-    font-size: 18px;
-    margin-bottom: 12px;
-  }
-  
-  .client-item {
     padding: 12px;
   }
   
+  .clients-title {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .client-item {
+    padding: 14px;
+  }
+  
   .client-header h3 {
-    font-size: 16px;
+    font-size: 17px;
   }
   
   .client-details p {
-    font-size: 13px;
-    margin: 6px 0;
+    font-size: 14px;
+    margin: 8px 0;
   }
   
   .expert-documents h4 {
-    font-size: 14px;
+    font-size: 15px;
   }
   
   .expert-documents li {
-    font-size: 13px;
+    font-size: 14px;
   }
+}
+
+/* Планшеты */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .clients-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+}
+
+/* Большие экраны */
+@media (min-width: 1440px) {
+  .clients-container {
+    padding: 32px;
+  }
+
+  .clients-title {
+    font-size: 32px;
+    margin-bottom: 28px;
+  }
+
+  .clients-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 24px;
+  }
+
+  .client-item {
+    padding: 24px;
+  }
+}
+
+/* Оптимизация для touch-устройств */
+@media (hover: none) and (pointer: coarse) {
+  .action-btn {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .client-item {
+    cursor: default;
+  }
+}
+
+/* Плавные переходы */
+.clients-container,
+.client-item,
+.action-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .loading-indicator {
@@ -270,4 +312,139 @@
   background-color: rgba(0, 0, 0, 0.03);
   border-radius: 8px;
   width: 100%;
+}
+
+
+/* ============================================
+   ТЁМНАЯ ТЕМА ДЛЯ КЛИЕНТОВ
+   ============================================ */
+
+[data-theme="dark"] .clients-container {
+  background: var(--color-bg-alt);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .clients-title {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .client-item {
+  background: var(--color-bg);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border-left-color: transparent;
+}
+
+[data-theme="dark"] .client-item:hover {
+  border-left-color: var(--color-accent);
+}
+
+[data-theme="dark"] .client-header {
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="dark"] .client-header h3 {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .contract-number {
+  background: var(--color-accent);
+  color: var(--color-button-text);
+}
+
+[data-theme="dark"] .client-details p {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .client-details strong {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .expert-documents {
+  border-top-color: var(--color-border);
+}
+
+[data-theme="dark"] .expert-documents h4 {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .expert-documents ul {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .expert-documents a {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .expert-documents a:hover {
+  color: var(--color-accent-light);
+}
+
+[data-theme="dark"] .no-documents {
+  color: var(--color-muted);
+  border-top-color: var(--color-border);
+}
+
+[data-theme="dark"] .client-actions {
+  border-top-color: var(--color-border);
+}
+
+[data-theme="dark"] .action-btn {
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .action-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-button-text);
+}
+
+[data-theme="dark"] .loading-indicator {
+  color: var(--color-accent);
+  background-color: rgba(212, 175, 55, 0.1);
+}
+
+[data-theme="dark"] .error-message {
+  background-color: rgba(255, 76, 76, 0.15);
+  border-left-color: #ff4c4c;
+  color: #ff7875;
+}
+
+[data-theme="dark"] .no-clients {
+  color: var(--color-muted);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .no-clients-container {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+[data-theme="dark"] .no-clients-hint {
+  color: var(--color-muted) !important;
+  font-size: 14px;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+
+/* Улучшение контрастности текста в темной теме */
+[data-theme="dark"] .clients-container * {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .clients-container h1,
+[data-theme="dark"] .clients-container h2,
+[data-theme="dark"] .clients-container h3,
+[data-theme="dark"] .clients-container h4,
+[data-theme="dark"] .clients-container h5,
+[data-theme="dark"] .clients-container h6 {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .clients-container p {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .clients-container strong {
+  color: var(--color-accent);
 }

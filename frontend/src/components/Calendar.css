@@ -1,8 +1,10 @@
 .calendar-container {
-  padding: 16px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  background: var(--color-bg);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -11,16 +13,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .calendar-header h2 {
   margin: 0;
-  color: var(--color-accent);
-  font-size: 24px;
-  font-weight: 600;
+  color: var(--color-text);
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .calendar-header h2 .anticon {
@@ -817,5 +824,525 @@
 
   .contract-amount {
     align-self: flex-end;
+  }
+}
+
+/* =
+===========================================
+   ТЁМНАЯ ТЕМА ДЛЯ КАЛЕНДАРЯ
+   ============================================ */
+
+[data-theme="dark"] .calendar-container {
+  background: var(--color-bg-alt);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .calendar-header {
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="dark"] .calendar-header h2 {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ff7875;
+}
+
+[data-theme="dark"] .calendar-main .ant-picker-calendar {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .calendar-main .ant-picker-calendar-header {
+  border-bottom-color: var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+[data-theme="dark"] .calendar-sidebar .ant-card {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .calendar-sidebar .ant-card-head {
+  background: var(--color-bg-alt);
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="dark"] .calendar-sidebar .ant-card-head-title {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .events .ant-badge-status-text {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .more-events {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .event-time {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .no-events {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .ant-list-item {
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="dark"] .ant-list-item-meta-description {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .contract-client {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .contract-type {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .contract-item {
+  border-color: var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+[data-theme="dark"] .contract-item.clickable {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .contract-item.clickable:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: var(--color-accent);
+}
+
+[data-theme="dark"] .ant-picker-calendar-date:hover {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+[data-theme="dark"] .contract-summary-header {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, rgba(212, 175, 55, 0.1) 100%);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .summary-badge {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .summary-count {
+  background: var(--color-accent);
+  color: var(--color-button-text);
+}
+
+[data-theme="dark"] .contract-card.modern {
+  background: linear-gradient(145deg, var(--color-bg) 0%, var(--color-bg-alt) 100%);
+  border-color: var(--color-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .contract-card.modern:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
+}
+
+[data-theme="dark"] .client-icon {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .client-name {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .contract-amount-badge {
+  background: linear-gradient(135deg, rgba(82, 196, 26, 0.15) 0%, rgba(82, 196, 26, 0.25) 100%);
+  border-color: rgba(82, 196, 26, 0.4);
+}
+
+[data-theme="dark"] .amount-icon {
+  color: #73d13d;
+}
+
+[data-theme="dark"] .amount-value {
+  color: #95de64;
+}
+
+[data-theme="dark"] .type-text {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .contract-footer {
+  border-top-color: var(--color-border);
+}
+
+[data-theme="dark"] .subject-icon {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .subject-text {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .contract-hover-indicator {
+  color: var(--color-accent);
+  background: rgba(212, 175, 55, 0.2);
+}
+
+/* Ant Design компоненты в тёмной теме */
+[data-theme="dark"] .ant-picker-panel {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .ant-picker-cell {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-picker-cell-in-view {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-picker-cell-disabled {
+  color: var(--color-muted);
+}
+
+[data-theme="dark"] .ant-picker-calendar-date-value {
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ant-picker-calendar-date-content {
+  color: var(--color-text);
+}
+
+
+/* Улучшенные стили для Ant Design Calendar в тёмной теме */
+[data-theme="dark"] .ant-picker-calendar .ant-picker-panel {
+  background: var(--color-bg-alt) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-header {
+  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-alt) 100%) !important;
+  border-bottom: 2px solid var(--color-accent) !important;
+  padding: 16px 24px !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-content {
+  background: var(--color-bg) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-content th {
+  color: var(--color-accent) !important;
+  font-weight: 600 !important;
+  background: var(--color-bg-alt) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-in-view {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date {
+  background: var(--color-bg-alt) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-value {
+  color: var(--color-text) !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-content {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.1) 100%) !important;
+  border-color: var(--color-accent) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #c2a030 100%) !important;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date-value {
+  color: var(--color-button-text) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date-content {
+  color: var(--color-button-text) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-today {
+  border: 2px solid var(--color-accent) !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-today .ant-picker-calendar-date-value {
+  color: var(--color-accent) !important;
+  font-weight: 700 !important;
+}
+
+/* Заголовок календаря (месяц/год) */
+[data-theme="dark"] .ant-picker-calendar-header {
+  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-alt) 100%) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar-header .ant-select-selector {
+  background: var(--color-bg-alt) !important;
+  border: 1px solid var(--color-accent) !important;
+  color: var(--color-accent) !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar-header .ant-select-selection-item {
+  color: var(--color-accent) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar-header .ant-radio-button-wrapper {
+  background: var(--color-bg-alt) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar-header .ant-radio-button-wrapper-checked {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #c2a030 100%) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-button-text) !important;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
+}
+
+/* Дни недели */
+[data-theme="dark"] .ant-picker-calendar thead th {
+  color: var(--color-accent) !important;
+  background: var(--color-bg-alt) !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+/* Ячейки календаря */
+[data-theme="dark"] .ant-picker-calendar tbody td {
+  background: var(--color-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled .ant-picker-calendar-date {
+  background: rgba(0, 0, 0, 0.2) !important;
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled .ant-picker-calendar-date-value {
+  color: var(--color-muted) !important;
+  opacity: 0.3 !important;
+}
+
+
+/* Стили для контролов календаря */
+.calendar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-controls span {
+  color: #595959;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .calendar-controls span {
+  color: var(--color-text) !important;
+}
+
+/* Стили для Switch в тёмной теме */
+[data-theme="dark"] .ant-switch {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-theme="dark"] .ant-switch-checked {
+  background: var(--color-accent) !important;
+}
+
+[data-theme="dark"] .ant-switch:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-theme="dark"] .ant-switch-checked:hover {
+  background: var(--color-accent-light) !important;
+}
+
+
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
+
+/* Планшеты */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .calendar-container {
+    padding: 20px;
+  }
+
+  .calendar-header h2 {
+    font-size: 24px;
+  }
+
+  .calendar-content {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .calendar-sidebar {
+    width: 100%;
+    margin-top: 16px;
+  }
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+  .calendar-container {
+    padding: 16px;
+    max-height: none;
+  }
+
+  .calendar-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .calendar-header h2 {
+    font-size: 22px;
+  }
+
+  .calendar-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-content {
+    flex-direction: column;
+    height: auto;
+    gap: 20px;
+  }
+
+  .calendar-main {
+    width: 100%;
+  }
+
+  .calendar-sidebar {
+    width: 100%;
+  }
+
+  .ant-picker-calendar {
+    font-size: 14px;
+  }
+}
+
+/* Маленькие телефоны */
+@media (max-width: 480px) {
+  .calendar-container {
+    padding: 12px;
+  }
+
+  .calendar-header {
+    padding-bottom: 12px;
+  }
+
+  .calendar-header h2 {
+    font-size: 20px;
+  }
+
+  .calendar-controls {
+    font-size: 13px;
+  }
+
+  .ant-picker-calendar {
+    font-size: 12px;
+  }
+
+  .events {
+    font-size: 11px;
+  }
+}
+
+/* Большие экраны */
+@media (min-width: 1440px) {
+  .calendar-container {
+    padding: 32px;
+  }
+
+  .calendar-header h2 {
+    font-size: 32px;
+  }
+
+  .calendar-content {
+    gap: 24px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media (max-width: 768px) and (orientation: landscape) {
+  .calendar-content {
+    flex-direction: row;
+  }
+
+  .calendar-main {
+    flex: 1;
+  }
+
+  .calendar-sidebar {
+    width: 300px;
+    margin-top: 0;
+  }
+}
+
+/* Оптимизация для touch-устройств */
+@media (hover: none) and (pointer: coarse) {
+  .ant-picker-calendar-date {
+    min-height: 48px;
+  }
+
+  .calendar-header button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Плавные переходы */
+.calendar-container,
+.calendar-content,
+.calendar-sidebar {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Безопасная зона для iPhone с вырезом */
+@supports (padding: max(0px)) {
+  .calendar-container {
+    padding-left: max(24px, env(safe-area-inset-left));
+    padding-right: max(24px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
   }
 }

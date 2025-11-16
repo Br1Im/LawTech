@@ -70,6 +70,9 @@ const clientController = {
       const user = req.user;
       const clientData = req.body;
 
+      console.log('📝 Creating client with data:', JSON.stringify(clientData, null, 2));
+      console.log('👤 User office_id:', user.office_id);
+
       if (!user.office_id) {
         return res.status(403).json({
           success: false,
@@ -77,8 +80,8 @@ const clientController = {
         });
       }
 
-      // Валидация
-      if (!clientData.first_name && !clientData.company) {
+      // Валидация - принимаем name, first_name или company
+      if (!clientData.name && !clientData.first_name && !clientData.company) {
         return res.status(400).json({
           success: false,
           message: 'Необходимо указать имя или название компании'
@@ -87,16 +90,19 @@ const clientController = {
 
       const client = await Client.create(clientData);
       
+      console.log('✅ Client created successfully:', client);
+      
       res.status(201).json({
         success: true,
         message: 'Клиент создан успешно',
         data: client
       });
     } catch (error) {
-      console.error('Error creating client:', error);
+      console.error('❌ Error creating client:', error);
       res.status(500).json({
         success: false,
-        message: 'Ошибка при создании клиента'
+        message: 'Ошибка при создании клиента',
+        error: error.message
       });
     }
   },

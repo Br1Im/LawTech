@@ -160,17 +160,34 @@ class Office {
   /**
    * Получить сотрудников офиса
    * @param {number} officeId - ID офиса
+   * @param {string} period - Период для статистики
    * @returns {Promise<Array>} - Массив сотрудников
    */
-  static async getEmployeesByOfficeId(officeId) {
+  static async getEmployeesByOfficeId(officeId, period = 'month') {
     try {
+      // Получаем сотрудников из таблицы employees
       const query = `
-        SELECT id, first_name, last_name, email, position, phone, is_active 
-        FROM users 
-        WHERE office_id = ?
-        ORDER BY last_name ASC
+        SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone, 
+               1 as is_active
+        FROM employees e
+        WHERE e.office_id = ?
+        ORDER BY e.last_name ASC
       `;
       const [employees] = await db.query(query, [officeId]);
+      
+      // Для каждого сотрудника получаем статистику
+      for (let employee of employees) {
+        const [stats] = await db.query(
+          `SELECT COALESCE(SUM(revenue), 0) as revenue, COALESCE(SUM(orders), 0) as orders
+           FROM employee_stats
+           WHERE employee_id = ? AND period_type = ?`,
+          [employee.id, period]
+        );
+        
+        employee.revenue = stats.length > 0 ? parseFloat(stats[0].revenue) : 0;
+        employee.orders = stats.length > 0 ? parseInt(stats[0].orders) : 0;
+      }
+      
       return employees;
     } catch (error) {
       console.error('Error getting employees:', error);
@@ -186,41 +203,35 @@ class Office {
    */
   static async getStatsByOfficeId(officeId, period = 'day') {
     try {
-      // Проверяем существование таблицы (MySQL синтаксис)
-      const checkTableQuery = `
-        SELECT TABLE_NAME 
-        FROM information_schema.TABLES 
-        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_stats'
+      // Суммируем все данные за выбранный период
+      const query = `
+        SELECT 
+          COALESCE(SUM(revenue), 0) as revenue,
+          COALESCE(SUM(orders), 0) as orders,
+          0 as clients,
+          0 as employees,
+          0 as expenses,
+          0 as documents,
+          0 as visits
+        FROM office_stats 
+        WHERE office_id = ? AND period_type = ?
       `;
-      const [tables] = await db.query(checkTableQuery);
+      const [stats] = await db.query(query, [officeId, period]);
       
-      // Запрашиваем данные только если таблица существует
-      if (tables.length > 0) {
-        const query = `
-          SELECT * FROM office_stats 
-          WHERE office_id = ? AND period_type = ?
-        `;
-        const [stats] = await db.query(query, [officeId, period]);
-        
-        if (stats.length > 0) {
-          return stats[0];
-        }
+      if (stats && stats.length > 0) {
+        return stats[0];
       }
       
       // Если данных нет, возвращаем пустую статистику
-      if (stats.length === 0) {
-        return {
-          revenue: 0,
-          orders: 0,
-          clients: 0,
-          employees: 0,
-          expenses: 0,
-          documents: 0,
-          visits: 0
-        };
-      }
-      
-      return stats[0];
+      return {
+        revenue: 0,
+        orders: 0,
+        clients: 0,
+        employees: 0,
+        expenses: 0,
+        documents: 0,
+        visits: 0
+      };
     } catch (error) {
       console.error('Error getting office stats:', error);
       return {
@@ -261,23 +272,43 @@ class Office {
    */
   static async getRevenueByPeriod(period) {
     try {
-      // Всегда используем безопасный запрос без JOIN для избежания ошибок
-      const query = `
-        SELECT o.id, o.name
-        FROM offices o
-        ORDER BY o.name ASC
-      `;
-      const [results] = await db.query(query);
+      // Получаем все офисы
+      const [offices] = await db.query('SELECT id, name FROM offices ORDER BY name ASC');
       
-      const offices = results.map(row => ({
-        id: row.id.toString(),
-        name: row.name,
-        revenue: [0] // Устанавливаем доходы в 0, поскольку таблица office_stats недоступна
+      // Определяем тип периода для запроса
+      let periodType = 'day';
+      if (period === '2weeks') periodType = 'week';
+      else if (period === 'month') periodType = 'month';
+      
+      // Для каждого офиса получаем данные за последние 6 периодов
+      const officesWithRevenue = await Promise.all(offices.map(async (office) => {
+        const [stats] = await db.query(
+          `SELECT period_value, revenue 
+           FROM office_stats 
+           WHERE office_id = ? AND period_type = ?
+           ORDER BY period_value DESC
+           LIMIT 6`,
+          [office.id, periodType]
+        );
+        
+        // Создаем массив выручки (в обратном порядке, чтобы старые данные были слева)
+        const revenue = stats.reverse().map(s => parseFloat(s.revenue) || 0);
+        
+        // Дополняем нулями, если данных меньше 6
+        while (revenue.length < 6) {
+          revenue.unshift(0);
+        }
+        
+        return {
+          id: office.id.toString(),
+          name: office.name,
+          revenue: revenue
+        };
       }));
       
       return {
-        labels: offices.map(o => o.name),
-        offices: offices
+        labels: [], // Метки будут сгенерированы на фронтенде
+        offices: officesWithRevenue
       };
     } catch (error) {
       console.error('Error getting revenue by period:', error);

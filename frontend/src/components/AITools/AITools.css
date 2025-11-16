@@ -1,5 +1,5 @@
 .ai-tools-container {
-  padding: 0;
+  padding: 20px;
   background-color: var(--color-bg);
   border-radius: 0;
   color: var(--color-text);
@@ -7,14 +7,17 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: auto;
-  height: 100vh;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .ai-tools-content {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: visible;
 }
 
 @keyframes fadeIn {
@@ -33,4 +36,17 @@
     padding: 14px;
     gap: 14px;
   }
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА ДЛЯ AI TOOLS
+   ============================================ */
+
+[data-theme="dark"] .ai-tools-container {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .ai-tools-content {
+  background-color: transparent;
 }

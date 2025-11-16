@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import "./OfficeContent.css";
 import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
@@ -97,7 +98,7 @@ const Office = () => {
   //     }
   //   }
   // }, [officeFromContext]);
-  const [period, setPeriod] = useState<PeriodType>("day");
+  const [period, setPeriod] = useState<PeriodType>("month");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
@@ -114,9 +115,28 @@ const Office = () => {
   });
   
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const dropdownButtonRef = useRef<HTMLDivElement>(null);
   
   // Проверка, достигнут ли лимит офисов
   const isOfficeLimit = offices.length >= MAX_OFFICES;
+
+  // Закрытие выпадающего списка при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showPeriodDropdown && dropdownButtonRef.current && !dropdownButtonRef.current.contains(event.target as Node)) {
+        setShowPeriodDropdown(false);
+      }
+    };
+
+    if (showPeriodDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPeriodDropdown]);
 
   // Подписка на события синхронизации между вкладками
   // useEffect(() => {
@@ -170,7 +190,7 @@ const Office = () => {
           id: string;
           name?: string;
           address?: string;
-          employees?: Employee[];
+          employees?: any[];
           stats?: {
             visits: number;
             orders: number;
@@ -184,23 +204,38 @@ const Office = () => {
           };
           contact_phone?: string | null;
           website?: string | null;
-        }) => ({
-          id: office.id,
-          title: office.name || "Без названия",
-          description: office.address || "Нет описания",
-          revenue: office.stats?.revenue || 0,
-          orders: office.stats?.orders || 0,
-          employees: office.employees || [],
-          data: [office.stats?.visits || 0, office.stats?.pending || 0],
-          address: office.address,
-          employee_count: Math.max(office.employees?.length || 0, 1), // Минимум 1 (текущий пользователь)
-          contact_phone: office.contact_phone || undefined,
-          website: office.website || undefined,
-          chartData: office.chartData,
-          // Вычисляем предыдущую выручку на основе данных сотрудников (используем periodRevenue как предыдущий период)
-          previousRevenue: office.employees?.reduce((total, employee) => total + (employee.periodRevenue || 0), 0) || 0,
-          previousVisits: office.stats?.visits ? office.stats.visits * 0.9 : 0
-        }));
+        }) => {
+          // Трансформируем данные сотрудников
+          const transformedEmployees = (office.employees || []).map((emp: any) => ({
+            id: emp.id,
+            surname: emp.last_name || '',
+            name: emp.first_name || '',
+            middle_name: '',
+            position: emp.position || 'Сотрудник',
+            phone: emp.phone || '',
+            totalRevenue14Days: emp.revenue || 0,
+            periodRevenue: emp.revenue || 0,
+            dailyContracts: emp.orders || 0,
+            closeRate: 0
+          }));
+          
+          return {
+            id: office.id,
+            title: office.name || "Без названия",
+            description: office.address || "Нет описания",
+            revenue: office.stats?.revenue || 0,
+            orders: office.stats?.orders || 0,
+            employees: transformedEmployees,
+            data: [office.stats?.visits || 0, office.stats?.pending || 0],
+            address: office.address,
+            employee_count: Math.max(transformedEmployees.length, 1),
+            contact_phone: office.contact_phone || undefined,
+            website: office.website || undefined,
+            chartData: office.chartData,
+            previousRevenue: transformedEmployees.reduce((total: number, employee: any) => total + (employee.periodRevenue || 0), 0),
+            previousVisits: office.stats?.visits ? office.stats.visits * 0.9 : 0
+          };
+        });
 
         // Если сервер вернул офисы – используем их, иначе применяем мок-данные
         if (transformedOffices.length > 0) {
@@ -238,17 +273,12 @@ const Office = () => {
 
   useEffect(() => {
     if (selectedOffice) {
-      // Добавляем проверку на наличие data и доступ к индексам
+      // Используем данные из stats, которые приходят с сервера
+      const currentRevenue = selectedOffice.revenue || 0;
+      const currentOrders = selectedOffice.orders || 0;
       const currentVisits = selectedOffice.data && selectedOffice.data.length > 0 ? selectedOffice.data[0] : 0;
+      
       const previousVisits = selectedOffice.previousVisits || 0;
-      
-      // Вычисляем общую выручку как сумму выручки всех сотрудников
-      const currentRevenue = selectedOffice.employees && selectedOffice.employees.length > 0 
-        ? selectedOffice.employees.reduce((total, employee) => {
-            return total + (period === "day" ? (employee.totalRevenue14Days || 0) : (employee.periodRevenue || 0));
-          }, 0)
-        : 0;
-      
       const previousRevenue = selectedOffice.previousRevenue || 0;
 
       const visitsChange = calculatePercentageChange(currentVisits, previousVisits);
@@ -256,7 +286,7 @@ const Office = () => {
 
       setStats({
         visits: currentVisits,
-        orders: selectedOffice.orders || 0,
+        orders: currentOrders,
         revenue: currentRevenue,
         pending: selectedOffice.data && selectedOffice.data.length > 1 ? selectedOffice.data[1] : 0,
         visitsChange,
@@ -682,15 +712,34 @@ const Office = () => {
         <div className="period-selector">
           <div className="period-dropdown">
             <div 
+              ref={dropdownButtonRef}
               className={`period-dropdown-header ${showPeriodDropdown ? 'active' : ''}`} 
-              onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
+              onClick={() => {
+                if (!showPeriodDropdown && dropdownButtonRef.current) {
+                  const rect = dropdownButtonRef.current.getBoundingClientRect();
+                  setDropdownPosition({
+                    top: rect.bottom + window.scrollY,
+                    left: rect.left + window.scrollX,
+                    width: rect.width
+                  });
+                }
+                setShowPeriodDropdown(!showPeriodDropdown);
+              }}
             >
               <FaCalendarAlt className="calendar-icon" />
               <span className="selected-period">{getPeriodText()}</span>
               <span className="dropdown-arrow"></span>
             </div>
-            {showPeriodDropdown && (
-              <div className="period-dropdown-content">
+            {showPeriodDropdown && createPortal(
+              <div 
+                className="period-dropdown-content"
+                style={{
+                  position: 'fixed',
+                  top: `${dropdownPosition.top}px`,
+                  left: `${dropdownPosition.left}px`,
+                  minWidth: `${dropdownPosition.width}px`
+                }}
+              >
                 <div 
                   className={`period-option ${period === "day" ? "active" : ""}`} 
                   onClick={() => {
@@ -718,7 +767,8 @@ const Office = () => {
                 >
                   Месяц
                 </div>
-              </div>
+              </div>,
+              document.body
             )}
           </div>
         </div>
@@ -781,7 +831,7 @@ const Office = () => {
                 </div>
                 <StatCard
                   title="Приходы"
-                  value={"0"}
+                  value={stats.orders.toString()}
                   icon={<FaUsers />}
                   colorIcon="#8280FF"
                   percentage={stats.visitsChange.percentage}
@@ -790,7 +840,7 @@ const Office = () => {
                 />
                 <StatCard
                   title="Общая касса"
-                  value={"0 ₽"}
+                  value={`${stats.revenue.toLocaleString('ru-RU')} ₽`}
                   icon={<FaChartLine />}
                   percentage={stats.revenueChange.percentage}
                   colorIcon="#4AD991"

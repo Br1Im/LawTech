@@ -86,6 +86,9 @@ module.exports = {
           const [rows] = await connection.execute(sql, params);
           return [rows];
         },
+        beginTransaction: async () => await connection.beginTransaction(),
+        commit: async () => await connection.commit(),
+        rollback: async () => await connection.rollback(),
         release: () => connection.release(),
         end: () => connection.release()
       };

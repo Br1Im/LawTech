@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload } from 'react-icons/fi';
-import { FaRobot } from 'react-icons/fa';
+import { FaRobot, FaBrain } from 'react-icons/fa';
 import { buildApiUrl } from '../../shared/utils/apiUtils';
 import Scanner from '../Scan/Scanner';
 import './ChatInterface.css';
@@ -640,10 +640,12 @@ const ChatInterface: React.FC = () => {
     <div className="chat-container">
       <div className="chat-main">
         <div className="chat-header">
-          <h2>AI-помощник для юридических задач</h2>
-          <button className="clear-chat-button" onClick={handleClearChat} title="Очистить чат">
-            <FiTrash2 />
-          </button>
+          <div className="chat-header-left">
+            <div className="chat-header-icon">
+              <FaBrain />
+            </div>
+            <h2>AI-помощник для юридических задач</h2>
+          </div>
         </div>
         <div className="chat-messages">
           {messages.length > 0 ? (
@@ -651,53 +653,57 @@ const ChatInterface: React.FC = () => {
               {messages.map(message => (
                 <div 
                   key={message.id} 
-                  className={`message ${message.sender === 'user' ? 'user-message' : 'ai-message'}`}
+                  className={message.sender === 'user' ? 'user-message' : 'ai-message'}
                 >
-                  <div className="message-avatar">
-                    {message.sender === 'user' ? <FiUser /> : <FaRobot />}
-                  </div>
-                  <div className="message-content">
-                    {message.image && (
-                      <div className="message-image">
-                        <img src={message.image} alt="Изображение" />
-                      </div>
-                    )}
-                    <div dangerouslySetInnerHTML={{ __html: formatMessageContent(message.content) }} />
-                    {message.docxUrl && (
-                      <div className="message-actions docx-actions">
+                  <div>
+                    <div className="message-avatar">
+                      {message.sender === 'user' ? <FiUser /> : <FaRobot />}
+                    </div>
+                    <div className="message-content">
+                      {message.image && (
+                        <div className="message-image">
+                          <img src={message.image} alt="Изображение" />
+                        </div>
+                      )}
+                      <div dangerouslySetInnerHTML={{ __html: formatMessageContent(message.content) }} />
+                      {message.docxUrl && (
+                        <div className="docx-actions">
+                          <button 
+                            className="download-button" 
+                            onClick={() => downloadDocx(message.docxUrl!, message.id)}
+                            title="Скачать документ Word"
+                          >
+                            <FiDownload /> Скачать документ Word
+                          </button>
+                        </div>
+                      )}
+                      <div className="message-actions">
                         <button 
-                          className="download-button" 
-                          onClick={() => downloadDocx(message.docxUrl!, message.id)}
-                          title="Скачать документ Word"
+                          className="copy-button" 
+                          onClick={() => handleCopyMessage(message.content)}
+                          title="Копировать"
                         >
-                          <FiDownload /> Скачать документ Word
+                          <FiClipboard />
                         </button>
                       </div>
-                    )}
-                    <div className="message-actions">
-                      <button 
-                        className="copy-button" 
-                        onClick={() => handleCopyMessage(message.content)}
-                        title="Копировать"
-                      >
-                        <FiClipboard />
-                      </button>
                     </div>
                   </div>
                 </div>
               ))}
               {(isTyping || isProcessingImage) && (
-                <div className="message ai-message">
-                  <div className="message-avatar">
-                    <FaRobot />
-                  </div>
-                  <div className="message-content typing">
-                    <div className="typing-indicator">
-                      <span></span>
-                      <span></span>
-                      <span></span>
+                <div className="ai-message typing">
+                  <div>
+                    <div className="message-avatar">
+                      <FaRobot />
                     </div>
-                    {isProcessingImage && <div className="processing-text">Обрабатываю изображение и распознаю текст через сервер...</div>}
+                    <div className="message-content">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                      {isProcessingImage && <div className="processing-text">Обрабатываю изображение и распознаю текст через сервер...</div>}
+                    </div>
                   </div>
                 </div>
               )}
@@ -710,51 +716,58 @@ const ChatInterface: React.FC = () => {
           )}
           <div ref={messagesEndRef} />
         </div>
+        {messages.length > 0 && (
+          <button className="clear-chat-button" onClick={handleClearChat} title="Очистить чат">
+            <FiTrash2 />
+          </button>
+        )}
         
         <div className="chat-input-container">
-          {previewImage && (
-            <div className="image-preview-container">
-              <div className="image-preview">
-                <img src={previewImage} alt="Предпросмотр" />
-                <button className="cancel-image-button" onClick={handleCancelImage}>
-                  &times;
-                </button>
-              </div>
-            </div>
-          )}
           <div className="chat-input-wrapper">
-            <button 
-              className="attachment-button" 
-              onClick={handleOpenFileDialog}
-              title="Прикрепить изображение"
-            >
-              <FiPaperclip />
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-              accept="image/*"
-              style={{ display: 'none' }}
-            />
-            <textarea
-              ref={inputRef}
-              value={inputMessage}
-              onChange={handleTextareaInput}
-              onKeyDown={handleKeyDown}
-              placeholder="Напишите сообщение или загрузите фото документа..."
-              rows={1}
-              className="chat-input"
-              style={{ minHeight: '24px' }}
-            />
-            <button 
-              className="send-button" 
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() && !selectedImage}
-              title="Отправить"
-            >
-              ➤
-            </button>
+            {previewImage && (
+              <div className="image-preview-container">
+                <div className="image-preview">
+                  <img src={previewImage} alt="Предпросмотр" />
+                  <button className="cancel-image-button" onClick={handleCancelImage}>
+                    &times;
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="chat-input-box">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+              <button 
+                className="attachment-button" 
+                onClick={handleOpenFileDialog}
+                title="Прикрепить изображение"
+              >
+                <FiPaperclip />
+              </button>
+              <textarea
+                ref={inputRef}
+                value={inputMessage}
+                onChange={handleTextareaInput}
+                onKeyDown={handleKeyDown}
+                placeholder="Напишите сообщение..."
+                rows={1}
+                className="chat-input"
+                style={{ minHeight: '24px' }}
+              />
+              <button 
+                className="send-button" 
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() && !selectedImage}
+                title="Отправить"
+              >
+                ➤
+              </button>
+            </div>
           </div>
           <div className="input-info">
             Нажмите Enter для отправки, Shift+Enter для новой строки

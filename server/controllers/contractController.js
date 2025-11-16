@@ -90,6 +90,9 @@ const contractController = {
       const user = req.user;
       const contractData = req.body;
 
+      console.log('📝 Creating contract with data:', JSON.stringify(contractData, null, 2));
+      console.log('👤 User office_id:', user.office_id);
+
       if (!user.office_id) {
         return res.status(403).json({
           success: false,
@@ -99,9 +102,19 @@ const contractController = {
 
       // Валидация
       if (!contractData.id_employee || !contractData.id_client || !contractData.amount) {
+        console.log('❌ Validation failed:', {
+          id_employee: contractData.id_employee,
+          id_client: contractData.id_client,
+          amount: contractData.amount
+        });
         return res.status(400).json({
           success: false,
-          message: 'Необходимо указать сотрудника, клиента и сумму'
+          message: 'Необходимо указать сотрудника, клиента и сумму',
+          details: {
+            id_employee: !!contractData.id_employee,
+            id_client: !!contractData.id_client,
+            amount: !!contractData.amount
+          }
         });
       }
 

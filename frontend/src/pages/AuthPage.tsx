@@ -288,6 +288,44 @@ if (typeof document !== 'undefined') {
         transform: translateX(5px);
         box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
       }
+
+      /* Тёмная тема для страницы авторизации */
+      [data-theme="dark"] .auth-form-animated .ant-input,
+      [data-theme="dark"] .auth-form-animated .ant-input-password input,
+      [data-theme="dark"] .auth-form-animated .ant-select-selector {
+        background-color: #2a2a2a !important;
+        border-color: #3a3a3a !important;
+        color: #f5f5f7 !important;
+      }
+
+      [data-theme="dark"] .auth-form-animated .ant-input::placeholder,
+      [data-theme="dark"] .auth-form-animated .ant-input-password input::placeholder {
+        color: #86868b !important;
+      }
+
+      [data-theme="dark"] .auth-form-animated .ant-tabs-tab {
+        color: #86868b !important;
+      }
+
+      [data-theme="dark"] .auth-form-animated .ant-tabs-tab-active {
+        color: #d4af37 !important;
+      }
+
+      [data-theme="dark"] .auth-form-animated .ant-form-item-label > label {
+        color: #f5f5f7 !important;
+      }
+
+      [data-theme="dark"] .test-account-item {
+        background-color: #2a2a2a !important;
+        border-color: #3a3a3a !important;
+        color: #f5f5f7 !important;
+      }
+
+      [data-theme="dark"] .test-accounts-btn {
+        background-color: #2a2a2a !important;
+        border-color: #3a3a3a !important;
+        color: #f5f5f7 !important;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -305,12 +343,13 @@ const AuthContainer: CSSProperties = {
 };
 
 const AuthFormContainer: CSSProperties = {
-  backgroundColor: 'var(--color-bg)',
+  backgroundColor: 'var(--color-bg-alt)',
   padding: '40px',
-  borderRadius: '8px',
+  borderRadius: '16px',
   width: '100%',
   maxWidth: '450px',
   boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+  border: '1px solid var(--color-border)',
   transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
   maxHeight: '900px',
   overflow: 'hidden',

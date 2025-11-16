@@ -1,0 +1,136 @@
+.hamburger-button {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  cursor: pointer;
+  z-index: 1300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.hamburger-button:hover {
+  background: var(--color-bg-alt);
+  border-color: var(--color-accent);
+}
+
+.hamburger-line {
+  width: 22px;
+  height: 2px;
+  background: var(--color-text);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger-button.open .hamburger-line:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger-button.open .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-button.open .hamburger-line:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Темная тема */
+[data-theme="dark"] .hamburger-button {
+  background: #1a1a1a;
+  border-color: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .hamburger-button:hover {
+  background: #2a2a2a;
+  border-color: #d4af37;
+}
+
+[data-theme="dark"] .hamburger-line {
+  background: #ffffff;
+}
+
+
+/* ============================================
+   АДАПТИВНОСТЬ
+   ============================================ */
+
+/* Планшеты */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .hamburger-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .hamburger-line {
+    width: 24px;
+  }
+}
+
+/* Маленькие телефоны */
+@media (max-width: 375px) {
+  .hamburger-button {
+    width: 40px;
+    height: 40px;
+    top: 12px;
+    left: 12px;
+  }
+
+  .hamburger-line {
+    width: 20px;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media (max-width: 768px) and (orientation: landscape) {
+  .hamburger-button {
+    top: 12px;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Оптимизация для touch-устройств */
+@media (hover: none) and (pointer: coarse) {
+  .hamburger-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .hamburger-line {
+    height: 3px;
+  }
+}
+
+/* Безопасная зона для iPhone с вырезом */
+@supports (padding: max(0px)) {
+  .hamburger-button {
+    top: max(16px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+  }
+}
+
+/* Плавная анимация */
+.hamburger-button,
+.hamburger-line {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* Скрыть кнопку когда сайдбар открыт */
+.hamburger-button.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.8);
+}

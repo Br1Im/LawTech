@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import { buildApiUrl } from '../shared/utils/apiUtils';
 import "./Clients.css";
 
 interface ExpertDocument {
@@ -60,9 +61,54 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
           throw new Error('Офис не найден');
         }
         
-        // Намеренно устанавливаем пустой массив клиентов
-        console.log('Клиенты отключены по запросу пользователя');
-        setContracts([]);
+        // Загружаем договоры с сервера
+        const contractsResponse = await fetch(buildApiUrl(`/office/${officeId}/contracts`), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!contractsResponse.ok) {
+          throw new Error('Не удалось получить список договоров');
+        }
+
+        const contractsData = await contractsResponse.json();
+        console.log('Получены договоры:', contractsData);
+        
+        const allContracts = contractsData.data || [];
+        
+        // Группируем договоры по клиентам (уникальные клиенты)
+        const clientsMap = new Map();
+        
+        allContracts.forEach((contract: any) => {
+          const clientId = contract.id_client;
+          const clientName = contract.client_name || 'Без имени';
+          
+          if (!clientsMap.has(clientId)) {
+            clientsMap.set(clientId, {
+              id: clientId,
+              clientName: clientName,
+              contractNumber: `CLI-${clientId}`,
+              theme: contract.title || 'Договор',
+              lawyer: contract.employee_name || (user.first_name + ' ' + user.last_name),
+              materials: [],
+              assignedExpert: null,
+              expertDocuments: [],
+              contractsCount: 1
+            });
+          } else {
+            // Увеличиваем счетчик договоров для этого клиента
+            const client = clientsMap.get(clientId);
+            client.contractsCount += 1;
+          }
+        });
+        
+        // Преобразуем Map в массив
+        const clientContracts = Array.from(clientsMap.values());
+        console.log('Уникальные клиенты с договорами:', clientContracts.length);
+        
+        setContracts(clientContracts);
         
       } catch (err) {
         console.error('Ошибка получения клиентов:', err);
@@ -74,6 +120,18 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
     };
 
     fetchClients();
+    
+    // Слушатель события создания клиента
+    const handleClientCreated = () => {
+      console.log('Получено событие создания клиента, обновляем список');
+      fetchClients();
+    };
+    
+    window.addEventListener('clientCreated', handleClientCreated);
+    
+    return () => {
+      window.removeEventListener('clientCreated', handleClientCreated);
+    };
   }, [isAuthenticated, user]);
 
   // Обработчик для связи с клиентом (заглушка)

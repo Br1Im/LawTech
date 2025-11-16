@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
 import { BellOutlined } from "@ant-design/icons";
-import ThemeToggle from '../components/ui/ThemeToggle';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Office from "../components/Office";
@@ -48,10 +47,13 @@ const SRM = () => {
   const [activeTab, setActiveTab] = useState<string>(tabParam || "Офис");
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(window.innerWidth <= 768);
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
-    () => document.documentElement.getAttribute('data-theme') === 'dark'
-  );
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      return savedTheme === 'dark';
+    }
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+  });
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([
     {
@@ -101,39 +103,12 @@ const SRM = () => {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+    const theme = isDarkTheme ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
   }, [isDarkTheme]);
 
-  // Закрытие меню темы при клике вне его
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (isThemeMenuOpen && !target.closest('[data-theme-menu]')) {
-        setIsThemeMenuOpen(false);
-      }
-    };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isThemeMenuOpen]);
-
-  const toggleTheme = () => {
-    setIsDarkTheme(!isDarkTheme);
-  };
-
-  const toggleThemeMenu = () => {
-    setIsThemeMenuOpen(!isThemeMenuOpen);
-  };
-
-  const selectTheme = (theme: 'light' | 'dark' | 'auto') => {
-    if (theme === 'auto') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkTheme(prefersDark);
-    } else {
-      setIsDarkTheme(theme === 'dark');
-    }
-    setIsThemeMenuOpen(false);
-  };
 
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
@@ -196,15 +171,18 @@ const SRM = () => {
     } satisfies React.CSSProperties,
 
     content: {
+      flex: 1,
       marginLeft: isMobile ? "0" : (collapsed ? "80px" : "260px"),
       marginTop: isMobile ? "70px" : "0px",
-      padding: isMobile ? "8px" : "12px",
+      padding: isMobile ? "8px" : "16px",
       backgroundColor: "var(--color-bg)",
-      transition: "margin-left 0.3s ease, margin-top 0.3s ease, padding 0.3s ease",
-      height: `calc(100vh - ${isMobile ? "70px" : "24px"})`,
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      height: isMobile ? `calc(100vh - 70px)` : "100vh",
+      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "80px" : "260px"})`,
       overflow: "auto",
       position: "relative" as const,
       WebkitOverflowScrolling: "touch" as const,
+      boxSizing: "border-box" as const,
     } satisfies React.CSSProperties,
     topButtons: {
       position: "fixed" as const,
@@ -212,60 +190,9 @@ const SRM = () => {
       right: "24px",
       display: "flex",
       alignItems: "center",
-      gap: "12px",
       zIndex: 1001,
-      padding: "8px",
-      backgroundColor: "var(--color-bg)",
-      borderRadius: "50px",
-      boxShadow: "0 2px 12px rgba(0, 0, 0, 0.08)",
-      border: "1px solid var(--color-border)",
     } satisfies React.CSSProperties,
-    themeMenuContainer: {
-      position: "relative" as const,
-    } satisfies React.CSSProperties,
-    themeMenu: {
-      position: "absolute" as const,
-      top: "50px",
-      right: "0",
-      backgroundColor: "var(--color-bg)",
-      border: "1px solid var(--color-border)",
-      borderRadius: "12px",
-      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
-      padding: "8px",
-      minWidth: "180px",
-      zIndex: 1000,
-      opacity: isThemeMenuOpen ? 1 : 0,
-      visibility: isThemeMenuOpen ? "visible" : "hidden",
-      transform: isThemeMenuOpen ? "translateY(0) scale(1)" : "translateY(-10px) scale(0.95)",
-      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-      backdropFilter: "blur(10px)",
-    } satisfies React.CSSProperties,
-    themeOption: {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      padding: "12px 16px",
-      borderRadius: "8px",
-      cursor: "pointer",
-      transition: "all 0.2s ease",
-      fontSize: "14px",
-      fontWeight: "500",
-      color: "var(--color-text)",
-    } satisfies React.CSSProperties,
-    topButton: {
-      width: isMobile ? "36px" : "40px",
-      height: isMobile ? "36px" : "40px",
-      borderRadius: "50%",
-      border: "1px solid var(--color-border)",
-      backgroundColor: "var(--color-bg)",
-      color: "var(--color-muted)",
-      cursor: "pointer",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      transition: "all 0.2s ease",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-    } satisfies React.CSSProperties,
+
   };
 
 
@@ -328,81 +255,6 @@ const SRM = () => {
           user={user ? { ...user } : undefined}
         />
         <div style={styles.topButtons}>
-          <ThemeToggle 
-            isDark={isDarkTheme} 
-            onToggle={toggleTheme}
-            isMobile={isMobile}
-          />
-          
-          <div style={styles.themeMenuContainer} data-theme-menu style={{ display: 'none' }}>
-            <button
-              onClick={toggleThemeMenu}
-              style={styles.topButton}
-              title="Выбор темы"
-            >
-            </button>
-            
-            <div style={styles.themeMenu}>
-              <div 
-                style={{
-                  ...styles.themeOption,
-                  backgroundColor: !isDarkTheme ? 'var(--color-accent-light)' : 'transparent',
-                  color: !isDarkTheme ? 'var(--color-accent)' : 'var(--color-text)',
-                }}
-                onClick={() => selectTheme('light')}
-                onMouseEnter={(e) => {
-                  if (!(!isDarkTheme)) {
-                    e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!(!isDarkTheme)) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>☀️</span>
-                Светлая тема
-              </div>
-              
-              <div 
-                style={{
-                  ...styles.themeOption,
-                  backgroundColor: isDarkTheme ? 'var(--color-accent-light)' : 'transparent',
-                  color: isDarkTheme ? 'var(--color-accent)' : 'var(--color-text)',
-                }}
-                onClick={() => selectTheme('dark')}
-                onMouseEnter={(e) => {
-                  if (!(isDarkTheme)) {
-                    e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!(isDarkTheme)) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>🌙</span>
-                Темная тема
-              </div>
-              
-              <div 
-                style={styles.themeOption}
-                onClick={() => selectTheme('auto')}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>🔄</span>
-                Системная тема
-              </div>
-            </div>
-          </div>
-          
           <button
             onClick={handleNotificationClick}
             style={{
@@ -468,7 +320,10 @@ const SRM = () => {
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
           {activeTab === "Записи" && <Appointments />}
-          {activeTab === "Календарь" && <Calendar />}
+          {activeTab === "Календарь" && <Calendar onOpenContract={(contractId) => {
+            setSelectedContractId(contractId);
+            setActiveTab("Договоры");
+          }} />}
         </Content>
       </div>
       

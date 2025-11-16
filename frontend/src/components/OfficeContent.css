@@ -3,18 +3,16 @@
 }
 
 .office-content {
-  border-radius: 12px;
   background-color: var(--color-bg);
   color: var(--color-text);
-  animation: fadeIn 0.6s ease-in-out;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  height: 100%;
+  gap: 8px;
+  padding: 16px;
   width: 100%;
   max-width: 100%;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: visible;
   box-sizing: border-box;
 }
 
@@ -25,10 +23,10 @@
   width: 100%;
   max-width: 100%;
   min-height: 900px;
-  gap: 12px;
+  gap: 16px;
   box-sizing: border-box;
   align-items: stretch;
-  overflow-x: hidden;
+  overflow: visible !important;
 }
 
 /* Block 1: Top left */
@@ -71,11 +69,36 @@
   grid-column: 1;
   grid-row: 2;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden !important;
+  overflow-y: hidden;
+}
+
+.employee-table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.employee-stats-table {
+  width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
+  box-sizing: border-box;
+}
+
+.employee-stats-table th,
+.employee-stats-table td {
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0;
 }
 
 /* Block 4: Bottom right */
@@ -131,6 +154,8 @@
   justify-content: flex-end;
   gap: 18px;
   position: relative;
+  z-index: 1000;
+  overflow: visible;
 }
 
 .period-text {
@@ -143,6 +168,7 @@
   position: relative;
   display: inline-block;
   cursor: pointer;
+  z-index: 1000;
 }
 
 .period-dropdown-header {
@@ -156,7 +182,7 @@
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
-  margin-right: 100px;
+  z-index: 1001;
 }
 
 .period-dropdown-header:hover {
@@ -195,16 +221,12 @@
 }
 
 .period-dropdown-content {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
   background-color: var(--color-bg-alt);
   min-width: 160px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-  z-index: 10;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  z-index: 99999 !important;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--color-accent-light);
   animation: fadeIn 0.2s ease-in-out;
 }
@@ -217,15 +239,18 @@
 .period-option {
   padding: 10px 16px;
   transition: all 0.2s ease;
+  color: var(--color-text);
+  cursor: pointer;
 }
 
 .period-option:hover {
-  background-color: var(--color-bg-hover);
+  background-color: var(--color-accent-light);
 }
 
 .period-option.active {
-  background-color: #4476F0;
-  color: white;
+  background-color: var(--color-accent);
+  color: var(--color-button-text);
+  font-weight: 600;
 }
 
 
@@ -275,14 +300,14 @@
 }
 
 .office-card.selected {
-  background: #FFFFFF !important;
+  background: var(--color-bg) !important;
   border: 2px solid var(--color-accent) !important;
 }
 
 .office-card.selected:focus,
 .office-card.selected:active,
 .office-card.selected:focus-visible {
-  background: #FFFFFF !important;
+  background: var(--color-bg) !important;
   border: 2px solid var(--color-accent) !important;
   outline: none !important;
 }
@@ -364,6 +389,9 @@
   padding: 8px 16px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 100;
+  overflow: visible;
 }
 
 .office-header h2 {
@@ -1826,4 +1854,333 @@
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
+}
+
+
+/* ============================================
+   ФИКС ДЛЯ КОНТЕНТА ОФИСА
+   ============================================ */
+
+/* Все блоки должны помещаться в контейнер */
+.office-left-column,
+.chart-box-container,
+.employee-table-container-container,
+.charts-container {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Карточки офисов */
+.office-cards-container,
+.office-cards {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Таблицы */
+.employee-table-container,
+.employee-stats-table {
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+/* Графики */
+.chart-box {
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* StatCard контейнер */
+.statCard-content {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Заголовок офиса */
+.office-header {
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  padding: 16px;
+}
+
+/* Адаптивность для Office */
+@media (max-width: 1200px) {
+  .main-content-wrapper {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 16px;
+  }
+
+  .office-left-column,
+  .chart-box-container,
+  .employee-table-container-container,
+  .charts-container {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .office-content {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .main-content-wrapper {
+    gap: 12px;
+    min-height: auto;
+  }
+}
+
+
+/* ============================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ ОФИСА
+   ============================================ */
+
+/* Планшеты и меньше */
+@media (max-width: 1024px) {
+  .main-content-wrapper {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    gap: 16px;
+    min-height: auto;
+  }
+
+  .office-left-column,
+  .chart-box-container,
+  .employee-table-container-container,
+  .charts-container {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+  }
+
+  .office-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .period-selector {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Мобильные устройства */
+@media (max-width: 768px) {
+  .office-content {
+    padding: 12px;
+    gap: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .office-header {
+    padding: 12px;
+  }
+
+  .office-header h2 {
+    font-size: 20px;
+  }
+
+  .main-content-wrapper {
+    gap: 12px;
+    min-height: auto;
+  }
+
+  /* Убираем overflow для блоков */
+  .office-left-column {
+    overflow: visible;
+    height: auto;
+  }
+
+  .top-four {
+    height: auto;
+    flex: none;
+  }
+
+  /* Карточки офисов */
+  .office-cards-container {
+    overflow: visible;
+  }
+
+  .office-cards {
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  .office-card {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .office-add-card {
+    width: 100%;
+    min-height: 80px;
+  }
+
+  /* StatCard - убираем скролл */
+  .statCard-content {
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+    height: auto;
+  }
+
+  /* Графики */
+  .chart-box-container {
+    overflow: visible;
+    height: auto;
+  }
+
+  .chart-box {
+    padding: 12px;
+    overflow: visible;
+  }
+
+  .chart-box h4 {
+    font-size: 14px;
+  }
+
+  /* Таблица сотрудников */
+  .employee-table-container-container {
+    overflow: visible;
+    height: auto;
+  }
+
+  .employee-table-container {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .employee-stats-table {
+    font-size: 13px;
+  }
+
+  .employee-stats-table th,
+  .employee-stats-table td {
+    padding: 10px 8px;
+  }
+
+  /* Charts container */
+  .charts-container {
+    overflow: visible;
+    height: auto;
+  }
+
+  /* Период селектор */
+  .period-dropdown-header {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  /* Кнопки */
+  .expand-button {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+}
+
+/* Маленькие телефоны */
+@media (max-width: 480px) {
+  .office-content {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .office-header {
+    padding: 8px;
+  }
+
+  .office-header h2 {
+    font-size: 18px;
+  }
+
+  .main-content-wrapper {
+    gap: 8px;
+  }
+
+  .office-card {
+    padding: 12px;
+  }
+
+  .office-card-header h3 {
+    font-size: 15px;
+  }
+
+  .office-card-info p {
+    font-size: 13px;
+  }
+
+  .chart-box {
+    padding: 8px;
+  }
+
+  .employee-stats-table {
+    font-size: 12px;
+  }
+
+  .employee-stats-table th,
+  .employee-stats-table td {
+    padding: 8px 6px;
+  }
+
+  /* Скрыть некоторые колонки на очень маленьких экранах */
+  .employee-stats-table th:nth-child(3),
+  .employee-stats-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+/* Ландшафтная ориентация на мобильных */
+@media (max-width: 768px) and (orientation: landscape) {
+  .main-content-wrapper {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+
+  .office-left-column {
+    grid-column: 1;
+  }
+
+  .chart-box-container {
+    grid-column: 2;
+  }
+
+  .employee-table-container-container {
+    grid-column: 1;
+  }
+
+  .charts-container {
+    grid-column: 2;
+  }
+}
+
+/* Оптимизация для touch-устройств */
+@media (hover: none) and (pointer: coarse) {
+  .office-card {
+    min-height: 48px;
+  }
+
+  .expand-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .period-dropdown-header {
+    min-height: 44px;
+  }
+
+  .office-add-card {
+    min-height: 100px;
+  }
 }

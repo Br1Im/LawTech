@@ -87,14 +87,20 @@ const SettingsPage: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(
-    () => document.documentElement.getAttribute('data-theme') === 'dark'
-  );
+  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      return savedTheme === 'dark';
+    }
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
     // Применяем тему при изменении состояния
-    document.documentElement.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+    const theme = isDarkTheme ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
   }, [isDarkTheme]);
 
   const toggleTheme = () => {
