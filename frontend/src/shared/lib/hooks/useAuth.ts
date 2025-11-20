@@ -93,6 +93,7 @@ export const useAuth = () => {
 
   return {
     user,
+    token: localStorage.getItem('token'),
     loading,
     error,
     login,

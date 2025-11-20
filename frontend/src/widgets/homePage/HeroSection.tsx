@@ -210,7 +210,7 @@ const OuterCircle = styled.div`
   height: 600px;
   background: radial-gradient(circle, rgba(212, 175, 55, 0.15), transparent 70%);
   border-radius: 50%;
-  z-index: 0;
+  z-index: -2;
   animation: ${pulse} 4s ease-in-out infinite;
 
   @media (max-width: 768px) {
@@ -229,7 +229,7 @@ const RotatingRing = styled.div`
   border: 2px dashed rgba(212, 175, 55, 0.3);
   border-radius: 50%;
   animation: ${rotate} 20s linear infinite;
-  z-index: 0;
+  z-index: -1;
 
   @media (max-width: 768px) {
     width: 320px;
@@ -369,7 +369,6 @@ const HeroSection = () => {
         <FloatingParticle delay={2} duration={3.8} left="50%" top="10%" />
         <FloatingParticle delay={2.5} duration={4.2} left="50%" top="90%" />
         <OuterCircle />
-        <RotatingRing />
         <InnerCircle>
           <HeroImage src={Femida} alt="Femida" />
         </InnerCircle>

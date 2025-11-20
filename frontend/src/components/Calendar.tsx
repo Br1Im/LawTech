@@ -86,11 +86,31 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Логируем состояние при монтировании и изменениях
+  useEffect(() => {
+    console.log('📅 Calendar Component State:', {
+      hasToken: !!token,
+      userId: user?.id,
+      selectedOffice: selectedOffice ? { id: selectedOffice.id, name: selectedOffice.name } : null,
+      showAllEvents,
+      eventsCount: events.length
+    });
+  }, [token, user, selectedOffice, showAllEvents, events.length]);
+
   useEffect(() => {
     if (token) {
       fetchEvents();
     }
   }, [token, selectedOffice, showAllEvents]);
+
+  // Логируем события при изменении
+  useEffect(() => {
+    console.log('🔄 Events state updated:', {
+      total: events.length,
+      contracts: events.filter(e => e.type === 'contract').length,
+      events: events.map(e => ({ id: e.id, type: e.type, date: e.date, title: e.title }))
+    });
+  }, [events]);
 
   const fetchEvents = async () => {
     console.log('📅 fetchEvents called', { token: !!token, selectedOffice: selectedOffice?.id, showAllEvents });
@@ -128,6 +148,17 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
       
       if (response.ok && data.success) {
         console.log('✅ Setting events:', data.events);
+        console.log('📋 Events details:', data.events.map((e: any) => ({ 
+          id: e.id, 
+          type: e.type, 
+          date: e.date, 
+          title: e.title 
+        })));
+        
+        // Проверяем договоры
+        const contractEvents = data.events.filter((e: any) => e.type === 'contract');
+        console.log('📝 Contract events found:', contractEvents.length, contractEvents);
+        
         setEvents(data.events);
       } else {
         throw new Error(data.message || 'Failed to fetch events');
@@ -145,7 +176,19 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
   };
 
   const getEventsForDate = (date: Dayjs) => {
-    return events.filter(event => dayjs(event.date).isSame(date, 'day'));
+    const filtered = events.filter(event => {
+      const eventDate = dayjs(event.date);
+      const isSame = eventDate.isSame(date, 'day');
+      if (event.type === 'contract' && isSame) {
+        console.log('📅 Contract event matched:', { 
+          eventDate: event.date, 
+          selectedDate: date.format('YYYY-MM-DD'),
+          title: event.title 
+        });
+      }
+      return isSame;
+    });
+    return filtered;
   };
 
   const dateCellRender = (date: Dayjs) => {
@@ -154,6 +197,15 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     // Группируем договоры
     const contracts = dayEvents.filter(e => e.type === 'contract');
     const otherEvents = dayEvents.filter(e => e.type !== 'contract');
+    
+    // Логируем только если есть события
+    if (dayEvents.length > 0) {
+      console.log(`📅 Рендер даты ${date.format('YYYY-MM-DD')}:`, {
+        total: dayEvents.length,
+        contracts: contracts.length,
+        other: otherEvents.length
+      });
+    }
     
     return (
       <ul className="events">

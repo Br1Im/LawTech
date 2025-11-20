@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  perspectra:
+    image: perspectra:latest
+    container_name: perspectra-app
+    volumes:
+      # Монтируем папку для обработки изображений
+      - ./perspectra-input:/input
+      - ./perspectra-output:/output
+    working_dir: /work
+    # По умолчанию показываем help
+    command: ["--help"]
+    
+    # Примеры использования:
+    # docker-compose -f docker-compose.perspectra.yml run --rm perspectra correct --binary=gauss-diff /input/document.jpg
+    # docker-compose -f docker-compose.perspectra.yml run --rm perspectra corners /input/document.jpg
+    # docker-compose -f docker-compose.perspectra.yml run --rm perspectra binarize --method=gauss-diff /input/document.jpg

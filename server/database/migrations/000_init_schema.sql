@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   id_employee INT NOT NULL,
   contract_date DATE NOT NULL,
   amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+  paid_amount DECIMAL(15,2) DEFAULT 0,
   status VARCHAR(50) DEFAULT 'active',
   title VARCHAR(255),
   description TEXT,
@@ -74,14 +75,18 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  start_date DATETIME NOT NULL,
-  end_date DATETIME NOT NULL,
+  start_date DATE NOT NULL,
+  time TIME DEFAULT '10:00:00',
+  type VARCHAR(50) DEFAULT 'other',
+  priority VARCHAR(20) DEFAULT 'medium',
+  location VARCHAR(255),
+  participants TEXT,
   office_id INT,
-  user_id INT,
+  created_by INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Таблица статистики офисов
@@ -89,12 +94,27 @@ CREATE TABLE IF NOT EXISTS office_stats (
   id INT AUTO_INCREMENT PRIMARY KEY,
   office_id INT NOT NULL,
   period_type VARCHAR(20) NOT NULL,
+  period_value VARCHAR(50) NOT NULL DEFAULT '',
   revenue DECIMAL(15,2) DEFAULT 0,
   orders INT DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY office_period_unique (office_id, period_type),
+  UNIQUE KEY office_period_unique (office_id, period_type, period_value),
   FOREIGN KEY (office_id) REFERENCES offices(id) ON DELETE CASCADE
+);
+
+-- Таблица статистики сотрудников
+CREATE TABLE IF NOT EXISTS employee_stats (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  employee_id INT NOT NULL,
+  period_type VARCHAR(20) NOT NULL,
+  period_value VARCHAR(50) NOT NULL,
+  revenue DECIMAL(15,2) DEFAULT 0,
+  orders INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY employee_period_value_unique (employee_id, period_type, period_value),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 );
 
 -- Таблица юридических документов
@@ -116,3 +136,5 @@ CREATE INDEX IF NOT EXISTS idx_contracts_employee ON contracts(id_employee);
 CREATE INDEX IF NOT EXISTS idx_contracts_date ON contracts(contract_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_office ON calendar_events(office_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(start_date);
+CREATE INDEX IF NOT EXISTS idx_employee_stats_period ON employee_stats(employee_id, period_type, period_value);
+CREATE INDEX IF NOT EXISTS idx_office_stats_period ON office_stats(office_id, period_type, period_value);

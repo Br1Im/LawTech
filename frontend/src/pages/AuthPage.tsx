@@ -1,9 +1,11 @@
-import { Button, Form, Input, message, Select, Tabs } from 'antd';
+import { Button, Form, Input, message, Select, Tabs, ConfigProvider, theme } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import type { CSSProperties } from 'react';
 import BG from '../assets/Auth/BG.png';
 import { buildApiUrl } from '../shared/utils/apiUtils';
+import ThemeToggle from '../components/ui/ThemeToggle';
+import './AuthPage.css';
 
 interface LoginFormValues {
   email: string;
@@ -290,19 +292,59 @@ if (typeof document !== 'undefined') {
       }
 
       /* Тёмная тема для страницы авторизации */
+      [data-theme="dark"] .auth-form-animated {
+        background: rgba(30, 30, 30, 0.95) !important;
+        border-color: rgba(212, 175, 55, 0.3) !important;
+      }
+
+      [data-theme="dark"] .auth-logo p {
+        color: #86868b !important;
+      }
+
+      /* Инпуты - максимальная специфичность */
       [data-theme="dark"] .auth-form-animated .ant-input,
+      [data-theme="dark"] .auth-form-animated input.ant-input,
       [data-theme="dark"] .auth-form-animated .ant-input-password input,
-      [data-theme="dark"] .auth-form-animated .ant-select-selector {
+      [data-theme="dark"] .auth-form-animated .ant-input-password .ant-input,
+      [data-theme="dark"] .auth-form-animated .ant-select-selector,
+      [data-theme="dark"] .auth-form-animated .ant-select .ant-select-selector {
         background-color: #2a2a2a !important;
         border-color: #3a3a3a !important;
         color: #f5f5f7 !important;
       }
 
+      /* Состояния инпутов */
+      [data-theme="dark"] .auth-form-animated .ant-input:hover,
+      [data-theme="dark"] .auth-form-animated input.ant-input:hover,
+      [data-theme="dark"] .auth-form-animated .ant-input-password:hover input,
+      [data-theme="dark"] .auth-form-animated .ant-select:hover .ant-select-selector {
+        background-color: #2a2a2a !important;
+        border-color: #d4af37 !important;
+      }
+
+      [data-theme="dark"] .auth-form-animated .ant-input:focus,
+      [data-theme="dark"] .auth-form-animated input.ant-input:focus,
+      [data-theme="dark"] .auth-form-animated .ant-input-password:focus input,
+      [data-theme="dark"] .auth-form-animated .ant-input-focused,
+      [data-theme="dark"] .auth-form-animated .ant-select-focused .ant-select-selector {
+        background-color: #2a2a2a !important;
+        border-color: #d4af37 !important;
+        box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1) !important;
+      }
+
+      /* Placeholder */
       [data-theme="dark"] .auth-form-animated .ant-input::placeholder,
+      [data-theme="dark"] .auth-form-animated input.ant-input::placeholder,
       [data-theme="dark"] .auth-form-animated .ant-input-password input::placeholder {
         color: #86868b !important;
       }
 
+      /* Иконки в password input */
+      [data-theme="dark"] .auth-form-animated .ant-input-password-icon {
+        color: #86868b !important;
+      }
+
+      /* Табы */
       [data-theme="dark"] .auth-form-animated .ant-tabs-tab {
         color: #86868b !important;
       }
@@ -311,10 +353,25 @@ if (typeof document !== 'undefined') {
         color: #d4af37 !important;
       }
 
+      [data-theme="dark"] .auth-form-animated .ant-tabs-tab-active .ant-tabs-tab-btn {
+        color: #d4af37 !important;
+      }
+
+      /* Лейблы */
       [data-theme="dark"] .auth-form-animated .ant-form-item-label > label {
         color: #f5f5f7 !important;
       }
 
+      /* Ссылка назад */
+      [data-theme="dark"] .auth-back-link {
+        color: #86868b !important;
+      }
+
+      [data-theme="dark"] .auth-back-link:hover {
+        color: #d4af37 !important;
+      }
+
+      /* Тестовые аккаунты */
       [data-theme="dark"] .test-account-item {
         background-color: #2a2a2a !important;
         border-color: #3a3a3a !important;
@@ -325,6 +382,33 @@ if (typeof document !== 'undefined') {
         background-color: #2a2a2a !important;
         border-color: #3a3a3a !important;
         color: #f5f5f7 !important;
+      }
+
+      /* Select dropdown */
+      [data-theme="dark"] .ant-select-arrow {
+        color: #86868b !important;
+      }
+
+      [data-theme="dark"] .ant-select-dropdown {
+        background-color: #2a2a2a !important;
+      }
+
+      [data-theme="dark"] .ant-select-item {
+        color: #f5f5f7 !important;
+        background-color: #2a2a2a !important;
+      }
+
+      [data-theme="dark"] .ant-select-item-option-selected {
+        background-color: #3a3a3a !important;
+        color: #d4af37 !important;
+      }
+
+      [data-theme="dark"] .ant-select-item-option-active {
+        background-color: #3a3a3a !important;
+      }
+
+      [data-theme="dark"] .ant-select-item:hover {
+        background-color: #3a3a3a !important;
       }
     `;
     document.head.appendChild(style);
@@ -377,6 +461,7 @@ const AuthPage = () => {
   const [mode, setMode] = useState<'register' | 'login'>('register');
   const [userType, setUserType] = useState<'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative' | ''>('');
   const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [showTestAccounts, setShowTestAccounts] = useState(false);
@@ -394,6 +479,80 @@ const AuthPage = () => {
   useEffect(() => {
     localStorage.removeItem('useAbsoluteUrls');
   }, []);
+
+  // Принудительное применение темы при загрузке
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setCurrentTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      // Форсируем перерисовку через небольшую задержку
+      setTimeout(() => {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      }, 0);
+    }
+
+    // Слушаем изменения темы
+    const handleStorageChange = () => {
+      const newTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+      if (newTheme) {
+        setCurrentTheme(newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    // Также слушаем изменения атрибута data-theme
+    const observer = new MutationObserver(() => {
+      const theme = document.documentElement.getAttribute('data-theme') as 'light' | 'dark' | null;
+      if (theme && theme !== currentTheme) {
+        setCurrentTheme(theme);
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      observer.disconnect();
+    };
+  }, [currentTheme]);
+
+  // Принудительное применение темы при смене режима (вход/регистрация)
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      // Функция для применения стилей к инпутам
+      const applyDarkStyles = () => {
+        const inputs = document.querySelectorAll('.auth-form-animated .ant-input, .auth-form-animated .ant-input-password input');
+        const wrappers = document.querySelectorAll('.auth-form-animated .ant-input-affix-wrapper, .auth-form-animated .ant-input-password');
+        
+        inputs.forEach((input) => {
+          if (input instanceof HTMLElement) {
+            input.style.backgroundColor = '#2a2a2a';
+            input.style.borderColor = '#3a3a3a';
+            input.style.color = '#f5f5f7';
+          }
+        });
+
+        wrappers.forEach((wrapper) => {
+          if (wrapper instanceof HTMLElement) {
+            wrapper.style.backgroundColor = '#2a2a2a';
+            wrapper.style.borderColor = '#3a3a3a';
+          }
+        });
+      };
+
+      // Применяем сразу
+      setTimeout(applyDarkStyles, 0);
+      // И еще раз через небольшую задержку для гарантии
+      setTimeout(applyDarkStyles, 50);
+      setTimeout(applyDarkStyles, 100);
+    }
+  }, [mode]);
 
   // Тестовые аккаунты
   const testAccounts = [
@@ -578,7 +737,19 @@ const AuthPage = () => {
   };
 
   return (
-    <div style={AuthContainer} className="auth-container-animated">
+    <ConfigProvider
+      theme={{
+        algorithm: currentTheme === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        token: {
+          colorPrimary: '#d4af37',
+          colorBgContainer: currentTheme === 'dark' ? '#2a2a2a' : '#ffffff',
+          colorBorder: currentTheme === 'dark' ? '#3a3a3a' : '#d9d9d9',
+          colorText: currentTheme === 'dark' ? '#f5f5f7' : '#000000',
+          colorTextPlaceholder: currentTheme === 'dark' ? '#86868b' : '#bfbfbf',
+        },
+      }}
+    >
+      <div style={AuthContainer} className="auth-container-animated">
       {/* Плавающие частицы */}
       <div className="floating-particle" style={{ left: '10%', top: '20%', animationDuration: '3s', animationDelay: '0s' }} />
       <div className="floating-particle" style={{ left: '85%', top: '30%', animationDuration: '4s', animationDelay: '0.5s' }} />
@@ -593,7 +764,7 @@ const AuthPage = () => {
           right: '20px',
           width: '40px',
           height: '40px',
-          backgroundColor: showTestAccounts ? 'var(--color-primary)' : 'rgba(0,0,0,0.3)',
+          backgroundColor: showTestAccounts ? '#d4af37' : 'rgba(255,255,255,0.2)',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
@@ -602,7 +773,8 @@ const AuthPage = () => {
           fontSize: '18px',
           zIndex: 1000,
           transition: 'all 0.3s ease',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+          backdropFilter: 'blur(10px)'
         }}
         onClick={() => setShowTestAccounts(!showTestAccounts)}
         title="Тестовые аккаунты"
@@ -703,8 +875,8 @@ const AuthPage = () => {
         />
 
         {mode === 'register' ? (
-          <div style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
-            <Form form={form} onFinish={handleRegisterSubmit} layout="vertical">
+          <div key="register-form" style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
+            <Form key="register" form={form} onFinish={handleRegisterSubmit} layout="vertical">
               <Form.Item 
                 className="auth-form-item"
                 label="Имя" 
@@ -837,8 +1009,8 @@ const AuthPage = () => {
             </Form>
           </div>
         ) : (
-          <div style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
-            <Form form={form} onFinish={handleLoginSubmit} layout="vertical">
+          <div key="login-form" style={{ ...FormStyle, opacity: 1, transform: 'translateY(0)' }}>
+            <Form key="login" form={form} onFinish={handleLoginSubmit} layout="vertical">
               <Form.Item
                 label="Электронная почта"
                 name="email"
@@ -941,7 +1113,9 @@ const AuthPage = () => {
           }
         `}
       </style>
+      <ThemeToggle />
     </div>
+    </ConfigProvider>
   );
 };
 

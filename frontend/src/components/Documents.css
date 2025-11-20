@@ -488,7 +488,7 @@
   font-size: 28px;
   color: var(--color-text) !important;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   width: 36px !important;
   height: 36px !important;
   min-width: unset !important;
@@ -510,8 +510,12 @@
   color: #ef4444 !important;
   background-color: rgba(239, 68, 68, 0.1) !important;
   border-color: #ef4444 !important;
-  transform: translateY(-50%) scale(1.1);
+  transform: translateY(-50%) scale(1.08);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.2);
+}
+
+.modal-close-btn:active {
+  transform: translateY(-50%) scale(1.0);
 }
 
 .auto-fill-btn {
@@ -2072,123 +2076,423 @@
 /* ===== СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА УДАЛЕНИЯ ===== */
 
 .delete-modal {
-  max-width: 500px;
+  max-width: 540px;
+  animation: modalZoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalZoomIn {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.delete-modal .modal-header {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.05));
+  border-bottom: 2px solid rgba(239, 68, 68, 0.2);
+  padding: 24px 28px;
+}
+
+.delete-modal .modal-header h3 {
+  color: #ef4444;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .delete-warning {
   text-align: center;
-  padding: 30px 20px;
+  padding: 40px 32px 32px;
+  background: var(--color-bg);
 }
 
 .warning-icon {
   color: #ef4444;
-  margin-bottom: 20px;
-  opacity: 0.9;
+  margin-bottom: 24px;
+  opacity: 1;
+  filter: drop-shadow(0 4px 12px rgba(239, 68, 68, 0.3));
+  animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 
 .delete-warning p {
-  margin: 16px 0;
-  font-size: 16px;
+  margin: 20px 0;
+  font-size: 17px;
   color: var(--color-text);
-  line-height: 1.5;
+  line-height: 1.6;
+  font-weight: 500;
 }
 
 .document-info {
-  background: var(--color-bg-alt);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.08), rgba(212, 175, 55, 0.04));
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
   text-align: left;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.document-info:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.2);
 }
 
 .document-info strong {
   color: var(--color-accent);
-  font-size: 16px;
+  font-size: 18px;
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .client-name {
   color: var(--color-muted);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.client-name::before {
+  content: '👤';
+  font-size: 16px;
 }
 
 .warning-text {
   color: #ef4444 !important;
-  font-weight: 500;
-  font-size: 14px;
-  margin-top: 16px !important;
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  margin-top: 20px !important;
+  padding: 12px 20px;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8px;
+  border-left: 4px solid #ef4444;
+  display: inline-block;
 }
 
-.confirm-delete {
-  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
-  color: white !important;
+.delete-modal .form-actions {
+  padding: 20px 28px 28px;
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  gap: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.delete-modal .form-actions .delete-btn.confirm-delete,
+.delete-modal .confirm-delete,
+button.confirm-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
   border: none !important;
-  padding: 12px 24px !important;
-  border-radius: 8px !important;
-  font-weight: 600 !important;
+  padding: 14px 28px !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: 16px !important;
   cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
-  transition: all 0.2s ease !important;
-  min-width: 160px !important;
-  height: 48px !important;
+  gap: 10px !important;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  min-width: 180px !important;
+  height: 52px !important;
   justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 10 !important;
 }
 
-.confirm-delete:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
-  transform: translateY(-2px) !important;
+.delete-modal .form-actions .delete-btn.confirm-delete::before,
+.delete-modal .confirm-delete::before,
+button.confirm-delete::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+  z-index: 1;
+}
+
+.delete-modal .form-actions .delete-btn.confirm-delete:hover::before,
+.delete-modal .confirm-delete:hover::before,
+button.confirm-delete:hover::before {
+  left: 100%;
+}
+
+.delete-modal .form-actions .delete-btn.confirm-delete:hover,
+.delete-modal .confirm-delete:hover,
+button.confirm-delete:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+  transform: translateY(-3px) scale(1.02) !important;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.5) !important;
+}
+
+.delete-modal .form-actions .delete-btn.confirm-delete:active,
+.delete-modal .confirm-delete:active,
+button.confirm-delete:active {
+  transform: translateY(-1px) scale(0.98) !important;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
 }
 
-.confirm-delete:active {
-  transform: translateY(0) !important;
+/* Иконка и текст внутри кнопки удаления */
+.delete-modal .form-actions .delete-btn.confirm-delete svg,
+.delete-modal .confirm-delete svg,
+button.confirm-delete svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 2 !important;
+  position: relative !important;
+}
+
+.delete-modal .cancel-btn {
+  height: 52px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  min-width: 140px !important;
+  border: 2px solid var(--color-border) !important;
+  transition: all 0.3s ease !important;
+}
+
+.delete-modal .cancel-btn:hover {
+  border-color: var(--color-accent) !important;
+  background-color: rgba(212, 175, 55, 0.08) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 /* Темная тема для модального окна удаления */
+[data-theme="dark"] .delete-modal .modal-header {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(220, 38, 38, 0.08));
+  border-bottom-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="dark"] .delete-modal .modal-header h3 {
+  color: #f87171;
+}
+
+[data-theme="dark"] .delete-warning {
+  background: var(--color-bg);
+}
+
 [data-theme="dark"] .document-info {
-  background: #2a2a2a;
-  border-color: #3a3a3a;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(212, 175, 55, 0.06));
+  border-color: rgba(212, 175, 55, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .document-info:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
 }
 
 [data-theme="dark"] .warning-icon {
   color: #f87171;
+  filter: drop-shadow(0 4px 12px rgba(248, 113, 113, 0.4));
 }
 
-/* Стили для модальных окон Ant Design в тёмной теме */
-:root[data-theme='dark'] .ant-modal-confirm-btns .ant-btn-primary {
-  background-color: #ff4d4f !important;
-  border-color: #ff4d4f !important;
+[data-theme="dark"] .warning-text {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] .delete-modal .form-actions {
+  background: var(--color-bg);
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Адаптивность для модального окна удаления */
+@media (max-width: 576px) {
+  .delete-modal {
+    max-width: 95%;
+  }
+  
+  .delete-modal .modal-header {
+    padding: 20px;
+  }
+  
+  .delete-modal .modal-header h3 {
+    font-size: 19px;
+  }
+  
+  .delete-warning {
+    padding: 32px 20px 24px;
+  }
+  
+  .warning-icon {
+    font-size: 42px !important;
+  }
+  
+  .delete-warning p {
+    font-size: 15px;
+  }
+  
+  .document-info {
+    padding: 20px;
+  }
+  
+  .document-info strong {
+    font-size: 16px;
+  }
+  
+  .delete-modal .form-actions {
+    flex-direction: column-reverse;
+    padding: 16px 20px 20px;
+  }
+  
+  .confirm-delete,
+  .delete-modal .cancel-btn {
+    width: 100% !important;
+    min-width: unset !important;
+  }
+}
+
+/* Стили для модального окна подтверждения удаления */
+
+/* Общие стили для модального окна */
+.ant-modal-confirm.ant-modal-confirm-error {
+  max-width: 480px !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-content {
+  border-radius: 16px !important;
+  padding: 32px !important;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3) !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-body {
+  padding: 0 !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-title {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  margin-bottom: 12px !important;
+  color: var(--color-accent) !important;
+  line-height: 1.4 !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-content {
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+  margin-top: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .anticon {
+  font-size: 52px !important;
+  margin-bottom: 20px !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .anticon-exclamation-circle {
+  color: #ff4d4f !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns {
+  margin-top: 28px !important;
+  display: flex !important;
+  gap: 12px !important;
+  justify-content: flex-end !important;
+}
+
+.ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn {
+  height: 42px !important;
+  padding: 0 28px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease !important;
+  min-width: 110px !important;
+  border: none !important;
+}
+
+/* Тёмная тема */
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-content {
+  background-color: #2a2a2a !important;
+}
+
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-content {
+  color: #f5f5f7 !important;
+}
+
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-primary {
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%) !important;
   color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(255, 77, 79, 0.4) !important;
 }
 
-:root[data-theme='dark'] .ant-modal-confirm-btns .ant-btn-primary:hover {
-  background-color: #ff7875 !important;
-  border-color: #ff7875 !important;
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #ff7875 0%, #ffa39e 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(255, 77, 79, 0.5) !important;
 }
 
-:root[data-theme='dark'] .ant-modal-confirm-btns .ant-btn-default {
-  background-color: #434343 !important;
-  border-color: #434343 !important;
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-default {
+  background-color: #3a3a3a !important;
+  color: #f5f5f7 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+:root[data-theme='dark'] .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-default:hover {
+  background-color: #4a4a4a !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Светлая тема */
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-content {
+  background-color: #ffffff !important;
+}
+
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-content {
+  color: #1d1d1f !important;
+}
+
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-primary {
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%) !important;
   color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(255, 77, 79, 0.4) !important;
 }
 
-:root[data-theme='dark'] .ant-modal-confirm-btns .ant-btn-default:hover {
-  background-color: #595959 !important;
-  border-color: #595959 !important;
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #ff7875 0%, #ffa39e 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(255, 77, 79, 0.5) !important;
 }
 
-/* Стили для светлой темы */
-:root:not([data-theme='dark']) .ant-modal-confirm-btns .ant-btn-primary {
-  background-color: #ff4d4f !important;
-  border-color: #ff4d4f !important;
-  color: #ffffff !important;
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-default {
+  background-color: #f5f5f5 !important;
+  color: #1d1d1f !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
-:root:not([data-theme='dark']) .ant-modal-confirm-btns .ant-btn-primary:hover {
-  background-color: #ff7875 !important;
-  border-color: #ff7875 !important;
+:root:not([data-theme='dark']) .ant-modal-confirm.ant-modal-confirm-error .ant-modal-confirm-btns .ant-btn-default:hover {
+  background-color: #e8e8e8 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
 }

@@ -6,6 +6,7 @@ import FeaturesSection from '../widgets/homePage/FeaturesSection';
 import Offer from '../widgets/homePage/Offer';
 import FAQ from '../widgets/homePage/FAQ';
 import Footer from '../widgets/homePage/Footer';
+import ThemeToggle from '../components/ui/ThemeToggle';
 import styled from '@emotion/styled';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -47,6 +48,7 @@ const Home = () => {
       <Offer />
       <FAQ />
       <Footer />
+      <ThemeToggle />
     </LandingMainContainer>
   );
 };

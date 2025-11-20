@@ -1,32 +1,54 @@
-import React from 'react';
-import { BulbOutlined, BulbFilled } from '@ant-design/icons';
+import { useState, useEffect } from 'react';
 import './ThemeToggle.css';
 
-interface ThemeToggleProps {
-  isDark: boolean;
-  onToggle: () => void;
-  isMobile?: boolean;
-}
+const ThemeToggle = () => {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
-const ThemeToggle: React.FC<ThemeToggleProps> = ({ isDark, onToggle, isMobile = false }) => {
+  useEffect(() => {
+    // Загружаем сохраненную тему
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+      // Проверяем системные настройки
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const defaultTheme = prefersDark ? 'dark' : 'light';
+      setTheme(defaultTheme);
+      document.documentElement.setAttribute('data-theme', defaultTheme);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+
   return (
-    <button
-      className={`theme-toggle ${isDark ? 'dark' : 'light'}`}
-      onClick={onToggle}
-      title={isDark ? 'Переключить на светлую тему' : 'Переключить на темную тему'}
-      style={{
-        width: isMobile ? '36px' : '40px',
-        height: isMobile ? '36px' : '40px',
-      }}
+    <button 
+      className="theme-toggle-button" 
+      onClick={toggleTheme} 
+      title={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
     >
-      <div className="theme-toggle-icon">
-        {isDark ? (
-          <BulbFilled className="icon-filled" />
-        ) : (
-          <BulbOutlined className="icon-outlined" />
-        )}
-      </div>
-      <div className="theme-toggle-bg"></div>
+      {theme === 'light' ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="var(--color-text)" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="5" fill="var(--color-text)" />
+          <line x1="12" y1="1" x2="12" y2="3" stroke="var(--color-text)" />
+          <line x1="12" y1="21" x2="12" y2="23" stroke="var(--color-text)" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="var(--color-text)" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="var(--color-text)" />
+          <line x1="1" y1="12" x2="3" y2="12" stroke="var(--color-text)" />
+          <line x1="21" y1="12" x2="23" y2="12" stroke="var(--color-text)" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="var(--color-text)" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="var(--color-text)" />
+        </svg>
+      )}
     </button>
   );
 };

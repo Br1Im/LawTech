@@ -862,17 +862,23 @@
 }
 
 [data-theme="dark"] .calendar-sidebar .ant-card {
-  background: var(--color-bg);
-  border-color: var(--color-border);
+  background: var(--color-bg-alt) !important;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
 }
 
 [data-theme="dark"] .calendar-sidebar .ant-card-head {
-  background: var(--color-bg-alt);
-  border-bottom-color: var(--color-border);
+  background: linear-gradient(135deg, var(--color-bg) 0%, rgba(212, 175, 55, 0.15) 100%) !important;
+  border-bottom: 2px solid var(--color-accent) !important;
 }
 
 [data-theme="dark"] .calendar-sidebar .ant-card-head-title {
-  color: var(--color-text);
+  color: var(--color-accent) !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .calendar-sidebar .ant-card-body {
+  background: var(--color-bg) !important;
 }
 
 [data-theme="dark"] .events .ant-badge-status-text {
@@ -888,15 +894,46 @@
 }
 
 [data-theme="dark"] .no-events {
-  color: var(--color-muted);
+  color: var(--color-muted) !important;
+  background: rgba(212, 175, 55, 0.05) !important;
+  border-radius: 8px !important;
+  padding: 40px 20px !important;
+}
+
+[data-theme="dark"] .no-events p {
+  color: var(--color-muted) !important;
 }
 
 [data-theme="dark"] .ant-list-item {
-  border-bottom-color: var(--color-border);
+  border-bottom-color: var(--color-border) !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .ant-list-item:hover {
+  background: rgba(212, 175, 55, 0.05) !important;
+}
+
+[data-theme="dark"] .ant-list-item-meta {
+  color: var(--color-text) !important;
+}
+
+[data-theme="dark"] .ant-list-item-meta-title {
+  color: var(--color-text) !important;
 }
 
 [data-theme="dark"] .ant-list-item-meta-description {
-  color: var(--color-muted);
+  color: var(--color-muted) !important;
+}
+
+[data-theme="dark"] .ant-list-item-action button {
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+}
+
+[data-theme="dark"] .ant-list-item-action button:hover {
+  color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  background: rgba(212, 175, 55, 0.1) !important;
 }
 
 [data-theme="dark"] .contract-client {
