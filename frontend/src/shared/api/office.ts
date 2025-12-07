@@ -26,7 +26,7 @@ export interface OfficeData {
 /**
  * API для работы с офисами
  */
-export const officeAPI = {
+const officeAPI = {
   /**
    * Получить список всех офисов
    */
@@ -103,3 +103,7 @@ export const officeAPI = {
     await apiInstance.delete(`/offices/${id}`);
   }
 };
+
+// Экспортируем API
+export { officeAPI };
+export default officeAPI;
