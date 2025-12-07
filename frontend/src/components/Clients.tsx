@@ -236,7 +236,6 @@ const Clients: React.FC<ClientsProps> = ({ onTabClick, onContractSelect }) => {
           ) : (
             <div className="no-clients-container">
               <p className="no-clients">Клиенты с договорами не найдены</p>
-              <p className="no-clients-hint">Возможно, необходимо добавить договоры в систему или проверить соединение с базой данных.</p>
             </div>
           )}
         </>
