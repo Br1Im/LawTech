@@ -1,5 +1,6 @@
 import type { JoinOfficeData, JoinRequestUpdateData } from '../types/index.ts';
 import { apiInstance } from './instance';
+import { officeAPI } from './office';
 
 export const api = {
   auth: {
@@ -22,6 +23,8 @@ export const api = {
       return response.data;
     },
   },
+  // Используем officeAPI из office.ts вместо дублирования
+  officeAPI: officeAPI,
   office: {
     getOffice: async (officeId?: string) => {
       const url = officeId ? `/offices/${officeId}` : '/offices';
