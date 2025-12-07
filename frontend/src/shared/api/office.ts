@@ -107,3 +107,10 @@ const officeAPI = {
 // Экспортируем API
 export { officeAPI };
 export default officeAPI;
+
+// Дополнительные именованные экспорты для предотвращения проблем с минификацией
+export const getOfficeById = officeAPI.getById;
+export const getAllOffices = officeAPI.getAll;
+export const createOffice = officeAPI.create;
+export const updateOffice = officeAPI.update;
+export const deleteOffice = officeAPI.delete;
