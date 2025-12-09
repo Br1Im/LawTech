@@ -32,6 +32,7 @@ interface SidebarProps {
     surname?: string;
     email?: string;
     avatar?: string;
+    role?: string;
   };
 }
 
@@ -47,19 +48,70 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const menuItems = [
-    { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
-    { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
-    { key: 'Договоры', icon: <FaFileContract />, label: 'Договоры' },
-    { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
-    { key: 'Записи', icon: <FaClock />, label: 'Записи' },
-    { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
-    { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
-    { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
-    { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
-    { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
-    { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
-  ];
+  // Определяем пункты меню в зависимости от роли
+  const getMenuItemsByRole = (role?: string) => {
+    const allItems = {
+      office: { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
+      clients: { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
+      contracts: { key: 'Договоры', icon: <FaFileContract />, label: 'Договоры' },
+      calendar: { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
+      appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
+      employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
+      revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
+      expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
+      reception: { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
+      materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
+      ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
+    };
+
+    switch (role) {
+      case 'expert':
+        // Эксперт: AI-инструменты, Сотрудники, Материалы, Клиенты
+        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients];
+      
+      case 'lawyer':
+        // Юрист: Офис, AI-инструменты, Договоры, Материалы, Клиенты
+        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients];
+      
+      case 'admin':
+        // Администратор: AI-инструменты, Договоры, Приходы, Ресепшен
+        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception];
+      
+      case 'director':
+        // Директор: все пункты меню
+        return [
+          allItems.office,
+          allItems.clients,
+          allItems.contracts,
+          allItems.calendar,
+          allItems.appointments,
+          allItems.employees,
+          allItems.revenue,
+          allItems.expenses,
+          allItems.reception,
+          allItems.materials,
+          allItems.ai,
+        ];
+      
+      default:
+        // По умолчанию показываем все (для обратной совместимости)
+        return [
+          allItems.office,
+          allItems.clients,
+          allItems.contracts,
+          allItems.calendar,
+          allItems.appointments,
+          allItems.employees,
+          allItems.revenue,
+          allItems.expenses,
+          allItems.reception,
+          allItems.materials,
+          allItems.ai,
+        ];
+    }
+  };
+
+  const menuItems = getMenuItemsByRole(user?.role);
 
   const handleProfileClick = () => {
     setIsUserMenuOpen(!isUserMenuOpen);
