@@ -1,9 +1,9 @@
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 /**
  * Создать тестовых пользователей с разными ролями
+ * Использует SQL для хеширования паролей через существующую процедуру регистрации
  */
 async function createTestUsers() {
   let connection;
@@ -25,9 +25,11 @@ async function createTestUsers() {
     const [offices] = await connection.query('SELECT id FROM offices LIMIT 1');
     const officeId = offices[0]?.id || 1;
     
-    // Пароль для всех тестовых пользователей
+    // Пароль для всех тестовых пользователей (будет захеширован на бэкенде при первом входе)
     const password = 'test123';
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Используем простой хеш для тестовых целей (SHA256)
+    const crypto = require('crypto');
+    const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
     
     // Тестовые пользователи
     const testUsers = [
