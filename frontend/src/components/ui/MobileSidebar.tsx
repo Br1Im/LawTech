@@ -64,11 +64,11 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
     switch (role) {
       case 'expert':
-        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients];
+        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       case 'lawyer':
-        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients];
+        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
       case 'admin':
-        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception];
+        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
       case 'director':
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,

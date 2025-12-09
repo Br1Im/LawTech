@@ -66,16 +66,16 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     switch (role) {
       case 'expert':
-        // Эксперт: AI-инструменты, Сотрудники, Материалы, Клиенты
-        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients];
+        // Эксперт: AI-инструменты, Сотрудники, Материалы, Клиенты, Календарь
+        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       
       case 'lawyer':
-        // Юрист: Офис, AI-инструменты, Договоры, Материалы, Клиенты
-        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients];
+        // Юрист: Офис, AI-инструменты, Договоры, Материалы, Клиенты, Календарь
+        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
       
       case 'admin':
-        // Администратор: AI-инструменты, Договоры, Приходы, Ресепшен
-        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception];
+        // Администратор: AI-инструменты, Договоры, Приходы, Ресепшен, Календарь
+        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
       
       case 'director':
         // Директор: все пункты меню

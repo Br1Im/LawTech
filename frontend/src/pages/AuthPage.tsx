@@ -573,6 +573,12 @@ const AuthPage = () => {
       email: 'lawyer1@pravoved.ru', 
       password: 'lawyer123',
       role: 'lawyer'
+    },
+    {
+      name: 'Эксперт - Мария Экспертова',
+      email: 'expert@test.com',
+      password: 'test123',
+      role: 'expert'
     }
   ];
 
