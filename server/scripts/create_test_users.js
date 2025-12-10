@@ -36,48 +36,48 @@ async function createTestUsers() {
       {
         email: 'expert@test.com',
         password: hashedPassword,
-        name: 'Эксперт',
-        surname: 'Тестовый',
+        first_name: 'Эксперт',
+        last_name: 'Тестовый',
         role: 'expert',
         office_id: officeId
       },
       {
         email: 'lawyer@test.com',
         password: hashedPassword,
-        name: 'Юрист',
-        surname: 'Тестовый',
+        first_name: 'Юрист',
+        last_name: 'Тестовый',
         role: 'lawyer',
         office_id: officeId
       },
       {
         email: 'admin@test.com',
         password: hashedPassword,
-        name: 'Администратор',
-        surname: 'Тестовый',
+        first_name: 'Администратор',
+        last_name: 'Тестовый',
         role: 'admin',
         office_id: officeId
       },
       {
         email: 'director@test.com',
         password: hashedPassword,
-        name: 'Директор',
-        surname: 'Тестовый',
+        first_name: 'Директор',
+        last_name: 'Тестовый',
         role: 'director',
         office_id: officeId
       },
       {
         email: 'manager@test.com',
         password: hashedPassword,
-        name: 'Менеджер',
-        surname: 'Тестовый',
+        first_name: 'Менеджер',
+        last_name: 'Тестовый',
         role: 'manager',
         office_id: officeId
       },
       {
         email: 'okk@test.com',
         password: hashedPassword,
-        name: 'ОКК',
-        surname: 'Тестовый',
+        first_name: 'ОКК',
+        last_name: 'Тестовый',
         role: 'okk',
         office_id: officeId
       }
@@ -96,17 +96,17 @@ async function createTestUsers() {
         // Обновляем существующего пользователя
         await connection.query(
           `UPDATE users 
-           SET password = ?, name = ?, surname = ?, role = ?, office_id = ?
+           SET password = ?, first_name = ?, last_name = ?, role = ?, office_id = ?
            WHERE email = ?`,
-          [user.password, user.name, user.surname, user.role, user.office_id, user.email]
+          [user.password, user.first_name, user.last_name, user.role, user.office_id, user.email]
         );
         console.log(`✅ Обновлен: ${user.email} (${user.role})`);
       } else {
         // Создаем нового пользователя
         await connection.query(
-          `INSERT INTO users (email, password, name, surname, role, office_id)
+          `INSERT INTO users (email, password, first_name, last_name, role, office_id)
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [user.email, user.password, user.name, user.surname, user.role, user.office_id]
+          [user.email, user.password, user.first_name, user.last_name, user.role, user.office_id]
         );
         console.log(`✅ Создан: ${user.email} (${user.role})`);
       }
