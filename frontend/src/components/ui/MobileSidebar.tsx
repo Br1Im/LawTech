@@ -64,22 +64,22 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
     switch (role) {
       case 'expert':
-        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
+        return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       case 'lawyer':
-        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
+        return [allItems.office, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
       case 'admin':
-        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
+        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
       case 'director':
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.materials, allItems.ai,
+          allItems.reception, allItems.materials,
         ];
       default:
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.materials, allItems.ai,
+          allItems.reception, allItems.materials,
         ];
     }
   };

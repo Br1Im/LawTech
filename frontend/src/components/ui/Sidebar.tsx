@@ -66,19 +66,19 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     switch (role) {
       case 'expert':
-        // Эксперт: AI-инструменты, Сотрудники, Материалы, Клиенты, Календарь
-        return [allItems.ai, allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
+        // Эксперт: Сотрудники, Материалы, Клиенты, Календарь
+        return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       
       case 'lawyer':
-        // Юрист: Офис, AI-инструменты, Договоры, Материалы, Клиенты, Календарь
-        return [allItems.office, allItems.ai, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
+        // Юрист: Офис, Договоры, Материалы, Клиенты, Календарь
+        return [allItems.office, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
       
       case 'admin':
-        // Администратор: AI-инструменты, Договоры, Приходы, Ресепшен, Календарь
-        return [allItems.ai, allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
+        // Администратор: Договоры, Приходы, Ресепшен, Календарь
+        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
       
       case 'director':
-        // Директор: все пункты меню
+        // Директор: все пункты меню (кроме AI)
         return [
           allItems.office,
           allItems.clients,
@@ -90,11 +90,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.expenses,
           allItems.reception,
           allItems.materials,
-          allItems.ai,
         ];
       
       default:
-        // По умолчанию показываем все (для обратной совместимости)
+        // По умолчанию показываем все (кроме AI)
         return [
           allItems.office,
           allItems.clients,
@@ -106,7 +105,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.expenses,
           allItems.reception,
           allItems.materials,
-          allItems.ai,
         ];
     }
   };
