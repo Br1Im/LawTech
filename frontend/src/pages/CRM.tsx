@@ -27,6 +27,24 @@ const SRM = () => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
+  // Функция для определения первой вкладки по роли
+  const getDefaultTabByRole = (role?: string): string => {
+    switch (role) {
+      case 'expert':
+        return 'Сотрудники';
+      case 'lawyer':
+        return 'Офис';
+      case 'admin':
+        return 'Договоры';
+      case 'director':
+      case 'manager':
+      case 'okk':
+        return 'Офис';
+      default:
+        return 'Офис';
+    }
+  };
+
   // Проверка авторизации
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -44,7 +62,7 @@ const SRM = () => {
   const tabParam = searchParams.get('tab');
   const contractIdParam = searchParams.get('contractId');
   
-  const [activeTab, setActiveTab] = useState<string>(tabParam || "Офис");
+  const [activeTab, setActiveTab] = useState<string>(tabParam || getDefaultTabByRole(user?.role));
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(window.innerWidth <= 768);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
