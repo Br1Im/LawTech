@@ -64,6 +64,22 @@ async function createTestUsers() {
         surname: 'Тестовый',
         role: 'director',
         office_id: officeId
+      },
+      {
+        email: 'manager@test.com',
+        password: hashedPassword,
+        name: 'Менеджер',
+        surname: 'Тестовый',
+        role: 'manager',
+        office_id: officeId
+      },
+      {
+        email: 'okk@test.com',
+        password: hashedPassword,
+        name: 'ОКК',
+        surname: 'Тестовый',
+        role: 'okk',
+        office_id: officeId
       }
     ];
     
@@ -102,6 +118,8 @@ async function createTestUsers() {
     console.log('Email: lawyer@test.com    | Роль: Юрист');
     console.log('Email: admin@test.com     | Роль: Администратор');
     console.log('Email: director@test.com  | Роль: Директор');
+    console.log('Email: manager@test.com   | Роль: Менеджер');
+    console.log('Email: okk@test.com       | Роль: ОКК');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`Пароль для всех: ${password}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');

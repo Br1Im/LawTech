@@ -75,6 +75,13 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
           allItems.reception, allItems.materials,
         ];
+      case 'manager':
+      case 'okk':
+        return [
+          allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
+          allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
+          allItems.reception, allItems.materials,
+        ];
       default:
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,

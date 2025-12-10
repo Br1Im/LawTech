@@ -92,6 +92,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.materials,
         ];
       
+      case 'manager':
+      case 'okk':
+        // Менеджер и ОКК: все пункты как у директора (но данные только своего офиса)
+        return [
+          allItems.office,
+          allItems.clients,
+          allItems.contracts,
+          allItems.calendar,
+          allItems.appointments,
+          allItems.employees,
+          allItems.revenue,
+          allItems.expenses,
+          allItems.reception,
+          allItems.materials,
+        ];
+      
       default:
         // По умолчанию показываем все (кроме AI)
         return [

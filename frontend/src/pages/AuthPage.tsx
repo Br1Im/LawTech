@@ -579,6 +579,18 @@ const AuthPage = () => {
       email: 'expert@test.com',
       password: 'test123',
       role: 'expert'
+    },
+    {
+      name: 'Менеджер - Сергей Менеджеров',
+      email: 'manager@test.com',
+      password: 'test123',
+      role: 'manager'
+    },
+    {
+      name: 'ОКК - Ольга Контрольная',
+      email: 'okk@test.com',
+      password: 'test123',
+      role: 'okk'
     }
   ];
 

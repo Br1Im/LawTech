@@ -40,12 +40,12 @@ const officeController = {
       
       let offices;
       
-      // Если пользователь - юрист или администратор, возвращаем только его офис
-      if (user && (user.role === 'lawyer' || user.role === 'admin') && user.office_id) {
+      // Если пользователь - юрист, администратор, менеджер или ОКК, возвращаем только его офис
+      if (user && (user.role === 'lawyer' || user.role === 'admin' || user.role === 'manager' || user.role === 'okk') && user.office_id) {
         const userOffice = await Office.getById(user.office_id);
         offices = userOffice ? [userOffice] : [];
       } else {
-        // Для остальных ролей возвращаем все офисы
+        // Для остальных ролей (директор, эксперт) возвращаем все офисы
         offices = await Office.getAll();
       }
       
