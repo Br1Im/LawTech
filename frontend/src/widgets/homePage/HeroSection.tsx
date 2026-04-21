@@ -10,7 +10,6 @@ import {
   Users,
   Briefcase,
   BarChart3,
-  CheckCircle2,
   Bot,
   MessageCircle,
   FileText,
@@ -26,7 +25,7 @@ const floatY = keyframes`
   50%      { transform: translateY(-10px); }
 `;
 
-const pulseRing = keyframes`
+const _pulseRing = keyframes`
   0%   { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.45); }
   70%  { box-shadow: 0 0 0 18px rgba(212, 175, 55, 0); }
   100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
@@ -506,98 +505,6 @@ const ChatBubble = styled.div`
   }
 `;
 
-const FloatingStat = styled.div`
-  position: absolute;
-  left: -14px;
-  top: 36%;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 148px;
-  animation: ${pulseRing} 2.6s infinite;
-
-  .label {
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    font-weight: 600;
-  }
-
-  .value {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 800;
-    background: var(--gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .delta {
-    font-size: 11px;
-    color: #1e8a3a;
-    font-weight: 600;
-  }
-
-  @media (max-width: 560px) {
-    display: none;
-  }
-`;
-
-const FloatingCheck = styled.div`
-  position: absolute;
-  right: -14px;
-  bottom: 48px;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  .icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background: rgba(48, 209, 88, 0.18);
-    color: #1e8a3a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    svg { width: 18px; height: 18px; }
-  }
-
-  .text {
-    display: flex;
-    flex-direction: column;
-
-    .title {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--color-text);
-    }
-    .sub {
-      font-size: 11px;
-      color: var(--color-muted);
-    }
-  }
-
-  @media (max-width: 560px) {
-    display: none;
-  }
-`;
-
 const HeroSection = () => {
   return (
     <Section>
@@ -700,20 +607,6 @@ const HeroSection = () => {
               </Main>
             </PreviewBody>
           </Preview>
-
-          <FloatingStat>
-            <span className="label">Обработано дел</span>
-            <span className="value">8 471</span>
-            <span className="delta">↑ 23% за квартал</span>
-          </FloatingStat>
-
-          <FloatingCheck>
-            <div className="icon"><CheckCircle2 /></div>
-            <div className="text">
-              <span className="title">Готово за 1.2с</span>
-              <span className="sub">AI-поиск по архиву</span>
-            </div>
-          </FloatingCheck>
         </PreviewColumn>
       </Inner>
     </Section>
