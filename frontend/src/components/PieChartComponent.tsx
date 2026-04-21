@@ -146,7 +146,7 @@ const PieChartComponent: React.FC<PieChartProps> = ({ title, data }) => {
             font: {
               size: 16,
               weight: 'bold',
-              family: "'Arial', sans-serif"
+              family: "'Inter', sans-serif"
             },
             padding: {
               top: 0,

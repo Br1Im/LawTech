@@ -10,6 +10,7 @@ import Documents from '../components/Documents';
 import Arrivals from '../components/Arrivals';
 import Expenses from '../components/Expenses';
 import Reception from '../components/Reception';
+import CallCenter from '../components/CallCenter';
 import Materials from '../components/Materials';
 import Clients from '../components/Clients';
 import Appointments from '../components/Appointments';
@@ -335,6 +336,7 @@ const SRM = () => {
           {activeTab === "Приходы" && <Arrivals />}
           {activeTab === "Расходы" && <Expenses />}
           {activeTab === "Ресепшен" && <Reception />}
+          {activeTab === "Колл-центр" && <CallCenter />}
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
           {activeTab === "Записи" && <Appointments />}

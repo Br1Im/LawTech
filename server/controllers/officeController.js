@@ -40,12 +40,22 @@ const officeController = {
       
       let offices;
       
-      // Если пользователь - юрист, администратор, менеджер или ОКК, возвращаем только его офис
-      if (user && (user.role === 'lawyer' || user.role === 'admin' || user.role === 'manager' || user.role === 'okk') && user.office_id) {
+      // Если у пользователя нет office_id в токене, пробуем получить его из БД
+      if (user && !user.office_id) {
+        const db = require('../db');
+        const [dbUser] = await db.query('SELECT office_id, role FROM users WHERE id = ?', [user.id]);
+        if (dbUser.length > 0 && dbUser[0].office_id) {
+          user.office_id = dbUser[0].office_id;
+          user.role = dbUser[0].role;
+        }
+      }
+      
+      // Если пользователь привязан к конкретному офису, возвращаем только этот офис
+      if (user && user.office_id && user.role !== 'expert') {
         const userOffice = await Office.getById(user.office_id);
         offices = userOffice ? [userOffice] : [];
       } else {
-        // Для остальных ролей (директор, эксперт) возвращаем все офисы
+        // Для экспертов или пользователей без привязки к офису возвращаем все доступные офисы
         offices = await Office.getAll();
       }
       
@@ -53,7 +63,7 @@ const officeController = {
       const officesWithData = await Promise.all(
         offices.map(async (office) => {
           const [employees, stats, chartData] = await Promise.all([
-            Office.getEmployeesByOfficeId(office.id),
+            Office.getEmployeesByOfficeId(office.id, period),
             Office.getStatsByOfficeId(office.id, period),
             Office.getChartDataByOfficeId(office.id)
           ]);
@@ -125,6 +135,18 @@ const officeController = {
       };
       
       const office = await Office.create(officeData);
+      
+      // Привязываем пользователя к созданному офису, если он еще не привязан
+      if (req.user && !req.user.office_id) {
+        const db = require('../db');
+        await db.query(
+          'UPDATE users SET office_id = ?, role = ? WHERE id = ?',
+          [office.id, 'director', req.user.id]
+        );
+        // Обновляем данные пользователя в объекте запроса для последующих операций в этом же запросе
+        req.user.office_id = office.id;
+        req.user.role = 'director';
+      }
       
       // Форматируем ответ
       const formattedOffice = formatOfficeResponse(office);

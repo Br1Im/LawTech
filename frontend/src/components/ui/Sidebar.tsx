@@ -8,6 +8,7 @@ import {
   FaChartLine,
   FaMoneyBillWave,
   FaUserTie,
+  FaPhoneAlt,
   FaRobot,
   FaBox,
   FaUserFriends,
@@ -60,6 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
       expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
       reception: { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
+      callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
       ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
     };
@@ -75,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       
       case 'admin':
         // Администратор: Договоры, Приходы, Ресепшен, Календарь
-        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
+        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
       
       case 'director':
         // Директор: все пункты меню (кроме AI)
@@ -89,6 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
+          allItems.callCenter,
           allItems.materials,
         ];
       
@@ -105,6 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
+          allItems.callCenter,
           allItems.materials,
         ];
       
@@ -120,6 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
+          allItems.callCenter,
           allItems.materials,
         ];
     }

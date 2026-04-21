@@ -1,6 +1,7 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useState } from 'react';
+import { Zap, Bot, BarChart3, Shield, Cloud, CalendarCheck } from 'lucide-react';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(30px); }
@@ -113,25 +114,33 @@ const FeatureCard = styled.div<{ isActive: boolean }>`
 const IconWrapper = styled.div<{ isActive: boolean }>`
   width: 70px;
   height: 70px;
-  background: ${props => props.isActive 
+  background: ${props => props.isActive
     ? 'linear-gradient(135deg, #d4af37, #f5d97b)'
     : 'var(--color-bg)'};
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
   margin-bottom: 20px;
   transition: all 0.4s ease;
   animation: ${props => props.isActive ? float : 'none'} 3s ease-in-out infinite;
-  box-shadow: ${props => props.isActive 
+  box-shadow: ${props => props.isActive
     ? '0 10px 30px rgba(212, 175, 55, 0.4)'
     : '0 5px 15px rgba(0, 0, 0, 0.1)'};
+
+  svg {
+    width: 32px;
+    height: 32px;
+    color: ${props => props.isActive ? '#1a1a2e' : '#d4af37'};
+  }
 
   @media (max-width: 768px) {
     width: 60px;
     height: 60px;
-    font-size: 28px;
+    svg {
+      width: 28px;
+      height: 28px;
+    }
   }
 `;
 
@@ -196,42 +205,42 @@ const InteractiveFeatures = () => {
 
   const features = [
     {
-      icon: '⚡',
+      icon: <Zap />,
       title: 'Молниеносная скорость',
       description: 'Обрабатывайте документы и дела в 10 раз быстрее благодаря автоматизации',
       metric: '10x',
       metricLabel: 'Быстрее'
     },
     {
-      icon: '🤖',
+      icon: <Bot />,
       title: 'AI-ассистент',
       description: 'Умный помощник анализирует документы и предлагает оптимальные решения',
       metric: '95%',
       metricLabel: 'Точность'
     },
     {
-      icon: '📊',
+      icon: <BarChart3 />,
       title: 'Аналитика в реальном времени',
       description: 'Отслеживайте все метрики и KPI вашего офиса в одном месте',
       metric: '24/7',
       metricLabel: 'Мониторинг'
     },
     {
-      icon: '🔒',
+      icon: <Shield />,
       title: 'Максимальная безопасность',
       description: 'Шифрование данных и соответствие всем стандартам защиты информации',
       metric: '256-bit',
       metricLabel: 'Шифрование'
     },
     {
-      icon: '🌐',
+      icon: <Cloud />,
       title: 'Облачное хранилище',
       description: 'Доступ к данным из любой точки мира с любого устройства',
       metric: '99.9%',
       metricLabel: 'Uptime'
     },
     {
-      icon: '🎯',
+      icon: <CalendarCheck />,
       title: 'Умное планирование',
       description: 'Автоматическое распределение задач и оптимизация рабочего процесса',
       metric: '+40%',

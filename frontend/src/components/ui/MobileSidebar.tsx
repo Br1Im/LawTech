@@ -8,6 +8,7 @@ import {
   FaChartLine,
   FaMoneyBillWave,
   FaUserTie,
+  FaPhoneAlt,
   FaRobot,
   FaBox,
   FaUserFriends,
@@ -58,6 +59,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
       expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
       reception: { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
+      callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
       ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
     };
@@ -68,25 +70,25 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       case 'lawyer':
         return [allItems.office, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
       case 'admin':
-        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.calendar];
+        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
       case 'director':
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.materials,
+          allItems.reception, allItems.callCenter, allItems.materials,
         ];
       case 'manager':
       case 'okk':
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.materials,
+          allItems.reception, allItems.callCenter, allItems.materials,
         ];
       default:
         return [
           allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.materials,
+          allItems.reception, allItems.callCenter, allItems.materials,
         ];
     }
   };

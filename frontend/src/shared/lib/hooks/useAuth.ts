@@ -1,103 +1,105 @@
-import { useState, useEffect } from 'react';
-import { LoginData, authAPI, UserProfile } from '../../api/auth';
-import { useNavigate } from 'react-router-dom';
-import { useOfficeLoader } from './useOfficeLoader';
+import { useEffect, useState } from 'react';
+import { apiInstance } from '../../api/instance';
 
-/**
- * Хук для управления аутентификацией пользователя
- */
-export const useAuth = () => {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const { loadUserOffice } = useOfficeLoader();
+export interface AuthUser {
+  id: number;
+  email: string;
+  role?: string;
+  office_id?: number | null;
+  officeId?: number | null;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  name?: string;
+  surname?: string;
+}
 
-  // Проверка статуса аутентификации при загрузке приложения
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setLoading(false);
-          return;
-        }
+interface UseAuthResult {
+  user: AuthUser | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  refreshUser: () => Promise<void>;
+}
 
-        const userData = await authAPI.getCurrentUser();
-        setUser(userData);
-        
-        // Загружаем данные офиса пользователя, если у него есть office_id
-        if (userData.office_id) {
-          await loadUserOffice(userData.office_id);
-        }
-      } catch (err) {
-        console.error('Ошибка при проверке аутентификации:', err);
-        // Очищаем токен, если он недействителен
-        localStorage.removeItem('token');
-      } finally {
-        setLoading(false);
-      }
-    };
+const getStoredUser = (): AuthUser | null => {
+  try {
+    const rawUser = localStorage.getItem('user');
+    if (rawUser) {
+      return JSON.parse(rawUser) as AuthUser;
+    }
 
-    checkAuth();
-  }, []);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return null;
+    }
 
-  /**
-   * Функция для входа пользователя
-   * @param credentials Данные для входа (логин и пароль)
-   */
-  const login = async (credentials: LoginData) => {
+    const payload = JSON.parse(atob(token.split('.')[1])) as AuthUser;
+    return payload;
+  } catch (error) {
+    console.error('Failed to read auth data:', error);
+    return null;
+  }
+};
+
+export const useAuth = (): UseAuthResult => {
+  const [token] = useState<string | null>(() => localStorage.getItem('token'));
+  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [loading, setLoading] = useState<boolean>(Boolean(token) && !getStoredUser());
+
+  const refreshUser = async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      setUser(null);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await authAPI.login(credentials);
-      
-      // Сохраняем токен в localStorage
-      localStorage.setItem('token', response.token);
-      
-      // Устанавливаем данные пользователя
-      setUser(response.user);
-      
-      // Загружаем данные офиса пользователя, если у него есть office_id
-      if (response.user.office_id) {
-        await loadUserOffice(response.user.office_id);
+      const response = await apiInstance.get('/auth/me');
+      const responseUser = response.data?.user ?? null;
+      if (responseUser) {
+        const normalizedUser: AuthUser = {
+          ...responseUser,
+          office_id: responseUser.office_id ?? responseUser.officeId ?? null,
+          officeId: responseUser.officeId ?? responseUser.office_id ?? null,
+          username:
+            responseUser.username ||
+            [responseUser.first_name, responseUser.last_name].filter(Boolean).join(' ').trim(),
+          name: responseUser.name || responseUser.first_name,
+          surname: responseUser.surname || responseUser.last_name
+        };
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+        setUser(normalizedUser);
       }
-      
-      // Перенаправляем пользователя после успешного входа
-      navigate('/welcome');
-      
-      return true;
-    } catch (err: any) {
-      console.error('Ошибка при входе:', err);
-      setError(err.response?.data?.error || 'Произошла ошибка при входе');
-      return false;
+    } catch (error) {
+      console.error('Failed to refresh current user:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Функция для выхода пользователя
-   */
-  const logout = () => {
-    authAPI.logout();
-    setUser(null);
-    navigate('/auth');
-  };
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
 
-  /**
-   * Проверка, аутентифицирован ли пользователь
-   */
-  const isAuthenticated = !!user;
+    if (!user) {
+      refreshUser();
+      return;
+    }
+
+    setLoading(false);
+  }, [token]);
 
   return {
     user,
-    token: localStorage.getItem('token'),
+    token,
+    isAuthenticated: Boolean(token),
     loading,
-    error,
-    login,
-    logout,
-    isAuthenticated
+    refreshUser
   };
 };
+
+export default useAuth;

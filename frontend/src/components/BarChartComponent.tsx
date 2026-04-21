@@ -148,7 +148,7 @@ const BarChartComponent: React.FC<BarChartProps> = ({ title, data }) => {
                   font: {
                     size: 16,
                     weight: 'bold',
-                    family: "'Arial', sans-serif"
+                    family: "'Inter', sans-serif"
                   },
                   padding: {
                     top: 5,

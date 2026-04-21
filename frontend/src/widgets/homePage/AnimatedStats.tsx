@@ -1,6 +1,7 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { useState, useEffect, useRef } from 'react';
+import { Users, FolderCheck, Zap, Award } from 'lucide-react';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(30px); }
@@ -104,13 +105,23 @@ const StatCard = styled.div`
 `;
 
 const StatIcon = styled.div`
-  font-size: 48px;
   margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
   animation: ${pulse} 2s ease-in-out infinite;
 
+  svg {
+    width: 48px;
+    height: 48px;
+    color: #d4af37;
+  }
+
   @media (max-width: 768px) {
-    font-size: 40px;
     margin-bottom: 15px;
+    svg {
+      width: 40px;
+      height: 40px;
+    }
   }
 `;
 
@@ -153,7 +164,7 @@ const StatDescription = styled.div`
 `;
 
 interface StatItemProps {
-  icon: string;
+  icon: React.ReactNode;
   end: number;
   suffix: string;
   label: string;
@@ -229,28 +240,28 @@ const StatItem = ({ icon, end, suffix, label, description, duration = 2000 }: St
 const AnimatedStats = () => {
   const stats = [
     {
-      icon: '👥',
+      icon: <Users />,
       end: 500,
       suffix: '+',
       label: 'Клиентов',
       description: 'Довольных пользователей по всей России'
     },
     {
-      icon: '📁',
+      icon: <FolderCheck />,
       end: 10000,
       suffix: '+',
       label: 'Дел',
       description: 'Успешно обработанных дел'
     },
     {
-      icon: '⚡',
+      icon: <Zap />,
       end: 99,
       suffix: '%',
       label: 'Uptime',
       description: 'Стабильность и надежность системы'
     },
     {
-      icon: '🏆',
+      icon: <Award />,
       end: 15,
       suffix: '+',
       label: 'Наград',

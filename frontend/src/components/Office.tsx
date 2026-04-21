@@ -4,7 +4,7 @@ import "./OfficeContent.css";
 import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
 import StatCard from "./StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import PieChartComponent from "./PieChartComponent";
 import BarChartComponent from "./BarChartComponent";
@@ -706,7 +706,7 @@ const Office = () => {
 
   return (
     <div className="office-content">
-      <div className="office-header">
+      <div className="office-header animate-fade-in-up">
         <h2><FaBuilding className="header-icon" /> Управление офисами</h2>
         
         <div className="period-selector">
@@ -774,7 +774,7 @@ const Office = () => {
         </div>
       </div>
       
-      <div className="main-content-wrapper">
+      <div className="main-content-wrapper animate-fade-in-up">
         {/* Блок 1: Верхний левый - Карточки офисов и статистика */}
         <div className="office-left-column">
           <div className="top-four">
@@ -802,8 +802,8 @@ const Office = () => {
                       )}
                     </div>
                     <div className="office-card-info">
-                      <p><b>Сотрудники:</b> {Math.max(office.employee_count || 0, 1)}</p>
-                      <p><b>Адрес:</b> {office.address || "Не указан"}</p>
+                      <p><FaUsers /> <b>Сотрудники:</b> {Math.max(office.employee_count || 0, 1)}</p>
+                      <p><FaMapMarkerAlt /> <b>Адрес:</b> {office.address || "Не указан"}</p>
                     </div>
                   </div>
                 ))}

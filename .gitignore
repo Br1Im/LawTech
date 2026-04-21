@@ -111,3 +111,4 @@ archive/
 
 # Scripts output
 *.sh.log
+*.tar.gz

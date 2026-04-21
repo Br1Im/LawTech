@@ -18,6 +18,7 @@ const calendarController = require('../controllers/calendarController');
 const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
+const callCenterRoutes = require('./callCenter');
 // Эти контроллеры пока не реализованы
 // const employeeController = require('../controllers/employeeController');
 // const joinRequestController = require('../controllers/joinRequestController');
@@ -48,6 +49,8 @@ router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
+router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
+router.use('/call-center', callCenterRoutes.router);
 
 // Маршруты для юридических запросов
 router.post('/chat', authenticateToken, legalController.handleChatRequest);
