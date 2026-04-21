@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "antd";
-import { BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
+import CrmTopbar from '../components/ui/CrmTopbar';
 import Office from "../components/Office";
 import AITools from '../components/AITools/AITools';
 import Employees from '../components/Employees';
@@ -20,6 +20,21 @@ import NotificationPanel from '../components/NotificationPanel';
 import Sidebar from "../components/ui/Sidebar";
 import MobileSidebar from "../components/ui/MobileSidebar";
 import HamburgerButton from "../components/ui/HamburgerButton";
+
+const TAB_SUBTITLES: Record<string, string> = {
+  'Офис': 'Обзор показателей вашего офиса',
+  'AI инструменты': 'Поиск по документам и юридический ассистент',
+  'Сотрудники': 'Команда вашего офиса',
+  'Договоры': 'Документы и соглашения с клиентами',
+  'Приходы': 'Поступления и платежи от клиентов',
+  'Расходы': 'Операционные расходы офиса',
+  'Ресепшен': 'Приём входящих обращений',
+  'Колл-центр': 'Звонки и лиды',
+  'Материалы': 'Шаблоны, образцы, внутренние документы',
+  'Клиенты': 'База клиентов офиса — CRUD, поиск, фильтры',
+  'Записи': 'Встречи и консультации',
+  'Календарь': 'События офиса, суды, встречи',
+};
 
 const { Content } = Layout;
 
@@ -189,29 +204,27 @@ const SRM = () => {
       position: "relative" as const,
     } satisfies React.CSSProperties,
 
-    content: {
+    contentWrap: {
       flex: 1,
-      marginLeft: isMobile ? "0" : (collapsed ? "80px" : "260px"),
+      display: "flex",
+      flexDirection: "column" as const,
+      marginLeft: isMobile ? "0" : (collapsed ? "72px" : "260px"),
       marginTop: isMobile ? "70px" : "0px",
-      padding: isMobile ? "8px" : "16px",
       backgroundColor: "var(--color-bg)",
       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-      height: isMobile ? `calc(100vh - 70px)` : "100vh",
-      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "80px" : "260px"})`,
-      overflow: "auto",
+      minHeight: isMobile ? `calc(100vh - 70px)` : "100vh",
+      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "72px" : "260px"})`,
       position: "relative" as const,
+      boxSizing: "border-box" as const,
+    } satisfies React.CSSProperties,
+    content: {
+      flex: 1,
+      padding: isMobile ? "14px" : "24px 28px 32px",
+      backgroundColor: "transparent",
+      overflow: "auto",
       WebkitOverflowScrolling: "touch" as const,
       boxSizing: "border-box" as const,
     } satisfies React.CSSProperties,
-    topButtons: {
-      position: "fixed" as const,
-      top: "16px",
-      right: "24px",
-      display: "flex",
-      alignItems: "center",
-      zIndex: 1001,
-    } satisfies React.CSSProperties,
-
   };
 
 
@@ -273,62 +286,18 @@ const SRM = () => {
           isMobile={isMobile}
           user={user ? { ...user } : undefined}
         />
-        <div style={styles.topButtons}>
-          <button
-            onClick={handleNotificationClick}
-            style={{
-              width: isMobile ? '36px' : '40px',
-              height: isMobile ? '36px' : '40px',
-              borderRadius: '50%',
-              border: '2px solid var(--color-border)',
-              backgroundColor: 'var(--color-bg)',
-              color: 'var(--color-text)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-              position: 'relative' as const,
-            }}
-            title="Уведомления"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.1)';
-              e.currentTarget.style.borderColor = 'var(--color-accent)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(212, 175, 55, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.borderColor = 'var(--color-border)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <BellOutlined style={{ fontSize: '18px' }} />
-            {notifications.filter(n => !n.read).length > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                padding: '2px 6px',
-                borderRadius: '12px',
-                minWidth: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
-                border: '2px solid var(--color-bg)',
-              }}>
-                {notifications.filter(n => !n.read).length}
-              </span>
-            )}
-          </button>
-        </div>
-        
-        <Content style={styles.content}>
+
+        <div style={styles.contentWrap}>
+          <CrmTopbar
+            activeTab={activeTab}
+            title={activeTab}
+            subtitle={TAB_SUBTITLES[activeTab]}
+            onNotificationClick={handleNotificationClick}
+            unreadCount={notifications.filter(n => !n.read).length}
+            user={user ? { ...user } as any : undefined}
+            isMobile={isMobile}
+          />
+          <Content style={styles.content}>
           {activeTab === "Офис" && <Office />}
           {activeTab === "AI инструменты" && <AITools />}
           {activeTab === "Сотрудники" && <Employees />}
@@ -344,7 +313,8 @@ const SRM = () => {
             setSelectedContractId(contractId);
             setActiveTab("Договоры");
           }} />}
-        </Content>
+          </Content>
+        </div>
       </div>
       
       <NotificationPanel

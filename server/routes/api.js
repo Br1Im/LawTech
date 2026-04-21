@@ -19,6 +19,7 @@ const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
 const callCenterRoutes = require('./callCenter');
+const crmModulesRoutes = require('./crmModules');
 // Эти контроллеры пока не реализованы
 // const employeeController = require('../controllers/employeeController');
 // const joinRequestController = require('../controllers/joinRequestController');
@@ -87,39 +88,12 @@ router.delete('/messages/:messageId', authenticateToken, chatController.deleteMe
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
 router.post('/documents', authenticateToken, legalDocumentsController.createDocument);
 
-// Роуты для материалов офиса
-router.get('/office/:officeId/materials', authenticateToken, (req, res) => {
-  res.json({ materials: [] });
-});
-
-// Роуты для дел офиса (cases)
-router.get('/office/:officeId/cases', authenticateToken, (req, res) => {
-  res.json([]);
-});
-
 // Роуты для клиентов офиса - используем новый контроллер
 const clientController = require('../controllers/clientController');
 router.get('/office/:officeId/clients', authenticateToken, clientController.getAllClients);
 
-// Роуты для расходов офиса
-router.get('/office/:officeId/expenses', authenticateToken, (req, res) => {
-  res.json([]);
-});
-
-// Роуты для приходов офиса
-router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {
-  res.json([]);
-});
-
-// Роуты для сотрудников офиса
-router.get('/office/:officeId/employees', authenticateToken, (req, res) => {
-  res.json([]);
-});
-
-// Роуты для заявок на присоединение к офису
-router.get('/office/:officeId/join-requests', authenticateToken, (req, res) => {
-  res.json([]);
-});
+// CRM модули (cases, expenses, arrivals, materials, employees, join_requests)
+router.use('/', crmModulesRoutes);
 
 // Роуты для календарных событий
 router.get('/office/:officeId/calendar-events', authenticateToken, calendarController.getOfficeCalendarEvents);

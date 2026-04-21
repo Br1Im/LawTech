@@ -1,589 +1,244 @@
-import React, { useState, useEffect } from "react";
-import { buildApiUrl } from '../shared/utils/apiUtils';
-import { useAuth } from '../shared/lib/hooks/useAuth';
-import "./Expenses.css";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Table, Input, Button, Modal, Form, InputNumber, DatePicker, Select,
+  Space, Tag, Popconfirm, Tooltip, App, Empty,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
+import {
+  PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
+  DollarOutlined, ReloadOutlined, ArrowDownOutlined, CalendarOutlined, TagOutlined,
+} from '@ant-design/icons';
+import CrmPageShell, { TableCard, Toolbar } from './crm/CrmPageShell';
+import { expensesApi, type CrmExpense } from '../shared/api/crm';
 
-interface Employee {
-  name: string;
-  position: string;
-  salaryBase: number;
-  actsRevenue: number;
-}
-
-interface ExpenseDetail {
-  id?: number;
-  item: string;
-  amount: number;
-}
-
-interface ExpenseCategory {
-  id?: number;
-  name: string;
-  total: number;
-  details: ExpenseDetail[];
-}
-
-// Пример данных сотрудников для расчёта зарплаты
-const employees: Employee[] = [
-  { name: "Иванов И.И.", position: "Юрист", salaryBase: 5000, actsRevenue: 700000 },
-  { name: "Петров П.П.", position: "Юрист", salaryBase: 5000, actsRevenue: 650000 },
-  { name: "Сидоров С.С.", position: "ОКК", salaryBase: 10000, actsRevenue: 600000 },
-  { name: "Кузнецов К.К.", position: "ОКК", salaryBase: 10000, actsRevenue: 550000 },
-  { name: "Морозов М.М.", position: "Менеджер", salaryBase: 20000, actsRevenue: 0 },
+const CATEGORY_OPTIONS = [
+  'Аренда', 'Зарплата', 'Налоги', 'Маркетинг', 'Офис',
+  'Юр. услуги', 'Командировки', 'IT', 'Прочее',
 ];
 
-// Функция расчёта зарплаты
-const calculateSalary = (employee: Employee): number => {
-  switch (employee.position) {
-    case "Юрист":
-      return employee.salaryBase + employee.actsRevenue * 0.1; // 10% от актов + оклад 5000
-    case "ОКК":
-      return employee.salaryBase + employee.actsRevenue * 0.1; // 10% от актов + оклад 10000
-    case "Менеджер":
-      return employee.salaryBase; // Пока фиксированный оклад
-    default:
-      return 0;
-  }
+const formatMoney = (v?: string | number | null) => {
+  const n = typeof v === 'string' ? parseFloat(v) : (v ?? 0);
+  if (!Number.isFinite(n)) return '0 ₽';
+  return new Intl.NumberFormat('ru-RU', {
+    style: 'currency', currency: 'RUB', maximumFractionDigits: 0,
+  }).format(n);
 };
 
-const Expenses: React.FC = () => {
-  const [expenses, setExpenses] = useState<ExpenseCategory[]>([]);
-  const [editMode, setEditMode] = useState<number | null>(null);
-  const [editedDetails, setEditedDetails] = useState<ExpenseDetail[]>([]);
-  const [newExpenseItem, setNewExpenseItem] = useState<string>('');
-  const [newExpenseAmount, setNewExpenseAmount] = useState<string>('');
-  const [expandedCategories, setExpandedCategories] = useState<number[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState<string>('');
-  const [showAddCategoryForm, setShowAddCategoryForm] = useState<boolean>(false);
-  const [showAddSalaryCategory, setShowAddSalaryCategory] = useState<boolean>(false);
+const ExpensesInner: React.FC = () => {
+  const { message } = App.useApp();
+  const [data, setData] = useState<CrmExpense[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CrmExpense | null>(null);
+  const [form] = Form.useForm();
 
-  const { isAuthenticated, user } = useAuth();
-
-  // Получение данных с сервера
-  useEffect(() => {
-    const fetchExpenses = async () => {
-      if (!isAuthenticated || !user) {
-        setError('Требуется авторизация');
-        setExpenses([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        // Получаем токен авторизации
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-
-        // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!profileResponse.ok) {
-          throw new Error('Не удалось получить данные профиля');
-        }
-
-        const profileData = await profileResponse.json();
-        const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
-
-        if (!officeId) {
-          throw new Error('Офис не найден');
-        }
-
-        // Получаем список расходов для данного офиса
-        const expensesResponse = await fetch(buildApiUrl(`/office/${officeId}/expenses`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!expensesResponse.ok) {
-          throw new Error('Не удалось получить список расходов');
-        }
-
-        const expensesData = await expensesResponse.json();
-        setExpenses(expensesData);
-      } catch (err) {
-        console.error('Ошибка получения расходов:', err);
-        setError((err as Error).message || 'Не удалось загрузить список расходов');
-        // Устанавливаем пустой массив
-        setExpenses([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchExpenses();
-  }, [isAuthenticated, user]);
-
-  // Рассчитываем общую сумму расходов
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.total, 0);
-
-  const handleEdit = (index: number) => {
-    setEditMode(index);
-    setEditedDetails([...expenses[index].details]);
-  };
-
-  const handleSave = async (index: number) => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      const category = expenses[index];
-      const categoryId = category.id;
-
-      if (!categoryId) {
-        throw new Error('ID категории не найден');
-      }
-
-      // Обновляем все детали
-      for (const detail of editedDetails) {
-        if (detail.id) {
-          // Обновляем существующую деталь
-          await fetch(buildApiUrl(`/expenses/details/${detail.id}`), {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              item: detail.item,
-              amount: detail.amount
-            })
-          });
-        } else {
-          // Создаем новую деталь
-          await fetch(buildApiUrl('/expenses/details'), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              categoryId,
-              item: detail.item,
-              amount: detail.amount
-            })
-          });
-        }
-      }
-
-      // Обновляем локальное состояние
-      const updatedExpenses = [...expenses];
-      updatedExpenses[index].details = editedDetails;
-      updatedExpenses[index].total = editedDetails.reduce((sum, detail) => sum + detail.amount, 0);
-      setExpenses(updatedExpenses);
-      setEditMode(null);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка сохранения расходов:', err);
-      setError((err as Error).message || 'Не удалось сохранить изменения');
-    }
-  };
-
-  const handleCancel = () => {
-    setEditMode(null);
-  };
-
-  const handleDetailChange = (detailIndex: number, field: keyof ExpenseDetail, value: string) => {
-    const updatedDetails = [...editedDetails];
-    if (field === "amount") {
-      updatedDetails[detailIndex][field] = parseInt(value) || 0;
-    } else if (field === "item") {
-      updatedDetails[detailIndex][field] = value;
-    }
-    setEditedDetails(updatedDetails);
-  };
-
-  const handleAddDetail = () => {
-    if (editMode === null || !newExpenseItem.trim()) return;
-    
-    const amount = parseInt(newExpenseAmount) || 0;
-    
-    const updatedDetails = [
-      ...editedDetails,
-      { item: newExpenseItem, amount }
-    ];
-    
-    setEditedDetails(updatedDetails);
-    setNewExpenseItem('');
-    setNewExpenseAmount('');
-  };
-
-  const handleRemoveDetail = async (detailIndex: number) => {
-    const detail = editedDetails[detailIndex];
-    
-    // Если у детали есть ID, удаляем с сервера
-    if (detail.id) {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-        
-        await fetch(buildApiUrl(`/expenses/details/${detail.id}`), {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-      } catch (err) {
-        console.error('Ошибка удаления расхода:', err);
-        setError((err as Error).message || 'Не удалось удалить расход');
-        return;
-      }
-    }
-    
-    const updatedDetails = editedDetails.filter((_, i) => i !== detailIndex);
-    setEditedDetails(updatedDetails);
-  };
-
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim() || !officeId) {
-      setError('Название категории не может быть пустым');
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-      
-      const response = await fetch(buildApiUrl('/expenses/categories'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: newCategoryName,
-          officeId
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка создания категории');
-      }
-      
-      const newCategory = await response.json();
-      
-      setExpenses([...expenses, newCategory]);
-      setNewCategoryName('');
-      setShowAddCategoryForm(false);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка добавления категории:', err);
-      setError((err as Error).message || 'Не удалось добавить категорию');
+      const list = await expensesApi.list();
+      setData(Array.isArray(list) ? list : []);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось загрузить расходы');
     } finally {
       setLoading(false);
     }
+  }, [message]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data.filter((r) => {
+      if (categoryFilter && r.category !== categoryFilter) return false;
+      if (!q) return true;
+      return (
+        (r.title || '').toLowerCase().includes(q) ||
+        (r.category || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q)
+      );
+    });
+  }, [data, search, categoryFilter]);
+
+  const stats = useMemo(() => {
+    const total = data.reduce((a, r) => a + parseFloat(String(r.amount || 0)), 0);
+    const now = dayjs();
+    const thisMonth = data
+      .filter((r) => dayjs(r.spent_on).isSame(now, 'month'))
+      .reduce((a, r) => a + parseFloat(String(r.amount || 0)), 0);
+    const byCat: Record<string, number> = {};
+    data.forEach((r) => {
+      byCat[r.category || 'Прочее'] = (byCat[r.category || 'Прочее'] || 0) + parseFloat(String(r.amount || 0));
+    });
+    const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+    return { total, thisMonth, count: data.length, topCat };
+  }, [data]);
+
+  const openCreate = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ spent_on: dayjs(), category: 'Офис' });
+    setModalOpen(true);
   };
 
-  // Функция для добавления категории "Заработная плата" с расчетом зарплат
-  const handleAddSalaryCategory = async () => {
-    if (!officeId) {
-      setError('ID офиса не найден');
-      return;
-    }
-    
+  const openEdit = (row: CrmExpense) => {
+    setEditing(row);
+    form.setFieldsValue({
+      title: row.title,
+      category: row.category,
+      amount: parseFloat(String(row.amount)),
+      description: row.description || '',
+      spent_on: row.spent_on ? dayjs(row.spent_on) : dayjs(),
+    });
+    setModalOpen(true);
+  };
+
+  const submit = async () => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
+      const v = await form.validateFields();
+      const payload = {
+        title: v.title,
+        category: v.category,
+        amount: v.amount,
+        description: v.description,
+        spent_on: (v.spent_on as dayjs.Dayjs).format('YYYY-MM-DD'),
+      };
+      if (editing) {
+        await expensesApi.update(editing.id, payload);
+        message.success('Расход обновлён');
+      } else {
+        await expensesApi.create(payload);
+        message.success('Расход создан');
       }
-      
-      // 1. Создаем категорию "Заработная плата"
-      const categoryResponse = await fetch(buildApiUrl('/expenses/categories'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: "Заработная плата",
-          officeId
-        })
-      });
-      
-      if (!categoryResponse.ok) {
-        const errorData = await categoryResponse.json();
-        throw new Error(errorData.error || 'Ошибка создания категории');
-      }
-      
-      const newCategory = await categoryResponse.json();
-      const categoryId = newCategory.id;
-      
-      // 2. Добавляем детали расходов для каждого сотрудника
-      for (const employee of employees) {
-        const salary = calculateSalary(employee);
-        await fetch(buildApiUrl('/expenses/details'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            categoryId,
-            item: `${employee.name} (${employee.position})`,
-            amount: salary
-          })
-        });
-      }
-      
-      // 3. Получаем обновленный список расходов
-      const expensesResponse = await fetch(buildApiUrl(`/office/${officeId}/expenses`), {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      
-      if (expensesResponse.ok) {
-        const expensesData = await expensesResponse.json();
-        setExpenses(expensesData);
-      }
-      
-      setShowAddSalaryCategory(false);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка добавления категории зарплаты:', err);
-      setError((err as Error).message || 'Не удалось добавить категорию зарплаты');
-    } finally {
-      setLoading(false);
+      setModalOpen(false);
+      load();
+    } catch (e: any) {
+      if (e?.errorFields) return;
+      message.error(e?.response?.data?.message || 'Не удалось сохранить');
     }
   };
 
-  const toggleCategory = (index: number) => {
-    if (expandedCategories.includes(index)) {
-      setExpandedCategories(expandedCategories.filter(i => i !== index));
-    } else {
-      setExpandedCategories([...expandedCategories, index]);
+  const remove = async (row: CrmExpense) => {
+    try {
+      await expensesApi.remove(row.id);
+      message.success('Удалено');
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось удалить');
     }
   };
 
-  // Проверка наличия категории "Заработная плата"
-  const hasSalaryCategory = expenses.some(expense => expense.name === "Заработная плата");
+  const columns: ColumnsType<CrmExpense> = [
+    {
+      title: 'Дата', dataIndex: 'spent_on', key: 'spent_on', width: 120,
+      render: (v) => dayjs(v).format('DD.MM.YYYY'),
+      sorter: (a, b) => dayjs(a.spent_on).unix() - dayjs(b.spent_on).unix(),
+      defaultSortOrder: 'descend',
+    },
+    {
+      title: 'Статья', dataIndex: 'title', key: 'title',
+      render: (_, r) => (
+        <Space direction="vertical" size={0}>
+          <strong style={{ color: 'var(--color-text)' }}>{r.title}</strong>
+          {r.description && <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{r.description}</span>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Категория', dataIndex: 'category', key: 'category',
+      render: (c) => <Tag color="purple" icon={<TagOutlined />}>{c || '—'}</Tag>,
+      width: 170,
+    },
+    {
+      title: 'Сумма', dataIndex: 'amount', key: 'amount', align: 'right', width: 160,
+      render: (v) => <span style={{ color: '#ef4444', fontWeight: 600 }}>{formatMoney(v)}</span>,
+      sorter: (a, b) => parseFloat(String(a.amount)) - parseFloat(String(b.amount)),
+    },
+    {
+      title: 'Автор', dataIndex: 'created_by_name', key: 'created_by_name',
+      render: (v) => v || '—', responsive: ['lg'], width: 180,
+    },
+    {
+      title: '', key: 'actions', width: 110, align: 'right',
+      render: (_, row) => (
+        <Space size={4}>
+          <Tooltip title="Редактировать">
+            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(row)} />
+          </Tooltip>
+          <Popconfirm title="Удалить расход?" onConfirm={() => remove(row)} okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }}>
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <div className="expenses-container">
-      <div className="expenses-header">
-        <h2 className="expenses-title">Список расходов</h2>
-        <div className="expenses-actions">
-          <div className="action-buttons-group">
-            <button 
-              className="add-category-btn" 
-              onClick={() => {
-                setShowAddCategoryForm(!showAddCategoryForm);
-                setShowAddSalaryCategory(false);
-              }}
-            >
-              {showAddCategoryForm ? 'Отмена' : 'Добавить категорию'}
-            </button>
-            
-            {!hasSalaryCategory && (
-              <button 
-                className="add-salary-btn" 
-                onClick={() => {
-                  setShowAddSalaryCategory(!showAddSalaryCategory);
-                  setShowAddCategoryForm(false);
-                }}
-              >
-                {showAddSalaryCategory ? 'Отмена' : 'Добавить категорию зарплаты'}
-              </button>
-            )}
-          </div>
-          
-          <div className="expenses-summary">
-            <span>Общая сумма: </span>
-            <span className="expenses-total">{totalExpenses.toLocaleString('ru-RU')} ₽</span>
-          </div>
-        </div>
-      </div>
+    <CrmPageShell
+      title="Расходы"
+      subtitle="Операционные затраты офиса — категории, аналитика, CRUD с сохранением в БД"
+      actions={
+        <>
+          <Button icon={<ReloadOutlined />} onClick={load}>Обновить</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Новый расход</Button>
+        </>
+      }
+      stats={[
+        { label: 'За всё время', value: formatMoney(stats.total), sub: `${stats.count} записей`, icon: <DollarOutlined /> },
+        { label: 'В этом месяце', value: formatMoney(stats.thisMonth), sub: dayjs().format('MMMM YYYY'), icon: <CalendarOutlined /> },
+        { label: 'Крупнейшая категория', value: stats.topCat?.[0] || '—', sub: stats.topCat ? formatMoney(stats.topCat[1]) : undefined, icon: <TagOutlined /> },
+        { label: 'Средний чек', value: formatMoney(stats.count ? stats.total / stats.count : 0), sub: 'на запись', icon: <ArrowDownOutlined /> },
+      ]}
+      toolbar={
+        <Toolbar>
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Поиск по статье, описанию"
+            value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 380 }} />
+          <Select allowClear placeholder="Категория" style={{ minWidth: 180 }}
+            value={categoryFilter} onChange={setCategoryFilter}
+            options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
+        </Toolbar>
+      }
+    >
+      <TableCard>
+        <Table<CrmExpense> rowKey="id" dataSource={filtered} columns={columns}
+          loading={loading}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+          locale={{ emptyText: <Empty description="Расходов пока нет" /> }} />
+      </TableCard>
 
-      {error && <div className="error-message">{error}</div>}
-
-      {showAddCategoryForm && (
-        <div className="add-category-form">
-          <input
-            type="text"
-            value={newCategoryName}
-            onChange={(e) => setNewCategoryName(e.target.value)}
-            placeholder="Название новой категории"
-          />
-          <button 
-            onClick={handleAddCategory}
-            disabled={loading || !newCategoryName.trim()}
-          >
-            {loading ? 'Сохранение...' : 'Добавить'}
-          </button>
-        </div>
-      )}
-
-      {showAddSalaryCategory && (
-        <div className="add-category-info">
-          <p>Будет создана категория "Заработная плата" с автоматическим расчетом оклада и процентов для сотрудников.</p>
-          <button 
-            onClick={handleAddSalaryCategory}
-            disabled={loading}
-          >
-            {loading ? 'Создание...' : 'Создать категорию'}
-          </button>
-        </div>
-      )}
-
-      {loading && !showAddCategoryForm && !showAddSalaryCategory ? (
-        <div className="loading-indicator">Загрузка расходов...</div>
-      ) : (
-        <div className="expenses-table-container">
-          {expenses.length > 0 ? (
-            <table className="expenses-table">
-              <thead>
-                <tr>
-                  <th>Категория</th>
-                  <th>Общая сумма</th>
-                  <th>Действия</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((expense, index) => (
-                  <React.Fragment key={expense.id || index}>
-                    <tr 
-                      className={`expense-category ${expandedCategories.includes(index) ? 'expanded' : ''}`}
-                      onClick={() => toggleCategory(index)}
-                    >
-                      <td>{expense.name}</td>
-                      <td>{expense.total.toLocaleString('ru-RU')} ₽</td>
-                      <td>
-                        {editMode !== index ? (
-                          <button 
-                            className="expenses-edit-btn" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(index);
-                            }}
-                          >
-                            Редактировать
-                          </button>
-                        ) : (
-                          <div className="action-buttons">
-                            <button 
-                              className="expenses-save-btn" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSave(index);
-                              }}
-                            >
-                              Сохранить
-                            </button>
-                            <button 
-                              className="expenses-cancel-btn" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCancel();
-                              }}
-                            >
-                              Отмена
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                    {expandedCategories.includes(index) && (
-                      <tr className="expense-details">
-                        <td colSpan={3}>
-                          {editMode === index ? (
-                            <div className="expense-edit-container">
-                              <ul className="expense-details-list editable">
-                                {editedDetails.map((detail, i) => (
-                                  <li key={`edited-detail-${i}-${detail.item || 'empty'}`}>
-                                    <input
-                                      type="text"
-                                      value={detail.item}
-                                      onChange={(e) => handleDetailChange(i, "item", e.target.value)}
-                                      placeholder="Название"
-                                    />
-                                    <div className="amount-container">
-                                      <input
-                                        type="number"
-                                        value={detail.amount}
-                                        onChange={(e) => handleDetailChange(i, "amount", e.target.value)}
-                                        placeholder="Сумма"
-                                      />
-                                      <span className="currency">₽</span>
-                                      <button 
-                                        className="remove-item-btn" 
-                                        onClick={() => handleRemoveDetail(i)}
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                              <div className="add-expense-item">
-                                <input
-                                  type="text"
-                                  value={newExpenseItem}
-                                  onChange={(e) => setNewExpenseItem(e.target.value)}
-                                  placeholder="Новый расход"
-                                />
-                                <div className="amount-container">
-                                  <input
-                                    type="number"
-                                    value={newExpenseAmount}
-                                    onChange={(e) => setNewExpenseAmount(e.target.value)}
-                                    placeholder="Сумма"
-                                  />
-                                  <span className="currency">₽</span>
-                                </div>
-                                <button 
-                                  className="add-item-btn" 
-                                  onClick={handleAddDetail}
-                                  disabled={!newExpenseItem.trim()}
-                                >
-                                  Добавить
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <ul className="expense-details-list">
-                              {expense.details.map((detail, i) => (
-                                <li key={`detail-${i}-${detail.item}`}>
-                                  <span>{detail.item}</span>
-                                  <span>{detail.amount.toLocaleString('ru-RU')} ₽</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="no-data-message">Нет данных о расходах</div>
-          )}
-        </div>
-      )}
-    </div>
+      <Modal
+        title={editing ? `Редактирование расхода #${editing.id}` : 'Новый расход'}
+        open={modalOpen} onOk={submit} onCancel={() => setModalOpen(false)}
+        okText={editing ? 'Сохранить' : 'Создать'} cancelText="Отмена"
+        destroyOnClose width={520}
+      >
+        <Form form={form} layout="vertical" requiredMark="optional" style={{ marginTop: 12 }}>
+          <Form.Item label="Назначение" name="title" rules={[{ required: true, message: 'Укажите назначение' }]}>
+            <Input placeholder="Аренда офиса за март" />
+          </Form.Item>
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item label="Категория" name="category" style={{ flex: 1 }} rules={[{ required: true }]}>
+              <Select options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
+            </Form.Item>
+            <Form.Item label="Сумма" name="amount" style={{ flex: 1, marginLeft: 8 }} rules={[{ required: true, message: 'Укажите сумму' }]}>
+              <InputNumber<number> style={{ width: '100%' }} min={0} step={1000}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                parser={(v) => Number((v || '').replace(/\s/g, ''))} addonAfter="₽" />
+            </Form.Item>
+          </Space.Compact>
+          <Form.Item label="Дата" name="spent_on" rules={[{ required: true }]}>
+            <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+          </Form.Item>
+          <Form.Item label="Комментарий" name="description">
+            <Input.TextArea rows={3} placeholder="Дополнительные детали" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </CrmPageShell>
   );
 };
 
+const Expenses: React.FC = () => (<App><ExpensesInner /></App>);
 export default Expenses;

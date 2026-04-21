@@ -1,665 +1,208 @@
-import React, { useState, useEffect } from "react";
-import "./Materials.css";
-import { buildApiUrl } from "../shared/utils/apiUtils";
-import { useAuth } from "../shared/lib/hooks/useAuth";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Table, Input, Button, Modal, Form, Select,
+  Space, Tag, Popconfirm, Tooltip, App, Empty,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
+import {
+  PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
+  FileOutlined, ReloadOutlined, LinkOutlined, FolderOpenOutlined, TagOutlined,
+} from '@ant-design/icons';
+import CrmPageShell, { TableCard, Toolbar } from './crm/CrmPageShell';
+import { materialsApi, type CrmMaterial } from '../shared/api/crm';
 
-interface Employee {
-  id: number;
-  name: string;
-  middle_name: string;
-  surname: string;
-}
+const CATEGORY_OPTIONS = [
+  'Шаблон', 'Образец', 'Инструкция', 'Регламент', 'Презентация', 'Чек-лист', 'Прочее',
+];
 
-interface CaseDocument {
-  id?: number;
-  name: string;
-  file_path?: string;
-}
+const MaterialsInner: React.FC = () => {
+  const { message } = App.useApp();
+  const [data, setData] = useState<CrmMaterial[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CrmMaterial | null>(null);
+  const [form] = Form.useForm();
 
-interface Case {
-  id?: number;
-  client_name: string;
-  phone_number: string;
-  case_description: string;
-  lawyer_id: number;
-  date: string;
-  deadline: string;
-  topic: string;
-  value: string;
-  contract_number: string;
-  contract_sum: string;
-  paid_sum: string;
-  remaining_sum: string;
-  documents: CaseDocument[];
-}
-
-interface TechTask {
-  clientFio: string;
-  reason: string;
-  doc1: string;
-  doc2: string;
-  doc3: string;
-  doc4: string;
-}
-
-const Materials: React.FC = () => {
-  const { isAuthenticated, user } = useAuth();
-  
-  const [employees, setEmployees] = useState<Employee[]>([
-    { id: 1, name: "Иван", middle_name: "Иванович", surname: "Иванов" },
-    { id: 2, name: "Мария", middle_name: "Александровна", surname: "Смирнова" },
-  ]);
-  
-  const [file, setFile] = useState<File | null>(null);
-  const [cases, setCases] = useState<Case[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
-  
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [showTechTaskModal, setShowTechTaskModal] = useState<boolean>(false);
-  const [showCaseDetailsModal, setShowCaseDetailsModal] = useState<boolean>(false);
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
-  const [addingDocument, setAddingDocument] = useState<boolean>(false);
-
-  // Данные для нового дела
-  const [newCase, setNewCase] = useState<Case>({
-    client_name: "",
-    phone_number: "",
-    case_description: "",
-    lawyer_id: employees[0]?.id || 1,
-    date: "",
-    deadline: "",
-    topic: "",
-    value: "",
-    contract_number: "",
-    contract_sum: "",
-    paid_sum: "",
-    remaining_sum: "",
-    documents: [],
-  });
-
-  // Данные для технического задания
-  const [techTask, setTechTask] = useState<TechTask>({
-    clientFio: "",
-    reason: "",
-    doc1: "",
-    doc2: "",
-    doc3: "",
-    doc4: "",
-  });
-
-  // Получение данных с сервера
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!isAuthenticated || !user) {
-        setError('Требуется авторизация');
-        setCases([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        // Получаем токен авторизации
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-
-        // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!profileResponse.ok) {
-          throw new Error('Не удалось получить данные профиля');
-        }
-
-        const profileData = await profileResponse.json();
-        const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
-
-        if (!officeId) {
-          throw new Error('Офис не найден');
-        }
-
-        // Получаем список материалов дел для данного офиса
-        const casesResponse = await fetch(buildApiUrl(`/office/${officeId}/cases`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!casesResponse.ok) {
-          throw new Error('Не удалось получить список материалов дел');
-        }
-
-        const casesData = await casesResponse.json();
-        setCases(casesData);
-
-        // Получаем список сотрудников
-        const employeesResponse = await fetch(buildApiUrl(`/office/${officeId}/employees`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (employeesResponse.ok) {
-          const employeesData = await employeesResponse.json();
-          if (Array.isArray(employeesData) && employeesData.length > 0) {
-            // Преобразуем данные сотрудников в нужный формат
-            const formattedEmployees = employeesData.map(emp => ({
-              id: emp.id,
-              name: emp.name.split(' ')[1] || '',
-              middle_name: emp.name.split(' ')[2] || '',
-              surname: emp.name.split(' ')[0] || ''
-            }));
-            setEmployees(formattedEmployees);
-            
-            // Обновляем начальное значение для lawyer_id в форме нового дела
-            if (formattedEmployees.length > 0) {
-              setNewCase(prev => ({...prev, lawyer_id: formattedEmployees[0].id}));
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Ошибка получения данных:', err);
-        setError((err as Error).message || 'Не удалось загрузить данные');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [isAuthenticated, user]);
-
-  // Обработчик изменения данных нового дела
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewCase((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
-  };
-
-  // Обработчик изменения данных техзадания
-  const handleTechTaskChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setTechTask((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
-  };
-
-  // Автозаполнение формы тестовыми данными
-  const fillFormWithTestData = () => {
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    
-    const formattedToday = today.toISOString().split('T')[0];
-    const formattedNextWeek = nextWeek.toISOString().split('T')[0];
-    
-    setNewCase({
-      client_name: "Иванов Иван Иванович",
-      phone_number: "+7 (999) 123-45-67",
-      case_description: "Тестовое описание дела для проверки функциональности",
-      lawyer_id: employees[0]?.id || 1,
-      date: formattedToday,
-      deadline: formattedNextWeek,
-      topic: "Тестовая тема",
-      value: "100000",
-      contract_number: "TEST-2023/01",
-      contract_sum: "50000",
-      paid_sum: "25000",
-      remaining_sum: "25000",
-      documents: []
-    });
-  };
-
-  // Добавляем новый кейс
-  const addCase = async () => {
-    if (!officeId) {
-      setError('ID офиса не найден');
-      return;
-    }
-
-    if (!newCase.client_name || !newCase.phone_number || !newCase.date || !newCase.deadline || !newCase.topic) {
-      setError('Пожалуйста, заполните все обязательные поля');
-      return;
-    }
-
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      // Исправляем URL с /cases на /documents, так как маршрут /cases отсутствует на бэкенде
-      const response = await fetch(buildApiUrl('/documents'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: newCase.topic || 'Новое дело',
-          content: newCase.case_description || 'Описание отсутствует',
-          category: 'case',
-          office_id: user?.office_id || officeId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при создании дела');
-      }
-
-      const createdDocument = await response.json();
-      
-      // Создаем объект дела из документа для локального хранилища
-      const createdCase = {
-        id: createdDocument.document.id,
-        client_name: newCase.client_name,
-        phone_number: newCase.phone_number,
-        case_description: newCase.case_description,
-        lawyer_id: newCase.lawyer_id,
-        date: newCase.date,
-        deadline: newCase.deadline,
-        topic: newCase.topic,
-        value: newCase.value,
-        contract_number: newCase.contract_number,
-        contract_sum: newCase.contract_sum,
-        paid_sum: newCase.paid_sum,
-        remaining_sum: newCase.remaining_sum,
-        documents: []
-      };
-      
-      setCases(prevCases => [...prevCases, createdCase]);
-      
-      setShowModal(false);
-      setNewCase({
-        client_name: "",
-        phone_number: "",
-        case_description: "",
-        lawyer_id: employees[0]?.id || 1,
-        date: "",
-        deadline: "",
-        topic: "",
-        value: "",
-        contract_number: "",
-        contract_sum: "",
-        paid_sum: "",
-        remaining_sum: "",
-        documents: [],
-      });
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка создания дела:', err);
-      setError((err as Error).message || 'Не удалось создать дело');
+      const list = await materialsApi.list();
+      setData(Array.isArray(list) ? list : []);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось загрузить материалы');
     } finally {
       setLoading(false);
     }
-  };
+  }, [message]);
 
-  // Сохранение технического задания
-  const saveTechTask = () => {
-    console.log("Техническое задание:", techTask);
-    setShowTechTaskModal(false);
-    setTechTask({
-      clientFio: "",
-      reason: "",
-      doc1: "",
-      doc2: "",
-      doc3: "",
-      doc4: "",
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data.filter((r) => {
+      if (categoryFilter && r.category !== categoryFilter) return false;
+      if (!q) return true;
+      return (
+        (r.name || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q)
+      );
     });
+  }, [data, search, categoryFilter]);
+
+  const stats = useMemo(() => {
+    const byCat: Record<string, number> = {};
+    data.forEach((r) => { byCat[r.category || 'Прочее'] = (byCat[r.category || 'Прочее'] || 0) + 1; });
+    const topCat = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
+    const withFile = data.filter((r) => r.file_url).length;
+    return { total: data.length, withFile, topCat };
+  }, [data]);
+
+  const openCreate = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ category: 'Шаблон' });
+    setModalOpen(true);
   };
 
-  // Обработчик изменения файла
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+  const openEdit = (row: CrmMaterial) => {
+    setEditing(row);
+    form.setFieldsValue({
+      name: row.name,
+      category: row.category,
+      description: row.description || '',
+      file_url: row.file_url || '',
+    });
+    setModalOpen(true);
   };
 
-  // Отправка файла
-  const uploadFile = async () => {
-    if (!file || !selectedCase || !selectedCase.id) return;
-    
+  const submit = async () => {
     try {
-      setAddingDocument(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
+      const v = await form.validateFields();
+      if (editing) {
+        await materialsApi.update(editing.id, v);
+        message.success('Материал обновлён');
+      } else {
+        await materialsApi.create(v);
+        message.success('Материал создан');
       }
-
-      // В реальном приложении здесь был бы загрузка файла на сервер
-      // Сейчас просто сохраним имя файла
-      const response = await fetch(buildApiUrl(`/cases/${selectedCase.id}/documents`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: file.name,
-          file_path: URL.createObjectURL(file)
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при загрузке документа');
-      }
-
-      const newDocument = await response.json();
-      
-      // Обновляем список документов в выбранном деле
-      if (selectedCase) {
-        const updatedCase = {
-          ...selectedCase,
-          documents: [...selectedCase.documents, newDocument]
-        };
-
-        // Обновляем выбранное дело и список всех дел
-        setSelectedCase(updatedCase);
-        setCases(cases.map(c => c.id === selectedCase.id ? updatedCase : c));
-      }
-
-      // Сбрасываем файл
-      setFile(null);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка загрузки файла:', err);
-      setError((err as Error).message || 'Не удалось загрузить файл');
-    } finally {
-      setAddingDocument(false);
+      setModalOpen(false);
+      load();
+    } catch (e: any) {
+      if (e?.errorFields) return;
+      message.error(e?.response?.data?.message || 'Не удалось сохранить');
     }
   };
 
-  // Отображение деталей дела
-  const viewCaseDetails = (caseItem: Case) => {
-    setSelectedCase(caseItem);
-    setShowCaseDetailsModal(true);
+  const remove = async (row: CrmMaterial) => {
+    try {
+      await materialsApi.remove(row.id);
+      message.success('Удалено');
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось удалить');
+    }
   };
 
-  // Закрытие модального окна
-  const closeCaseDetailsModal = () => {
-    setSelectedCase(null);
-    setShowCaseDetailsModal(false);
-  };
-
-
+  const columns: ColumnsType<CrmMaterial> = [
+    {
+      title: 'Название', dataIndex: 'name', key: 'name',
+      render: (_, r) => (
+        <Space direction="vertical" size={0}>
+          <strong style={{ color: 'var(--color-text)' }}>
+            <FileOutlined style={{ marginRight: 8, color: 'var(--color-accent)' }} />{r.name}
+          </strong>
+          {r.description && <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>{r.description}</span>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Категория', dataIndex: 'category', key: 'category', width: 180,
+      render: (c) => <Tag color="geekblue" icon={<TagOutlined />}>{c || '—'}</Tag>,
+    },
+    {
+      title: 'Файл', dataIndex: 'file_url', key: 'file_url', width: 140,
+      render: (v) => v
+        ? <a href={v} target="_blank" rel="noreferrer"><LinkOutlined /> открыть</a>
+        : <span style={{ color: 'var(--color-muted)' }}>—</span>,
+    },
+    {
+      title: 'Добавлено', dataIndex: 'created_at', key: 'created_at', width: 140,
+      render: (v) => v ? dayjs(v).format('DD.MM.YYYY') : '—', responsive: ['md'],
+    },
+    {
+      title: '', key: 'actions', width: 110, align: 'right',
+      render: (_, row) => (
+        <Space size={4}>
+          <Tooltip title="Редактировать">
+            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(row)} />
+          </Tooltip>
+          <Popconfirm title="Удалить материал?" onConfirm={() => remove(row)} okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }}>
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <div className="materials-container">
-      <h2 className="materials-title">Материалы дела</h2>
+    <CrmPageShell
+      title="Материалы"
+      subtitle="Шаблоны, образцы документов, внутренние регламенты"
+      actions={
+        <>
+          <Button icon={<ReloadOutlined />} onClick={load}>Обновить</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Новый материал</Button>
+        </>
+      }
+      stats={[
+        { label: 'Всего', value: stats.total, sub: 'в библиотеке', icon: <FolderOpenOutlined /> },
+        { label: 'С файлом', value: stats.withFile, sub: 'прикрепленные', icon: <FileOutlined /> },
+        { label: 'Топ-категория', value: stats.topCat?.[0] || '—', sub: stats.topCat ? `${stats.topCat[1]} шт.` : undefined, icon: <TagOutlined /> },
+      ]}
+      toolbar={
+        <Toolbar>
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Поиск по названию, описанию"
+            value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 380 }} />
+          <Select allowClear placeholder="Категория" style={{ minWidth: 180 }}
+            value={categoryFilter} onChange={setCategoryFilter}
+            options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
+        </Toolbar>
+      }
+    >
+      <TableCard>
+        <Table<CrmMaterial> rowKey="id" dataSource={filtered} columns={columns}
+          loading={loading}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+          locale={{ emptyText: <Empty description="Материалов пока нет" /> }} />
+      </TableCard>
 
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="button-group">
-        <button className="open-modal-btn" onClick={() => setShowModal(true)}>
-          Добавить новое дело
-        </button>
-        <button className="open-tech-task-btn" onClick={() => setShowTechTaskModal(true)}>
-          Добавить техническое задание
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="loading-indicator">Загрузка материалов дел...</div>
-      ) : (
-        <div className="cases-list">
-          {cases.length > 0 ? (
-            cases.map((caseItem, index) => (
-              <div 
-                key={caseItem.id || index} 
-                className="case-item"
-                onClick={() => viewCaseDetails(caseItem)}
-              >
-                <h3>{caseItem.client_name}</h3>
-                <p><strong>Тема:</strong> {caseItem.topic}</p>
-                <p><strong>Номер договора:</strong> {caseItem.contract_number}</p>
-                <p><strong>Дедлайн:</strong> {caseItem.deadline}</p>
-              </div>
-            ))
-          ) : (
-            <p className="no-cases">Нет материалов дел</p>
-          )}
-        </div>
-      )}
-
-      {showModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close-button" onClick={() => setShowModal(false)}>
-              ×
-            </span>
-            <h3>Добавить новое дело</h3>
-            <div style={{ marginBottom: '15px' }}>
-              <button 
-                type="button" 
-                onClick={fillFormWithTestData}
-                style={{ 
-                  padding: '5px 10px', 
-                  backgroundColor: '#4CAF50', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Автозаполнить форму
-              </button>
-            </div>
-            <form>
-              <input
-                type="text"
-                name="client_name"
-                value={newCase.client_name}
-                onChange={handleInputChange}
-                placeholder="Имя клиента"
-                required
-              />
-              <input
-                type="text"
-                name="phone_number"
-                value={newCase.phone_number}
-                onChange={handleInputChange}
-                placeholder="Номер телефона"
-                required
-              />
-              <textarea
-                name="case_description"
-                value={newCase.case_description}
-                onChange={handleInputChange}
-                placeholder="Описание дела"
-              />
-              <select
-                name="lawyer_id"
-                value={newCase.lawyer_id}
-                onChange={handleInputChange}
-                required
-              >
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.surname} {emp.name} {emp.middle_name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="date"
-                name="date"
-                value={newCase.date}
-                onChange={handleInputChange}
-                placeholder="Дата"
-                required
-              />
-              <input
-                type="date"
-                name="deadline"
-                value={newCase.deadline}
-                onChange={handleInputChange}
-                placeholder="Дедлайн"
-                required
-              />
-              <input
-                type="text"
-                name="topic"
-                value={newCase.topic}
-                onChange={handleInputChange}
-                placeholder="Тема"
-                required
-              />
-              <input
-                type="text"
-                name="contract_number"
-                value={newCase.contract_number}
-                onChange={handleInputChange}
-                placeholder="Номер договора"
-              />
-              <input
-                type="text"
-                name="contract_sum"
-                value={newCase.contract_sum}
-                onChange={handleInputChange}
-                placeholder="Сумма договора"
-              />
-              <input
-                type="text"
-                name="paid_sum"
-                value={newCase.paid_sum}
-                onChange={handleInputChange}
-                placeholder="Оплаченная сумма"
-              />
-              <button 
-                type="button" 
-                onClick={addCase}
-                disabled={loading}
-              >
-                {loading ? 'Сохранение...' : 'Добавить'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showTechTaskModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close-button" onClick={() => setShowTechTaskModal(false)}>
-              ×
-            </span>
-            <h3>Добавить техническое задание</h3>
-            <form>
-              <input
-                type="text"
-                name="clientFio"
-                value={techTask.clientFio}
-                onChange={handleTechTaskChange}
-                placeholder="ФИО клиента"
-              />
-              <textarea
-                name="reason"
-                value={techTask.reason}
-                onChange={handleTechTaskChange}
-                placeholder="Причина обращения"
-              />
-              <input
-                type="text"
-                name="doc1"
-                value={techTask.doc1}
-                onChange={handleTechTaskChange}
-                placeholder="Документ 1"
-              />
-              <input
-                type="text"
-                name="doc2"
-                value={techTask.doc2}
-                onChange={handleTechTaskChange}
-                placeholder="Документ 2"
-              />
-              <input
-                type="text"
-                name="doc3"
-                value={techTask.doc3}
-                onChange={handleTechTaskChange}
-                placeholder="Документ 3"
-              />
-              <input
-                type="text"
-                name="doc4"
-                value={techTask.doc4}
-                onChange={handleTechTaskChange}
-                placeholder="Документ 4"
-              />
-              <button type="button" onClick={saveTechTask}>
-                Сохранить
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showCaseDetailsModal && selectedCase && (
-        <div className="modal">
-          <div className="modal-content">
-            <span className="close-button" onClick={closeCaseDetailsModal}>
-              ×
-            </span>
-            <h3>Детали дела</h3>
-            <div className="case-details">
-              <p><strong>Клиент:</strong> {selectedCase.client_name}</p>
-              <p><strong>Телефон:</strong> {selectedCase.phone_number}</p>
-              <p><strong>Описание:</strong> {selectedCase.case_description}</p>
-              <p><strong>Тема:</strong> {selectedCase.topic}</p>
-              <p><strong>Дата:</strong> {selectedCase.date}</p>
-              <p><strong>Дедлайн:</strong> {selectedCase.deadline}</p>
-              <p><strong>Номер договора:</strong> {selectedCase.contract_number}</p>
-              <p><strong>Сумма договора:</strong> {selectedCase.contract_sum}</p>
-              <p><strong>Оплачено:</strong> {selectedCase.paid_sum}</p>
-              <p><strong>Осталось оплатить:</strong> {selectedCase.remaining_sum}</p>
-              
-              <div className="file-upload-section">
-                <h4>Загрузить документ</h4>
-                <input type="file" onChange={handleFileChange} disabled={addingDocument} />
-                <button onClick={uploadFile} disabled={!file || addingDocument}>
-                  {addingDocument ? 'Загрузка...' : 'Загрузить'}
-                </button>
-              </div>
-              
-              <div className="documents-list">
-                <h4>Документы по делу</h4>
-                {selectedCase.documents.length > 0 ? (
-                  <ul>
-                    {selectedCase.documents.map((doc, idx) => (
-                      <li key={doc.id || idx}>
-                        {doc.file_path ? (
-                          <a href={doc.file_path} target="_blank" rel="noopener noreferrer">
-                            {doc.name}
-                          </a>
-                        ) : (
-                          <span>{doc.name}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p>Нет документов</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Modal
+        title={editing ? `Редактирование материала #${editing.id}` : 'Новый материал'}
+        open={modalOpen} onOk={submit} onCancel={() => setModalOpen(false)}
+        okText={editing ? 'Сохранить' : 'Создать'} cancelText="Отмена"
+        destroyOnClose width={520}
+      >
+        <Form form={form} layout="vertical" requiredMark="optional" style={{ marginTop: 12 }}>
+          <Form.Item label="Название" name="name" rules={[{ required: true, message: 'Укажите название' }]}>
+            <Input placeholder="Шаблон договора оказания услуг" />
+          </Form.Item>
+          <Form.Item label="Категория" name="category" rules={[{ required: true }]}>
+            <Select options={CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
+          </Form.Item>
+          <Form.Item label="Описание" name="description">
+            <Input.TextArea rows={3} placeholder="Для чего используется, краткое описание" />
+          </Form.Item>
+          <Form.Item label="Ссылка на файл" name="file_url">
+            <Input placeholder="/templates/services.docx или https://…" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </CrmPageShell>
   );
 };
 
+const Materials: React.FC = () => (<App><MaterialsInner /></App>);
 export default Materials;

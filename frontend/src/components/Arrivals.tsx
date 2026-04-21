@@ -1,400 +1,245 @@
-import React, { useState, useEffect } from 'react';
-import { buildApiUrl } from '../shared/utils/apiUtils';
-import { useAuth } from '../shared/lib/hooks/useAuth';
-import { useOffice } from '../shared/contexts/OfficeContext';
-import './Arrivals.css';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Table, Input, Button, Modal, Form, InputNumber, DatePicker, Select,
+  Space, Tag, Popconfirm, Tooltip, App, Empty,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
+import {
+  PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined,
+  DollarOutlined, ReloadOutlined, ArrowUpOutlined, CalendarOutlined, UserOutlined,
+} from '@ant-design/icons';
+import CrmPageShell, { TableCard, Toolbar } from './crm/CrmPageShell';
+import { arrivalsApi, clientsApi, type CrmArrival, type CrmClient } from '../shared/api/crm';
 
-interface Arrival {
-  id: number;
-  clientName: string;
-  theme: string;
-  questionEssence: string;
-  ticket: string;
-  lawyerAssigned: string;
-  appointmentTime: string;
-  contractSigned: boolean;
-  didNotArrive: boolean;
-}
+const SOURCE_OPTIONS = [
+  'Оплата по договору', 'Предоплата', 'Постоплата', 'Консультация', 'Штраф', 'Прочее',
+];
 
-const Arrivals: React.FC = () => {
-  const [arrivals, setArrivals] = useState<Arrival[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
-  const { addClient, updateStats } = useOffice();
+const formatMoney = (v?: string | number | null) => {
+  const n = typeof v === 'string' ? parseFloat(v) : (v ?? 0);
+  if (!Number.isFinite(n)) return '0 ₽';
+  return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
+};
 
-  // Получение данных с сервера
-  const { isAuthenticated, user } = useAuth();
+const ArrivalsInner: React.FC = () => {
+  const { message } = App.useApp();
+  const [data, setData] = useState<CrmArrival[]>([]);
+  const [clients, setClients] = useState<CrmClient[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sourceFilter, setSourceFilter] = useState<string | undefined>();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CrmArrival | null>(null);
+  const [form] = Form.useForm();
 
-  useEffect(() => {
-    const fetchArrivals = async () => {
-      if (!isAuthenticated || !user) {
-        setError('Требуется авторизация');
-        setArrivals([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        // Получаем токен авторизации
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-
-        // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!profileResponse.ok) {
-          throw new Error('Не удалось получить данные профиля');
-        }
-
-        const profileData = await profileResponse.json();
-        const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
-
-        if (!officeId) {
-          throw new Error('Офис не найден');
-        }
-
-        // Получаем список приходов для данного офиса
-        const arrivalsResponse = await fetch(buildApiUrl(`/office/${officeId}/arrivals`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!arrivalsResponse.ok) {
-          throw new Error('Не удалось получить список приходов');
-        }
-
-        const arrivalsData = await arrivalsResponse.json();
-        setArrivals(arrivalsData);
-      } catch (err) {
-        console.error('Ошибка получения приходов:', err);
-        setError((err as Error).message || 'Не удалось загрузить список приходов');
-        // Устанавливаем пустой список вместо демо-данных
-        setArrivals([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchArrivals();
-  }, [isAuthenticated, user]);
-
-  // Обработчик изменения статуса
-  const handleStatusChange = async (id: number, type: 'contractSigned' | 'didNotArrive') => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      // Находим текущий приход
-      const arrival = arrivals.find(a => a.id === id);
-      if (!arrival) return;
-
-      // Определяем новые значения статусов
-      const contractSigned = type === 'contractSigned' ? !arrival.contractSigned : arrival.contractSigned;
-      const didNotArrive = type === 'didNotArrive' ? !arrival.didNotArrive : arrival.didNotArrive;
-
-      // Отправляем запрос на обновление
-      const response = await fetch(buildApiUrl(`/arrivals/${id}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          contractSigned,
-          didNotArrive
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Не удалось обновить статус');
-      }
-
-      // Обновляем локальное состояние
-      setArrivals((prevArrivals) =>
-        prevArrivals.map((arrival) =>
-          arrival.id === id ? { ...arrival, [type]: !arrival[type] } : arrival
-        )
-      );
-    } catch (err) {
-      console.error('Ошибка обновления статуса:', err);
-      setError((err as Error).message || 'Не удалось обновить статус');
-    }
-  };
-
-  // Форматирование даты и времени
-  const formatDateTime = (dateTimeStr: string) => {
-    const date = new Date(dateTimeStr);
-    return date.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Добавление нового прихода
-  const [showForm, setShowForm] = useState(false);
-  const [newArrival, setNewArrival] = useState<Omit<Arrival, 'id'>>({
-    clientName: '',
-    theme: '',
-    questionEssence: '',
-    ticket: '',
-    lawyerAssigned: '',
-    appointmentTime: '',
-    contractSigned: false,
-    didNotArrive: false
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewArrival(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    // Разрешаем только цифры и ограничиваем до 4 символов
-    if (/^\d{0,4}$/.test(value)) {
-      setNewArrival(prev => ({ ...prev, ticket: value }));
-    }
-  };
-
-  const handleAddArrival = async () => {
-    if (!newArrival.clientName || !newArrival.theme || !newArrival.questionEssence || !newArrival.ticket || !newArrival.lawyerAssigned || !newArrival.appointmentTime) {
-      setError('Пожалуйста, заполните все поля');
-      return;
-    }
-
-    if (newArrival.ticket.length !== 4) {
-      setError('Талон должен содержать ровно 4 цифры');
-      return;
-    }
-
-    if (!officeId) {
-      setError('ID офиса не найден');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      const response = await fetch(buildApiUrl('/arrivals'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...newArrival,
-          officeId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при создании прихода');
-      }
-
-      const createdArrival = await response.json();
-
-      // Добавляем новый приход в список
-      setArrivals(prev => [createdArrival, ...prev]);
-
-      // Синхронизируем с другими вкладками - добавляем клиента
-      addClient({
-        id: createdArrival.id.toString(),
-        name: createdArrival.clientName,
-        phone: '', // Можно добавить поле телефона в форму
-        status: 'new',
-        createdAt: new Date().toISOString()
-      });
-      
-      // Обновляем статистику офиса
-      updateStats({ visits: 1 }); // Увеличиваем количество посещений
-
-      // Сбрасываем форму
-      setNewArrival({
-        clientName: '',
-        theme: '',
-        questionEssence: '',
-        ticket: '',
-        lawyerAssigned: '',
-        appointmentTime: '',
-        contractSigned: false,
-        didNotArrive: false
-      });
-      
-      setShowForm(false);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка создания прихода:', err);
-      setError((err as Error).message || 'Не удалось создать приход');
+      const [list, cs] = await Promise.all([arrivalsApi.list(), clientsApi.list()]);
+      setData(Array.isArray(list) ? list : []);
+      setClients(Array.isArray(cs) ? cs : []);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось загрузить поступления');
     } finally {
       setLoading(false);
     }
+  }, [message]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return data.filter((r) => {
+      if (sourceFilter && r.source !== sourceFilter) return false;
+      if (!q) return true;
+      return (
+        (r.title || '').toLowerCase().includes(q) ||
+        (r.client_name || '').toLowerCase().includes(q) ||
+        (r.description || '').toLowerCase().includes(q)
+      );
+    });
+  }, [data, search, sourceFilter]);
+
+  const stats = useMemo(() => {
+    const total = data.reduce((a, r) => a + parseFloat(String(r.amount || 0)), 0);
+    const now = dayjs();
+    const thisMonth = data
+      .filter((r) => dayjs(r.received_on).isSame(now, 'month'))
+      .reduce((a, r) => a + parseFloat(String(r.amount || 0)), 0);
+    const uniqueClients = new Set(data.filter((r) => r.client_id).map((r) => r.client_id)).size;
+    return { total, thisMonth, count: data.length, uniqueClients };
+  }, [data]);
+
+  const openCreate = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ received_on: dayjs(), source: 'Оплата по договору' });
+    setModalOpen(true);
   };
 
+  const openEdit = (row: CrmArrival) => {
+    setEditing(row);
+    form.setFieldsValue({
+      title: row.title,
+      source: row.source,
+      amount: parseFloat(String(row.amount)),
+      description: row.description || '',
+      client_id: row.client_id || undefined,
+      received_on: row.received_on ? dayjs(row.received_on) : dayjs(),
+    });
+    setModalOpen(true);
+  };
+
+  const submit = async () => {
+    try {
+      const v = await form.validateFields();
+      const payload = {
+        title: v.title,
+        source: v.source,
+        amount: v.amount,
+        description: v.description,
+        client_id: v.client_id || null,
+        received_on: (v.received_on as dayjs.Dayjs).format('YYYY-MM-DD'),
+      };
+      if (editing) {
+        await arrivalsApi.update(editing.id, payload);
+        message.success('Поступление обновлено');
+      } else {
+        await arrivalsApi.create(payload);
+        message.success('Поступление создано');
+      }
+      setModalOpen(false);
+      load();
+    } catch (e: any) {
+      if (e?.errorFields) return;
+      message.error(e?.response?.data?.message || 'Не удалось сохранить');
+    }
+  };
+
+  const remove = async (row: CrmArrival) => {
+    try {
+      await arrivalsApi.remove(row.id);
+      message.success('Удалено');
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось удалить');
+    }
+  };
+
+  const columns: ColumnsType<CrmArrival> = [
+    {
+      title: 'Дата', dataIndex: 'received_on', key: 'received_on', width: 120,
+      render: (v) => dayjs(v).format('DD.MM.YYYY'),
+      sorter: (a, b) => dayjs(a.received_on).unix() - dayjs(b.received_on).unix(),
+      defaultSortOrder: 'descend',
+    },
+    {
+      title: 'Назначение', dataIndex: 'title', key: 'title',
+      render: (_, r) => (
+        <Space direction="vertical" size={0}>
+          <strong style={{ color: 'var(--color-text)' }}>{r.title}</strong>
+          {r.client_name && (
+            <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>
+              <UserOutlined style={{ marginRight: 6 }} />{r.client_name}
+            </span>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Источник', dataIndex: 'source', key: 'source', width: 180,
+      render: (s) => <Tag color="cyan">{s}</Tag>,
+    },
+    {
+      title: 'Сумма', dataIndex: 'amount', key: 'amount', align: 'right', width: 160,
+      render: (v) => <span style={{ color: '#22c55e', fontWeight: 600 }}>+ {formatMoney(v)}</span>,
+      sorter: (a, b) => parseFloat(String(a.amount)) - parseFloat(String(b.amount)),
+    },
+    {
+      title: '', key: 'actions', width: 110, align: 'right',
+      render: (_, row) => (
+        <Space size={4}>
+          <Tooltip title="Редактировать">
+            <Button size="small" type="text" icon={<EditOutlined />} onClick={() => openEdit(row)} />
+          </Tooltip>
+          <Popconfirm title="Удалить поступление?" onConfirm={() => remove(row)} okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }}>
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
   return (
-    <div className="arrivals-container">
-      <div className="arrivals-header">
-        <h2 className="arrivals-title">Таблица приходов</h2>
-        <button 
-          className="add-arrival-btn" 
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Отменить' : 'Добавить приход'}
-        </button>
-      </div>
+    <CrmPageShell
+      title="Приходы"
+      subtitle="Поступления и платежи от клиентов — сохраняются в БД, поиск и фильтры"
+      actions={
+        <>
+          <Button icon={<ReloadOutlined />} onClick={load}>Обновить</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>Новое поступление</Button>
+        </>
+      }
+      stats={[
+        { label: 'Всего поступлений', value: formatMoney(stats.total), sub: `${stats.count} записей`, icon: <DollarOutlined /> },
+        { label: 'В этом месяце', value: formatMoney(stats.thisMonth), sub: dayjs().format('MMMM YYYY'), icon: <CalendarOutlined /> },
+        { label: 'Уникальных клиентов', value: stats.uniqueClients, sub: 'платили в офис', icon: <UserOutlined /> },
+        { label: 'Средний чек', value: formatMoney(stats.count ? stats.total / stats.count : 0), sub: 'на транзакцию', icon: <ArrowUpOutlined /> },
+      ]}
+      toolbar={
+        <Toolbar>
+          <Input allowClear prefix={<SearchOutlined />} placeholder="Поиск по назначению, клиенту"
+            value={search} onChange={(e) => setSearch(e.target.value)} style={{ maxWidth: 380 }} />
+          <Select allowClear placeholder="Источник" style={{ minWidth: 200 }}
+            value={sourceFilter} onChange={setSourceFilter}
+            options={SOURCE_OPTIONS.map((s) => ({ value: s, label: s }))} />
+        </Toolbar>
+      }
+    >
+      <TableCard>
+        <Table<CrmArrival> rowKey="id" dataSource={filtered} columns={columns}
+          loading={loading}
+          pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+          locale={{ emptyText: <Empty description="Поступлений пока нет" /> }} />
+      </TableCard>
 
-      {error && <div className="error-message">{error}</div>}
-
-      {showForm && (
-        <div className="add-arrival-form">
-          <div className="form-group">
-            <label>Клиент</label>
-            <input 
-              type="text" 
-              name="clientName" 
-              value={newArrival.clientName}
-              onChange={handleInputChange}
-              placeholder="ФИО клиента"
-            />
-          </div>
-          <div className="form-group">
-            <label>Тема</label>
-            <input 
-              type="text" 
-              name="theme" 
-              value={newArrival.theme}
-              onChange={handleInputChange}
-              placeholder="Тема консультации"
-            />
-          </div>
-          <div className="form-group">
-            <label>Суть вопроса</label>
-            <input 
-              type="text" 
-              name="questionEssence" 
-              value={newArrival.questionEssence}
-              onChange={handleInputChange}
-              placeholder="Суть вопроса"
-            />
-          </div>
-          <div className="form-group">
-            <label>Талон</label>
-            <input 
-              type="text" 
-              name="ticket" 
-              value={newArrival.ticket}
-              onChange={handleTicketChange}
-              placeholder="0000"
-              maxLength={4}
-              pattern="[0-9]{4}"
-            />
-          </div>
-          <div className="form-group">
-            <label>Юрист</label>
-            <input 
-              type="text" 
-              name="lawyerAssigned" 
-              value={newArrival.lawyerAssigned}
-              onChange={handleInputChange}
-              placeholder="ФИО юриста"
-            />
-          </div>
-          <div className="form-group">
-            <label>Дата и время</label>
-            <input 
-              type="datetime-local" 
-              name="appointmentTime" 
-              value={newArrival.appointmentTime}
-              onChange={handleInputChange}
-            />
-          </div>
-          <div className="form-actions">
-            <button className="save-btn" onClick={handleAddArrival} disabled={loading}>
-              {loading ? 'Сохранение...' : 'Сохранить'}
-            </button>
-            <button className="cancel-btn" onClick={() => {
-              setShowForm(false);
-              setError(null);
-            }}>Отменить</button>
-          </div>
-        </div>
-      )}
-
-      {loading && !showForm ? (
-        <div className="loading-indicator">Загрузка приходов...</div>
-      ) : (
-        <div className="arrivals-table-container">
-          <table className="arrivals-table">
-            <thead>
-              <tr>
-                <th>Клиент</th>
-                <th>Тема</th>
-                <th>Суть вопроса</th>
-                <th>Талон</th>
-                <th>Юрист</th>
-                <th>Время приема</th>
-                <th>Заключен договор</th>
-                <th>Не пришел</th>
-              </tr>
-            </thead>
-            <tbody>
-              {arrivals.length > 0 ? (
-                arrivals.map((arrival) => (
-                  <tr key={arrival.id} className={arrival.didNotArrive ? 'not-arrived' : ''}>
-                    <td>{arrival.clientName}</td>
-                    <td>{arrival.theme}</td>
-                    <td>{arrival.questionEssence}</td>
-                    <td>{arrival.ticket}</td>
-                    <td>{arrival.lawyerAssigned}</td>
-                    <td>{formatDateTime(arrival.appointmentTime)}</td>
-                    <td className="checkbox-cell">
-                      <input
-                        type="checkbox"
-                        checked={arrival.contractSigned}
-                        onChange={() => handleStatusChange(arrival.id, 'contractSigned')}
-                        disabled={arrival.didNotArrive}
-                      />
-                    </td>
-                    <td className="checkbox-cell">
-                      <input
-                        type="checkbox"
-                        checked={arrival.didNotArrive}
-                        onChange={() => handleStatusChange(arrival.id, 'didNotArrive')}
-                      />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="no-data">Нет данных о приходах</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+      <Modal
+        title={editing ? `Редактирование прихода #${editing.id}` : 'Новое поступление'}
+        open={modalOpen} onOk={submit} onCancel={() => setModalOpen(false)}
+        okText={editing ? 'Сохранить' : 'Создать'} cancelText="Отмена"
+        destroyOnClose width={520}
+      >
+        <Form form={form} layout="vertical" requiredMark="optional" style={{ marginTop: 12 }}>
+          <Form.Item label="Назначение" name="title" rules={[{ required: true, message: 'Укажите назначение' }]}>
+            <Input placeholder="Оплата по договору №12" />
+          </Form.Item>
+          <Form.Item label="Клиент" name="client_id">
+            <Select showSearch allowClear placeholder="Привязать к клиенту (необязательно)"
+              optionFilterProp="label"
+              options={clients.map((c) => ({ value: c.id, label: `${c.name}${c.company ? ' — ' + c.company : ''}` }))} />
+          </Form.Item>
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item label="Источник" name="source" style={{ flex: 1 }} rules={[{ required: true }]}>
+              <Select options={SOURCE_OPTIONS.map((s) => ({ value: s, label: s }))} />
+            </Form.Item>
+            <Form.Item label="Сумма" name="amount" style={{ flex: 1, marginLeft: 8 }} rules={[{ required: true, message: 'Укажите сумму' }]}>
+              <InputNumber<number> style={{ width: '100%' }} min={0} step={1000}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                parser={(v) => Number((v || '').replace(/\s/g, ''))} addonAfter="₽" />
+            </Form.Item>
+          </Space.Compact>
+          <Form.Item label="Дата" name="received_on" rules={[{ required: true }]}>
+            <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+          </Form.Item>
+          <Form.Item label="Комментарий" name="description">
+            <Input.TextArea rows={3} placeholder="Дополнительные детали" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </CrmPageShell>
   );
 };
 
+const Arrivals: React.FC = () => (<App><ArrivalsInner /></App>);
 export default Arrivals;

@@ -88,7 +88,7 @@ const clientController = {
         });
       }
 
-      const client = await Client.create(clientData);
+      const client = await Client.create(clientData, user.office_id);
       
       console.log('✅ Client created successfully:', client);
       

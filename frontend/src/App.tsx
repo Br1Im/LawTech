@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
 import { useAuth } from './shared/lib/hooks/useAuth';
+import AntThemeProvider from './shared/ui/AntThemeProvider';
 
 // Компонент для маршрутов, который использует useAuth внутри BrowserRouter
 function AppRoutes() {
@@ -71,9 +72,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <AntThemeProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AntThemeProvider>
   );
 }
 
