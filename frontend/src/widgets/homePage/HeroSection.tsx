@@ -13,7 +13,6 @@ import {
   Bot,
   MessageCircle,
   FileText,
-  CheckCircle2,
 } from 'lucide-react';
 
 const fadeInUp = keyframes`
@@ -24,12 +23,6 @@ const fadeInUp = keyframes`
 const floatY = keyframes`
   0%, 100% { transform: translateY(0); }
   50%      { transform: translateY(-10px); }
-`;
-
-const pulseRing = keyframes`
-  0%   { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.45); }
-  70%  { box-shadow: 0 0 0 18px rgba(212, 175, 55, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
 `;
 
 const typing = keyframes`
@@ -240,107 +233,6 @@ const Badge = styled.div`
 const PreviewColumn = styled.div`
   position: relative;
   animation: ${fadeInUp} 1s var(--ease-out) 0.25s both;
-`;
-
-const FloatingStat = styled.div`
-  position: absolute;
-  left: 18px;
-  bottom: 22px;
-  z-index: 3;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 12px 16px;
-  box-shadow: var(--shadow-xl);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 164px;
-  animation: ${pulseRing} 2.6s infinite, ${floatY} 6s ease-in-out infinite;
-
-  .label {
-    font-size: 11px;
-    color: var(--color-text-secondary);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-
-  .value {
-    font-family: var(--font-display);
-    font-size: 24px;
-    font-weight: 800;
-    background: var(--gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.1;
-  }
-
-  .delta {
-    font-size: 11px;
-    color: #1e8a3a;
-    font-weight: 700;
-    margin-top: 2px;
-  }
-
-  @media (max-width: 560px) {
-    display: none;
-  }
-`;
-
-const FloatingCheck = styled.div`
-  position: absolute;
-  right: 18px;
-  top: 78px;
-  z-index: 3;
-  background: var(--glass-bg-strong);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow-xl);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  animation: ${floatY} 7s ease-in-out 0.4s infinite;
-
-  .icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
-    background: rgba(48, 209, 88, 0.18);
-    color: #1e8a3a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    svg { width: 18px; height: 18px; }
-  }
-
-  .text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.2;
-
-    .title {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--color-text);
-    }
-    .sub {
-      font-size: 11px;
-      color: var(--color-muted);
-      margin-top: 1px;
-    }
-  }
-
-  @media (max-width: 560px) {
-    display: none;
-  }
 `;
 
 const PreviewGlow = styled.div`
@@ -712,20 +604,6 @@ const HeroSection = () => {
               </Main>
             </PreviewBody>
           </Preview>
-
-          <FloatingStat>
-            <span className="label">Обработано дел</span>
-            <span className="value">8 471</span>
-            <span className="delta">↑ 23% за квартал</span>
-          </FloatingStat>
-
-          <FloatingCheck>
-            <div className="icon"><CheckCircle2 /></div>
-            <div className="text">
-              <span className="title">Готово за 1.2с</span>
-              <span className="sub">AI-поиск по архиву</span>
-            </div>
-          </FloatingCheck>
         </PreviewColumn>
       </Inner>
     </Section>
