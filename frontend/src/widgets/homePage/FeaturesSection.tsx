@@ -8,184 +8,179 @@ import CircleLayer from '../../assets/Header/Circle Layer.png';
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: translateY(0); }
 `;
 
 const Section = styled.section`
   width: 100%;
   max-width: 1200px;
-  margin: 150px auto;
+  margin: 120px auto;
   padding: 0 20px;
   box-sizing: border-box;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
   align-items: center;
   overflow: hidden;
   opacity: 0;
   transform: translateY(20px);
 
   &.fade-in {
-    animation: ${fadeIn} 1s ease forwards;
+    animation: ${fadeIn} 1s var(--ease-out) forwards;
   }
 
-  @media (max-width: 768px) {
-    flex-direction: column;
-    padding: 0 10px;
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr;
     margin: 80px auto;
-  }
-`;
-
-const TextContainer = styled.div`
-  flex: 1;
-  text-align: left;
-  max-width: 50%;
-  min-width: 0;
-  box-sizing: border-box;
-  padding-right: 20px;
-  opacity: 0;
-  transform: translateY(20px);
-
-  &.fade-in {
-    animation: ${fadeIn} 1s ease forwards;
-    animation-delay: 0.3s;
-  }
-
-  @media (max-width: 768px) {
-    max-width: 100%;
-    margin-bottom: 32px;
-    padding-right: 0;
     text-align: center;
   }
 `;
 
-const Tagline = styled.div`
-  background-color: var(--color-accent);
-  color: var(--color-bg);
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: bold;
-  margin-bottom: 20px;
-`;
-
-const Title = styled.h2`
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 1.2;
-  margin-bottom: 16px;
-  color: var(--color-accent);
-
-  @media (max-width: 768px) {
-    font-size: 36px;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 28px;
-  }
-`;
-
-const Description = styled.p`
-  font-size: 18px;
-  margin-bottom: 32px;
-  color: var(--color-muted);
-  max-width: 400px;
-
-  @media (max-width: 768px) {
-    font-size: 16px;
-    max-width: 100%;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 14px;
-  }
-`;
-
-const CardGrid = styled.div`
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  max-width: 50%;
-  min-width: 0;
-  box-sizing: border-box;
+const TextContainer = styled.div`
   opacity: 0;
   transform: translateY(20px);
 
   &.fade-in {
-    animation: ${fadeIn} 1s ease forwards;
-    animation-delay: 0.6s;
+    animation: ${fadeIn} 1s var(--ease-out) 0.2s forwards;
   }
+`;
 
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    max-width: 100%;
+const Tagline = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+`;
+
+const Title = styled.h2`
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4.2vw, 52px);
+  font-weight: 800;
+  line-height: 1.08;
+  margin-bottom: 18px;
+  color: var(--color-text);
+
+  em {
+    font-style: normal;
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+`;
+
+const Description = styled.p`
+  font-size: 17px;
+  margin-bottom: 24px;
+  color: var(--color-text-secondary);
+  max-width: 440px;
+  line-height: 1.6;
+
+  @media (max-width: 960px) {
+    margin-left: auto;
+    margin-right: auto;
+  }
+`;
+
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  opacity: 0;
+  transform: translateY(20px);
+
+  &.fade-in {
+    animation: ${fadeIn} 1s var(--ease-out) 0.4s forwards;
   }
 
   @media (max-width: 480px) {
-    gap: 12px;
+    grid-template-columns: 1fr;
   }
 `;
 
 const Card = styled.div`
-  background: var(--color-bg-alt);
-  border-radius: 8px;
-  padding: 16px;
-  width: 100%;
-  max-width: 250px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+  position: relative;
+  overflow: hidden;
   text-align: left;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  box-sizing: border-box;
-  flex-shrink: 1;
-  border: 1px solid var(--color-accent-light);
-  transition: transform 0.3s ease;
 
-  &:hover {
-    transform: translateY(-5px);
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-gold);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease-out);
   }
 
-  @media (max-width: 768px) {
-    max-width: 100%;
+  &:hover {
+    transform: translateY(-8px);
+    border-color: rgba(212, 175, 55, 0.45);
+    box-shadow: var(--shadow-lg);
+  }
+
+  &:hover::before {
+    opacity: 1;
   }
 `;
 
 const CardIcon = styled.div`
-  width: 48px;
-  height: 48px;
-  background: var(--color-bg);
-  border-radius: 50%;
-  margin-bottom: 12px;
+  width: 52px;
+  height: 52px;
+  background: var(--gradient-gold);
+  border-radius: 14px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-button-text);
-  font-size: 24px;
+  color: #1a1a1a;
+  box-shadow: 0 8px 22px rgba(212, 175, 55, 0.35);
 
   img {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     object-fit: contain;
+    filter: brightness(0) invert(1);
   }
 `;
 
 const CardTitle = styled.h3`
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   margin-bottom: 8px;
   color: var(--color-text);
+  letter-spacing: -0.01em;
 `;
 
 const CardDescription = styled.p`
   font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-muted);
+  line-height: 1.55;
+  color: var(--color-text-secondary);
 `;
 
 const FeaturesSection = () => {
-  const sectionRef = useRef(null);
-  const textContainerRef = useRef(null);
-  const cardGridRef = useRef(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const textContainerRef = useRef<HTMLDivElement | null>(null);
+  const cardGridRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -196,27 +191,34 @@ const FeaturesSection = () => {
           }
         });
       },
-      { threshold: 0.2 }
+      { threshold: 0.15 }
     );
 
-    if (sectionRef.current) observer.observe(sectionRef.current);
-    if (textContainerRef.current) observer.observe(textContainerRef.current);
-    if (cardGridRef.current) observer.observe(cardGridRef.current);
+    const section = sectionRef.current;
+    const text = textContainerRef.current;
+    const grid = cardGridRef.current;
+
+    if (section) observer.observe(section);
+    if (text) observer.observe(text);
+    if (grid) observer.observe(grid);
 
     return () => {
-      if (sectionRef.current) observer.unobserve(sectionRef.current);
-      if (textContainerRef.current) observer.unobserve(textContainerRef.current);
-      if (cardGridRef.current) observer.unobserve(cardGridRef.current);
+      if (section) observer.unobserve(section);
+      if (text) observer.unobserve(text);
+      if (grid) observer.unobserve(grid);
     };
   }, []);
 
   return (
-    <Section ref={sectionRef} id="how-it-works">
+    <Section ref={sectionRef} id="advantages">
       <TextContainer ref={textContainerRef}>
-        <Tagline>Инновации для юристов</Tagline>
-        <Title>Ваша юридическая CRM с AI</Title>
+        <Tagline>Преимущества</Tagline>
+        <Title>
+          Ваш <em>юридический офис</em> на автопилоте
+        </Title>
         <Description>
-          Оптимизируйте работу офиса с нашей CRM, использующей искусственный интеллект для автоматизации и аналитики.
+          CRM с AI-ассистентом автоматизирует рутину, систематизирует документы
+          и помогает принимать решения на основе данных.
         </Description>
       </TextContainer>
       <CardGrid ref={cardGridRef}>
@@ -224,28 +226,28 @@ const FeaturesSection = () => {
           <CardIcon><img src={Rocket} alt="AI Analytics" /></CardIcon>
           <CardTitle>AI-аналитика</CardTitle>
           <CardDescription>
-            Прогнозируйте исходы дел и анализируйте данные с помощью искусственного интеллекта.
+            Прогнозы исходов дел и анализ больших массивов данных на основе ML.
           </CardDescription>
         </Card>
         <Card>
           <CardIcon><img src={Bag} alt="Case Management" /></CardIcon>
           <CardTitle>Управление делами</CardTitle>
           <CardDescription>
-            Удобно организуйте и отслеживайте дела с интуитивными инструментами.
+            Удобно планируйте и отслеживайте дела, сроки и задачи команды.
           </CardDescription>
         </Card>
         <Card>
           <CardIcon><img src={UserArrow} alt="Client Collaboration" /></CardIcon>
           <CardTitle>Работа с клиентами</CardTitle>
           <CardDescription>
-            Улучшайте коммуникацию через защищённые порталы и уведомления.
+            Защищённые порталы, уведомления и единое окно коммуникации.
           </CardDescription>
         </Card>
         <Card>
           <CardIcon><img src={CircleLayer} alt="Automation" /></CardIcon>
           <CardTitle>Автоматизация</CardTitle>
           <CardDescription>
-            Автоматизируйте рутину с AI, чтобы сосредоточиться на ключевых задачах.
+            Шаблоны документов, рассылки и сценарии AI для рутинных задач.
           </CardDescription>
         </Card>
       </CardGrid>

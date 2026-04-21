@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage.tsx';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
+import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
@@ -62,7 +63,7 @@ function AppRoutes() {
         } />
         
         {/* 404 */}
-        <Route path="*" element={<h1>Страница не найдена</h1>} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </OfficeProvider>
   );

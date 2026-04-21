@@ -1,228 +1,227 @@
 import { useState } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import minusSVG from '../../assets/Header/minus.svg';
-import plusSVG from '../../assets/Header/plus.svg';
-import diva from '../../assets/Header/molot.png';
+import { ChevronDown } from 'lucide-react';
 
-interface Review {
+interface Faq {
   question: string;
   answer: string;
 }
 
-const faqs: Review[] = [
+const faqs: Faq[] = [
   {
     question: 'Что такое автоматизация юридических процессов?',
     answer:
-      'Автоматизация юридических процессов — это использование технологий для упрощения и оптимизации рутинных задач в юридической практике, таких как обработка документов, управление делами и взаимодействие с клиентами.',
+      'Автоматизация юридических процессов — это использование технологий для упрощения и оптимизации рутинных задач в юридической практике: обработка документов, управление делами, взаимодействие с клиентами.',
   },
   {
     question: 'Как автоматизация помогает юристам?',
     answer:
-      'Автоматизация позволяет юристам сократить время на выполнение рутинных задач, таких как составление документов и анализ данных, что позволяет им сосредоточиться на более сложных аспектах своей работы.',
+      'Автоматизация сокращает время на составление документов и анализ данных, позволяя юристам сосредоточиться на стратегических задачах и клиентском сервисе.',
   },
   {
     question: 'Может ли автоматизация заменить юристов?',
     answer:
-      'Хотя автоматизация значительно улучшает эффективность работы юристов, она не предназначена для замены профессионалов. Технологии служат инструментами, которые помогают юристам принимать более обоснованные решения.',
+      'Нет. Технологии — это инструменты, которые помогают юристам принимать более обоснованные решения. Ответственность и экспертиза всегда остаются за специалистом.',
   },
   {
-    question: 'Безопасно ли использовать автоматизированные системы в юриспруденции?',
+    question: 'Безопасно ли использовать LawTech в юриспруденции?',
     answer:
-      'Автоматизированные системы разрабатываются с учетом строгих стандартов безопасности и конфиденциальности. Однако важно помнить, что они должны использоваться как вспомогательные инструменты, а не как самостоятельные решения, и ответственность за юридические решения всегда остается за юристом.',
+      'Мы следуем строгим стандартам безопасности: шифрование, ролевой доступ, аудит действий и соответствие ФЗ-152 и GDPR. Вся чувствительная информация защищена.',
   },
 ];
 
-const slideInTop = keyframes`
-  from { transform: translateY(-100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+const fadeInUp = keyframes`
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 `;
 
-const Container = styled.div`
-  color: var(--color-text);
-  padding: 150px;
-  border-radius: 8px;
-  max-width: 800px;
-  margin: 100px auto;
+const Container = styled.section`
+  width: 100%;
+  max-width: 860px;
+  margin: 120px auto;
+  padding: 0 20px;
   box-sizing: border-box;
-  position: relative;
+  animation: ${fadeInUp} 0.8s var(--ease-out) forwards;
 
   @media (max-width: 768px) {
-    padding: 50px;
-  }
-
-
-  @media (max-width: 375px) {
-    padding: 20px;
+    margin: 80px auto;
   }
 `;
 
-const ImageWrapper = styled.div`
-  position: absolute;
-  top: -150px;
-  left: 50%;
-  transform: translateX(-50%);
+const Tagline = styled.div`
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 auto 14px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+`;
+
+const TagWrap = styled.div`
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 20px;
-  z-index: 1;
-
-  @media (max-width: 768px) {
-    top: -120px;
-    gap: 10px;
-  }
-
-  @media (max-width: 375px) {
-    top: -100px;
-    gap: 8px;
-  }
-`;
-
-const Molot = styled.img`
-  width: 500px;
-  opacity: 0;
-  transition: opacity 0.5s ease, transform 0.5s ease;
-
-  &.animate {
-    animation: ${slideInTop} 1.5s forwards;
-  }
-
-  @media (max-width: 768px) {
-    width: 300px;
-  }
-
-  @media (max-width: 375px) {
-    width: 150px;
-  }
 `;
 
 const Title = styled.h2`
-  font-size: 50px;
-  font-weight: 100;
-  line-height: 40px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.5vw, 52px);
+  font-weight: 800;
+  line-height: 1.08;
   text-align: center;
-  color: var(--color-accent);
+  margin-bottom: 12px;
+  color: var(--color-text);
 
-  @media (max-width: 600px) {
-    font-size: 40px;
-    line-height: 58px;
-  }
-
-  @media (max-width: 375px) {
-    font-size: 32px;
-    line-height: 40px;
-  }
-
-  @media (max-width: 320px) {
-    font-size: 28px;
-    line-height: 34px;
+  em {
+    font-style: normal;
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 `;
 
-const Divider = styled.hr`
-  width: 160px;
-  margin: 40px auto 40px;
-  border: none;
-  border-top: 2px solid var(--color-accent-light);
+const Subtitle = styled.p`
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  max-width: 560px;
+  margin: 0 auto 40px;
+  line-height: 1.55;
 `;
 
 const FaqList = styled.div`
   display: flex;
   flex-direction: column;
-  position: relative;
-  z-index: 2;
+  gap: 12px;
 `;
 
-const FaqItem = styled.div<{ isTop?: boolean }>`
-  padding: 24px 12px;
-  border-top: 1px solid var(--color-border);
-  border-top: ${({ isTop }) => (isTop ? 'none' : '1px solid var(--color-border)')};
-  z-index: 2;
+const FaqItem = styled.div<{ $active: boolean }>`
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid ${({ $active }) => ($active ? 'rgba(212, 175, 55, 0.55)' : 'var(--color-border)')};
+  border-radius: var(--radius-lg);
+  box-shadow: ${({ $active }) => ($active ? 'var(--shadow-lg)' : 'var(--shadow-sm)')};
+  overflow: hidden;
+  transition: all 0.3s var(--ease-out);
 `;
 
-const FaqQuestion = styled.div`
+const FaqQuestion = styled.button`
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 20px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 24px;
-  font-weight: 400;
-  line-height: 24px;
+  gap: 16px;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 600;
   color: var(--color-text);
-  cursor: pointer;
+  transition: color 0.25s var(--ease-out);
 
-  @media (max-width: 375px) {
-    font-size: 18px;
-    line-height: 24px;
+  &:hover {
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 480px) {
+    font-size: 15px;
+    padding: 16px 18px;
   }
 `;
 
-const FaqIcon = styled.img`
-  width: 20px;
-  height: 20px;
+const Chevron = styled.span<{ $active: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: ${({ $active }) => ($active ? 'var(--gradient-gold)' : 'var(--color-bg-alt)')};
+  border: 1px solid ${({ $active }) => ($active ? 'transparent' : 'var(--color-border)')};
+  color: ${({ $active }) => ($active ? '#1a1a1a' : 'var(--color-text-secondary)')};
+  transition: all 0.3s var(--ease-out);
+  transform: rotate(${({ $active }) => ($active ? '180deg' : '0deg')});
+  flex-shrink: 0;
+
+  svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.2;
+  }
 `;
 
-const FaqAnswer = styled.div<{ active: boolean }>`
+const FaqAnswer = styled.div<{ $active: boolean }>`
+  max-height: ${({ $active }) => ($active ? '400px' : '0')};
+  opacity: ${({ $active }) => ($active ? 1 : 0)};
   overflow: hidden;
-  max-height: ${({ active }) => (active ? '600px' : '0')};
-  opacity: ${({ active }) => (active ? '1' : '0')};
-  transform: ${({ active }) => (active ? 'translateY(0)' : 'translateY(-10px)')};
-  transition: max-height 1s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.5s ease,
-    transform 0.5s ease;
+  transition: max-height 0.45s var(--ease-out), opacity 0.3s var(--ease-out);
+  padding: 0 24px;
+
+  @media (max-width: 480px) {
+    padding: 0 18px;
+  }
 `;
 
 const FaqAnswerContent = styled.div`
-  margin-top: 24px;
-  padding: 10px;
-  font-size: 18px;
-  font-weight: 200;
-  line-height: 24px;
-  color: var(--color-muted);
-
-  @media (max-width: 320px) {
-    font-size: 14px;
-    line-height: 22px;
-  }
+  padding: 4px 0 22px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
 `;
 
 const FAQ = () => {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(0);
 
-  const handleMouseEnter = (index: number) => {
-    setActiveIndex(index);
-  };
-
-  const handleMouseLeave = () => {
-    setActiveIndex(null);
+  const toggle = (index: number) => {
+    setActiveIndex((prev) => (prev === index ? null : index));
   };
 
   return (
     <Container id="faq">
-      <ImageWrapper>
-        <Molot src={diva} className="animate" alt="molot" />
-      </ImageWrapper>
-      <Title>Часто задаваемые вопросы</Title>
-      <Divider />
+      <TagWrap>
+        <Tagline>FAQ</Tagline>
+      </TagWrap>
+      <Title>
+        Часто задаваемые <em>вопросы</em>
+      </Title>
+      <Subtitle>
+        Ответы на вопросы, которые чаще всего задают юристы и руководители офисов.
+      </Subtitle>
+
       <FaqList>
-        {faqs.map((faq, index) => (
-          <FaqItem
-            key={index}
-            isTop={index === 0}
-            onMouseEnter={() => handleMouseEnter(index)}
-            onMouseLeave={handleMouseLeave}
-          >
-            <FaqQuestion>
-              {faq.question}
-              <FaqIcon
-                src={activeIndex === index ? minusSVG : plusSVG}
-                alt={activeIndex === index ? 'Свернуть' : 'Развернуть'}
-              />
-            </FaqQuestion>
-            <FaqAnswer active={activeIndex === index}>
-              <FaqAnswerContent>{faq.answer}</FaqAnswerContent>
-            </FaqAnswer>
-          </FaqItem>
-        ))}
+        {faqs.map((faq, index) => {
+          const isActive = activeIndex === index;
+          return (
+            <FaqItem key={index} $active={isActive}>
+              <FaqQuestion
+                onClick={() => toggle(index)}
+                aria-expanded={isActive}
+                aria-controls={`faq-answer-${index}`}
+              >
+                <span>{faq.question}</span>
+                <Chevron $active={isActive} aria-hidden>
+                  <ChevronDown />
+                </Chevron>
+              </FaqQuestion>
+              <FaqAnswer $active={isActive} id={`faq-answer-${index}`}>
+                <FaqAnswerContent>{faq.answer}</FaqAnswerContent>
+              </FaqAnswer>
+            </FaqItem>
+          );
+        })}
       </FaqList>
     </Container>
   );

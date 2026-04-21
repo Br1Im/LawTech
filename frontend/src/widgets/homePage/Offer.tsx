@@ -29,26 +29,25 @@ const InnerContainer = styled.div`
 `;
 
 const Title = styled.h2`
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 1.2;
-  margin-bottom: 16px;
-  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-size: clamp(32px, 4.2vw, 52px);
+  font-weight: 800;
+  line-height: 1.08;
+  margin-bottom: 10px;
   text-align: center;
-
-  @media (max-width: 768px) {
-    font-size: 36px;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 28px;
-  }
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 `;
 
 const Divider = styled.hr`
-  border: none;
-  border-top: 2px solid var(--color-accent-light);
-  margin: 20px 0 40px;
+  width: 80px;
+  height: 3px;
+  border: 0;
+  border-radius: 3px;
+  margin: 14px auto 40px;
+  background: var(--gradient-gold);
 `;
 
 const LoopSlide = styled.div`
@@ -69,27 +68,36 @@ const ReviewsTrack = styled.div`
 `;
 
 const ReviewCard = styled.div`
-  background: var(--color-bg-alt);
-  border-radius: 8px;
-  padding: 16px;
-  width: 300px;
-  min-width: 300px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  width: 320px;
+  min-width: 320px;
   margin: 0 10px;
   box-sizing: border-box;
-  border: 1px solid var(--color-accent-light);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.35s var(--ease-out), border-color 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+
+  &:hover {
+    transform: translateY(-4px);
+    border-color: rgba(212, 175, 55, 0.4);
+    box-shadow: var(--shadow-lg);
+  }
 
   @media (max-width: 768px) {
-    width: 250px;
-    min-width: 250px;
-    padding: 12px;
+    width: 260px;
+    min-width: 260px;
+    padding: 16px;
     margin: 0 8px;
   }
 
   @media (max-width: 480px) {
-    width: 200px;
-    min-width: 200px;
-    padding: 10px;
+    width: 220px;
+    min-width: 220px;
+    padding: 14px;
     margin: 0 6px;
   }
 `;
@@ -103,12 +111,13 @@ const ReviewCardHeader = styled.div`
 `;
 
 const ReviewAuthor = styled.p`
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-text);
+  letter-spacing: -0.01em;
 
   @media (max-width: 768px) {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   @media (max-width: 480px) {
@@ -118,16 +127,16 @@ const ReviewAuthor = styled.p`
 
 const ReviewText = styled.p`
   font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-muted);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
 
   @media (max-width: 768px) {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   @media (max-width: 480px) {
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 12px;
+    line-height: 1.5;
   }
 `;
 
@@ -232,9 +241,9 @@ const Offer = () => {
   };
 
   return (
-    <ReviewsContainer id="advantages">
+    <ReviewsContainer id="offer">
       <InnerContainer>
-        <Title>Что мы предлагаем:</Title>
+        <Title>Что мы предлагаем</Title>
         <Divider />
       </InnerContainer>
       <LoopSlide>

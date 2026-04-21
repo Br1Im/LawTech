@@ -37,20 +37,20 @@ const Content = styled.div`
 `;
 
 const Title = styled.h2`
+  font-family: var(--font-display);
   text-align: center;
-  font-size: 42px;
+  font-size: clamp(30px, 4vw, 46px);
   font-weight: 800;
-  background: linear-gradient(135deg, #d4af37 0%, #f5d97b 50%, #d4af37 100%);
+  background: var(--gradient-gold);
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 60px;
-  animation: ${shimmer} 3s linear infinite;
+  margin-bottom: 48px;
+  animation: ${shimmer} 4s linear infinite;
 
   @media (max-width: 768px) {
-    font-size: 32px;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
   }
 `;
 
@@ -72,14 +72,17 @@ const StatsGrid = styled.div`
 
 const StatCard = styled.div`
   text-align: center;
-  padding: 40px 20px;
-  background: var(--color-bg-alt);
-  border-radius: 20px;
-  border: 2px solid transparent;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 36px 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
   position: relative;
   overflow: hidden;
-  animation: ${fadeIn} 0.8s ease forwards;
+  animation: ${fadeIn} 0.8s var(--ease-out) forwards;
 
   &::before {
     content: '';
@@ -87,16 +90,16 @@ const StatCard = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #d4af37, #f5d97b, #d4af37);
+    height: 3px;
+    background: var(--gradient-gold);
     background-size: 200% auto;
     animation: ${shimmer} 3s linear infinite;
   }
 
   &:hover {
-    transform: translateY(-10px);
-    border-color: #d4af37;
-    box-shadow: 0 20px 40px rgba(212, 175, 55, 0.2);
+    transform: translateY(-8px);
+    border-color: rgba(212, 175, 55, 0.45);
+    box-shadow: var(--shadow-lg);
   }
 
   @media (max-width: 768px) {
@@ -105,50 +108,57 @@ const StatCard = styled.div`
 `;
 
 const StatIcon = styled.div`
-  margin-bottom: 20px;
-  display: flex;
+  margin: 0 auto 18px;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  animation: ${pulse} 2s ease-in-out infinite;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--gradient-gold);
+  color: #1a1a1a;
+  box-shadow: 0 10px 24px rgba(212, 175, 55, 0.3);
+  animation: ${pulse} 2.4s ease-in-out infinite;
 
   svg {
-    width: 48px;
-    height: 48px;
-    color: #d4af37;
+    width: 28px;
+    height: 28px;
+    stroke-width: 2.2;
   }
 
   @media (max-width: 768px) {
-    margin-bottom: 15px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 14px;
     svg {
-      width: 40px;
-      height: 40px;
+      width: 24px;
+      height: 24px;
     }
   }
 `;
 
 const StatNumber = styled.div`
-  font-size: 48px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4vw, 46px);
   font-weight: 800;
-  background: linear-gradient(135deg, #d4af37, #f5d97b);
+  background: var(--gradient-gold);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 10px;
-  font-family: 'Arial', sans-serif;
-
-  @media (max-width: 768px) {
-    font-size: 36px;
-  }
+  line-height: 1;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
 `;
 
 const StatLabel = styled.div`
-  font-size: 16px;
-  color: var(--color-muted);
-  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.1em;
 
   @media (max-width: 768px) {
-    font-size: 14px;
+    font-size: 12px;
   }
 `;
 
