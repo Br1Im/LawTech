@@ -9,7 +9,7 @@ const db = require('../db');
 // Обработчик для регистрации новых пользователей
 const register = async (req, res) => {
     try {
-        const { name, email, password, userType, officeType, officeId } = req.body;
+        const { name, email, password, userType, officeType, officeId, officeName } = req.body;
 
         if (!name || !email || !password || !userType) {
             return res.status(400).json({ 
@@ -28,17 +28,30 @@ const register = async (req, res) => {
         // Хешируем пароль
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Определяем office_id
+        // Определяем office_id и итоговую роль
         let finalOfficeId = null;
-        if (userType === 'office' && officeType === 'existing' && officeId) {
-            finalOfficeId = officeId;
+        let finalRole = userType;
+
+        if (userType === 'office') {
+            if (officeType === 'existing' && officeId) {
+                finalOfficeId = officeId;
+            } else {
+                // Создаём новый пустой офис для новой регистрации
+                const newOfficeName = (officeName && String(officeName).trim()) || `${name} Офис`;
+                const [officeResult] = await db.query(
+                    `INSERT INTO offices (name, created_at, updated_at) VALUES (?, NOW(), NOW())`,
+                    [newOfficeName]
+                );
+                finalOfficeId = officeResult.insertId;
+                finalRole = 'director';
+            }
         }
 
         // Создаем нового пользователя в БД
         const [result] = await db.query(`
             INSERT INTO users (first_name, last_name, email, password, office_id, role, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-        `, [name, '', email, hashedPassword, finalOfficeId, userType]);
+        `, [name, '', email, hashedPassword, finalOfficeId, finalRole]);
 
         const newUserId = result.insertId;
 
@@ -47,7 +60,8 @@ const register = async (req, res) => {
             { 
                 id: newUserId, 
                 email: email,
-                role: userType 
+                role: finalRole,
+                office_id: finalOfficeId
             }, 
             config.JWT_SECRET, 
             { 
@@ -61,7 +75,7 @@ const register = async (req, res) => {
             first_name: name,
             last_name: '',
             email: email,
-            role: userType,
+            role: finalRole,
             office_id: finalOfficeId
         };
         

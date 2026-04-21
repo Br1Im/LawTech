@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styled from '@emotion/styled';
+import { keyframes } from '@emotion/react';
 import { useNavigate } from 'react-router-dom';
 import {
   SearchOutlined,
@@ -9,6 +10,8 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
+  MenuOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { Badge, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
@@ -20,6 +23,7 @@ interface CrmTopbarProps {
   activeTab?: string;
   onSearch?: (query: string) => void;
   onNotificationClick?: () => void;
+  onMenuClick?: () => void;
   unreadCount?: number;
   user?: {
     name?: string;
@@ -34,7 +38,23 @@ interface CrmTopbarProps {
   sidebarOffset?: number;
 }
 
-const Bar = styled.header<{ offset: number }>`
+const pulse = keyframes`
+  0%   { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(255, 69, 58, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
+`;
+
+const slideDown = keyframes`
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const spin = keyframes`
+  from { transform: rotate(0deg) scale(0.6); opacity: 0; }
+  to   { transform: rotate(360deg) scale(1); opacity: 1; }
+`;
+
+const Bar = styled.header<{ offset: number; scrolled: boolean }>`
   position: sticky;
   top: 0;
   left: 0;
@@ -44,16 +64,43 @@ const Bar = styled.header<{ offset: number }>`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 20px;
+  padding: ${({ scrolled }) => (scrolled ? '10px 20px' : '14px 20px')};
   background: var(--glass-bg);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(${({ scrolled }) => (scrolled ? '18px' : '14px')}) saturate(140%);
+  -webkit-backdrop-filter: blur(${({ scrolled }) => (scrolled ? '18px' : '14px')}) saturate(140%);
   border-bottom: 1px solid var(--glass-border);
-  transition: background 0.3s ease, border-color 0.3s ease;
+  box-shadow: ${({ scrolled }) => (scrolled ? '0 8px 24px rgba(15,23,42,0.06)' : 'none')};
+  transition: padding 0.3s var(--ease-out), background 0.3s var(--ease-out),
+              border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out),
+              backdrop-filter 0.3s var(--ease-out);
+  animation: ${slideDown} 0.4s var(--ease-out);
 
   @media (max-width: 768px) {
     padding: 10px 14px;
+    gap: 10px;
   }
+`;
+
+const MenuBtn = styled.button`
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out);
+  flex-shrink: 0;
+
+  &:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 900px) { display: inline-flex; }
 `;
 
 const Heading = styled.div`
@@ -103,13 +150,14 @@ const SearchWrap = styled.div<{ focused: boolean }>`
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  width: ${({ focused }) => (focused ? '340px' : '280px')};
-  max-width: 40vw;
+  width: ${({ focused }) => (focused ? '360px' : '280px')};
+  max-width: 42vw;
   border-radius: var(--radius-pill);
   background: var(--color-bg-alt);
   border: 1px solid ${({ focused }) => (focused ? 'var(--color-accent)' : 'var(--glass-border)')};
-  transition: all 0.25s var(--ease-out);
-  box-shadow: ${({ focused }) => (focused ? '0 0 0 3px rgba(192,155,70,0.12)' : 'none')};
+  transition: width 0.3s var(--ease-out), border-color 0.25s var(--ease-out),
+              box-shadow 0.25s var(--ease-out), background 0.25s var(--ease-out);
+  box-shadow: ${({ focused }) => (focused ? '0 0 0 4px rgba(192,155,70,0.14)' : 'none')};
 
   input {
     flex: 1;
@@ -122,15 +170,43 @@ const SearchWrap = styled.div<{ focused: boolean }>`
     color: var(--color-text);
   }
   input::placeholder { color: var(--color-muted); }
-  svg { color: var(--color-muted); }
+  svg { color: ${({ focused }) => (focused ? 'var(--color-accent)' : 'var(--color-muted)')}; transition: color 0.2s var(--ease-out); }
 
   @media (max-width: 900px) {
-    width: ${({ focused }) => (focused ? '260px' : '180px')};
+    width: ${({ focused }) => (focused ? '240px' : '180px')};
   }
   @media (max-width: 640px) { display: none; }
 `;
 
-const IconBtn = styled.button`
+const MobileSearchBar = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  padding: 10px 14px 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid var(--glass-border);
+  animation: ${slideDown} 0.25s var(--ease-out);
+  display: none;
+
+  &.open { display: block; }
+
+  input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-accent);
+    background: var(--color-bg-alt);
+    color: var(--color-text);
+    font-size: 14px;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(192,155,70,0.14);
+  }
+`;
+
+const IconBtn = styled.button<{ pulsing?: boolean }>`
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -143,6 +219,7 @@ const IconBtn = styled.button`
   color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s var(--ease-out);
+  overflow: visible;
 
   &:hover {
     border-color: var(--color-accent);
@@ -150,6 +227,34 @@ const IconBtn = styled.button`
     transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(192,155,70,0.18);
   }
+
+  &:active { transform: translateY(0) scale(0.97); }
+
+  ${({ pulsing }) => pulsing && `
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border-radius: 50%;
+      animation: ${pulse.name} 2s ease-out infinite;
+      pointer-events: none;
+    }
+  `}
+
+  .theme-icon {
+    display: inline-flex;
+    animation: ${spin} 0.45s var(--ease-out);
+  }
+
+  @media (max-width: 768px) {
+    width: 36px;
+    height: 36px;
+  }
+`;
+
+const MobileSearchBtn = styled(IconBtn)`
+  display: none;
+  @media (max-width: 640px) { display: inline-flex; }
 `;
 
 const UserPill = styled.button`
@@ -215,6 +320,7 @@ const CrmTopbar: React.FC<CrmTopbarProps> = ({
   activeTab,
   onSearch,
   onNotificationClick,
+  onMenuClick,
   unreadCount = 0,
   user,
   isMobile,
@@ -224,12 +330,21 @@ const CrmTopbar: React.FC<CrmTopbarProps> = ({
   const { mode, toggle } = useThemeMode();
   const [focused, setFocused] = useState(false);
   const [query, setQuery] = useState('');
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const id = setTimeout(() => onSearch?.(query), 250);
     return () => clearTimeout(id);
   }, [query, onSearch]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const firstName = (user?.first_name || user?.name || '').trim();
   const lastName = (user?.last_name || user?.surname || '').trim();
@@ -253,7 +368,12 @@ const CrmTopbar: React.FC<CrmTopbarProps> = ({
   ];
 
   return (
-    <Bar offset={sidebarOffset}>
+    <Bar offset={sidebarOffset} scrolled={scrolled}>
+      {onMenuClick && (
+        <MenuBtn onClick={onMenuClick} aria-label="Меню">
+          <MenuOutlined />
+        </MenuBtn>
+      )}
       <Heading>
         <Title>{title || activeTab || 'CRM'}</Title>
         <Subtitle>{subtitle || 'LawTech — рабочее пространство юриста'}</Subtitle>
@@ -273,11 +393,20 @@ const CrmTopbar: React.FC<CrmTopbarProps> = ({
           </SearchWrap>
         )}
 
+        <MobileSearchBtn
+          title="Поиск"
+          onClick={() => setMobileSearchOpen((v) => !v)}
+        >
+          {mobileSearchOpen ? <CloseOutlined /> : <SearchOutlined />}
+        </MobileSearchBtn>
+
         <IconBtn title={mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'} onClick={toggle}>
-          {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+          <span key={mode} className="theme-icon">
+            {mode === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+          </span>
         </IconBtn>
 
-        <IconBtn title="Уведомления" onClick={onNotificationClick}>
+        <IconBtn title="Уведомления" onClick={onNotificationClick} pulsing={unreadCount > 0}>
           <Badge count={unreadCount} size="small" offset={[-2, 2]}>
             <BellOutlined style={{ fontSize: 16 }} />
           </Badge>
@@ -295,6 +424,16 @@ const CrmTopbar: React.FC<CrmTopbarProps> = ({
           </UserPill>
         </Dropdown>
       </ControlsRow>
+
+      <MobileSearchBar className={mobileSearchOpen ? 'open' : ''}>
+        <input
+          type="text"
+          placeholder="Поиск…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          autoFocus={mobileSearchOpen}
+        />
+      </MobileSearchBar>
     </Bar>
   );
 };

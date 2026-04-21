@@ -54,13 +54,18 @@ const { seedDefaultUsers } = require('./scripts/seed_default_users');
 // Функция для проверки и создания необходимых полей в БД
 const checkAndCreateDatabaseFields = async () => {
   console.log('✅ Пропускаем проверку БД - используем миграции');
-  
-  // Создаем тестовые аккаунты
-  try {
-    console.log('👤 Создание тестовых аккаунтов...');
-    await seedDefaultUsers();
-  } catch (userError) {
-    console.error('❌ Ошибка при создании тестовых аккаунтов:', userError);
+
+  // Тестовые аккаунты создаются только если явно включено через SEED_TEST_USERS=true.
+  // В обычном режиме новые пользователи регистрируются сами, данные пустые.
+  if (process.env.SEED_TEST_USERS === 'true') {
+    try {
+      console.log('👤 SEED_TEST_USERS=true — создаём тестовые аккаунты...');
+      await seedDefaultUsers();
+    } catch (userError) {
+      console.error('❌ Ошибка при создании тестовых аккаунтов:', userError);
+    }
+  } else {
+    console.log('ℹ️  SEED_TEST_USERS не установлен — пропускаем посев тестовых аккаунтов');
   }
 };
 
@@ -160,16 +165,6 @@ app.listen(PORT, '0.0.0.0', async () => {
   
   // Проверка и создание необходимых полей в БД
   await checkAndCreateDatabaseFields();
-  
-  // Создаем тестовые аккаунты
-  try {
-    console.log('👤 Создание тестовых аккаунтов...');
-    const { seedDefaultUsers } = require('./scripts/seed_default_users');
-    await seedDefaultUsers();
-    console.log('✅ Тестовые аккаунты созданы успешно');
-  } catch (error) {
-    console.error('❌ Ошибка при создании тестовых аккаунтов:', error);
-  }
   
   // Инициализируем векторный поиск
   console.log('Initializing vector search...');
