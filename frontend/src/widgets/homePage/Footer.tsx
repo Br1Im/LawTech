@@ -192,7 +192,7 @@ const Footer = () => {
         <div>
           <ColTitle>Продукт</ColTitle>
           <ColLinks>
-            <li><ColLink href="#how-it-works">Инновации</ColLink></li>
+            <li><ColLink href="#advantages">Инновации</ColLink></li>
             <li><ColLink href="#advantages">Преимущества</ColLink></li>
             <li><ColLink href="#faq">FAQ</ColLink></li>
             <li><ColLink as={Link} to="/auth">Начать</ColLink></li>

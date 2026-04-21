@@ -1,10 +1,12 @@
 import Header from '../widgets/homePage/Header';
 import HeroSection from '../widgets/homePage/HeroSection';
-import InteractiveFeatures from '../widgets/homePage/InteractiveFeatures';
+import LogoStrip from '../widgets/homePage/LogoStrip';
+import ProductShowcase from '../widgets/homePage/FeaturesSection';
+import BentoFeatures from '../widgets/homePage/InteractiveFeatures';
 import AnimatedStats from '../widgets/homePage/AnimatedStats';
-import FeaturesSection from '../widgets/homePage/FeaturesSection';
-import Offer from '../widgets/homePage/Offer';
+import Testimonials from '../widgets/homePage/Offer';
 import FAQ from '../widgets/homePage/FAQ';
+import FinalCTA from '../widgets/homePage/FinalCTA';
 import Footer from '../widgets/homePage/Footer';
 import ThemeToggle from '../components/ui/ThemeToggle';
 import styled from '@emotion/styled';
@@ -81,11 +83,13 @@ const Home = () => {
 
       <Header />
       <HeroSection />
+      <LogoStrip />
+      <ProductShowcase />
+      <BentoFeatures />
       <AnimatedStats />
-      <InteractiveFeatures />
-      <FeaturesSection />
-      <Offer />
+      <Testimonials />
       <FAQ />
+      <FinalCTA />
       <Footer />
       <ThemeToggle />
     </LandingMainContainer>

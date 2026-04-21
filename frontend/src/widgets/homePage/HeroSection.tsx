@@ -1,73 +1,79 @@
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
-import Femida from '../../assets/Header/Femida.png';
 import { Link } from 'react-router-dom';
-import { Sparkles, ShieldCheck, Cpu, Lock } from 'lucide-react';
+import {
+  Sparkles,
+  ShieldCheck,
+  Cpu,
+  Lock,
+  Search,
+  Users,
+  Briefcase,
+  BarChart3,
+  CheckCircle2,
+  Bot,
+  MessageCircle,
+  FileText,
+} from 'lucide-react';
 
 const fadeInUp = keyframes`
   from { opacity: 0; transform: translateY(24px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
 
-const float = keyframes`
+const floatY = keyframes`
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-18px); }
+  50%      { transform: translateY(-10px); }
 `;
 
-const rotate = keyframes`
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to   { transform: translate(-50%, -50%) rotate(360deg); }
+const pulseRing = keyframes`
+  0%   { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.45); }
+  70%  { box-shadow: 0 0 0 18px rgba(212, 175, 55, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); }
 `;
 
-const pulse = keyframes`
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
-  50%      { transform: translate(-50%, -50%) scale(1.06); opacity: 0.6; }
+const typing = keyframes`
+  0%   { width: 0; }
+  60%  { width: 100%; }
+  100% { width: 100%; }
 `;
 
-const shimmer = keyframes`
-  0%   { background-position: -1000px 0; }
-  100% { background-position: 1000px 0; }
-`;
-
-const SectionWrap = styled.section`
+const Section = styled.section`
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: 0 20px;
+  padding: 0 24px;
   position: relative;
   z-index: 1;
 `;
 
-const ContentWrapper = styled.div`
-  max-width: 1200px;
+const Inner = styled.div`
+  max-width: 1240px;
   width: 100%;
-  margin-top: 160px;
+  margin-top: 140px;
   margin-bottom: 60px;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1fr 1fr;
   gap: 40px;
   align-items: center;
   box-sizing: border-box;
 
-  @media (max-width: 960px) {
+  @media (max-width: 1024px) {
     grid-template-columns: 1fr;
     margin-top: 120px;
-    text-align: center;
-    gap: 24px;
+    gap: 48px;
   }
 
   @media (max-width: 768px) {
     margin-top: 100px;
-    padding: 0 10px;
   }
 `;
 
-const TextContent = styled.div`
-  animation: ${fadeInUp} 0.9s var(--ease-out) 0.1s forwards;
-  opacity: 0;
+const TextColumn = styled.div`
+  animation: ${fadeInUp} 0.9s var(--ease-out) 0.05s both;
 `;
 
-const Tagline = styled.div`
+const Eyebrow = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -75,67 +81,54 @@ const Tagline = styled.div`
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: var(--color-accent-dark);
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: var(--radius-pill);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  margin-bottom: 20px;
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.18);
-  position: relative;
-  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 22px;
+  border: 1px solid rgba(212, 175, 55, 0.4);
 
   svg {
     width: 14px;
     height: 14px;
     color: var(--color-accent);
   }
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
-    background-size: 1000px 100%;
-    animation: ${shimmer} 4s linear infinite;
-    pointer-events: none;
-  }
 `;
 
 const Title = styled.h1`
   font-family: var(--font-display);
-  font-size: clamp(40px, 6vw, 68px);
+  font-size: clamp(44px, 6.5vw, 86px);
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  margin-bottom: 20px;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  margin-bottom: 22px;
   color: var(--color-text);
 
   em {
-    font-style: normal;
+    font-style: italic;
     background: var(--gradient-gold);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    display: inline-block;
   }
 `;
 
 const Subtitle = styled.p`
-  font-size: 18px;
+  font-size: 19px;
   color: var(--color-text-secondary);
-  max-width: 520px;
+  max-width: 540px;
   margin-bottom: 32px;
   line-height: 1.55;
 
-  @media (max-width: 960px) {
-    margin-left: auto;
-    margin-right: auto;
+  strong {
+    color: var(--color-text);
+    font-weight: 600;
   }
 
   @media (max-width: 480px) {
-    font-size: 16px;
+    font-size: 17px;
   }
 `;
 
@@ -144,28 +137,22 @@ const Actions = styled.div`
   gap: 14px;
   flex-wrap: wrap;
   align-items: center;
-
-  @media (max-width: 960px) {
-    justify-content: center;
-  }
 `;
 
-const GetStartedButton = styled(Link)`
+const PrimaryCta = styled(Link)`
   background: var(--gradient-gold);
   background-size: 200% auto;
   color: #fff;
-  border: none;
-  padding: 15px 30px;
+  padding: 16px 32px;
   border-radius: var(--radius-pill);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s var(--ease-out);
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  box-shadow: 0 10px 28px rgba(212, 175, 55, 0.35);
+  gap: 10px;
+  box-shadow: 0 14px 32px rgba(212, 175, 55, 0.38);
+  transition: all 0.3s var(--ease-out);
   position: relative;
   overflow: hidden;
 
@@ -176,14 +163,14 @@ const GetStartedButton = styled(Link)`
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
     transition: left 0.6s var(--ease-out);
   }
 
   &:hover {
     transform: translateY(-3px);
     background-position: right center;
-    box-shadow: 0 16px 36px rgba(212, 175, 55, 0.45);
+    box-shadow: 0 20px 40px rgba(212, 175, 55, 0.5);
   }
 
   &:hover::before {
@@ -191,11 +178,8 @@ const GetStartedButton = styled(Link)`
   }
 `;
 
-const SecondaryButton = styled.a`
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 26px;
+const SecondaryCta = styled.a`
+  padding: 15px 28px;
   border-radius: var(--radius-pill);
   font-size: 15px;
   font-weight: 600;
@@ -204,8 +188,10 @@ const SecondaryButton = styled.a`
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--color-border-strong);
-  cursor: pointer;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   transition: all 0.3s var(--ease-out);
 
   &:hover {
@@ -215,16 +201,14 @@ const SecondaryButton = styled.a`
   }
 `;
 
-const TrustBadges = styled.div`
+const Trust = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 10px;
   margin-top: 28px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
 
-  @media (max-width: 960px) {
-    justify-content: center;
+  @media (max-width: 768px) {
+    gap: 8px;
   }
 `;
 
@@ -236,6 +220,8 @@ const Badge = styled.div`
   background: var(--glass-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: var(--color-text-secondary);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 
@@ -246,251 +232,491 @@ const Badge = styled.div`
   }
 `;
 
-const StatsContainer = styled.div`
-  display: flex;
-  gap: 40px;
-  margin-top: 40px;
-  animation: ${fadeInUp} 0.9s var(--ease-out) 0.5s forwards;
-  opacity: 0;
-  border-top: 1px solid var(--color-border);
-  padding-top: 28px;
+/* ---------- Right side: CRM preview mockup ---------- */
 
-  @media (max-width: 960px) {
-    justify-content: center;
-    gap: 28px;
-  }
-
-  @media (max-width: 480px) {
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-  }
-`;
-
-const StatItem = styled.div`
-  text-align: left;
-
-  @media (max-width: 960px) {
-    text-align: center;
-  }
-`;
-
-const StatNumber = styled.div`
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 800;
-  background: var(--gradient-gold);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  line-height: 1;
-  margin-bottom: 6px;
-`;
-
-const StatLabel = styled.div`
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-`;
-
-const ImageWrapper = styled.div`
+const PreviewColumn = styled.div`
   position: relative;
-  width: 100%;
-  height: 520px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: ${fadeInUp} 1s var(--ease-out) 0.3s forwards;
-  opacity: 0;
-
-  @media (max-width: 960px) {
-    height: 400px;
-  }
-
-  @media (max-width: 480px) {
-    height: 320px;
-  }
+  animation: ${fadeInUp} 1s var(--ease-out) 0.25s both;
 `;
 
-const BgGlow = styled.div`
+const PreviewGlow = styled.div`
   position: absolute;
   top: 50%;
   left: 50%;
   width: 620px;
   height: 620px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.28), transparent 65%);
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.22), transparent 62%);
   border-radius: 50%;
   z-index: 0;
-  animation: ${pulse} 4.5s ease-in-out infinite;
+  filter: blur(10px);
+  pointer-events: none;
 
-  @media (max-width: 960px) {
-    width: 440px;
-    height: 440px;
-  }
-
-  @media (max-width: 480px) {
-    width: 360px;
-    height: 360px;
+  @media (max-width: 1024px) {
+    width: 520px;
+    height: 520px;
   }
 `;
 
-const RotatingRing = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 480px;
-  height: 480px;
-  border: 1px dashed rgba(212, 175, 55, 0.45);
-  border-radius: 50%;
-  z-index: 0;
-  animation: ${rotate} 32s linear infinite;
-
-  @media (max-width: 960px) {
-    width: 360px;
-    height: 360px;
-  }
-
-  @media (max-width: 480px) {
-    width: 300px;
-    height: 300px;
-  }
-`;
-
-const ImageCard = styled.div`
+const Preview = styled.div`
   position: relative;
-  z-index: 2;
-  width: 360px;
-  height: 360px;
-  border-radius: 28px;
+  z-index: 1;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  border-radius: 22px;
   background: var(--glass-bg-strong);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(212, 175, 55, 0.45);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(212, 175, 55, 0.35);
   box-shadow:
-    0 30px 80px rgba(212, 175, 55, 0.25),
-    0 8px 28px rgba(15, 23, 42, 0.15),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    0 40px 100px rgba(15, 23, 42, 0.22),
+    0 20px 40px rgba(212, 175, 55, 0.15),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
   overflow: hidden;
+  animation: ${floatY} 7s ease-in-out infinite;
+
+  [data-theme='dark'] & {
+    box-shadow:
+      0 40px 100px rgba(0, 0, 0, 0.6),
+      0 20px 40px rgba(212, 175, 55, 0.18),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+`;
+
+const WindowBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.5);
+
+  [data-theme='dark'] & {
+    background: rgba(20, 20, 22, 0.5);
+  }
+`;
+
+const Dot = styled.span<{ $color: string }>`
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: ${(p) => p.$color};
+`;
+
+const SearchPill = styled.div`
+  margin-left: 10px;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--color-muted);
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+`;
+
+const PreviewBody = styled.div`
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  min-height: 360px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 56px 1fr;
+  }
+`;
+
+const Side = styled.aside`
+  background: rgba(255, 255, 255, 0.35);
+  border-right: 1px solid var(--color-border);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  [data-theme='dark'] & {
+    background: rgba(15, 15, 18, 0.45);
+  }
+`;
+
+const SideItem = styled.div<{ $active?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: ${(p) => (p.$active ? 600 : 500)};
+  color: ${(p) => (p.$active ? '#1a1a1a' : 'var(--color-text-secondary)')};
+  background: ${(p) =>
+    p.$active ? 'var(--gradient-gold)' : 'transparent'};
+  box-shadow: ${(p) => (p.$active ? '0 6px 14px rgba(212, 175, 55, 0.35)' : 'none')};
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    justify-content: center;
+    span {
+      display: none;
+    }
+  }
+`;
+
+const Main = styled.div`
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const Heading = styled.div`
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text);
+`;
+
+const Pill = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+`;
+
+const ClientCard = styled.div`
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  transition: transform 0.25s var(--ease-out), border-color 0.25s var(--ease-out);
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: rgba(212, 175, 55, 0.4);
+  }
+`;
+
+const Avatar = styled.div<{ $bg: string }>`
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: ${(p) => p.$bg};
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  animation: ${float} 6s ease-in-out infinite;
+  font-weight: 700;
+  font-size: 13px;
+`;
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
+const ClientInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .case {
+    font-size: 11px;
+    color: var(--color-muted);
+  }
+`;
+
+const Status = styled.span<{ $color: 'green' | 'gold' | 'blue' }>`
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: ${({ $color }) =>
+    $color === 'green'
+      ? 'rgba(48, 209, 88, 0.15)'
+      : $color === 'gold'
+      ? 'rgba(212, 175, 55, 0.18)'
+      : 'rgba(10, 132, 255, 0.15)'};
+  color: ${({ $color }) =>
+    $color === 'green'
+      ? '#1e8a3a'
+      : $color === 'gold'
+      ? 'var(--color-accent-dark)'
+      : '#0a6fc2'};
+`;
+
+const ChatBubble = styled.div`
+  background: rgba(212, 175, 55, 0.12);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  color: var(--color-text);
+  line-height: 1.45;
+
+  .icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
     background: var(--gradient-gold);
-    opacity: 0.7;
-    z-index: -1;
-    filter: blur(18px);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg {
+      width: 14px;
+      height: 14px;
+      color: #1a1a1a;
+    }
   }
 
-  @media (max-width: 960px) {
-    width: 300px;
-    height: 300px;
-  }
-
-  @media (max-width: 480px) {
-    width: 240px;
-    height: 240px;
-  }
-`;
-
-const HeroImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: transform 0.4s var(--ease-out);
-
-  ${ImageCard}:hover & {
-    transform: scale(1.04);
+  .text {
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 2px solid var(--color-accent);
+    animation: ${typing} 5s steps(30, end) infinite alternate;
   }
 `;
 
-const OrbitingDot = styled.div<{ $delay: string; $radius: string; $duration: string }>`
+const FloatingStat = styled.div`
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: ${(p) => p.$radius};
-  height: ${(p) => p.$radius};
-  animation: ${rotate} ${(p) => p.$duration} linear infinite;
-  animation-delay: ${(p) => p.$delay};
-  transform-origin: center center;
-  z-index: 1;
-  pointer-events: none;
+  left: -14px;
+  top: 36%;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 148px;
+  animation: ${pulseRing} 2.6s infinite;
 
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
+  .label {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+  }
+
+  .value {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 800;
     background: var(--gradient-gold);
-    box-shadow: 0 0 14px rgba(212, 175, 55, 0.75);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .delta {
+    font-size: 11px;
+    color: #1e8a3a;
+    font-weight: 600;
+  }
+
+  @media (max-width: 560px) {
+    display: none;
+  }
+`;
+
+const FloatingCheck = styled.div`
+  position: absolute;
+  right: -14px;
+  bottom: 48px;
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(48, 209, 88, 0.18);
+    color: #1e8a3a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    svg { width: 18px; height: 18px; }
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+
+    .title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    .sub {
+      font-size: 11px;
+      color: var(--color-muted);
+    }
+  }
+
+  @media (max-width: 560px) {
+    display: none;
   }
 `;
 
 const HeroSection = () => {
   return (
-    <SectionWrap>
-      <ContentWrapper>
-        <TextContent>
-          <Tagline>
-            <Sparkles /> Автоматизируйте работу юридического офиса
-          </Tagline>
+    <Section>
+      <Inner>
+        <TextColumn>
+          <Eyebrow>
+            <Sparkles /> Юридический AI · LawTech
+          </Eyebrow>
           <Title>
-            CRM для юристов. <br />
-            <em>Будущее управления</em> делами.
+            Ваш юридический офис&nbsp;— на <em>автопилоте</em>
           </Title>
           <Subtitle>
-            Современная AI-платформа для юридических компаний: клиенты, дела, документы
-            и аналитика — всё в одном месте.
+            CRM с AI-ассистентом, который <strong>сам</strong> находит документы,
+            отслеживает сроки и готовит черновики — чтобы юристы занимались
+            юриспруденцией, а не таблицами.
           </Subtitle>
           <Actions>
-            <GetStartedButton to="/auth">Попробовать бесплатно →</GetStartedButton>
-            <SecondaryButton href="#how-it-works">Как это работает</SecondaryButton>
+            <PrimaryCta to="/auth">
+              Попробовать бесплатно →
+            </PrimaryCta>
+            <SecondaryCta href="#product">
+              Как это работает
+            </SecondaryCta>
           </Actions>
-          <TrustBadges>
+          <Trust>
             <Badge><ShieldCheck /> ФЗ-152 · GDPR</Badge>
-            <Badge><Cpu /> AI-поиск · FAISS</Badge>
-            <Badge><Lock /> Шифрование end-to-end</Badge>
-          </TrustBadges>
+            <Badge><Cpu /> Llama 3.1 · FAISS</Badge>
+            <Badge><Lock /> End-to-end шифрование</Badge>
+          </Trust>
+        </TextColumn>
 
-          <StatsContainer>
-            <StatItem>
-              <StatNumber>500+</StatNumber>
-              <StatLabel>Довольных клиентов</StatLabel>
-            </StatItem>
-            <StatItem>
-              <StatNumber>10K+</StatNumber>
-              <StatLabel>Обработанных дел</StatLabel>
-            </StatItem>
-            <StatItem>
-              <StatNumber>99%</StatNumber>
-              <StatLabel>Удовлетворённость</StatLabel>
-            </StatItem>
-          </StatsContainer>
-        </TextContent>
+        <PreviewColumn>
+          <PreviewGlow />
+          <Preview>
+            <WindowBar>
+              <Dot $color="#ff5f57" />
+              <Dot $color="#febc2e" />
+              <Dot $color="#28c840" />
+              <SearchPill>
+                <Search /> app.lawtech.ai / dashboard
+              </SearchPill>
+            </WindowBar>
 
-        <ImageWrapper>
-          <BgGlow />
-          <RotatingRing />
-          <OrbitingDot $delay="0s" $radius="440px" $duration="26s" />
-          <OrbitingDot $delay="-9s" $radius="380px" $duration="32s" />
-          <OrbitingDot $delay="-18s" $radius="500px" $duration="40s" />
-          <ImageCard>
-            <HeroImage src={Femida} alt="Femida" />
-          </ImageCard>
-        </ImageWrapper>
-      </ContentWrapper>
-    </SectionWrap>
+            <PreviewBody>
+              <Side>
+                <SideItem $active>
+                  <Users /> <span>Клиенты</span>
+                </SideItem>
+                <SideItem>
+                  <Briefcase /> <span>Дела</span>
+                </SideItem>
+                <SideItem>
+                  <FileText /> <span>Документы</span>
+                </SideItem>
+                <SideItem>
+                  <MessageCircle /> <span>AI-чат</span>
+                </SideItem>
+                <SideItem>
+                  <BarChart3 /> <span>Аналитика</span>
+                </SideItem>
+              </Side>
+
+              <Main>
+                <Row>
+                  <Heading>Активные дела</Heading>
+                  <Pill>12 активных</Pill>
+                </Row>
+
+                <ClientCard>
+                  <Avatar $bg="linear-gradient(135deg,#d4af37,#a07c28)">АИ</Avatar>
+                  <ClientInfo>
+                    <span className="name">ИП «Андреев и партнёры»</span>
+                    <span className="case">Налоговый спор · №2025-014</span>
+                  </ClientInfo>
+                  <Status $color="green">В работе</Status>
+                </ClientCard>
+
+                <ClientCard>
+                  <Avatar $bg="linear-gradient(135deg,#0a84ff,#2997ff)">ОК</Avatar>
+                  <ClientInfo>
+                    <span className="name">ООО «Квант-Групп»</span>
+                    <span className="case">Регистрация ТЗ · №2025-021</span>
+                  </ClientInfo>
+                  <Status $color="gold">Ожидает</Status>
+                </ClientCard>
+
+                <ClientCard>
+                  <Avatar $bg="linear-gradient(135deg,#30d158,#0a8f3c)">СМ</Avatar>
+                  <ClientInfo>
+                    <span className="name">Самойлов М. И.</span>
+                    <span className="case">Бракоразводный процесс · №2025-019</span>
+                  </ClientInfo>
+                  <Status $color="blue">Слушание</Status>
+                </ClientCard>
+
+                <ChatBubble>
+                  <div className="icon"><Bot /></div>
+                  <span className="text">AI: нашёл 3 похожих прецедента…</span>
+                </ChatBubble>
+              </Main>
+            </PreviewBody>
+          </Preview>
+
+          <FloatingStat>
+            <span className="label">Обработано дел</span>
+            <span className="value">8 471</span>
+            <span className="delta">↑ 23% за квартал</span>
+          </FloatingStat>
+
+          <FloatingCheck>
+            <div className="icon"><CheckCircle2 /></div>
+            <div className="text">
+              <span className="title">Готово за 1.2с</span>
+              <span className="sub">AI-поиск по архиву</span>
+            </div>
+          </FloatingCheck>
+        </PreviewColumn>
+      </Inner>
+    </Section>
   );
 };
 

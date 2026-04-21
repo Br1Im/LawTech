@@ -384,8 +384,8 @@ const Header: React.FC<HeaderProps> = ({ main = true }) => {
       <MenuLanding $isOpen={isMenuOpen}>
         {main && (
           <>
-            <MenuLinkLanding href="#how-it-works" onClick={() => setIsMenuOpen(false)}>
-              Инновации
+            <MenuLinkLanding href="#product" onClick={() => setIsMenuOpen(false)}>
+              Продукт
             </MenuLinkLanding>
             <MenuLinkLanding href="#advantages" onClick={() => setIsMenuOpen(false)}>
               Преимущества
