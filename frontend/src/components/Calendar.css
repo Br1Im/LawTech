@@ -1,1385 +1,450 @@
+/* ============================================================
+   Calendar — удобный премиальный вид
+   ============================================================ */
+
 .calendar-container {
-  padding: 24px;
-  background: var(--color-bg);
+  padding: 22px;
+  color: var(--color-text);
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
   box-sizing: border-box;
-  max-height: 85vh;
-  overflow-y: auto;
+  animation: cal-fade 0.45s var(--ease-out, ease-out);
 }
+
+@keyframes cal-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Header ---------- */
 
 .calendar-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--color-border);
-  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  background: var(--glass-bg, var(--color-bg-alt));
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,0.06)));
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .calendar-header h2 {
   margin: 0;
-  color: var(--color-text);
-  font-size: 28px;
-  font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 12px;
+  font-family: var(--font-display, 'Playfair Display', serif);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .calendar-header h2 .anticon {
-  margin-right: 8px;
+  color: var(--color-accent);
+  font-size: 24px;
 }
 
-.error-message {
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  color: #ff4d4f;
+.calendar-header__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
+
+.calendar-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border, rgba(0,0,0,0.08));
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--color-text-secondary, var(--color-muted));
+}
+
+/* ---------- Content layout ---------- */
 
 .calendar-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 16px;
-  height: calc(85vh - 120px);
+  align-items: flex-start;
 }
 
-.calendar-main {
-  flex: 1;
-}
-
-.calendar-main .ant-picker-calendar {
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-}
-
-.calendar-main .ant-picker-calendar-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
+.calendar-main,
 .calendar-sidebar {
-  width: 350px;
-  min-width: 350px;
-  max-width: 350px;
+  background: var(--glass-bg, var(--color-bg-alt));
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,0.06)));
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
   overflow: hidden;
 }
+
+.calendar-main { padding: 8px 12px 14px; }
+.calendar-sidebar { padding: 4px; }
 
 .calendar-sidebar .ant-card {
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 14px;
 }
 
 .calendar-sidebar .ant-card-head {
-  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.06));
 }
 
 .calendar-sidebar .ant-card-head-title {
-  font-weight: 600;
-  color: #262626;
+  font-family: var(--font-display, 'Playfair Display', serif);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--color-text);
 }
+
+.calendar-sidebar .ant-card-body {
+  padding: 8px 14px 14px;
+}
+
+/* ---------- AntD calendar surface ---------- */
+
+.calendar-main .ant-picker-calendar {
+  background: transparent;
+  border: none;
+  border-radius: 14px;
+  color: var(--color-text);
+}
+
+.calendar-main .ant-picker-calendar-header {
+  padding: 10px 14px !important;
+  border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.06));
+  background: transparent;
+}
+
+.calendar-main .ant-picker-calendar-mode-switch {
+  background: var(--color-bg);
+  border-radius: 10px;
+  padding: 2px;
+}
+
+.calendar-main .ant-picker-calendar-mode-switch .ant-radio-button-wrapper {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-secondary, var(--color-muted));
+  font-weight: 500;
+}
+
+.calendar-main .ant-picker-calendar-mode-switch .ant-radio-button-wrapper-checked {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #b2892f 100%);
+  color: #fff !important;
+  border-color: transparent;
+  box-shadow: 0 4px 10px rgba(192,155,70,0.26);
+}
+
+.calendar-main .ant-picker-content th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary, var(--color-muted));
+  padding: 8px 0;
+}
+
+.calendar-main .ant-picker-cell {
+  color: var(--color-text-secondary, var(--color-muted));
+}
+
+.calendar-main .ant-picker-cell-in-view {
+  color: var(--color-text);
+}
+
+.calendar-main .ant-picker-calendar-date {
+  margin: 2px !important;
+  padding: 6px !important;
+  border-radius: 10px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  transition: background 0.15s var(--ease-out, ease), border-color 0.15s var(--ease-out, ease);
+}
+
+.calendar-main .ant-picker-calendar-date-value {
+  font-weight: 600;
+  line-height: 1.2;
+  color: inherit;
+}
+
+.calendar-main .ant-picker-calendar-date-content {
+  height: 56px !important;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.calendar-main .ant-picker-cell:hover .ant-picker-calendar-date:not(.ant-picker-calendar-date-today) {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border, rgba(0,0,0,0.06)) !important;
+}
+
+.calendar-main .ant-picker-cell-today .ant-picker-calendar-date {
+  border-color: var(--color-accent) !important;
+  background: rgba(192,155,70,0.06) !important;
+}
+
+.calendar-main .ant-picker-cell-today .ant-picker-calendar-date-value {
+  color: var(--color-accent);
+}
+
+.calendar-main .ant-picker-cell-selected .ant-picker-calendar-date,
+.calendar-main .ant-picker-cell-selected:hover .ant-picker-calendar-date {
+  background: linear-gradient(135deg,
+    rgba(192,155,70,0.18) 0%,
+    rgba(192,155,70,0.08) 100%) !important;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 12px rgba(192,155,70,0.2);
+}
+
+.calendar-main .ant-picker-cell-selected .ant-picker-calendar-date-value {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+/* ---------- Events inside day cell ---------- */
 
 .events {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .events li {
-  margin-bottom: 2px;
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-.events .ant-badge {
-  width: 100%;
+  font-size: 11px;
+  line-height: 1.25;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(192,155,70,0.08);
+  border-left: 3px solid var(--color-accent);
+  color: var(--color-text);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .events .ant-badge-status-text {
-  color: #595959;
-  font-size: 11px;
+  color: inherit !important;
+  font-size: 11px !important;
+  margin-left: 4px;
 }
 
+.events .ant-badge-status-dot { display: none; }
+
 .more-events {
-  color: #8c8c8c;
-  font-style: italic;
-  font-size: 11px;
+  color: var(--color-text-secondary, var(--color-muted)) !important;
+  font-style: normal !important;
+  background: transparent !important;
+  border-left-color: transparent !important;
+  padding-left: 3px !important;
+  font-weight: 600;
 }
+
+/* ---------- Sidebar event items ---------- */
 
 .event-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   width: 100%;
 }
 
-.event-title .ant-badge {
-  margin-right: 8px;
+.event-title > span:nth-child(2) {
+  flex: 1;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
 .event-time {
-  color: #8c8c8c;
   font-size: 12px;
-  font-weight: normal;
+  font-weight: 600;
+  color: var(--color-accent);
+  padding: 2px 8px;
+  background: rgba(192,155,70,0.12);
+  border-radius: 6px;
+}
+
+.calendar-sidebar .ant-list-item {
+  padding: 12px 4px !important;
+  border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.06)) !important;
+}
+
+.calendar-sidebar .ant-list-item:last-child {
+  border-bottom: none !important;
+}
+
+.calendar-sidebar .ant-list-item-meta-description {
+  color: var(--color-text-secondary, var(--color-muted));
+  font-size: 12px;
+  margin-top: 2px;
 }
 
 .no-events {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 16px;
+  color: var(--color-text-secondary, var(--color-muted));
   text-align: center;
-  padding: 40px 20px;
-  color: #8c8c8c;
 }
 
-.no-events p {
-  margin: 0;
-  font-size: 14px;
+.no-events::before {
+  content: '📅';
+  font-size: 32px;
+  opacity: 0.7;
 }
 
-.ant-list-item {
-  padding: 12px 0 !important;
-  border-bottom: 1px solid #f5f5f5;
-}
+.no-events p { margin: 0; font-size: 13px; }
 
-.ant-list-item:last-child {
-  border-bottom: none;
-}
+/* ---------- Contracts block in sidebar ---------- */
 
-.ant-list-item-meta-title {
-  margin-bottom: 4px;
-}
-
-.ant-list-item-meta-description {
-  color: #8c8c8c;
-  font-size: 12px;
-}
-
-/* Стили для детального отображения договоров */
-.contract-details {
-  width: 100%;
-}
+.contract-details { width: 100%; }
 
 .contract-summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.contract-summary .ant-badge {
-  margin-right: 8px;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.22);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #047857;
 }
 
 .contract-list {
-  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .contract-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  border-bottom: 1px solid #f0f0f0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border, rgba(0,0,0,0.06));
+  border-radius: 10px;
+  transition: transform 0.15s var(--ease-out, ease), border-color 0.15s var(--ease-out, ease), box-shadow 0.2s var(--ease-out, ease);
 }
 
-.contract-item:last-child {
-  border-bottom: none;
-}
-
-.contract-client {
-  font-weight: 500;
-  color: #262626;
-}
-
-.contract-type {
-  color: #8c8c8c;
-  font-size: 12px;
-}
-
-.ant-list-item-action {
-  margin-left: 8px;
-}
-
-.ant-modal-header {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.ant-modal-title {
-  font-weight: 600;
-  color: #262626;
-}
-
-.ant-form-item-label > label {
-  font-weight: 500;
-  color: #262626;
-}
-
-/* Адаптивность */
-@media (max-width: 1200px) {
-  .calendar-content {
-    flex-direction: column;
-  }
-  
-  .calendar-sidebar {
-    width: 100%;
-    min-width: auto;
-  }
-}
-
-@media (max-width: 768px) {
-  .calendar-container {
-    padding: 16px;
-  }
-  
-  .calendar-header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-  
-  .calendar-header h2 {
-    text-align: center;
-  }
-  
-  .calendar-content {
-    gap: 16px;
-  }
-}
-
-/* Стили для различных типов событий */
-.ant-badge-status-processing {
-  color: #1890ff;
-}
-
-.ant-badge-status-error {
-  color: #ff4d4f;
-}
-
-.ant-badge-status-warning {
-  color: #faad14;
-}
-
-.ant-badge-status-success {
-  color: #52c41a;
-}
-
-.ant-badge-status-default {
-  color: #d9d9d9;
-}
-
-/* Улучшение внешнего вида календаря */
-.ant-picker-calendar-date-content {
-  height: 40px;
-  overflow: hidden;
-}
-
-.ant-picker-calendar {
-  height: 100% !important;
-}
-
-.ant-picker-calendar .ant-picker-panel {
-  height: 100% !important;
-}
-
-.ant-picker-calendar .ant-picker-calendar-header {
-  padding: 8px 16px !important;
-}
-
-.ant-picker-cell-selected .ant-picker-calendar-date {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
-.ant-picker-cell-selected .ant-picker-calendar-date-content {
-  color: white;
-  font-weight: 600;
-}
-
-/* Стили для сегодняшней даты */
-.ant-picker-calendar .ant-picker-calendar-date-today .ant-picker-calendar-date-value {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-/* Стили для ховера */
-.ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date {
-  background-color: var(--color-accent-light) !important;
-  border-color: var(--color-accent) !important;
-}
-
-.ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date-value {
-  color: var(--color-text) !important;
-}
-
-/* Стили для заголовка календаря (месяц и год) */
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select {
-  color: var(--color-accent) !important;
-  font-weight: 600;
-}
-
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select:hover,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select:hover {
-  color: var(--color-accent-light) !important;
-}
-
-/* Стили для активных кнопок переключения месяца/года */
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-prev-btn,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-prev-btn,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-next-btn,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-next-btn {
-  color: var(--color-accent) !important;
-}
-
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-prev-btn:hover,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-prev-btn:hover,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-next-btn:hover,
-.ant-picker-calendar .ant-picker-calendar-header .ant-picker-super-next-btn:hover {
-  color: var(--color-accent-light) !important;
-  background-color: rgba(212, 175, 55, 0.1) !important;
-}
-
-/* Стили для кнопки "Добавить событие" */
-.calendar-header .ant-btn-primary {
-  background-color: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  color: var(--color-button-text) !important;
-}
-
-.calendar-header .ant-btn-primary:hover {
-  background-color: var(--color-accent-light) !important;
-  border-color: var(--color-accent-light) !important;
-  color: var(--color-button-text) !important;
-}
-
-.calendar-header .ant-btn-primary:focus {
-  background-color: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  color: var(--color-button-text) !important;
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2) !important;
-}
-
-.ant-picker-calendar-date:hover {
-  background: #f5f5f5;
-}
-
-/* Стили для детального отображения договоров */
-.contract-item.clickable {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 6px;
-  padding: 8px;
-  margin-bottom: 8px;
-  border: 1px solid #f0f0f0;
-  background: #fafafa;
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow: hidden;
-}
+.contract-item.clickable { cursor: pointer; }
 
 .contract-item.clickable:hover {
-  background: #e6f7ff;
-  border-color: #91d5ff;
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 18px rgba(192,155,70,0.18);
 }
 
 .contract-main-info {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 4px;
   gap: 8px;
-  width: 100%;
 }
 
 .contract-client {
-  font-weight: 500;
-  color: #262626;
-  flex: 1;
-  min-width: 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  line-height: 1.3;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 
-.contract-amount {
-  font-weight: 600;
-  color: #52c41a;
-  font-size: 14px;
-  white-space: nowrap;
-  flex-shrink: 0;
+.contract-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(59,130,246,0.14);
+  color: #1d4ed8;
 }
 
 .contract-secondary-info {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 4px;
-  gap: 8px;
-  width: 100%;
-}
-
-.contract-type {
-  color: #595959;
+  gap: 10px;
   font-size: 12px;
-  flex: 1;
-  min-width: 0;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-  line-height: 1.3;
-}
-
-.contract-status {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-  text-transform: uppercase;
-  white-space: nowrap;
-  flex-shrink: 0;
-  max-width: 80px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.contract-status.status-draft {
-  background: #f0f0f0;
-  color: #8c8c8c;
-}
-
-.contract-status.status-active {
-  background: #f6ffed;
-  color: #52c41a;
-}
-
-.contract-status.status-completed {
-  background: #e6f7ff;
-  color: #1890ff;
-}
-
-.contract-status.status-cancelled {
-  background: #fff2e8;
-  color: #fa8c16;
+  color: var(--color-text-secondary, var(--color-muted));
 }
 
 .contract-subject {
-  color: #8c8c8c;
-  font-size: 11px;
-  font-style: italic;
-  margin-top: 4px;
-  line-height: 1.3;
-  max-height: 2.6em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-/* Современные стили для договоров */
-.contract-summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f6f9fc 0%, #e9f4ff 100%);
-  border-radius: 12px;
-  border: 1px solid #e1f0ff;
-}
-
-.summary-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #1890ff;
-}
-
-.summary-icon {
-  font-size: 18px;
-}
-
-.summary-text {
-  font-size: 16px;
-}
-
-.summary-count {
-  background: #1890ff;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 12px;
   font-size: 12px;
-  font-weight: 700;
-  min-width: 20px;
+  color: var(--color-text-secondary, var(--color-muted));
+  font-style: italic;
+}
+
+.no-contracts {
+  padding: 12px;
   text-align: center;
-}
-
-.event-time-badge {
-  background: #52c41a;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(82, 196, 26, 0.3);
-}
-
-.contract-list-modern {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.contract-card.modern {
-  background: linear-gradient(145deg, #ffffff 0%, #fafbfc 100%);
-  border: 1px solid #e8f4fd;
-  border-radius: 16px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.contract-card.modern::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #1890ff, #52c41a, #faad14);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.contract-card.modern:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: #91d5ff;
-}
-
-.contract-card.modern:hover::before {
-  opacity: 1;
-}
-
-.contract-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  gap: 12px;
-}
-
-.contract-client-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.client-icon {
-  font-size: 16px;
-  color: #1890ff;
-  flex-shrink: 0;
-}
-
-.client-name {
-  font-weight: 600;
-  color: #262626;
-  font-size: 15px;
-  line-height: 1.4;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.contract-amount-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid #b7eb8f;
-  flex-shrink: 0;
-}
-
-.amount-icon {
-  font-size: 14px;
-  color: #52c41a;
-}
-
-.amount-value {
-  font-weight: 700;
-  color: #389e0d;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.contract-body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.contract-type-row,
-.contract-status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.type-icon,
-.status-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.type-text {
-  color: #595959;
+  color: var(--color-text-secondary, var(--color-muted));
   font-size: 13px;
-  font-weight: 500;
-  flex: 1;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 
-.status-badge.modern {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 8px;
+/* ---------- Modal / form ---------- */
+
+.ant-modal-content { border-radius: 16px !important; }
+.ant-modal-header { border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.06)) !important; }
+
+/* ---------- Buttons ---------- */
+
+.calendar-header .ant-btn-primary,
+.calendar-sidebar .ant-btn-primary {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #b2892f 100%);
+  border: none;
+  box-shadow: 0 6px 16px rgba(192,155,70,0.3);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border: 1px solid transparent;
-  flex-shrink: 0;
 }
 
-.status-badge.modern.status-draft {
-  background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
-  color: #8c8c8c;
-  border-color: #d9d9d9;
+.calendar-header .ant-btn-primary:hover,
+.calendar-sidebar .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #b2892f 0%, var(--color-accent) 100%) !important;
+  box-shadow: 0 10px 24px rgba(192,155,70,0.38) !important;
+  transform: translateY(-1px);
 }
 
-.status-badge.modern.status-active {
-  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
-  color: #389e0d;
-  border-color: #b7eb8f;
-}
-
-.status-badge.modern.status-completed {
-  background: linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%);
-  color: #0958d9;
-  border-color: #91d5ff;
-}
-
-.status-badge.modern.status-cancelled {
-  background: linear-gradient(135deg, #fff2e8 0%, #ffd8bf 100%);
-  color: #d46b08;
-  border-color: #ffbb96;
-}
-
-.contract-footer {
-  border-top: 1px solid #f0f0f0;
-  padding-top: 12px;
-  margin-top: 8px;
-}
-
-.subject-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.subject-icon {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.subject-text {
-  color: #8c8c8c;
-  font-size: 12px;
-  font-style: italic;
-  line-height: 1.4;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.contract-hover-indicator {
-  position: absolute;
-  bottom: 8px;
-  right: 12px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  font-size: 10px;
-  color: #1890ff;
-  font-weight: 500;
-  background: rgba(24, 144, 255, 0.1);
-  padding: 4px 8px;
-  border-radius: 6px;
-  pointer-events: none;
-}
-
-.contract-card.modern:hover .contract-hover-indicator {
-  opacity: 1;
-}
-
-/* Анимации */
-@keyframes contractCardAppear {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.contract-card.modern {
-  animation: contractCardAppear 0.3s ease-out;
-}
-
-.contract-card.modern:nth-child(1) { animation-delay: 0ms; }
-.contract-card.modern:nth-child(2) { animation-delay: 50ms; }
-.contract-card.modern:nth-child(3) { animation-delay: 100ms; }
-.contract-card.modern:nth-child(4) { animation-delay: 150ms; }
-.contract-card.modern:nth-child(5) { animation-delay: 200ms; }
-
-/* Стили для мобильных устройств */
-@media (max-width: 576px) {
-  .calendar-container {
-    padding: 12px;
-  }
-  
-  .calendar-header h2 {
-    font-size: 20px;
-  }
-  
-  .ant-modal {
-    margin: 0;
-    max-width: 100vw;
-  }
-  
-  .ant-modal-content {
-    border-radius: 0;
-  }
-
-  .contract-main-info,
-  .contract-secondary-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-  }
-
-  /* Адаптивные стили для современного дизайна договоров */
-  .contract-summary-header {
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
-  }
-
-  .contract-header {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .contract-amount-badge {
-    align-self: flex-start;
-  }
-
-  .contract-card.modern {
-    padding: 12px;
-  }
-
-  .summary-text {
-    font-size: 14px;
-  }
-
-  .client-name {
-    font-size: 14px;
-  }
-
-  .contract-hover-indicator {
-    display: none;
-  }
-
-  .contract-amount {
-    align-self: flex-end;
-  }
-}
-
-/* =
-===========================================
-   ТЁМНАЯ ТЕМА ДЛЯ КАЛЕНДАРЯ
-   ============================================ */
-
-[data-theme="dark"] .calendar-container {
-  background: var(--color-bg-alt);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .calendar-header {
-  border-bottom-color: var(--color-border);
-}
-
-[data-theme="dark"] .calendar-header h2 {
-  color: var(--color-accent);
-}
-
-[data-theme="dark"] .error-message {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ff7875;
-}
-
-[data-theme="dark"] .calendar-main .ant-picker-calendar {
-  background: var(--color-bg);
-  border-color: var(--color-border);
-}
-
-[data-theme="dark"] .calendar-main .ant-picker-calendar-header {
-  border-bottom-color: var(--color-border);
-  background: var(--color-bg-alt);
-}
-
-[data-theme="dark"] .calendar-sidebar .ant-card {
-  background: var(--color-bg-alt) !important;
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
-}
-
-[data-theme="dark"] .calendar-sidebar .ant-card-head {
-  background: linear-gradient(135deg, var(--color-bg) 0%, rgba(212, 175, 55, 0.15) 100%) !important;
-  border-bottom: 2px solid var(--color-accent) !important;
-}
-
-[data-theme="dark"] .calendar-sidebar .ant-card-head-title {
-  color: var(--color-accent) !important;
-  font-weight: 600 !important;
-}
-
-[data-theme="dark"] .calendar-sidebar .ant-card-body {
-  background: var(--color-bg) !important;
-}
-
-[data-theme="dark"] .events .ant-badge-status-text {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .more-events {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .event-time {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .no-events {
-  color: var(--color-muted) !important;
-  background: rgba(212, 175, 55, 0.05) !important;
-  border-radius: 8px !important;
-  padding: 40px 20px !important;
-}
-
-[data-theme="dark"] .no-events p {
-  color: var(--color-muted) !important;
-}
-
-[data-theme="dark"] .ant-list-item {
-  border-bottom-color: var(--color-border) !important;
-  background: transparent !important;
-}
-
-[data-theme="dark"] .ant-list-item:hover {
-  background: rgba(212, 175, 55, 0.05) !important;
-}
-
-[data-theme="dark"] .ant-list-item-meta {
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-list-item-meta-title {
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-list-item-meta-description {
-  color: var(--color-muted) !important;
-}
-
-[data-theme="dark"] .ant-list-item-action button {
-  color: var(--color-text) !important;
-  border-color: var(--color-border) !important;
-}
-
-[data-theme="dark"] .ant-list-item-action button:hover {
-  color: var(--color-accent) !important;
-  border-color: var(--color-accent) !important;
-  background: rgba(212, 175, 55, 0.1) !important;
-}
-
-[data-theme="dark"] .contract-client {
-  color: var(--color-text);
-}
-
-[data-theme="dark"] .contract-type {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .contract-item {
-  border-color: var(--color-border);
-  background: var(--color-bg-alt);
-}
-
-[data-theme="dark"] .contract-item.clickable {
-  background: var(--color-bg);
-  border-color: var(--color-border);
-}
-
-[data-theme="dark"] .contract-item.clickable:hover {
-  background: rgba(212, 175, 55, 0.1);
-  border-color: var(--color-accent);
-}
-
-[data-theme="dark"] .ant-picker-calendar-date:hover {
-  background: rgba(212, 175, 55, 0.1);
-}
-
-[data-theme="dark"] .contract-summary-header {
-  background: linear-gradient(135deg, var(--color-bg-alt) 0%, rgba(212, 175, 55, 0.1) 100%);
-  border-color: var(--color-border);
-}
-
-[data-theme="dark"] .summary-badge {
-  color: var(--color-accent);
-}
-
-[data-theme="dark"] .summary-count {
-  background: var(--color-accent);
-  color: var(--color-button-text);
-}
-
-[data-theme="dark"] .contract-card.modern {
-  background: linear-gradient(145deg, var(--color-bg) 0%, var(--color-bg-alt) 100%);
-  border-color: var(--color-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-[data-theme="dark"] .contract-card.modern:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2);
-}
-
-[data-theme="dark"] .client-icon {
-  color: var(--color-accent);
-}
-
-[data-theme="dark"] .client-name {
-  color: var(--color-text);
-}
-
-[data-theme="dark"] .contract-amount-badge {
-  background: linear-gradient(135deg, rgba(82, 196, 26, 0.15) 0%, rgba(82, 196, 26, 0.25) 100%);
-  border-color: rgba(82, 196, 26, 0.4);
-}
-
-[data-theme="dark"] .amount-icon {
-  color: #73d13d;
-}
-
-[data-theme="dark"] .amount-value {
-  color: #95de64;
-}
-
-[data-theme="dark"] .type-text {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .contract-footer {
-  border-top-color: var(--color-border);
-}
-
-[data-theme="dark"] .subject-icon {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .subject-text {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .contract-hover-indicator {
-  color: var(--color-accent);
-  background: rgba(212, 175, 55, 0.2);
-}
-
-/* Ant Design компоненты в тёмной теме */
-[data-theme="dark"] .ant-picker-panel {
-  background: var(--color-bg);
-  border-color: var(--color-border);
-}
-
-[data-theme="dark"] .ant-picker-cell {
-  color: var(--color-text);
-}
-
-[data-theme="dark"] .ant-picker-cell-in-view {
-  color: var(--color-text);
-}
-
-[data-theme="dark"] .ant-picker-cell-disabled {
-  color: var(--color-muted);
-}
-
-[data-theme="dark"] .ant-picker-calendar-date-value {
-  color: var(--color-text);
-}
-
-[data-theme="dark"] .ant-picker-calendar-date-content {
-  color: var(--color-text);
-}
-
-
-/* Улучшенные стили для Ant Design Calendar в тёмной теме */
-[data-theme="dark"] .ant-picker-calendar .ant-picker-panel {
-  background: var(--color-bg-alt) !important;
-  color: var(--color-text) !important;
-  border: 1px solid var(--color-border) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-header {
-  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-alt) 100%) !important;
-  border-bottom: 2px solid var(--color-accent) !important;
-  padding: 16px 24px !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-content {
-  background: var(--color-bg) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-content th {
-  color: var(--color-accent) !important;
-  font-weight: 600 !important;
-  background: var(--color-bg-alt) !important;
-  border-bottom: 1px solid var(--color-border) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell {
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-in-view {
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date {
-  background: var(--color-bg-alt) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: 8px !important;
-  transition: all 0.3s ease !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-value {
-  color: var(--color-text) !important;
-  font-weight: 500 !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-content {
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell:hover .ant-picker-calendar-date {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.1) 100%) !important;
-  border-color: var(--color-accent) !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date {
-  background: linear-gradient(135deg, var(--color-accent) 0%, #c2a030 100%) !important;
-  border-color: var(--color-accent) !important;
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date-value {
-  color: var(--color-button-text) !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-selected .ant-picker-calendar-date-content {
-  color: var(--color-button-text) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-today {
-  border: 2px solid var(--color-accent) !important;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-calendar-date-today .ant-picker-calendar-date-value {
-  color: var(--color-accent) !important;
-  font-weight: 700 !important;
-}
-
-/* Заголовок календаря (месяц/год) */
-[data-theme="dark"] .ant-picker-calendar-header {
-  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-bg-alt) 100%) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar-header .ant-select-selector {
-  background: var(--color-bg-alt) !important;
-  border: 1px solid var(--color-accent) !important;
-  color: var(--color-accent) !important;
-  font-weight: 600 !important;
-  border-radius: 8px !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar-header .ant-select-selection-item {
-  color: var(--color-accent) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar-header .ant-radio-button-wrapper {
-  background: var(--color-bg-alt) !important;
-  border-color: var(--color-border) !important;
-  color: var(--color-text) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar-header .ant-radio-button-wrapper-checked {
-  background: linear-gradient(135deg, var(--color-accent) 0%, #c2a030 100%) !important;
-  border-color: var(--color-accent) !important;
-  color: var(--color-button-text) !important;
-  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3) !important;
-}
-
-/* Дни недели */
-[data-theme="dark"] .ant-picker-calendar thead th {
-  color: var(--color-accent) !important;
-  background: var(--color-bg-alt) !important;
-  font-weight: 600 !important;
-  border-bottom: 1px solid var(--color-border) !important;
-}
-
-/* Ячейки календаря */
-[data-theme="dark"] .ant-picker-calendar tbody td {
-  background: var(--color-bg) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled {
-  background: rgba(0, 0, 0, 0.2) !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled .ant-picker-calendar-date {
-  background: rgba(0, 0, 0, 0.2) !important;
-  border-color: transparent !important;
-}
-
-[data-theme="dark"] .ant-picker-calendar .ant-picker-cell-disabled .ant-picker-calendar-date-value {
-  color: var(--color-muted) !important;
-  opacity: 0.3 !important;
-}
-
-
-/* Стили для контролов календаря */
-.calendar-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.calendar-controls span {
-  color: #595959;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-[data-theme="dark"] .calendar-controls span {
-  color: var(--color-text) !important;
-}
-
-/* Стили для Switch в тёмной теме */
-[data-theme="dark"] .ant-switch {
-  background: rgba(255, 255, 255, 0.2) !important;
-}
-
-[data-theme="dark"] .ant-switch-checked {
-  background: var(--color-accent) !important;
-}
-
-[data-theme="dark"] .ant-switch:hover {
-  background: rgba(255, 255, 255, 0.3) !important;
-}
-
-[data-theme="dark"] .ant-switch-checked:hover {
-  background: var(--color-accent-light) !important;
-}
-
-
-/* ============================================
-   АДАПТИВНОСТЬ
-   ============================================ */
-
-/* Планшеты */
-@media (max-width: 1024px) and (min-width: 769px) {
-  .calendar-container {
-    padding: 20px;
-  }
-
-  .calendar-header h2 {
-    font-size: 24px;
-  }
+/* ---------- Responsive ---------- */
 
+@media (max-width: 1200px) {
   .calendar-content {
-    flex-direction: column;
-    height: auto;
+    grid-template-columns: 1fr;
   }
-
-  .calendar-sidebar {
-    width: 100%;
-    margin-top: 16px;
-  }
+  .calendar-sidebar { width: 100%; }
 }
 
-/* Мобильные устройства */
 @media (max-width: 768px) {
-  .calendar-container {
-    padding: 16px;
-    max-height: none;
-  }
-
+  .calendar-container { padding: 14px; }
   .calendar-header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: stretch;
+    padding: 14px 16px;
   }
-
   .calendar-header h2 {
+    justify-content: flex-start;
     font-size: 22px;
   }
-
-  .calendar-controls {
-    width: 100%;
-    justify-content: space-between;
+  .calendar-main .ant-picker-calendar-date-content {
+    height: 32px !important;
   }
-
-  .calendar-content {
-    flex-direction: column;
-    height: auto;
-    gap: 20px;
-  }
-
-  .calendar-main {
-    width: 100%;
-  }
-
-  .calendar-sidebar {
-    width: 100%;
-  }
-
-  .ant-picker-calendar {
-    font-size: 14px;
-  }
-}
-
-/* Маленькие телефоны */
-@media (max-width: 480px) {
-  .calendar-container {
-    padding: 12px;
-  }
-
-  .calendar-header {
-    padding-bottom: 12px;
-  }
-
-  .calendar-header h2 {
-    font-size: 20px;
-  }
-
-  .calendar-controls {
-    font-size: 13px;
-  }
-
-  .ant-picker-calendar {
-    font-size: 12px;
-  }
-
-  .events {
-    font-size: 11px;
-  }
-}
-
-/* Большие экраны */
-@media (min-width: 1440px) {
-  .calendar-container {
-    padding: 32px;
-  }
-
-  .calendar-header h2 {
-    font-size: 32px;
-  }
-
-  .calendar-content {
-    gap: 24px;
-  }
-}
-
-/* Ландшафтная ориентация на мобильных */
-@media (max-width: 768px) and (orientation: landscape) {
-  .calendar-content {
-    flex-direction: row;
-  }
-
-  .calendar-main {
-    flex: 1;
-  }
-
-  .calendar-sidebar {
-    width: 300px;
-    margin-top: 0;
-  }
-}
-
-/* Оптимизация для touch-устройств */
-@media (hover: none) and (pointer: coarse) {
-  .ant-picker-calendar-date {
-    min-height: 48px;
-  }
-
-  .calendar-header button {
-    min-height: 44px;
-    min-width: 44px;
-  }
-}
-
-/* Плавные переходы */
-.calendar-container,
-.calendar-content,
-.calendar-sidebar {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Безопасная зона для iPhone с вырезом */
-@supports (padding: max(0px)) {
-  .calendar-container {
-    padding-left: max(24px, env(safe-area-inset-left));
-    padding-right: max(24px, env(safe-area-inset-right));
-    padding-bottom: max(24px, env(safe-area-inset-bottom));
-  }
+  .events li { font-size: 10px; }
 }

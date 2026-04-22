@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
-import { FaTrashAlt, FaCircle, FaPaperPlane } from 'react-icons/fa';
-import { MdDone, MdDoneAll, MdUpload } from 'react-icons/md';
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { FaPaperPlane, FaSearch, FaTrashAlt } from 'react-icons/fa';
+import { MdDone, MdDoneAll, MdAttachFile, MdEmojiEmotions } from 'react-icons/md';
 import { notification, Spin, Tooltip, Modal } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useAuth } from '../shared/lib/hooks/useAuth';
@@ -10,28 +10,48 @@ import { receptionAPI } from '../shared/api/reception';
 import type { Message } from '../shared/api/reception';
 import './Reception.css';
 
-// Расширение интерфейса Message для добавления свойства error
 interface ExtendedMessage extends Message {
   error?: boolean;
 }
 
-// Интервал обновления сообщений в мс (5 секунд)
 const MESSAGES_REFRESH_INTERVAL = 5000;
+
+const getInitials = (value?: string | null) => {
+  if (!value) return '··';
+  const parts = value.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => p.charAt(0).toUpperCase()).join('') || value.charAt(0).toUpperCase();
+};
+
+const formatDateDivider = (iso: string) => {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (d.toDateString() === today.toDateString()) return 'Сегодня';
+  if (d.toDateString() === yesterday.toDateString()) return 'Вчера';
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
+const dayKey = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
 
 const Reception: React.FC = () => {
   const { user } = useAuth();
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | null>(null);
-  const [selectedOfficeName, setSelectedOfficeName] = useState<string>("Не выбран");
+  const [selectedOfficeName, setSelectedOfficeName] = useState<string>("");
   const [messages, setMessages] = useState<ExtendedMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
+  const [officeSearch, setOfficeSearch] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(true);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const messageContainerRef = useRef<HTMLDivElement>(null);
-  const messageRefreshInterval = useRef<NodeJS.Timeout | null>(null);
-  
-  // Обработка нажатия Enter для отправки сообщения
+  const messageRefreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -39,21 +59,23 @@ const Reception: React.FC = () => {
     }
   };
 
-  // Прокрутка до последнего сообщения при добавлении новых сообщений
   useEffect(() => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Загрузка списка офисов
   useEffect(() => {
     const fetchOffices = async () => {
       setLoading(true);
       try {
         const response = await officeAPI.getAll();
-        const data = Array.isArray(response) ? response : (response && typeof response === 'object' && 'data' in response ? (response as { data: Office[] }).data : []);
-        
+        const data = Array.isArray(response)
+          ? response
+          : (response && typeof response === 'object' && 'data' in response
+              ? (response as { data: Office[] }).data
+              : []);
+
         setOffices(data);
         if (data.length > 0) {
           setSelectedOfficeId(data[0].id);
@@ -61,21 +83,11 @@ const Reception: React.FC = () => {
         }
       } catch (error) {
         console.error('Ошибка при загрузке офисов:', error);
-        notification.error({ 
-          message: 'Ошибка загрузки данных',
+        notification.error({
+          message: 'Ошибка загрузки',
           description: 'Не удалось загрузить список офисов'
         });
-        
-        // Временно используем моковые данные в случае ошибки
-        const mockData = [
-          { id: "1", title: "Кемерово", name: "Кемерово", description: "Кемерово", address: "Кемерово", online: true, lastActivity: "2 мин. назад", employee_count: 5, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-          { id: "2", title: "Красноярск", name: "Красноярск", description: "Красноярск", address: "Красноярск", online: false, lastActivity: "21.05.2023", employee_count: 3, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-          { id: "3", title: "Новокузнецк", name: "Новокузнецк", description: "Новокузнецк", address: "Новокузнецк", online: true, lastActivity: "1 ч. назад", employee_count: 4, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-        ];
-        
-        setOffices(mockData);
-        setSelectedOfficeId(mockData[0].id);
-        setSelectedOfficeName(mockData[0].title);
+        setOffices([]);
       } finally {
         setLoading(false);
       }
@@ -83,7 +95,6 @@ const Reception: React.FC = () => {
 
     fetchOffices();
 
-    // Очищаем интервал при размонтировании компонента
     return () => {
       if (messageRefreshInterval.current) {
         clearInterval(messageRefreshInterval.current);
@@ -91,7 +102,6 @@ const Reception: React.FC = () => {
     };
   }, []);
 
-  // Установка интервала обновления сообщений при выборе офиса
   useEffect(() => {
     if (messageRefreshInterval.current) {
       clearInterval(messageRefreshInterval.current);
@@ -99,8 +109,6 @@ const Reception: React.FC = () => {
 
     if (selectedOfficeId) {
       fetchMessages();
-      
-      // Устанавливаем интервал для периодического обновления сообщений
       messageRefreshInterval.current = setInterval(() => {
         if (selectedOfficeId && !sendingMessage) {
           fetchMessages(false);
@@ -113,77 +121,39 @@ const Reception: React.FC = () => {
         clearInterval(messageRefreshInterval.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOfficeId]);
 
-  // Функция для загрузки сообщений
   const fetchMessages = async (showLoading = true) => {
     if (!selectedOfficeId) return;
-    
-    if (showLoading) {
-      setLoadingMessages(true);
-    }
-    
+    if (showLoading) setLoadingMessages(true);
+
     try {
-      const messages = await receptionAPI.getMessages(selectedOfficeId);
-      setMessages(messages);
-      
-      // Отметить непрочитанные входящие сообщения как прочитанные
-      const unreadMessages = messages.filter(msg => !msg.isMine && !msg.isRead);
+      const msgs = await receptionAPI.getMessages(selectedOfficeId);
+      setMessages(msgs);
+
+      const unreadMessages = msgs.filter(msg => !msg.isMine && !msg.isRead);
       if (unreadMessages.length > 0) {
         await Promise.all(unreadMessages.map(msg => receptionAPI.markAsRead(msg.id)));
       }
     } catch (error) {
       console.error('Ошибка при загрузке сообщений:', error);
-      
-      // Если это первая загрузка сообщений и произошла ошибка, показываем уведомление
       if (showLoading) {
-        notification.error({ 
-          message: 'Ошибка загрузки данных',
+        notification.error({
+          message: 'Ошибка загрузки',
           description: 'Не удалось загрузить сообщения'
         });
-        
-        // Генерируем моковые сообщения
-        const selectedOffice = offices.find(o => o.id === selectedOfficeId);
-        if (selectedOffice) {
-          const mockMessages: ExtendedMessage[] = [
-            { 
-              id: `${selectedOfficeId}-1`, 
-              text: `Здравствуйте! Это сообщение из офиса "${selectedOffice.title}"`, 
-              sender: "Менеджер", 
-              timestamp: "10:00", 
-              office_id: selectedOfficeId, 
-              isRead: true, 
-              isMine: false,
-              createdAt: new Date().toISOString() 
-            },
-            { 
-              id: `${selectedOfficeId}-2`, 
-              text: "Привет! Как я могу помочь вам сегодня?", 
-              sender: "Вы", 
-              timestamp: "10:05", 
-              office_id: selectedOfficeId, 
-              isRead: true, 
-              isMine: true,
-              createdAt: new Date().toISOString() 
-            }
-          ];
-          setMessages(mockMessages);
-        }
+        setMessages([]);
       }
     } finally {
-      if (showLoading) {
-        setLoadingMessages(false);
-      }
+      if (showLoading) setLoadingMessages(false);
     }
   };
 
-  // Отправка сообщения
   const handleSendMessage = async () => {
     if (newMessage.trim() && selectedOfficeId) {
       setSendingMessage(true);
-      
       try {
-        // Создаем предварительное сообщение для немедленного отображения
         const tempMessage: ExtendedMessage = {
           id: `temp-${Date.now()}`,
           text: newMessage,
@@ -194,37 +164,21 @@ const Reception: React.FC = () => {
           isMine: true,
           createdAt: new Date().toISOString()
         };
-        
-        setMessages(prevMessages => [...prevMessages, tempMessage]);
+
+        setMessages(prev => [...prev, tempMessage]);
         const messageText = newMessage.trim();
         setNewMessage("");
-        
-        // Отправляем сообщение на сервер
+
         const sentMessage = await receptionAPI.sendMessage(selectedOfficeId, messageText);
-        
-        // Обновляем список сообщений
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.id === tempMessage.id 
-              ? sentMessage 
-              : msg
-          )
-        );
-        
+        setMessages(prev => prev.map(msg => (msg.id === tempMessage.id ? sentMessage : msg)));
       } catch (error) {
         console.error('Ошибка при отправке сообщения:', error);
-        notification.error({ 
+        notification.error({
           message: 'Ошибка отправки',
           description: 'Не удалось отправить сообщение'
         });
-        
-        // Помечаем сообщение как неотправленное
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.id.startsWith('temp-')
-              ? { ...msg, error: true } 
-              : msg
-          )
+        setMessages(prev =>
+          prev.map(msg => (msg.id.startsWith('temp-') ? { ...msg, error: true } : msg))
         );
       } finally {
         setSendingMessage(false);
@@ -232,171 +186,252 @@ const Reception: React.FC = () => {
     }
   };
 
-  // Удаление сообщения
   const handleDeleteMessage = (messageId: string) => {
     Modal.confirm({
       title: 'Удалить сообщение?',
       icon: <ExclamationCircleOutlined />,
-      content: 'Вы действительно хотите удалить это сообщение?',
+      content: 'Это действие необратимо.',
       okText: 'Удалить',
       cancelText: 'Отмена',
+      okType: 'danger',
       onOk: async () => {
         try {
-          // Сначала удаляем из UI для мгновенной реакции
-          setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
-          
-          // Затем отправляем запрос на сервер
+          setMessages(prev => prev.filter(msg => msg.id !== messageId));
           await receptionAPI.deleteMessage(messageId);
-          
-          notification.success({ 
+          notification.success({
             message: 'Сообщение удалено',
-            description: 'Сообщение успешно удалено',
             duration: 2
           });
         } catch (error) {
           console.error('Ошибка при удалении сообщения:', error);
-          notification.error({ 
+          notification.error({
             message: 'Ошибка',
             description: 'Не удалось удалить сообщение'
           });
-          
-          // В случае ошибки восстанавливаем сообщения
           fetchMessages();
         }
       }
     });
   };
 
-  // Переключение между офисами
   const handleOfficeChange = (officeId: string) => {
     if (officeId === selectedOfficeId) return;
-    
-    const selectedOffice = offices.find((office) => office.id === officeId);
+    const selectedOffice = offices.find(o => o.id === officeId);
     setSelectedOfficeId(officeId);
-    setSelectedOfficeName(selectedOffice ? selectedOffice.title : "Не выбран");
+    setSelectedOfficeName(selectedOffice ? selectedOffice.title : "");
     setMessages([]);
   };
 
-  // Загрузка файла
   const handleFileUpload = () => {
-    // Имитируем загрузку файла
     notification.info({
       message: 'Загрузка файла',
-      description: 'Функция загрузки файлов находится в разработке'
+      description: 'Функция в разработке'
     });
   };
 
+  const filteredOffices = useMemo(() => {
+    const q = officeSearch.trim().toLowerCase();
+    if (!q) return offices;
+    return offices.filter(o =>
+      (o.title || '').toLowerCase().includes(q) || (o.name || '').toLowerCase().includes(q)
+    );
+  }, [offices, officeSearch]);
+
+  const selectedOffice = offices.find(o => o.id === selectedOfficeId);
+
+  // Группируем сообщения по дню для вставки разделителей
+  const groupedMessages = useMemo(() => {
+    const groups: Array<{ key: string; label: string; items: ExtendedMessage[] }> = [];
+    for (const m of messages) {
+      const key = dayKey(m.createdAt);
+      const existing = groups[groups.length - 1];
+      if (existing && existing.key === key) {
+        existing.items.push(m);
+      } else {
+        groups.push({ key, label: formatDateDivider(m.createdAt), items: [m] });
+      }
+    }
+    return groups;
+  }, [messages]);
+
   return (
-    <div className="reception-container">
-      
-      <div className="chat-container">
-        <div className="office-list">
-          <h3>Офисы</h3>
+    <div className="reception-layout">
+      <aside className="reception-sidebar">
+        <div className="reception-sidebar__head">
+          <h3>Диалоги</h3>
+          <span className="reception-sidebar__count">{offices.length}</span>
+        </div>
+
+        <div className="reception-search">
+          <FaSearch className="reception-search__icon" />
+          <input
+            type="text"
+            placeholder="Поиск офиса..."
+            value={officeSearch}
+            onChange={e => setOfficeSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="reception-offices">
           {loading && offices.length === 0 ? (
-            <div className="loading-container">
+            <div className="reception-loading">
               <Spin />
-              <span>Загрузка офисов...</span>
+              <span>Загрузка...</span>
+            </div>
+          ) : filteredOffices.length === 0 ? (
+            <div className="reception-empty">
+              <p>Офисы не найдены</p>
             </div>
           ) : (
-            offices.map((office) => (
+            filteredOffices.map((office) => (
               <button
                 key={office.id}
-                className={`office-item ${selectedOfficeId === office.id ? "active" : ""}`}
+                className={`reception-office ${selectedOfficeId === office.id ? 'is-active' : ''}`}
                 onClick={() => handleOfficeChange(office.id)}
               >
-                <div className="office-info">
-                  <span className="office-name-label">{office.title}</span>
-                  {office.lastActivity && (
-                    <span className="last-activity">{office.lastActivity}</span>
-                  )}
+                <div className={`reception-avatar ${office.online ? 'is-online' : ''}`}>
+                  {getInitials(office.title || office.name)}
+                  <span className="reception-avatar__dot" />
                 </div>
-                <Tooltip title={office.online ? 'Онлайн' : 'Оффлайн'}>
-                  <div>
-                    <FaCircle 
-                      className={`status-indicator ${office.online ? 'online' : 'offline'}`} 
-                      size={12}
-                    />
+                <div className="reception-office__body">
+                  <div className="reception-office__row">
+                    <span className="reception-office__title">{office.title}</span>
+                    {office.lastActivity && (
+                      <span className="reception-office__time">{office.lastActivity}</span>
+                    )}
                   </div>
-                </Tooltip>
+                  <div className="reception-office__row reception-office__sub">
+                    <span>{office.online ? 'В сети' : 'Не в сети'}</span>
+                  </div>
+                </div>
               </button>
             ))
           )}
         </div>
+      </aside>
 
-        <div className="chat-section">
-          <div className="chat-header">
-            <h3>Чат: <span className="office-name">{selectedOfficeName}</span></h3>
+      <section className="reception-chat">
+        {!selectedOfficeId ? (
+          <div className="reception-empty-state">
+            <div className="reception-empty-state__icon">💬</div>
+            <h3>Выберите диалог</h3>
+            <p>Выберите офис слева, чтобы начать переписку</p>
           </div>
-          
-          <div className="messages-container" ref={messageContainerRef}>
-            {loadingMessages ? (
-              <div className="loading-container">
-                <Spin />
-                <span>Загрузка сообщений...</span>
+        ) : (
+          <>
+            <header className="reception-chat__header">
+              <div className={`reception-avatar reception-avatar--lg ${selectedOffice?.online ? 'is-online' : ''}`}>
+                {getInitials(selectedOfficeName)}
+                <span className="reception-avatar__dot" />
               </div>
-            ) : messages.length === 0 ? (
-              <div className="empty-messages">
-                <p>Нет доступных сообщений</p>
-                <p className="empty-hint">Отправьте новое сообщение, чтобы начать общение</p>
+              <div className="reception-chat__title">
+                <h3>{selectedOfficeName || 'Диалог'}</h3>
+                <span className={`reception-chat__status ${selectedOffice?.online ? 'is-online' : ''}`}>
+                  {selectedOffice?.online ? 'онлайн' : 'не в сети'}
+                </span>
               </div>
-            ) : (
-              messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`message ${message.isMine ? 'mine' : ''} ${message.error ? 'error' : ''}`}
-                >
-                  <div className="message-content">
-                    <span className="sender">{message.sender}</span>
-                    <p className="text">{message.text}</p>
-                    <div className="message-footer">
-                      <span className="timestamp">{message.timestamp}</span>
-                      {message.isMine && (
-                        <span className="read-status">
-                          {message.isRead ? <MdDoneAll /> : <MdDone />}
-                        </span>
-                      )}
+            </header>
+
+            <div className="reception-messages" ref={messageContainerRef}>
+              {loadingMessages ? (
+                <div className="reception-loading">
+                  <Spin />
+                  <span>Загрузка сообщений...</span>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="reception-empty-state reception-empty-state--sm">
+                  <div className="reception-empty-state__icon">✨</div>
+                  <h4>Здесь пока пусто</h4>
+                  <p>Отправьте первое сообщение</p>
+                </div>
+              ) : (
+                groupedMessages.map((group) => (
+                  <div className="reception-day-group" key={group.key}>
+                    <div className="reception-day-divider">
+                      <span>{group.label}</span>
                     </div>
+                    {group.items.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`reception-msg ${message.isMine ? 'is-mine' : ''} ${message.error ? 'is-error' : ''}`}
+                      >
+                        {!message.isMine && (
+                          <div className="reception-avatar reception-avatar--sm">
+                            {getInitials(message.sender)}
+                          </div>
+                        )}
+                        <div className="reception-msg__bubble">
+                          {!message.isMine && (
+                            <span className="reception-msg__sender">{message.sender}</span>
+                          )}
+                          <p className="reception-msg__text">{message.text}</p>
+                          <div className="reception-msg__meta">
+                            <span>{message.timestamp}</span>
+                            {message.isMine && (
+                              <span className="reception-msg__read">
+                                {message.isRead ? <MdDoneAll /> : <MdDone />}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {(message.isMine || user?.role === 'admin') && (
+                          <Tooltip title="Удалить">
+                            <button
+                              className="reception-msg__delete"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              aria-label="Удалить сообщение"
+                            >
+                              <FaTrashAlt />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  <button 
-                    className="delete-btn" 
-                    onClick={() => handleDeleteMessage(message.id)}
-                    disabled={!message.isMine && user?.role !== 'admin'}
-                  >
-                    <FaTrashAlt />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          
-          <div className="input-section">
-            <textarea
-              placeholder="Введите сообщение..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={!selectedOfficeId || loadingMessages || sendingMessage}
-            />
-            <div className="chat-actions">
-              <Tooltip title="Загрузить файл">
-                <div>
-                  <button className="upload-button" onClick={handleFileUpload}>
-                    <MdUpload />
-                  </button>
-                </div>
+                ))
+              )}
+            </div>
+
+            <div className="reception-composer">
+              <Tooltip title="Прикрепить файл">
+                <button
+                  className="reception-composer__icon-btn"
+                  onClick={handleFileUpload}
+                  aria-label="Прикрепить файл"
+                >
+                  <MdAttachFile />
+                </button>
               </Tooltip>
-              <button 
-                className="send-button" 
+              <textarea
+                placeholder="Напишите сообщение..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!selectedOfficeId || loadingMessages || sendingMessage}
+                rows={1}
+              />
+              <Tooltip title="Эмодзи">
+                <button
+                  className="reception-composer__icon-btn"
+                  onClick={() => notification.info({ message: 'Скоро' })}
+                  aria-label="Эмодзи"
+                  type="button"
+                >
+                  <MdEmojiEmotions />
+                </button>
+              </Tooltip>
+              <button
+                className="reception-composer__send"
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || !selectedOfficeId || loadingMessages || sendingMessage}
+                aria-label="Отправить"
               >
                 {sendingMessage ? <Spin size="small" /> : <FaPaperPlane />}
-                <span>Отправить</span>
               </button>
             </div>
-          </div>
-        </div>
-      </div>
+          </>
+        )}
+      </section>
     </div>
   );
 };

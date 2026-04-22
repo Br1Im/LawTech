@@ -418,17 +418,19 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
           <h2>
             <CalendarOutlined /> Календарь
           </h2>
-          <div className="calendar-controls">
-            <span style={{ marginRight: 8 }}>Показать все события:</span>
-            <Switch checked={showAllEvents} onChange={setShowAllEvents} />
+          <div className="calendar-header__right">
+            <div className="calendar-controls">
+              <span>Показать все события</span>
+              <Switch checked={showAllEvents} onChange={setShowAllEvents} size="small" />
+            </div>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => showModal()}
+            >
+              Добавить событие
+            </Button>
           </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => showModal()}
-          >
-            Добавить событие
-          </Button>
         </div>
 
         {error && (
