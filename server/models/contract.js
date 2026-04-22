@@ -91,14 +91,14 @@ class Contract {
         // Создаем событие в календаре
         await connection.query(
           `INSERT INTO calendar_events 
-           (title, description, start_date, end_date, office_id) 
+           (title, description, start_date, office_id, type) 
            VALUES (?, ?, ?, ?, ?)`,
           [
             `Договор №${contractId}`,
             `Сумма договора: ${amount} ₽, Внесено: ${paidAmountValue} ₽`,
             contract_date,
-            contract_date, // end_date такая же как start_date
-            officeId
+            officeId,
+            'contract'
           ]
         );
       }
@@ -156,12 +156,11 @@ class Contract {
       // Обновляем событие в календаре
       await connection.query(
         `UPDATE calendar_events 
-         SET title = ?, description = ?, start_date = ?, end_date = ?
+         SET title = ?, description = ?, start_date = ?
          WHERE title LIKE ?`,
         [
           `Договор №${id}`,
           `Сумма: ${amount} ₽`,
-          contract_date,
           contract_date,
           `Договор №${id}%`
         ]
