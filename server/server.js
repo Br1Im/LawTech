@@ -14,16 +14,11 @@ const vectorSearch = require('./services/vectorSearch');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Настройка CORS
+// Настройка CORS — разрешаем любой origin, отдавая его обратно в ACAO.
+// Нужно для превью-тоннелей, devinapps-хостов и локалки. В проде можно сузить.
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:3000',
-    'https://lawtech-p225.onrender.com',
-    '*'
-  ],
-  credentials: true
+  origin: (origin, cb) => cb(null, origin || '*'),
+  credentials: true,
 }));
 
 // Настройка middleware
