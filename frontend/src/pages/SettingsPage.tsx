@@ -141,8 +141,8 @@ const SettingsPage: React.FC = () => {
   }, [navigate]);
 
   const handleTabClick = (tab: string) => {
-    // Обработка переключения вкладок в сайдбаре
-    console.log('Tab clicked:', tab);
+    // Возвращаемся в CRM на выбранную вкладку
+    navigate(`/crm?tab=${encodeURIComponent(tab)}`);
   };
 
   return (
