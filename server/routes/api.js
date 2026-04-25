@@ -69,6 +69,50 @@ router.delete('/offices/:officeId', authenticateToken, officeController.deleteOf
 // Подключаем дополнительные маршруты офисов
 router.use('/offices', authenticateToken, officeRoutes);
 
+// Зарплата
+const salaryController = require('../controllers/salaryController');
+router.get('/salary', authenticateToken, salaryController.calculate);
+router.get('/offices/:id/salary-settings', authenticateToken, salaryController.getSettings);
+router.put('/offices/:id/salary-settings', authenticateToken, salaryController.updateSettings);
+router.get('/employees/:id/salary', authenticateToken, salaryController.getEmployeeSalary);
+router.put('/employees/:id/salary', authenticateToken, salaryController.upsertEmployeeSalary);
+router.get('/shifts', authenticateToken, salaryController.listShifts);
+router.post('/shifts', authenticateToken, salaryController.createShift);
+router.delete('/shifts/:id', authenticateToken, salaryController.removeShift);
+
+// Акты по договору
+const actsController = require('../controllers/actsController');
+router.get('/acts', authenticateToken, actsController.list);
+router.get('/acts/:id', authenticateToken, actsController.getOne);
+router.put('/acts/:id', authenticateToken, actsController.update);
+router.post('/acts/:id/confirm', authenticateToken, actsController.confirm);
+router.delete('/acts/:id', authenticateToken, actsController.remove);
+router.post('/contracts/:id/acts', authenticateToken, actsController.createForContract);
+router.get('/contracts/:id/acts', authenticateToken, (req, res, next) => {
+  req.query.contract_id = req.params.id;
+  return actsController.list(req, res, next);
+});
+
+// Документы по договору (.doc/.docx)
+const contractDocsController = require('../controllers/contractDocsController');
+router.get('/contracts/:id/documents', authenticateToken, contractDocsController.list);
+router.post(
+  '/contracts/:id/documents',
+  authenticateToken,
+  contractDocsController.uploadMiddleware,
+  contractDocsController.create
+);
+router.get(
+  '/contracts/:id/documents/:docId/download',
+  authenticateToken,
+  contractDocsController.download
+);
+router.delete(
+  '/contracts/:id/documents/:docId',
+  authenticateToken,
+  contractDocsController.remove
+);
+
 // Подключаем маршруты для договоров и клиентов
 router.use('/contracts', contractRoutes);
 router.use('/clients', clientRoutes);
@@ -76,6 +120,12 @@ router.use('/clients', clientRoutes);
 // Дополнительные маршруты для совместимости
 const contractController = require('../controllers/contractController');
 router.get('/office/:officeId/contracts', authenticateToken, contractController.getAllContracts);
+
+// Office dashboard: per-office plan/fact + lawyers cash
+const officeDashboardController = require('../controllers/officeDashboardController');
+router.get('/office/:officeId/dashboard', authenticateToken, officeDashboardController.getDashboard);
+router.get('/office/:officeId/plan', authenticateToken, officeDashboardController.getPlan);
+router.put('/office/:officeId/plan', authenticateToken, officeDashboardController.upsertPlan);
 
 // Роуты для чата
 router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
@@ -134,40 +184,48 @@ router.get('/calendar-events/all', authenticateToken, calendarController.getAllC
 // Роуты для сотрудников офиса
 router.post('/employees/ensure', authenticateToken, async (req, res) => {
   try {
-    const { user_id, office_id } = req.body;
     const user = req.user;
-    
-    // Проверяем, существует ли уже employee для этого пользователя
+    const userId = (req.body && req.body.user_id) || user.id;
     const db = require('../db');
+    const { ensureUserOffice } = require('../utils/ensureOffice');
+
+    // Гарантируем наличие офиса у текущего пользователя (создаст при необходимости).
+    const officeId = await ensureUserOffice(user);
+
+    // Проверяем, существует ли уже employee с этим id.
     const [existing] = await db.query(
-      'SELECT id FROM employees WHERE id = ?',
-      [user_id]
+      'SELECT id, office_id FROM employees WHERE id = ?',
+      [userId]
     );
-    
+
     if (existing.length > 0) {
-      return res.json({ success: true, data: existing[0] });
+      // Если employee существует, но без офиса — допривязываем.
+      if (!existing[0].office_id) {
+        await db.query('UPDATE employees SET office_id = ? WHERE id = ?', [officeId, userId]);
+      }
+      return res.json({ success: true, data: { id: existing[0].id } });
     }
-    
+
     // Создаем нового employee на основе данных пользователя
     const [userResult] = await db.query(
       'SELECT first_name, last_name, email FROM users WHERE id = ?',
-      [user_id]
+      [userId]
     );
-    
+
     if (userResult.length === 0) {
       return res.status(404).json({ success: false, message: 'Пользователь не найден' });
     }
-    
+
     const userData = userResult[0];
-    
+
     // Вставляем employee с тем же ID что и user
     await db.query(
-      `INSERT INTO employees (id, first_name, last_name, email, office_id, position) 
+      `INSERT INTO employees (id, first_name, last_name, email, office_id, position)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [user_id, userData.first_name, userData.last_name, userData.email, office_id, 'Юрист']
+      [userId, userData.first_name, userData.last_name, userData.email, officeId, 'Юрист']
     );
-    
-    res.json({ success: true, data: { id: user_id } });
+
+    res.json({ success: true, data: { id: userId } });
   } catch (error) {
     console.error('Error ensuring employee:', error);
     res.status(500).json({ success: false, message: 'Ошибка при создании сотрудника' });

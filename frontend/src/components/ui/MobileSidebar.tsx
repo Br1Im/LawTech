@@ -52,7 +52,6 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
     const allItems = {
       office: { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
       clients: { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
-      contracts: { key: 'Договоры', icon: <FaFileContract />, label: 'Договоры' },
       calendar: { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
@@ -68,25 +67,25 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       case 'expert':
         return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       case 'lawyer':
-        return [allItems.office, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
+        return [allItems.office, allItems.clients, allItems.materials, allItems.calendar];
       case 'admin':
-        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
+        return [allItems.clients, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
       case 'director':
         return [
-          allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
+          allItems.office, allItems.clients, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
           allItems.reception, allItems.callCenter, allItems.materials,
         ];
       case 'manager':
       case 'okk':
         return [
-          allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
+          allItems.office, allItems.clients, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
           allItems.reception, allItems.callCenter, allItems.materials,
         ];
       default:
         return [
-          allItems.office, allItems.clients, allItems.contracts, allItems.calendar,
+          allItems.office, allItems.clients, allItems.calendar,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
           allItems.reception, allItems.callCenter, allItems.materials,
         ];

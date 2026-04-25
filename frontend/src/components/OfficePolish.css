@@ -1,0 +1,311 @@
+/* =============================================
+   OFFICE PAGE — VISUAL POLISH OVERRIDES
+   Loaded after OfficeContent.css to cleanly
+   improve the visuals of the "Офис" tab.
+   ============================================= */
+
+/* Hide the awkward "arrow in the middle" expand button that sat
+   between the two stat cards — the cards themselves are clickable. */
+.office-left-column .expand-button-container {
+  display: none;
+}
+
+/* Make the other floating expand arrows less loud. They're hints
+   for "view details", not primary actions. */
+.office-content .expand-button {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  box-shadow: none;
+  opacity: 0.55;
+  font-size: 10px;
+  top: 10px;
+  right: 10px;
+}
+.office-content .expand-button:hover {
+  transform: translateX(2px);
+  background: var(--color-accent);
+  color: #fff;
+  opacity: 1;
+}
+
+/* Header: gentle gold gradient accent on the left edge */
+.office-header {
+  position: relative;
+  overflow: hidden;
+}
+.office-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-dark, #a88436));
+  border-radius: 4px 0 0 4px;
+}
+
+/* Office card: tidy spacing and cleaner selected state */
+.office-card {
+  padding: 18px 18px 16px;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.office-card:hover {
+  transform: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.office-card.selected {
+  background: linear-gradient(180deg, var(--color-accent-light) 0%, transparent 140%);
+  box-shadow: 0 6px 18px rgba(191,149,63,0.12);
+}
+.office-card-header h3 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+.office-card.selected .office-card-header h3 {
+  color: var(--color-accent);
+}
+.office-card-info p {
+  margin: 6px 0;
+}
+
+/* Stat card refinements */
+.stat-card {
+  padding: 20px 22px;
+  border-radius: 16px;
+}
+.stat-card-title {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin-bottom: 14px;
+}
+.stat-card-value {
+  font-size: 28px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.stat-card-percentage {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.stat-card-percentage .description {
+  font-size: 12px;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  opacity: 0.85;
+}
+
+/* Employee table: calmer zebra stripes, right-align money columns */
+.employee-stats-table thead {
+  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-dark, #a88436));
+}
+.employee-stats-table th:nth-child(2),
+.employee-stats-table th:nth-child(3),
+.employee-stats-table td:nth-child(2),
+.employee-stats-table td:nth-child(3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.employee-stats-table tbody tr:nth-child(odd) {
+  background: var(--color-bg);
+}
+.employee-stats-table tbody tr:nth-child(even) {
+  background: var(--color-bg-alt);
+}
+.employee-stats-table tbody tr:hover td {
+  background: var(--color-accent-light);
+}
+
+/* Chart cards feel less boxed-in */
+.chart-box-container,
+.charts-container {
+  box-shadow: 0 8px 28px rgba(17,17,17,0.05);
+}
+
+/* Section titles: subtle gold underline accent */
+.section-title {
+  position: relative;
+  padding-bottom: 6px;
+}
+.section-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 28px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 2px;
+}
+
+/* Period dropdown: a touch more polish */
+.period-dropdown-header {
+  border-radius: 10px;
+  padding: 9px 14px;
+}
+.period-dropdown-header:hover {
+  box-shadow: 0 2px 10px rgba(191,149,63,0.15);
+}
+
+/* === Lawyers block (replaces revenue charts) === */
+.lawyers-block { grid-column: 1 / -1; }
+.lawyers-legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 6px; font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+}
+.lawyers-legend .legend-item { display: inline-flex; align-items: center; gap: 4px; }
+.lawyers-legend svg { color: #d4af37; font-size: 11px; }
+
+.lawyers-table tbody tr.lawyer-row { cursor: pointer; transition: background-color .15s ease; }
+.lawyers-table tbody tr.lawyer-row:hover td { background: rgba(212,175,55,0.10); }
+.lawyers-table th.num, .lawyers-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.lawyer-rating-stars { display: inline-flex; gap: 2px; vertical-align: middle; }
+.lawyer-rating-stars svg { color: #d4af37; font-size: 14px; }
+
+.rating-badge {
+  margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; vertical-align: middle;
+}
+.rating-badge.rating-3 { background: rgba(40,160,80,0.12); color: #1f7a3a; border: 1px solid rgba(40,160,80,0.3); }
+.rating-badge.rating-2 { background: rgba(212,175,55,0.15); color: #8a6b1d; border: 1px solid rgba(212,175,55,0.4); }
+.rating-badge.rating-1 { background: rgba(160,120,40,0.10); color: #8a6b1d; border: 1px solid rgba(160,120,40,0.25); }
+.rating-badge.rating-0 { background: rgba(180,180,180,0.15); color: #6b6b6b; border: 1px solid rgba(160,160,160,0.3); }
+
+.lawyer-modal { max-width: 720px; }
+.lawyer-rating-row {
+  display: flex; align-items: center; gap: 10px; margin: 4px 0 14px;
+}
+.lawyer-rating-row .lawyer-rating-stars svg { font-size: 18px; }
+
+.lawyer-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin: 8px 0 18px;
+}
+.lawyer-summary-cell {
+  background: linear-gradient(180deg, rgba(212,175,55,0.06), transparent);
+  border: 1px solid rgba(212,175,55,0.20);
+  border-radius: 10px; padding: 12px 14px;
+}
+.lawyer-summary-cell .cell-label {
+  font-size: 11px; color: var(--color-text-muted, #8a7a5a);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.lawyer-summary-cell .cell-value {
+  font-size: 20px; font-weight: 700; color: var(--color-text);
+  font-variant-numeric: tabular-nums; margin-top: 4px;
+}
+.lawyer-topics-table th.num, .lawyer-topics-table td.num {
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.muted { color: var(--color-text-muted, #8a7a5a); font-size: 13px; }
+
+/* === Plan / Fact widgets === */
+.plan-fact-block {
+  background: var(--glass-bg, rgba(255,255,255,0.7));
+  border: 1px solid var(--glass-border, rgba(0,0,0,0.06));
+  border-radius: 16px; padding: 16px; box-shadow: 0 6px 18px rgba(17,17,17,0.04);
+}
+.plan-fact-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px;
+}
+.plan-edit-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  background: rgba(212,175,55,0.10); border: 1px solid rgba(212,175,55,0.35);
+  color: #8a6b1d; font-weight: 600; font-size: 13px;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.plan-edit-btn:hover { background: rgba(212,175,55,0.18); }
+.plan-fact-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+}
+.plan-fact-card {
+  border-radius: 12px; padding: 12px 14px;
+  border: 1px solid rgba(0,0,0,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+}
+.plan-fact-card.plan-good { border-color: rgba(40,160,80,0.35); background: linear-gradient(180deg, rgba(40,160,80,0.10), rgba(40,160,80,0.02)); }
+.plan-fact-card.plan-warn { border-color: rgba(212,175,55,0.45); background: linear-gradient(180deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); }
+.plan-fact-card.plan-bad  { border-color: rgba(212,73,58,0.40);  background: linear-gradient(180deg, rgba(212,73,58,0.10), rgba(212,73,58,0.02)); }
+.plan-fact-card.plan-empty { border-style: dashed; }
+
+.plan-fact-label {
+  font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.plan-fact-label .period-range { text-transform: none; opacity: 0.8; font-size: 11px; }
+.plan-fact-label .plan-day-kind { text-transform: none; opacity: 0.85; font-size: 11px; margin-left: 4px; color: var(--color-accent, #b8941f); }
+.plan-fact-value {
+  display: inline-flex; align-items: baseline; gap: 6px; margin: 6px 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+.plan-fact-value .fact { font-size: 22px; font-weight: 700; color: var(--color-text); }
+.plan-fact-value .sep  { font-size: 18px; opacity: 0.5; }
+.plan-fact-value .plan { font-size: 16px; opacity: 0.75; }
+.plan-fact-progress {
+  height: 6px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden;
+}
+.plan-fact-bar { height: 100%; transition: width .3s ease; background: #d4af37; }
+.plan-fact-card.plan-good .plan-fact-bar { background: #28a050; }
+.plan-fact-card.plan-warn .plan-fact-bar { background: #d4af37; }
+.plan-fact-card.plan-bad  .plan-fact-bar { background: #d4493a; }
+.plan-fact-pct {
+  margin-top: 6px; font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+}
+
+/* === Касса юристов === */
+.lawyers-cash-table .num.strong { font-weight: 700; color: var(--color-text); }
+.lawyers-cash-table tfoot td { background: rgba(212,175,55,0.06); }
+.table-subtitle { margin-top: 4px; font-size: 12px; color: var(--color-text-muted, #8a7a5a); }
+
+/* === Plan editor modal === */
+.plan-modal { max-width: 520px; }
+.plan-form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.plan-form-row {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.plan-form-row > span { font-size: 12px; color: var(--color-text-muted, #8a7a5a); }
+.plan-form-row input[type="number"], .plan-form-row input[type="date"] {
+  padding: 10px 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px;
+  font-size: 14px; outline: none;
+}
+.plan-form-row input:focus { border-color: rgba(212,175,55,0.6); }
+.plan-form-range { flex-direction: row; gap: 12px; }
+.plan-form-range label { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.plan-form-actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px;
+}
+.btn-primary {
+  padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #d4af37, #a8841d);
+  color: #fff; font-weight: 600; transition: filter .15s ease;
+}
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  padding: 9px 16px; border-radius: 8px; cursor: pointer;
+  background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.10);
+  color: var(--color-text); font-weight: 600;
+}
+.btn-secondary:hover { background: rgba(0,0,0,0.08); }
+.form-error { color: #b03a2e; font-size: 13px; }
+
+/* Custom range selector inside period dropdown */
+.period-custom-range {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 16px; border-top: 1px solid rgba(0,0,0,0.08);
+  background: rgba(212,175,55,0.04);
+}
+.period-custom-range label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+}
+.period-custom-range input[type="date"] {
+  flex: 1; padding: 6px 8px; border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 6px; font-size: 13px;
+}

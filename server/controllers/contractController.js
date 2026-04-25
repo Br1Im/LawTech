@@ -1,4 +1,5 @@
 const Contract = require('../models/contract');
+const { ensureUserOffice } = require('../utils/ensureOffice');
 
 /**
  * Контроллер для работы с договорами
@@ -11,9 +12,13 @@ const contractController = {
     try {
       const user = req.user;
       
-      // Проверяем office_id из параметров или из пользователя
+      // Подставляем office_id: сначала из URL/query, потом из пользователя.
+      // Если у пользователя офиса нет — создаём персональный.
       let officeId = req.params.officeId || req.query.office_id || user.office_id;
-      
+      if (!officeId) {
+        officeId = await ensureUserOffice(user);
+      }
+
       if (!officeId) {
         return res.status(403).json({
           success: false,
@@ -93,12 +98,9 @@ const contractController = {
       console.log('📝 Creating contract with data:', JSON.stringify(contractData, null, 2));
       console.log('👤 User office_id:', user.office_id);
 
-      if (!user.office_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Пользователь не привязан к офису'
-        });
-      }
+      // Если пользователь ещё не привязан к офису — создаём для него
+      // персональный офис.
+      await ensureUserOffice(user);
 
       // Валидация
       if (!contractData.id_employee || !contractData.id_client || !contractData.amount) {
@@ -224,14 +226,9 @@ const contractController = {
       const user = req.user;
       const { period = 'month' } = req.query;
 
-      if (!user.office_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Пользователь не привязан к офису'
-        });
-      }
+      const officeId = await ensureUserOffice(user);
 
-      const stats = await Contract.getStatsByOffice(user.office_id, period);
+      const stats = await Contract.getStatsByOffice(officeId, period);
       
       res.json({
         success: true,

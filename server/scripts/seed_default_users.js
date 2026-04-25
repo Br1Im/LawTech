@@ -67,33 +67,22 @@ async function seedDefaultUsers() {
   try {
     console.log('🚀 Начало создания тестовых аккаунтов...');
     
-    // Массив тестовых пользователей
+    // Массив тестовых пользователей. Тестовые офисы НЕ создаём —
+    // каждый пользователь получит свой офис при первом сохранении клиента/договора.
     const defaultUsers = [
       {
         first_name: 'Анна',
         last_name: 'Петрова',
         email: 'lawyer@lawtech.com',
         password: 'lawyer123',
-        role: 'lawyer',
-        office: {
-          name: 'Юридическая консультация "Правовед"',
-          address: 'г. Москва, ул. Арбат, д. 25, оф. 12',
-          contact_phone: '+7 (495) 987-65-43',
-          website: 'https://pravoved-law.ru'
-        }
+        role: 'lawyer'
       },
       {
         first_name: 'Анна',
         last_name: 'Юристова',
         email: 'lawyer1@pravoved.ru',
         password: 'lawyer123',
-        role: 'lawyer',
-        office: {
-          name: 'Юридическая консультация "Правовед"',
-          address: 'г. Москва, ул. Арбат, д. 25, оф. 12',
-          contact_phone: '+7 (495) 987-65-43',
-          website: 'https://pravoved-law.ru'
-        }
+        role: 'lawyer'
       },
       {
         first_name: 'Михаил',

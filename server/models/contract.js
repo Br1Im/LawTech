@@ -11,10 +11,15 @@ class Contract {
                COALESCE(cl.name, 'Неизвестный клиент') as client_name,
                cl.phone as client_phone,
                cl.email as client_email,
-               CONCAT(e.first_name, ' ', e.last_name) as employee_name
+               CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
+               CONCAT(e.first_name, ' ', e.last_name) as lawyer_short,
+               TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
+               CONCAT(exp.first_name, ' ', exp.last_name) as expert_short
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
+        LEFT JOIN employees exp ON c.expert_id = exp.id
         WHERE e.office_id = ?
         ORDER BY c.contract_date DESC
       `;
@@ -37,10 +42,13 @@ class Contract {
                cl.phone as client_phone,
                cl.email as client_email,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
+               TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
+               TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                e.office_id as office_id
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
+        LEFT JOIN employees exp ON c.expert_id = exp.id
         WHERE c.id = ?
       `;
       const [contracts] = await db.query(query, [id]);
@@ -59,16 +67,24 @@ class Contract {
     try {
       await connection.beginTransaction();
 
-      const { id_employee, id_client, contract_date, amount, paid_amount, status } = contractData;
-      
+      const {
+        id_employee, id_client, contract_date, amount, paid_amount, status, title, description,
+        contract_type, expert_id, docs_status,
+      } = contractData;
+
       // Используем paid_amount, если указан, иначе amount
       const paidAmountValue = paid_amount || amount;
-      
+      const ctype = (contract_type || 'docs').toString();
+      const expertVal = expert_id ? Number(expert_id) : null;
+      const dStatus = (docs_status || 'pending').toString();
+
       // Создаем договор
       const [result] = await connection.query(
-        `INSERT INTO contracts (id_employee, id_client, contract_date, amount, paid_amount, status) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [id_employee, id_client, contract_date, amount, paidAmountValue, status || 'active']
+        `INSERT INTO contracts (
+           id_employee, contract_type, expert_id, docs_status,
+           id_client, contract_date, amount, paid_amount, status, title, description
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id_employee, ctype, expertVal, dStatus, id_client, contract_date, amount, paidAmountValue, status || 'active', title || null, description || null]
       );
 
       const contractId = result.insertId;
@@ -128,17 +144,28 @@ class Contract {
         throw new Error('Contract not found');
       }
 
-      const { id_employee, id_client, contract_date, amount, paid_amount, status } = contractData;
-      
+      const {
+        id_employee, id_client, contract_date, amount, paid_amount, status,
+        contract_type, expert_id, docs_status, title, description,
+      } = contractData;
+
       // Используем paid_amount, если указан, иначе amount
       const paidAmountValue = paid_amount !== undefined ? paid_amount : amount;
-      
-      // Обновляем договор
+
+      // Build dynamic SET so unspecified fields keep prior value (PATCH-style)
+      const sets = [
+        'id_employee = ?', 'id_client = ?', 'contract_date = ?', 'amount = ?', 'paid_amount = ?', 'status = ?',
+      ];
+      const params = [id_employee, id_client, contract_date, amount, paidAmountValue, status];
+      if (contract_type !== undefined) { sets.push('contract_type = ?'); params.push(contract_type); }
+      if (expert_id !== undefined)     { sets.push('expert_id = ?');     params.push(expert_id ? Number(expert_id) : null); }
+      if (docs_status !== undefined)   { sets.push('docs_status = ?');   params.push(docs_status); }
+      if (title !== undefined)         { sets.push('title = ?');         params.push(title); }
+      if (description !== undefined)   { sets.push('description = ?');   params.push(description); }
+      params.push(id);
       await connection.query(
-        `UPDATE contracts 
-         SET id_employee = ?, id_client = ?, contract_date = ?, amount = ?, paid_amount = ?, status = ?
-         WHERE id = ?`,
-        [id_employee, id_client, contract_date, amount, paidAmountValue, status, id]
+        `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,
+        params
       );
 
       // Если изменилась сумма внесения или дата, обновляем статистику

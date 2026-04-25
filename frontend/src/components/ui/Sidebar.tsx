@@ -54,7 +54,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     const allItems = {
       office: { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
       clients: { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
-      contracts: { key: 'Договоры', icon: <FaFileContract />, label: 'Договоры' },
+      acts: { key: 'Акты', icon: <FaFileContract />, label: 'Акты' },
+      salary: { key: 'Зарплата', icon: <FaMoneyBillWave />, label: 'Зарплата' },
       calendar: { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
@@ -72,19 +73,20 @@ const Sidebar: React.FC<SidebarProps> = ({
         return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
       
       case 'lawyer':
-        // Юрист: Офис, Договоры, Материалы, Клиенты, Календарь
-        return [allItems.office, allItems.contracts, allItems.materials, allItems.clients, allItems.calendar];
+        // Юрист: Офис, Клиенты, Акты, Материалы, Календарь
+        return [allItems.office, allItems.clients, allItems.acts, allItems.salary, allItems.materials, allItems.calendar];
       
       case 'admin':
-        // Администратор: Договоры, Приходы, Ресепшен, Календарь
-        return [allItems.contracts, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
+        // Администратор: Клиенты, Приходы, Ресепшен, Календарь
+        return [allItems.clients, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
       
       case 'director':
         // Директор: все пункты меню (кроме AI)
         return [
           allItems.office,
           allItems.clients,
-          allItems.contracts,
+          allItems.acts,
+          allItems.salary,
           allItems.calendar,
           allItems.appointments,
           allItems.employees,
@@ -101,7 +103,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         return [
           allItems.office,
           allItems.clients,
-          allItems.contracts,
+          allItems.acts,
+          allItems.salary,
           allItems.calendar,
           allItems.appointments,
           allItems.employees,
@@ -117,7 +120,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         return [
           allItems.office,
           allItems.clients,
-          allItems.contracts,
+          allItems.acts,
+          allItems.salary,
           allItems.calendar,
           allItems.appointments,
           allItems.employees,

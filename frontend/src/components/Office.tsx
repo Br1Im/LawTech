@@ -3,11 +3,10 @@ import { createPortal } from "react-dom";
 import "./OfficeContent.css";
 import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
+import "./OfficePolish.css";
 import StatCard from "./StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaRegStar, FaTrophy } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
-import PieChartComponent from "./PieChartComponent";
-import BarChartComponent from "./BarChartComponent";
 import { Modal, Form, Input, Button, message } from "antd";
 import { buildApiUrl } from "../shared/utils/apiUtils";
 import { useOffice } from "../shared/contexts/OfficeContext";
@@ -60,14 +59,31 @@ interface Office {
   ogrn?: string;
 }
 
-type PeriodType = "day" | "2weeks" | "month";
+type PeriodType = "day" | "yesterday" | "week" | "2weeks" | "month" | "custom";
+
+interface DashboardData {
+  period: { label: string; from: string; to: string; today: string };
+  fact: { day: number; period: number };
+  plan: {
+    id: number;
+    day: number; // applied for today (weekday or weekend)
+    day_weekday: number;
+    day_weekend: number;
+    day_kind: 'weekday' | 'weekend';
+    period: number;
+    period_start: string;
+    period_end: string;
+  } | null;
+  lawyers_cash: Array<{ id: number; full_name: string; today: number; period: number }>;
+}
 
 // Функция для расчета процентного изменения
 const calculatePercentageChange = (current: number, previous: number): { percentage: string | null; isIncrease: boolean | null } => {
-  if (previous === 0) return { percentage: null, isIncrease: null };
-  if (current === previous) return { percentage: null, isIncrease: null };
-  
-  const change = ((current - previous) / previous) * 100;
+  const cur = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  if (prev === 0) return { percentage: null, isIncrease: null };
+  const change = ((cur - prev) / prev) * 100;
+  if (Math.abs(change) < 0.05) return { percentage: null, isIncrease: null };
   return {
     percentage: Math.abs(change).toFixed(1),
     isIncrease: change > 0
@@ -98,14 +114,23 @@ const Office = () => {
   //     }
   //   }
   // }, [officeFromContext]);
-  const [period, setPeriod] = useState<PeriodType>("month");
+  const [period, setPeriod] = useState<PeriodType>("day");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showRevenueModal, setShowRevenueModal] = useState(false);
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
-  const [showBarChartModal, setShowBarChartModal] = useState(false);
-  const [showPieChartModal, setShowPieChartModal] = useState(false);
+  const [selectedLawyerId, setSelectedLawyerId] = useState<string | null>(null);
+  const [contracts, setContracts] = useState<Array<{ id: number; id_employee: number; status: string; title: string; amount?: number | string }>>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [customFrom, setCustomFrom] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 13); return d.toISOString().slice(0, 10);
+  });
+  const [customTo, setCustomTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planForm, setPlanForm] = useState<{ dayWeekday: string; dayWeekend: string; period: string; from: string; to: string }>({ dayWeekday: '', dayWeekend: '', period: '', from: '', to: '' });
+  const [planSaving, setPlanSaving] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [addForm] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,6 +142,7 @@ const Office = () => {
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const dropdownButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
   
   // Проверка, достигнут ли лимит офисов
   const isOfficeLimit = offices.length >= MAX_OFFICES;
@@ -124,7 +150,11 @@ const Office = () => {
   // Закрытие выпадающего списка при клике вне его
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showPeriodDropdown && dropdownButtonRef.current && !dropdownButtonRef.current.contains(event.target as Node)) {
+      if (!showPeriodDropdown) return;
+      const target = event.target as Node;
+      const insideButton = dropdownButtonRef.current?.contains(target);
+      const insideContent = dropdownContentRef.current?.contains(target);
+      if (!insideButton && !insideContent) {
         setShowPeriodDropdown(false);
       }
     };
@@ -271,6 +301,119 @@ const Office = () => {
     }
   }, [offices, selectedOffice]);
 
+  // Загружаем дашборд офиса (план/факт/касса юристов)
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      if (!selectedOffice?.id) return;
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const params = new URLSearchParams({ period });
+        if (period === 'custom') {
+          params.set('from', customFrom);
+          params.set('to', customTo);
+        }
+        const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          setDashboard(null);
+          return;
+        }
+        const body = await res.json();
+        setDashboard(body.data || null);
+      } catch (e) {
+        console.error('dashboard fetch failed', e);
+        setDashboard(null);
+      }
+    };
+    fetchDashboard();
+  }, [selectedOffice?.id, period, customFrom, customTo]);
+
+  const isDirector = (() => {
+    try {
+      const t = localStorage.getItem('token');
+      if (!t) return false;
+      const payload = JSON.parse(atob(t.split('.')[1] || ''));
+      return (payload.role || '').toLowerCase() === 'director';
+    } catch { return false; }
+  })();
+
+  const openPlanEditor = () => {
+    setPlanError(null);
+    const today = new Date();
+    const defaultFrom = new Date(today); defaultFrom.setDate(defaultFrom.getDate() - 13);
+    setPlanForm({
+      dayWeekday: dashboard?.plan ? String(dashboard.plan.day_weekday ?? dashboard.plan.day ?? '') : '',
+      dayWeekend: dashboard?.plan ? String(dashboard.plan.day_weekend ?? dashboard.plan.day ?? '') : '',
+      period: dashboard?.plan ? String(dashboard.plan.period) : '',
+      from: dashboard?.plan?.period_start ? dashboard.plan.period_start.slice(0, 10) : defaultFrom.toISOString().slice(0, 10),
+      to: dashboard?.plan?.period_end ? dashboard.plan.period_end.slice(0, 10) : today.toISOString().slice(0, 10),
+    });
+    setShowPlanModal(true);
+  };
+
+  const savePlan = async () => {
+    if (!selectedOffice?.id) return;
+    setPlanError(null);
+    const dayWeekday = Number(planForm.dayWeekday || 0);
+    const dayWeekend = Number(planForm.dayWeekend || 0);
+    const periodAmt = Number(planForm.period || 0);
+    if (!planForm.from || !planForm.to) { setPlanError('Укажите диапазон периода'); return; }
+    if (dayWeekday < 0 || dayWeekend < 0 || periodAmt < 0) { setPlanError('Суммы плана не могут быть отрицательными'); return; }
+    setPlanSaving(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/plan`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          daily_plan_weekday: dayWeekday,
+          daily_plan_weekend: dayWeekend,
+          period_plan_amount: periodAmt,
+          period_start: planForm.from,
+          period_end: planForm.to,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || 'Не удалось сохранить план');
+      }
+      setShowPlanModal(false);
+      // Re-fetch dashboard
+      const params = new URLSearchParams({ period });
+      if (period === 'custom') { params.set('from', customFrom); params.set('to', customTo); }
+      const r = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r.ok) { const b = await r.json(); setDashboard(b.data || null); }
+    } catch (err) {
+      setPlanError((err as Error).message || 'Ошибка');
+    } finally {
+      setPlanSaving(false);
+    }
+  };
+
+  // Загружаем все договоры (для аналитики юристов)
+  useEffect(() => {
+    const fetchContracts = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch(buildApiUrl('/contracts'), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        const list = Array.isArray(body) ? body : (body.data || body.contracts || []);
+        setContracts(list);
+      } catch (e) {
+        console.error('contracts fetch failed', e);
+      }
+    };
+    fetchContracts();
+  }, [selectedOffice?.id]);
+
   useEffect(() => {
     if (selectedOffice) {
       // Используем данные из stats, которые приходят с сервера
@@ -373,20 +516,20 @@ const Office = () => {
 
   const getPeriodText = () => {
     switch (period) {
-      case "day":
-        return "День";
-      case "2weeks":
-        return "Период";
-      case "month":
-        return "Месяц";
-      default:
-        return "День";
+      case "day": return "Сегодня";
+      case "yesterday": return "Вчера";
+      case "week": return "Неделя";
+      case "2weeks": return "2 недели";
+      case "month": return "Месяц";
+      case "custom": return "Произвольный период";
+      default: return "Сегодня";
     }
   };
 
   const getComparisonText = (isIncrease: boolean | null) => {
-    if (isIncrease === null) return `Без изменений (${getPeriodText()})`;
-    return isIncrease ? `Больше чем вчера (${getPeriodText()})` : `Меньше чем вчера (${getPeriodText()})`;
+    const period = getPeriodText().toLowerCase();
+    if (isIncrease === null) return `Без изменений за ${period}`;
+    return isIncrease ? `Рост за ${period}` : `Снижение за ${period}`;
   };
 
   // Функция для получения данных о выручке офисов с сервера
@@ -682,6 +825,64 @@ const Office = () => {
     }
   };
 
+  // ===== Аналитика по юристам =====
+  const lawyerEmployees = (selectedOffice?.employees || []).filter(emp =>
+    emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат')
+  );
+
+  const extractTopic = (title: string): string => {
+    if (!title) return 'Без темы';
+    const idx = title.indexOf(' - ');
+    return idx > 0 ? title.slice(0, idx).trim() : title.trim();
+  };
+
+  type LawyerStats = {
+    total: number;
+    completed: number;
+    closeRate: number;
+    rating: 0 | 1 | 2 | 3;
+    ratingLabel: string;
+    bestTopic: { topic: string; rate: number; total: number } | null;
+    topics: Array<{ topic: string; total: number; completed: number; rate: number }>;
+  };
+
+  const computeLawyerStats = (employeeId: string | number): LawyerStats => {
+    const eid = Number(employeeId);
+    const own = contracts.filter(c => Number(c.id_employee) === eid);
+    const total = own.length;
+    const completed = own.filter(c => (c.status || '').toLowerCase() === 'completed').length;
+    const closeRate = total > 0 ? (completed / total) * 100 : 0;
+    const byTopic = new Map<string, { total: number; completed: number }>();
+    own.forEach(c => {
+      const topic = extractTopic(c.title || '');
+      const cur = byTopic.get(topic) || { total: 0, completed: 0 };
+      cur.total += 1;
+      if ((c.status || '').toLowerCase() === 'completed') cur.completed += 1;
+      byTopic.set(topic, cur);
+    });
+    const topics = Array.from(byTopic.entries())
+      .map(([topic, v]) => ({ topic, total: v.total, completed: v.completed, rate: v.total > 0 ? (v.completed / v.total) * 100 : 0 }))
+      .sort((a, b) => b.rate - a.rate || b.total - a.total);
+    const bestTopic = topics.length > 0 && topics[0].total > 0 ? { topic: topics[0].topic, rate: topics[0].rate, total: topics[0].total } : null;
+    let rating: 0 | 1 | 2 | 3 = 0;
+    let ratingLabel = 'Низкий';
+    if (closeRate >= 33) { rating = 3; ratingLabel = 'Идеальный'; }
+    else if (closeRate >= 25) { rating = 2; ratingLabel = 'Хороший'; }
+    else if (closeRate >= 15) { rating = 1; ratingLabel = 'Средний'; }
+    return { total, completed, closeRate, rating, ratingLabel, bestTopic, topics };
+  };
+
+  const renderStars = (rating: 0 | 1 | 2 | 3) => (
+    <span className="lawyer-rating-stars" aria-label={`Рейтинг ${rating} из 3`}>
+      {[1, 2, 3].map(i => i <= rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
+    </span>
+  );
+
+  const selectedLawyer = selectedLawyerId
+    ? lawyerEmployees.find(e => String(e.id) === String(selectedLawyerId)) || null
+    : null;
+  const selectedLawyerStats = selectedLawyer ? computeLawyerStats(selectedLawyer.id) : null;
+
   // Если есть ошибка загрузки данных - показываем красивое сообщение
   if (hasError) {
     return (
@@ -732,6 +933,7 @@ const Office = () => {
             </div>
             {showPeriodDropdown && createPortal(
               <div 
+                ref={dropdownContentRef}
                 className="period-dropdown-content"
                 style={{
                   position: 'fixed',
@@ -740,33 +942,31 @@ const Office = () => {
                   minWidth: `${dropdownPosition.width}px`
                 }}
               >
-                <div 
-                  className={`period-option ${period === "day" ? "active" : ""}`} 
-                  onClick={() => {
-                    handlePeriodChange("day");
-                    setShowPeriodDropdown(false);
-                  }}
-                >
-                  День
-                </div>
-                <div 
-                  className={`period-option ${period === "2weeks" ? "active" : ""}`}
-                  onClick={() => {
-                    handlePeriodChange("2weeks");
-                    setShowPeriodDropdown(false);
-                  }}
-                >
-                  Период
-                </div>
-                <div 
-                  className={`period-option ${period === "month" ? "active" : ""}`}
-                  onClick={() => {
-                    handlePeriodChange("month");
-                    setShowPeriodDropdown(false);
-                  }}
-                >
-                  Месяц
-                </div>
+                {([
+                  { v: 'day', t: 'Сегодня' },
+                  { v: 'yesterday', t: 'Вчера' },
+                  { v: 'week', t: 'Неделя' },
+                  { v: '2weeks', t: '2 недели' },
+                  { v: 'month', t: 'Месяц' },
+                  { v: 'custom', t: 'Произвольный период' },
+                ] as Array<{ v: PeriodType; t: string }>).map(opt => (
+                  <div
+                    key={opt.v}
+                    className={`period-option ${period === opt.v ? 'active' : ''}`}
+                    onClick={() => {
+                      handlePeriodChange(opt.v);
+                      setShowPeriodDropdown(false);
+                    }}
+                  >
+                    {opt.t}
+                  </div>
+                ))}
+                {period === 'custom' && (
+                  <div className="period-custom-range" onClick={(e) => e.stopPropagation()}>
+                    <label>С<input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
+                    <label>По<input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
+                  </div>
+                )}
               </div>,
               document.body
             )}
@@ -818,94 +1018,118 @@ const Office = () => {
               </div>
             </div>
 
-            {selectedOffice && (
-              <div className="statCard-content">
-                <div className="expand-button-container">
-                  <button 
-                    className="expand-button" 
-                    onClick={() => setShowRevenueModal(true)}
-                    title="Открыть подробную информацию"
-                  >
-                    <FaArrowRight />
-                  </button>
+            {selectedOffice && (() => {
+              const dayFact = Number(dashboard?.fact.day || 0);
+              const periodFact = Number(dashboard?.fact.period || 0);
+              const dayPlan = Number(dashboard?.plan?.day || 0);
+              const periodPlan = Number(dashboard?.plan?.period || 0);
+              const dayPct = dayPlan > 0 ? (dayFact / dayPlan) * 100 : null;
+              const periodPct = periodPlan > 0 ? (periodFact / periodPlan) * 100 : null;
+              const tier = (pct: number | null) =>
+                pct === null ? 'plan-empty' : pct >= 100 ? 'plan-good' : pct >= 50 ? 'plan-warn' : 'plan-bad';
+              const fmt = (v: number) => `${Math.round(v).toLocaleString('ru-RU')} ₽`;
+              return (
+                <div className="plan-fact-block">
+                  <div className="plan-fact-header">
+                    <h4 className="section-title">План / Факт</h4>
+                    {isDirector && (
+                      <button className="btn-secondary plan-edit-btn" onClick={openPlanEditor}>
+                        <FaEdit /> {dashboard?.plan ? 'Изменить план' : 'Задать план'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="plan-fact-grid">
+                    <div className={`plan-fact-card ${tier(dayPct)}`}>
+                      <div className="plan-fact-label">
+                        План на день
+                        {dashboard?.plan?.day_kind && (
+                          <span className="plan-day-kind">
+                            {dashboard.plan.day_kind === 'weekend' ? '— выходной' : '— будний'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="plan-fact-value">
+                        <span className="fact">{fmt(dayFact)}</span>
+                        <span className="sep">/</span>
+                        <span className="plan">{dayPlan > 0 ? fmt(dayPlan) : '—'}</span>
+                      </div>
+                      <div className="plan-fact-progress">
+                        <div className="plan-fact-bar" style={{ width: `${Math.min(dayPct ?? 0, 100)}%` }} />
+                      </div>
+                      <div className="plan-fact-pct">{dayPct === null ? 'План не задан' : `${dayPct.toFixed(0)}%`}</div>
+                    </div>
+                    <div className={`plan-fact-card ${tier(periodPct)}`}>
+                      <div className="plan-fact-label">
+                        План на период
+                        {dashboard?.plan?.period_start && dashboard?.plan?.period_end && (
+                          <span className="period-range"> ({dashboard.plan.period_start.slice(0, 10)} — {dashboard.plan.period_end.slice(0, 10)})</span>
+                        )}
+                      </div>
+                      <div className="plan-fact-value">
+                        <span className="fact">{fmt(periodFact)}</span>
+                        <span className="sep">/</span>
+                        <span className="plan">{periodPlan > 0 ? fmt(periodPlan) : '—'}</span>
+                      </div>
+                      <div className="plan-fact-progress">
+                        <div className="plan-fact-bar" style={{ width: `${Math.min(periodPct ?? 0, 100)}%` }} />
+                      </div>
+                      <div className="plan-fact-pct">{periodPct === null ? 'План не задан' : `${periodPct.toFixed(0)}%`}</div>
+                    </div>
+                  </div>
                 </div>
-                <StatCard
-                  title="Приходы"
-                  value={stats.orders.toString()}
-                  icon={<FaUsers />}
-                  colorIcon="#8280FF"
-                  percentage={stats.visitsChange.percentage}
-                  isIncrease={stats.visitsChange.isIncrease}
-                  description={getComparisonText(stats.visitsChange.isIncrease)}
-                />
-                <StatCard
-                  title="Общая касса"
-                  value={`${stats.revenue.toLocaleString('ru-RU')} ₽`}
-                  icon={<FaChartLine />}
-                  percentage={stats.revenueChange.percentage}
-                  colorIcon="#4AD991"
-                  isIncrease={stats.revenueChange.isIncrease}
-                  description={getComparisonText(stats.revenueChange.isIncrease)}
-                />
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
 
-        {/* Блок 2: Верхний правый - График динамики выручки */}
-        <div className="chart-box-container">
-          <div className="chart-box" style={{ padding: '10px', position: 'relative' }}>
-            <button 
-              className="expand-button" 
-              onClick={() => setShowBarChartModal(true)}
-              title="Открыть подробную информацию"
-            >
-              <FaArrowRight />
-            </button>
-            <BarChartComponent 
-              title={`Динамика выручки ${getPeriodText()}`}
-              data={officeRevenueData}
-            />
-          </div>
-        </div>
-
-        {/* Блок 3: Нижний левый - Таблица сотрудников */}
+        {/* Блок 2: Юристы офиса с рейтингом */}
         {selectedOffice && (
-          <div className="employee-table-container-container">
+          <div className="employee-table-container-container lawyers-block">
             <div className="employee-table-container">
-              <button 
-                className="expand-button" 
-                onClick={() => setShowEmployeeModal(true)}
-                title="Открыть полную таблицу"
-              >
-                <FaArrowRight />
-              </button>
               <div className="table-header">
-                <h4 className="section-title">Сотрудники офиса {selectedOffice.title}</h4>
+                <h4 className="section-title">Юристы офиса {selectedOffice.title}</h4>
+                <div className="lawyers-legend">
+                  <span className="legend-item"><FaStar /><FaStar /><FaStar /> ≥ 33% — идеальный</span>
+                  <span className="legend-item"><FaStar /><FaStar /> 25–32% — хороший</span>
+                  <span className="legend-item"><FaStar /> 15–24% — средний</span>
+                </div>
               </div>
-              <table className="employee-stats-table">
+              <table className="employee-stats-table lawyers-table">
                 <thead>
                   <tr>
                     <th>Юрист</th>
-                    <th>Касса за день</th>
-                    <th>Касса за период</th>
+                    <th className="num">Договоров</th>
+                    <th className="num">Закрыто</th>
+                    <th className="num">Процент закрытия</th>
+                    <th>Рейтинг</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedOffice.employees && selectedOffice.employees.length > 0 ? (
-                    selectedOffice.employees.map((employee, index) => (
-                      <tr 
-                        key={employee.id} 
-                        style={{ opacity: index === 0 ? 1 : index === 1 ? 0.8 : index === 2 ? 0.6 : index === 3 ? 0.4 : index === 4 ? 0.2 : 0 }}
-                      >
-                        <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
-                        <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
-                        <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
-                      </tr>
-                    ))
+                  {lawyerEmployees.length > 0 ? (
+                    lawyerEmployees.map((employee) => {
+                      const s = computeLawyerStats(employee.id);
+                      const fullName = `${employee.surname || ''} ${employee.name || ''} ${employee.middle_name || ''}`.trim() || 'Юрист';
+                      return (
+                        <tr
+                          key={employee.id}
+                          className="lawyer-row"
+                          onClick={() => setSelectedLawyerId(String(employee.id))}
+                          title="Открыть статистику юриста"
+                        >
+                          <td>{fullName}</td>
+                          <td className="num">{s.total}</td>
+                          <td className="num">{s.completed}</td>
+                          <td className="num">{s.total > 0 ? `${s.closeRate.toFixed(1)}%` : '—'}</td>
+                          <td>
+                            {renderStars(s.rating)}
+                            <span className={`rating-badge rating-${s.rating}`}>{s.ratingLabel}</span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
+                      <td colSpan={5} className="no-data">В офисе нет юристов</td>
                     </tr>
                   )}
                 </tbody>
@@ -914,27 +1138,47 @@ const Office = () => {
           </div>
         )}
 
-        {/* Блок 4: Нижний правый - Pie Chart */}
+        {/* Блок 3: Касса юристов (ФИО / Касса за сегодня / Касса за период) */}
         {selectedOffice && (
-          <div className="charts-container">
-            <div className="chart-box" style={{ position: 'relative' }}>
-              <button 
-                className="expand-button" 
-                onClick={() => setShowPieChartModal(true)}
-                title="Открыть подробную информацию"
-              >
-                <FaArrowRight />
-              </button>
-              <PieChartComponent 
-                title="Выручка по юристам" 
-                data={(selectedOffice.employees || [])
-                  .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
-                  .map(emp => ({
-                    label: `${emp.surname || ''} ${emp.name ? emp.name.charAt(0) + '.' : ''}${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
-                    value: emp.totalRevenue14Days || 0
-                  }))
-                }
-              />
+          <div className="employee-table-container-container lawyers-block">
+            <div className="employee-table-container">
+              <div className="table-header">
+                <h4 className="section-title">Касса юристов</h4>
+                <div className="table-subtitle">Только заключённые и оплаченные договоры за выбранный период ({getPeriodText().toLowerCase()})</div>
+              </div>
+              <table className="employee-stats-table lawyers-cash-table">
+                <thead>
+                  <tr>
+                    <th>ФИО юриста</th>
+                    <th className="num">Касса за сегодня</th>
+                    <th className="num">Касса за период</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(dashboard?.lawyers_cash || []).length > 0 ? (
+                    (dashboard?.lawyers_cash || []).map(l => (
+                      <tr key={`cash-${l.id}`}>
+                        <td>{l.full_name || 'Юрист'}</td>
+                        <td className="num">{`${Math.round(l.today).toLocaleString('ru-RU')} ₽`}</td>
+                        <td className="num strong">{`${Math.round(l.period).toLocaleString('ru-RU')} ₽`}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3} className="no-data">В офисе пока нет юристов или сделок</td>
+                    </tr>
+                  )}
+                </tbody>
+                {(dashboard?.lawyers_cash || []).length > 0 && (
+                  <tfoot>
+                    <tr>
+                      <td><b>Итого</b></td>
+                      <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.today, 0)).toLocaleString('ru-RU')} ₽`}</b></td>
+                      <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.period, 0)).toLocaleString('ru-RU')} ₽`}</b></td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
             </div>
           </div>
         )}
@@ -1163,7 +1407,10 @@ const Office = () => {
               
               <div className="info-section">
                 <h4>Данные ИП</h4>
-                <p><strong>ФИО:</strong> {`${selectedOffice.ip_surname || ''} ${selectedOffice.ip_name || ''} ${selectedOffice.ip_middle_name || ''}`}</p>
+                <p><strong>ФИО:</strong> {(() => {
+                  const full = `${selectedOffice.ip_surname || ''} ${selectedOffice.ip_name || ''} ${selectedOffice.ip_middle_name || ''}`.trim();
+                  return full || 'Не указано';
+                })()}</p>
                 <p><strong>ИНН:</strong> {selectedOffice.inn || 'Не указан'}</p>
                 <p><strong>ОГРН:</strong> {selectedOffice.ogrn || 'Не указан'}</p>
               </div>
@@ -1271,93 +1518,135 @@ const Office = () => {
         </div>
       )}
 
-      {selectedOffice && (
-        <div className={`employee-modal-overlay ${showBarChartModal ? 'active' : ''}`}>
-          <div className="modal-content">
-            <span className="modal-close-icon" onClick={() => setShowBarChartModal(false)}>
+      {showPlanModal && (
+        <div className="employee-modal-overlay active" onClick={() => !planSaving && setShowPlanModal(false)}>
+          <div className="modal-content plan-modal" onClick={(e) => e.stopPropagation()}>
+            <span className="modal-close-icon" onClick={() => !planSaving && setShowPlanModal(false)}>
               <FaTimes />
             </span>
-            <h3>Динамика выручки {getPeriodText()}</h3>
-            <div className="chart-modal-content">
-              <div className="modal-section">
-                <BarChartComponent 
-                  title={`Динамика выручки ${getPeriodText()}`}
-                  data={officeRevenueData}
-
-                />
+            <h3>{dashboard?.plan ? 'Изменить план офиса' : 'Задать план офиса'}</h3>
+            <div className="plan-form">
+              <div className="plan-form-row plan-form-range">
+                <label>
+                  <span>План на будний день, ₽</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={planForm.dayWeekday}
+                    onChange={(e) => setPlanForm(p => ({ ...p, dayWeekday: e.target.value }))}
+                    placeholder="например, 200000"
+                  />
+                </label>
+                <label>
+                  <span>План на выходной, ₽</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={planForm.dayWeekend}
+                    onChange={(e) => setPlanForm(p => ({ ...p, dayWeekend: e.target.value }))}
+                    placeholder="например, 100000"
+                  />
+                </label>
               </div>
-              <div className="modal-section">
-                <h4>Анализ динамики выручки</h4>
-                <p><b>Период:</b> {getPeriodText()}</p>
-                <p><b>Общая касса:</b> {stats.revenue.toLocaleString()} ₽</p>
-                <p><b>Средняя выручка в день:</b> {Math.round(stats.revenue / (period === "day" ? 1 : period === "2weeks" ? 14 : 30)).toLocaleString()} ₽</p>
-                <p><b>Изменение:</b> {stats.revenueChange.percentage}% {stats.revenueChange.isIncrease ? 'больше' : 'меньше'} по сравнению с предыдущим периодом</p>
+              <label className="plan-form-row">
+                <span>План на период, ₽</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={planForm.period}
+                  onChange={(e) => setPlanForm(p => ({ ...p, period: e.target.value }))}
+                  placeholder="например, 1000000"
+                />
+              </label>
+              <div className="plan-form-row plan-form-range">
+                <label>
+                  <span>Период с</span>
+                  <input type="date" value={planForm.from} onChange={(e) => setPlanForm(p => ({ ...p, from: e.target.value }))} />
+                </label>
+                <label>
+                  <span>Период по</span>
+                  <input type="date" value={planForm.to} onChange={(e) => setPlanForm(p => ({ ...p, to: e.target.value }))} />
+                </label>
+              </div>
+              {planError && <div className="form-error">{planError}</div>}
+              <div className="plan-form-actions">
+                <button className="btn-secondary" onClick={() => setShowPlanModal(false)} disabled={planSaving}>Отмена</button>
+                <button className="btn-primary" onClick={savePlan} disabled={planSaving}>
+                  {planSaving ? 'Сохранение…' : 'Сохранить план'}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {selectedOffice && (
-        <div className={`employee-modal-overlay ${showPieChartModal ? 'active' : ''}`}>
-          <div className="modal-content">
-            <span className="modal-close-icon" onClick={() => setShowPieChartModal(false)}>
+      {selectedLawyer && selectedLawyerStats && (
+        <div className="employee-modal-overlay active" onClick={() => setSelectedLawyerId(null)}>
+          <div className="modal-content lawyer-modal" onClick={(e) => e.stopPropagation()}>
+            <span className="modal-close-icon" onClick={() => setSelectedLawyerId(null)}>
               <FaTimes />
             </span>
-            <h3>Выручка по юристам</h3>
-            <div className="chart-modal-content">
-              <div className="modal-section">
-                <PieChartComponent 
-                  title="Выручка по юристам" 
-                  data={selectedOffice.employees
-                    .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
-                    .map(emp => ({
-                      label: `${emp.surname} ${emp.name ? emp.name.charAt(0) + '.' : ''} ${emp.middle_name ? emp.middle_name.charAt(0) + '.' : ''}`,
-                      value: emp.totalRevenue14Days || 0
-                    }))
-                  }
+            <h3>
+              {`${selectedLawyer.surname || 'Юрист'} ${selectedLawyer.name || ''} ${selectedLawyer.middle_name || ''}`.trim()}
+            </h3>
+            <div className="lawyer-rating-row">
+              {renderStars(selectedLawyerStats.rating)}
+              <span className={`rating-badge rating-${selectedLawyerStats.rating}`}>{selectedLawyerStats.ratingLabel}</span>
+            </div>
 
-                />
+            <div className="lawyer-summary">
+              <div className="lawyer-summary-cell">
+                <div className="cell-label">Договоров</div>
+                <div className="cell-value">{selectedLawyerStats.total}</div>
               </div>
-              <div className="modal-section">
-                <h4>Детальная информация</h4>
-                <table className="employee-stats-table">
+              <div className="lawyer-summary-cell">
+                <div className="cell-label">Закрыто</div>
+                <div className="cell-value">{selectedLawyerStats.completed}</div>
+              </div>
+              <div className="lawyer-summary-cell">
+                <div className="cell-label">Процент закрытия</div>
+                <div className="cell-value">{selectedLawyerStats.total > 0 ? `${selectedLawyerStats.closeRate.toFixed(1)}%` : '—'}</div>
+              </div>
+            </div>
+
+            <div className="modal-section">
+              <h4><FaTrophy /> Лучшая тематика</h4>
+              {selectedLawyerStats.bestTopic && selectedLawyerStats.completed > 0 ? (
+                <p>
+                  <b>{selectedLawyerStats.bestTopic.topic}</b> — {selectedLawyerStats.bestTopic.rate.toFixed(1)}% закрытия
+                  {' '}({selectedLawyerStats.bestTopic.total} {selectedLawyerStats.bestTopic.total === 1 ? 'договор' : 'договоров'})
+                </p>
+              ) : (
+                <p className="muted">Пока нет завершённых договоров — статистика по темам появится после закрытия первых сделок.</p>
+              )}
+            </div>
+
+            <div className="modal-section">
+              <h4>Статистика по тематикам</h4>
+              {selectedLawyerStats.topics.length > 0 ? (
+                <table className="employee-stats-table lawyer-topics-table">
                   <thead>
                     <tr>
-                      <th>Юрист</th>
-                      <th>Выручка</th>
-                      <th>Доля</th>
+                      <th>Тема</th>
+                      <th className="num">Всего</th>
+                      <th className="num">Закрыто</th>
+                      <th className="num">% закрытия</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedOffice.employees
-                      .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
-                      .map(employee => {
-                        const totalRevenue = selectedOffice.employees
-                          .filter(emp => emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат'))
-                          .reduce((sum, emp) => sum + (emp.totalRevenue14Days || 0), 0);
-                        const percentage = totalRevenue > 0 ? ((employee.totalRevenue14Days || 0) / totalRevenue * 100).toFixed(1) : '0';
-                        return (
-                          <tr key={employee.id}>
-                            <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''} ${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
-                            <td>{employee.totalRevenue14Days?.toLocaleString() || '0'} ₽</td>
-                            <td>{percentage}%</td>
-                          </tr>
-                        );
-                      })}
+                    {selectedLawyerStats.topics.map(t => (
+                      <tr key={t.topic}>
+                        <td>{t.topic}</td>
+                        <td className="num">{t.total}</td>
+                        <td className="num">{t.completed}</td>
+                        <td className="num">{`${t.rate.toFixed(1)}%`}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-                <p><b>Средний чек:</b> {stats.visits > 0 ? Math.round(stats.revenue / stats.visits).toLocaleString() : 0} ₽</p>
-              </div>
-              <div className="modal-section">
-                <h4>Статистика по периодам</h4>
-                <div className="period-chart">
-                  <BarChartComponent 
-                    title="Динамика выручки"
-                    data={officeRevenueData}
-                  />
-                </div>
-              </div>
+              ) : (
+                <p className="muted">У юриста пока нет договоров.</p>
+              )}
             </div>
           </div>
         </div>

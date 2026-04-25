@@ -1,4 +1,5 @@
 const Client = require('../models/client');
+const { ensureUserOffice } = require('../utils/ensureOffice');
 
 /**
  * Контроллер для работы с клиентами
@@ -10,15 +11,13 @@ const clientController = {
   async getAllClients(req, res) {
     try {
       const user = req.user;
-      
-      if (!user.office_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Пользователь не привязан к офису'
-        });
-      }
 
-      const clients = await Client.getAllByOffice(user.office_id);
+      // Если у пользователя ещё нет офиса (например, admin из сидов), создаём
+      // персональный офис здесь же, чтобы GET возвращал его (пустой) список,
+      // а не 403.
+      const officeId = await ensureUserOffice(user);
+
+      const clients = await Client.getAllByOffice(officeId);
       
       res.json({
         success: true,
@@ -73,12 +72,9 @@ const clientController = {
       console.log('📝 Creating client with data:', JSON.stringify(clientData, null, 2));
       console.log('👤 User office_id:', user.office_id);
 
-      if (!user.office_id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Пользователь не привязан к офису'
-        });
-      }
+      // Если пользователь ещё не привязан к офису — создаём для него
+      // персональный офис, чтобы он мог сохранять клиентов и договоры.
+      await ensureUserOffice(user);
 
       // Валидация - принимаем name, first_name или company
       if (!clientData.name && !clientData.first_name && !clientData.company) {

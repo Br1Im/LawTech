@@ -12,7 +12,8 @@ RUN npm ci
 COPY . .
 
 # Устанавливаем переменную окружения для сборки
-ENV VITE_API_URL=/api
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=$VITE_API_URL
 
 # Собираем приложение
 RUN npm run build

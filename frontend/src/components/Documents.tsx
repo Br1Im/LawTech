@@ -32,9 +32,13 @@ interface Document {
 
 interface DocumentsProps {
   contractId?: string | null;
+  /** Когда true, рендерит только кнопку «Новый договор» и её модалку создания,
+   *  без заголовка/фильтров/таблицы. Нужно чтобы встраивать кнопку на другие
+   *  страницы (например, в шапку вкладки «Клиенты»). */
+  headless?: boolean;
 }
 
-const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
+const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) => {
   const { notifications, removeNotification, showSuccess, showError, showWarning } = useNotification();
 
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -56,6 +60,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
   const [newDocument, setNewDocument] = useState({
     clientName: '',
     representativeName: '',
+    clientPhone: '',
     contractDate: new Date().toISOString().split('T')[0],
     subjectType: '', // 'documents' или 'representation'
     documentTypes: [] as string[], // для множественного выбора документов
@@ -65,8 +70,12 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     paidAmount: '',
     remainingAmount: '',
     remainingPaymentDate: new Date().toISOString().split('T')[0],
-    materials: [] as File[]
+    materials: [] as File[],
+    expertId: '' as string,
   });
+
+  // Experts (роль в employees — expert) из текущего офиса.
+  const [experts, setExperts] = useState<Array<{ id: number; name: string }>>([]);
 
   // Опции для выбора типов документов
   const [documentTypeOptions, setDocumentTypeOptions] = useState<string[]>([
@@ -102,6 +111,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     setNewDocument({
       clientName: 'Иванов Иван Иванович',
       representativeName: 'Петров Петр Петрович',
+      clientPhone: '+7 (999) 123-45-67',
       contractDate: formattedToday,
       subjectType: 'documents',
       documentTypes: ['Претензия', 'Жалоба в роспотребнадзор'],
@@ -111,7 +121,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       paidAmount: '75000',
       remainingAmount: '75000',
       remainingPaymentDate: formattedNextMonth,
-      materials: []
+      materials: [],
+      expertId: '',
     });
     
     setContractTopic('Гражданское право');
@@ -183,7 +194,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
             ? new Date(contract.contract_date).toLocaleDateString('ru-RU')
             : new Date(contract.created_at).toLocaleDateString('ru-RU'),
           client: contract.client_name || 'Неизвестный клиент',
-          contractNumber: contract.contract_number || `DOG-${contract.id}`
+          contractNumber: contract.contract_number || `ДОГ-${String(contract.id).padStart(8, '0')}`
         }));
         setDocuments(transformedDocuments);
         
@@ -252,8 +263,32 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
   });
 
   // Открытие модального окна для создания нового договора
-  const openNewDocumentModal = () => {
+  const openNewDocumentModal = async () => {
     setIsModalOpen(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(buildApiUrl('/employees'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const list: any[] = Array.isArray(json) ? json : (json.data || json.employees || []);
+      const expertList = list
+        .filter((e) => {
+          const role = String(e.position || e.role || e.user_role || '').toLowerCase();
+          return role.includes('эксперт') || role === 'expert';
+        })
+        .map((e) => ({
+          id: Number(e.id),
+          name: [e.last_name, e.first_name, e.middle_name]
+            .filter(Boolean)
+            .join(' ') || e.name || `#${e.id}`,
+        }));
+      setExperts(expertList);
+    } catch (e) {
+      console.warn('Failed to load experts', e);
+    }
   };
 
   // Закрытие модального окна
@@ -264,6 +299,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     setNewDocument({
       clientName: '',
       representativeName: '',
+      clientPhone: '',
       contractDate: new Date().toISOString().split('T')[0],
       subjectType: '',
       documentTypes: [],
@@ -273,7 +309,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       paidAmount: '',
       remainingAmount: '',
       remainingPaymentDate: new Date().toISOString().split('T')[0],
-      materials: []
+      materials: [],
+      expertId: '',
     });
   };
 
@@ -459,6 +496,33 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     }));
   };
 
+  // Форматирование российского номера телефона в маску +7 (XXX) XXX-XX-XX.
+  // Принимает любой ввод, вытягивает цифры, приводит ведущую 8 к 7.
+  const formatRussianPhone = (raw: string): string => {
+    let digits = raw.replace(/\D/g, '');
+    if (digits.startsWith('8')) digits = '7' + digits.slice(1);
+    if (!digits.startsWith('7')) digits = '7' + digits;
+    digits = digits.slice(0, 11);
+    const d = digits.slice(1); // без ведущей 7
+    let out = '+7';
+    if (d.length > 0) out += ' (' + d.slice(0, 3);
+    if (d.length >= 3) out += ')';
+    if (d.length > 3) out += ' ' + d.slice(3, 6);
+    if (d.length > 6) out += '-' + d.slice(6, 8);
+    if (d.length > 8) out += '-' + d.slice(8, 10);
+    return out;
+  };
+
+  const isValidRussianPhone = (value: string): boolean => {
+    const digits = value.replace(/\D/g, '');
+    return digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'));
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatRussianPhone(e.target.value);
+    setNewDocument(prev => ({ ...prev, clientPhone: formatted }));
+  };
+
   // Удаление файла
   const removeFile = (index: number) => {
     setNewDocument(prev => ({
@@ -474,6 +538,11 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
     // Валидация обязательных полей
     if (!newDocument.clientName.trim()) {
       showWarning('Пожалуйста, введите ФИО клиента');
+      return;
+    }
+
+    if (!newDocument.clientPhone.trim() || !isValidRussianPhone(newDocument.clientPhone)) {
+      showWarning('Пожалуйста, введите российский номер телефона в формате +7 (XXX) XXX-XX-XX');
       return;
     }
     
@@ -507,10 +576,10 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       if (!isAuthenticated || !user) {
         throw new Error('Требуется авторизация');
       }
-      
-      if (!user.office_id) {
-        throw new Error('Не указан офис пользователя');
-      }
+
+      // Если у пользователя нет office_id (например, admin из сидов), бэкенд
+      // сам создаст персональный офис при первом POST /clients или /contracts
+      // через ensureUserOffice. Никакой ошибки на фронте выбрасывать не нужно.
       
       // Формируем предмет договора в зависимости от выбранного типа
       let contractSubject = '';
@@ -520,7 +589,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         contractSubject = `Представление интересов: ${newDocument.customSubject}`;
       }
       
-      const selectedTopic = TOPICS.includes(contractTopic) ? contractTopic : 'Гражданское право';
+      const selectedTopic = (contractTopic && contractTopic.trim()) || 'Гражданское право';
       
       // Отправляем запрос на сервер для создания договора
       const token = localStorage.getItem('token');
@@ -538,7 +607,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         },
         body: JSON.stringify({
           name: newDocument.clientName,
-          phone: '',
+          phone: newDocument.clientPhone,
           email: '',
           address: ''
         })
@@ -553,7 +622,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         throw new Error('Не удалось создать клиента');
       }
 
-      // Создаем сотрудника для текущего пользователя, если его нет
+      // Создаем сотрудника для текущего пользователя, если его нет.
+      // office_id бэкенд подставит сам через ensureUserOffice.
       const employeeResponse = await fetch(buildApiUrl('/employees/ensure'), {
         method: 'POST',
         headers: {
@@ -561,8 +631,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          user_id: user.id,
-          office_id: user.office_id
+          user_id: user.id
         })
       });
 
@@ -572,7 +641,9 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         employeeId = employeeResult.data?.id || user.id;
       }
 
-      const contractData = {
+      const contractType = newDocument.subjectType === 'representation' ? 'court_rep' : 'docs';
+      const expertId = newDocument.expertId ? Number(newDocument.expertId) : null;
+      const contractData: Record<string, unknown> = {
         id_employee: employeeId,
         id_client: clientId,
         contract_date: newDocument.contractDate,
@@ -580,7 +651,10 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         paid_amount: parseFloat(newDocument.paidAmount),
         status: 'active',
         title: `${selectedTopic} - ${contractSubject}`,
-        description: contractSubject
+        description: contractSubject,
+        contract_type: contractType,
+        expert_id: contractType === 'docs' ? expertId : null,
+        docs_status: 'pending',
       };
 
       const response = await fetch(buildApiUrl('/contracts'), {
@@ -617,7 +691,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
           ? new Date(createdContract.created_at).toLocaleDateString('ru-RU')
           : new Date().toLocaleDateString('ru-RU'),
         client: createdContract.client_name || newDocument.clientName,
-        contractNumber: createdContract.id ? `DOG-${createdContract.id}` : 'N/A'
+        contractNumber: createdContract.id ? `ДОГ-${String(createdContract.id).padStart(8, '0')}` : 'N/A'
       };
       
       // Обновляем список в состоянии
@@ -632,7 +706,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         detail: { 
           contractId: createdContract.id,
           amount: parseFloat(newDocument.contractCost),
-          officeId: user.office_id
+          officeId: createdContract.office_id || user.office_id || null
         } 
       }));
       
@@ -650,11 +724,14 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
 
 
   return (
-    <div className="documents-container">
-      <h2 className="documents-title">Договоры</h2>
-      
-      {error && <div className="error-message">{error}</div>}
-      
+    <div className={headless ? 'documents-container documents-headless' : 'documents-container'}>
+      {!headless && <h2 className="documents-title">Договоры</h2>}
+
+      {!headless && error && <div className="error-message">{error}</div>}
+
+      {headless ? (
+        <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button>
+      ) : (
       <div className="documents-filters">
         <div className="search-container">
           <div className="search-input-wrapper">
@@ -693,8 +770,9 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         
         <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button>
       </div>
-      
-      {loading ? (
+      )}
+
+      {!headless && (loading ? (
         <div className="loading-indicator">Загрузка договоров...</div>
       ) : filteredDocuments.length > 0 ? (
         <div className="documents-table-container">
@@ -753,7 +831,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
         <div className="no-documents">
           <p>Документы не найдены</p>
         </div>
-      )}
+      ))}
 
       {/* Модальное окно для создания нового договора */}
       {isModalOpen && (
@@ -799,6 +877,23 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                 />
               </div>
               
+              {/* Номер телефона клиента — только российский формат */}
+              <div className="form-group">
+                <label htmlFor="clientPhone">Номер телефона *</label>
+                <input
+                  type="tel"
+                  id="clientPhone"
+                  name="clientPhone"
+                  value={newDocument.clientPhone}
+                  onChange={handlePhoneChange}
+                  placeholder="+7 (___) ___-__-__"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  maxLength={18}
+                  required
+                />
+              </div>
+
               <div className="form-group">
                 <label htmlFor="contractDate">Дата заключения *</label>
                 <input
@@ -811,19 +906,24 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                 />
               </div>
               
-              {/* Тема договора (перед предметом) */}
+              {/* Тема договора (свободный ввод) */}
               <div className="form-group">
                 <label htmlFor="contractTopic">Тема договора *</label>
-                <select
+                <input
                   id="contractTopic"
+                  type="text"
                   className="form-input"
                   value={contractTopic}
                   onChange={(e) => setContractTopic(e.target.value)}
-                >
+                  placeholder="Например: Возмещение ущерба по ДТП"
+                  list="contract-topic-suggestions"
+                  required
+                />
+                <datalist id="contract-topic-suggestions">
                   {TOPICS.map(topic => (
-                    <option key={topic} value={topic}>{topic}</option>
+                    <option key={topic} value={topic} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
               {/* Предмет договора */}
@@ -899,6 +999,27 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
                       placeholder="Опишите предмет представления интересов"
                       required
                     />
+                  </div>
+                )}
+
+                {/* Эксперт — для договоров «Подготовка документов» */}
+                {newDocument.subjectType === 'documents' && (
+                  <div className="custom-subject-input" style={{ marginTop: 8 }}>
+                    <label htmlFor="expertId" style={{ display: 'block', marginBottom: 4 }}>
+                      Эксперт (готовит документы)
+                    </label>
+                    <select
+                      id="expertId"
+                      name="expertId"
+                      value={newDocument.expertId}
+                      onChange={(e) => setNewDocument(prev => ({ ...prev, expertId: e.target.value }))}
+                      className="form-input"
+                    >
+                      <option value="">— Не назначен —</option>
+                      {experts.map(exp => (
+                        <option key={exp.id} value={exp.id}>{exp.name}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>
@@ -1022,7 +1143,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       )}
 
       {/* Модальное окно просмотра документа */}
-      {isViewModalOpen && selectedDocument && (
+      {!headless && isViewModalOpen && selectedDocument && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
@@ -1057,7 +1178,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       )}
 
       {/* Модальное окно редактирования документа */}
-      {isEditModalOpen && selectedDocument && editedDocument && (
+      {!headless && isEditModalOpen && selectedDocument && editedDocument && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header">
@@ -1141,7 +1262,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId }) => {
       )}
 
       {/* Модальное окно подтверждения удаления */}
-      {isDeleteModalOpen && documentToDelete && (
+      {!headless && isDeleteModalOpen && documentToDelete && (
         <div className="modal-overlay" onClick={cancelDeleteDocument}>
           <div className="modal-content delete-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">

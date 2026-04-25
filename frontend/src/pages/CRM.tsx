@@ -13,6 +13,8 @@ import Reception from '../components/Reception';
 import CallCenter from '../components/CallCenter';
 import Materials from '../components/Materials';
 import Clients from '../components/Clients';
+import Acts from '../components/Acts';
+import Salary from '../components/Salary';
 import Appointments from '../components/Appointments';
 import Calendar from '../components/Calendar';
 import NotificationPanel from '../components/NotificationPanel';
@@ -36,7 +38,7 @@ const SRM = () => {
       case 'lawyer':
         return 'Офис';
       case 'admin':
-        return 'Договоры';
+        return 'Клиенты';
       case 'director':
       case 'manager':
       case 'okk':
@@ -60,7 +62,9 @@ const SRM = () => {
   
   // Получаем параметры из URL
   const searchParams = new URLSearchParams(location.search);
-  const tabParam = searchParams.get('tab');
+  const rawTabParam = searchParams.get('tab');
+  // Обратная совместимость: старые ссылки на ?tab=Договоры перенаправляем на Клиенты.
+  const tabParam = rawTabParam === 'Договоры' ? 'Клиенты' : rawTabParam;
   const contractIdParam = searchParams.get('contractId');
   
   const [activeTab, setActiveTab] = useState<string>(tabParam || getDefaultTabByRole(user?.role));
@@ -132,7 +136,7 @@ const SRM = () => {
   const handleTabClick = (tab: string) => {
     setActiveTab(tab);
     // Сбрасываем выбранный договор при переключении на другую вкладку
-    if (tab !== "Договоры") {
+    if (tab !== "Клиенты") {
       setSelectedContractId(null);
     }
   };
@@ -141,7 +145,7 @@ const SRM = () => {
     const safeContractId = contractId || 0;
     setSelectedContractId(safeContractId.toString());
     // Обновляем URL с новым contractId
-    const newUrl = `/crm?tab=Договоры&contractId=${safeContractId}`;
+    const newUrl = `/crm?tab=Клиенты&contractId=${safeContractId}`;
     window.history.pushState({}, '', newUrl);
   };
 

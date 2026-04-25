@@ -34,7 +34,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, colorIcon, perc
         ) : (
           <FaEquals className="arrow-icon" />
         )}
-        <span>{percentage ? `${percentage}%` : "Без изменений"}</span>
+        {percentage ? <span>{percentage}%</span> : null}
         <span className="description">{description}</span>
       </div>
     </div>

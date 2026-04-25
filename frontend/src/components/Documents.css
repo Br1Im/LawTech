@@ -7,6 +7,24 @@
   box-sizing: border-box;
 }
 
+/* Headless-режим: только кнопка «Новый договор» + её модалка.
+ * Обёртка делается display: contents, чтобы не ломать layout родителя
+ * (например, flex-ряд инструментов в шапке вкладки «Клиенты»). */
+.documents-headless {
+  display: contents;
+  background: transparent;
+  padding: 0;
+}
+
+.documents-headless .new-document-btn {
+  width: auto;
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  height: 40px;
+  min-height: 40px;
+}
+
 .documents-title {
   color: var(--color-text);
   font-size: 28px;

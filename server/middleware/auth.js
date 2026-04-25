@@ -9,7 +9,13 @@ const config = require('../config');
  */
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const xAuthToken = req.headers['x-auth-token'];
+  let token = null;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (xAuthToken) {
+    token = xAuthToken;
+  }
 
   console.log(`🔐 Auth check for ${req.method} ${req.url}`);
   console.log(`📋 Auth header: ${authHeader ? 'present' : 'missing'}`);
