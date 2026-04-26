@@ -1,0 +1,4131 @@
+From 17f870832a983ee419ce11f9f0c65522798d15c6 Mon Sep 17 00:00:00 2001
+From: yan14brigth1 <yan14brigth1@mail.ru>
+Date: Sun, 26 Apr 2026 14:36:55 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20implement=20call=20center=20=E2=86=92?=
+ =?UTF-8?q?=20manager=20booking=20flow=20(appointments)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- БД: таблица appointments (лид→клиент→запись)
+- Бэкенд: bookClient, getAppointments, updateAppointment, getLeadAppointments
+- Фронт КЦ: форма записи при статусе Записан (ФИО, телефон, дата, время, комментарий)
+- Фронт: компонент Записанные клиенты с реальным API
+- Статусы: Ожидает приёма / Клиент пришёл / Не пришёл / Отменил
+- Автосоздание клиента + appointment + calendar event при записи
+
+Co-Authored-By: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+---
+ frontend/src/components/Appointments.css      |  365 ++++--
+ frontend/src/components/Appointments.tsx      |  444 ++++---
+ frontend/src/components/CallCenter.css        |  954 +++++---------
+ frontend/src/components/CallCenter.tsx        | 1095 ++++++++++-------
+ frontend/src/pages/AuthPage.tsx               |   10 +
+ frontend/src/shared/lib/hooks/useAuth.ts      |    9 +-
+ server/controllers/auth.js                    |   16 +-
+ server/controllers/callCenterController.js    |  585 ++++++++-
+ .../migrations/015_create_appointments.sql    |   28 +
+ server/routes/callCenter.js                   |   14 +
+ 10 files changed, 2154 insertions(+), 1366 deletions(-)
+ create mode 100644 server/database/migrations/015_create_appointments.sql
+
+diff --git a/frontend/src/components/Appointments.css b/frontend/src/components/Appointments.css
+index f7c0019..55d7788 100644
+--- a/frontend/src/components/Appointments.css
++++ b/frontend/src/components/Appointments.css
+@@ -1,197 +1,343 @@
++/* ============================================================
++   Appointments — Записанные клиенты (из КЦ)
++   ============================================================ */
++
+ .appointments-container {
+-  padding: 24px;
+-  background: var(--color-bg);
+-  min-height: 100vh;
++  display: flex;
++  flex-direction: column;
++  gap: 16px;
++  color: var(--color-text);
++  animation: appt-fade 0.35s ease-out;
++}
++@keyframes appt-fade {
++  from { opacity: 0; transform: translateY(6px); }
++  to   { opacity: 1; transform: translateY(0); }
+ }
+ 
+ .appointments-header {
+   display: flex;
+   justify-content: space-between;
+-  align-items: center;
+-  margin-bottom: 24px;
++  align-items: flex-start;
++  margin-bottom: 8px;
+   padding-bottom: 16px;
+-  border-bottom: 1px solid var(--color-border);
++  border-bottom: 1px solid var(--color-border, #eee);
+ }
+ 
+ .appointments-header h2 {
+   margin: 0;
+   color: var(--color-text);
+-  font-size: 24px;
+-  font-weight: 600;
++  font-size: 22px;
++  font-weight: 700;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+ }
+ 
++.appointments-subtitle {
++  font-size: 13px;
++  color: var(--color-muted, #888);
++  margin: 4px 0 0;
++}
++
+ .appointments-stats {
+   display: flex;
+-  gap: 24px;
++  gap: 12px;
+ }
+ 
+ .stat-item {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+-  padding: 12px 16px;
+-  background: var(--color-bg-alt);
+-  border-radius: 8px;
+-  border: 1px solid var(--color-border);
++  padding: 10px 16px;
++  background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 10px;
++  border: 1px solid var(--color-border, #eee);
++  min-width: 70px;
+ }
+ 
+-.stat-label {
+-  font-size: 12px;
+-  color: var(--color-text-secondary);
+-  margin-bottom: 4px;
+-}
++.stat-waiting { border-bottom: 2px solid #f59e0b; }
++.stat-arrived { border-bottom: 2px solid #10b981; }
++.stat-noshow  { border-bottom: 2px solid #ef4444; }
+ 
+ .stat-value {
+-  font-size: 20px;
+-  font-weight: 600;
+-  color: var(--color-accent);
++  font-size: 22px;
++  font-weight: 700;
++  color: var(--color-text);
++}
++
++.stat-label {
++  font-size: 11px;
++  color: var(--color-muted, #888);
++  margin-top: 2px;
+ }
+ 
++/* ---------- Filters ---------- */
+ .appointments-filters {
+   display: flex;
+-  gap: 12px;
+-  margin-bottom: 24px;
++  gap: 8px;
++  flex-wrap: wrap;
++  align-items: center;
++}
++
++.filter-group {
++  display: flex;
++  gap: 4px;
+ }
+ 
+ .filter-btn {
+-  padding: 8px 16px;
+-  border: 1px solid var(--color-border);
+-  background: var(--color-bg-alt);
++  padding: 6px 14px;
++  border: 1px solid var(--color-border, #ddd);
++  background: var(--color-bg-alt, #fff);
+   color: var(--color-text);
+-  border-radius: 6px;
++  border-radius: 8px;
+   cursor: pointer;
+-  transition: all 0.3s ease;
+-  font-size: 14px;
++  font-size: 13px;
+   font-weight: 500;
++  transition: all 0.2s;
+ }
+ 
+ .filter-btn:hover {
+-  background: var(--color-accent-light);
+-  border-color: var(--color-accent);
++  background: var(--color-accent-light, #f5e6c8);
++  border-color: var(--color-accent, #b8860b);
+ }
+ 
+ .filter-btn.active {
+-  background: var(--color-accent);
+-  color: var(--color-bg);
+-  border-color: var(--color-accent);
++  background: var(--color-accent, #b8860b);
++  color: #fff;
++  border-color: var(--color-accent, #b8860b);
+ }
+ 
++.refresh-btn {
++  margin-left: auto;
++}
++
++/* ---------- Cards ---------- */
+ .appointments-list {
+   display: flex;
+   flex-direction: column;
+-  gap: 16px;
++  gap: 12px;
+ }
+ 
+ .appointment-card {
+   display: flex;
+-  align-items: center;
+-  padding: 20px;
+-  background: var(--color-bg-alt);
+-  border: 1px solid var(--color-border);
++  align-items: stretch;
++  padding: 16px 20px;
++  background: var(--color-bg-alt, #fff);
++  border: 1px solid var(--color-border, #eee);
+   border-radius: 12px;
+-  transition: all 0.3s ease;
+-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
++  transition: all 0.2s;
++  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
++  border-left: 3px solid #ccc;
+ }
+ 
++.appt-card-waiting  { border-left-color: #f59e0b; }
++.appt-card-arrived  { border-left-color: #10b981; }
++.appt-card-no_show  { border-left-color: #ef4444; }
++.appt-card-cancelled { border-left-color: #6b7280; }
++
+ .appointment-card:hover {
+-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+-  border-color: var(--color-accent-light);
++  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+ }
+ 
+ .appointment-time {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
++  justify-content: center;
+   min-width: 80px;
+-  padding-right: 20px;
+-  border-right: 1px solid var(--color-border);
++  padding-right: 16px;
++  border-right: 1px solid var(--color-border, #eee);
++  gap: 2px;
+ }
+ 
+ .appointment-time .anticon {
+-  font-size: 18px;
+-  color: var(--color-accent);
+-  margin-bottom: 4px;
++  font-size: 16px;
++  color: var(--color-accent, #b8860b);
+ }
+ 
+-.appointment-time span {
+-  font-size: 16px;
+-  font-weight: 600;
++.time-value {
++  font-size: 18px;
++  font-weight: 700;
+   color: var(--color-text);
+ }
+ 
++.date-value {
++  font-size: 12px;
++  color: var(--color-muted, #888);
++}
++
+ .appointment-info {
+   flex: 1;
+-  padding-left: 20px;
++  padding: 0 16px;
+   display: flex;
+   flex-direction: column;
+-  gap: 8px;
++  gap: 4px;
+ }
+ 
+-.client-info,
+-.phone-info {
++.client-info, .phone-info {
+   display: flex;
+   align-items: center;
+   gap: 8px;
+ }
+ 
+-.client-info .anticon,
+-.phone-info .anticon {
+-  color: var(--color-text-secondary);
+-  font-size: 14px;
++.client-info .anticon, .phone-info .anticon {
++  color: var(--color-muted, #888);
++  font-size: 13px;
+ }
+ 
+ .client-name {
+   font-weight: 600;
++  font-size: 15px;
+   color: var(--color-text);
+-  font-size: 16px;
+ }
+ 
+-.phone-info span {
+-  color: var(--color-text-secondary);
+-  font-size: 14px;
++.phone-link {
++  color: var(--color-accent, #b8860b);
++  text-decoration: none;
++  font-weight: 500;
++  font-size: 13px;
+ }
++.phone-link:hover { text-decoration: underline; }
+ 
+-.service {
+-  color: var(--color-text-secondary);
+-  font-size: 14px;
+-  font-style: italic;
++.source-info {
++  font-size: 12px;
++  color: var(--color-muted, #888);
+ }
+ 
+-.appointment-status {
+-  min-width: 120px;
+-  text-align: center;
++.operator-info {
++  margin-left: 8px;
++  color: var(--color-muted, #aaa);
+ }
+ 
+-.status {
+-  padding: 6px 12px;
++.comment-info {
++  font-size: 12px;
++  color: var(--color-text);
++  opacity: 0.7;
++  padding: 4px 8px;
++  background: rgba(0,0,0,0.03);
++  border-radius: 6px;
++  margin-top: 4px;
++}
++
++/* ---------- Actions ---------- */
++.appointment-actions {
++  display: flex;
++  flex-direction: column;
++  align-items: flex-end;
++  gap: 8px;
++  min-width: 160px;
++}
++
++.status-badge {
++  display: inline-block;
++  padding: 4px 12px;
+   border-radius: 20px;
+   font-size: 12px;
+   font-weight: 600;
+-  text-transform: uppercase;
+-  letter-spacing: 0.5px;
++  color: #fff;
++}
++
++.action-buttons {
++  display: flex;
++  gap: 6px;
++  flex-wrap: wrap;
++  justify-content: flex-end;
++}
++
++.action-btn {
++  padding: 5px 12px;
++  border-radius: 8px;
++  border: 1px solid;
++  font-size: 12px;
++  font-weight: 600;
++  cursor: pointer;
++  transition: all 0.2s;
++}
++
++.arrived-btn {
++  color: #10b981;
++  border-color: #10b981;
++  background: rgba(16,185,129,0.08);
++}
++.arrived-btn:hover { background: #10b981; color: #fff; }
++
++.noshow-btn {
++  color: #ef4444;
++  border-color: #ef4444;
++  background: rgba(239,68,68,0.08);
++}
++.noshow-btn:hover { background: #ef4444; color: #fff; }
++
++.cancel-btn {
++  color: #6b7280;
++  border-color: #6b7280;
++  background: rgba(107,114,128,0.08);
++}
++.cancel-btn:hover { background: #6b7280; color: #fff; }
++
++.action-btn:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++.assign-lawyer {
++  display: flex;
++  flex-direction: column;
++  gap: 4px;
++  margin-top: 4px;
++}
++
++.assign-lawyer label {
++  font-size: 11px;
++  color: var(--color-muted, #888);
++}
++
++.assign-lawyer select {
++  padding: 5px 10px;
++  border: 1px solid var(--color-border, #ddd);
++  border-radius: 6px;
++  font-size: 12px;
++  background: var(--color-bg, #fff);
++  color: var(--color-text);
++}
++
++.lawyer-info {
++  font-size: 12px;
++  color: var(--color-accent, #b8860b);
++  font-weight: 500;
+ }
+ 
+-.status-scheduled {
+-  background: rgba(52, 152, 219, 0.1);
+-  color: #3498db;
+-  border: 1px solid rgba(52, 152, 219, 0.3);
++/* ---------- Chain ---------- */
++.chain-info {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  padding: 12px 16px;
++  background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 10px;
++  font-size: 13px;
++  color: var(--color-muted, #888);
++  border: 1px solid var(--color-border, #eee);
++  margin-top: 8px;
++}
++
++.chain-step {
++  padding: 4px 10px;
++  border-radius: 6px;
++  background: rgba(0,0,0,0.04);
++  font-weight: 500;
+ }
+ 
+-.status-completed {
+-  background: rgba(46, 204, 113, 0.1);
+-  color: #2ecc71;
+-  border: 1px solid rgba(46, 204, 113, 0.3);
++.chain-step.active {
++  background: var(--color-accent, #b8860b);
++  color: #fff;
+ }
+ 
+-.status-cancelled {
+-  background: rgba(231, 76, 60, 0.1);
+-  color: #e74c3c;
+-  border: 1px solid rgba(231, 76, 60, 0.3);
++.chain-arrow {
++  color: var(--color-muted, #aaa);
+ }
+ 
++/* ---------- Empty & Loading ---------- */
+ .empty-state {
+   display: flex;
+   flex-direction: column;
+@@ -203,13 +349,13 @@
+ 
+ .empty-icon {
+   font-size: 48px;
+-  color: var(--color-text-secondary);
+-  margin-bottom: 16px;
++  color: var(--color-muted, #ccc);
++  margin-bottom: 12px;
+ }
+ 
+ .empty-state p {
+-  color: var(--color-text-secondary);
+-  font-size: 16px;
++  color: var(--color-muted, #888);
++  font-size: 14px;
+   margin: 0;
+ }
+ 
+@@ -218,31 +364,25 @@
+   justify-content: center;
+   align-items: center;
+   padding: 60px 20px;
+-  font-size: 16px;
+-  color: var(--color-text-secondary);
++  font-size: 15px;
++  color: var(--color-muted, #888);
+ }
+ 
+-/* Адаптивность */
++/* ---------- Responsive ---------- */
+ @media (max-width: 768px) {
+-  .appointments-container {
+-    padding: 16px;
+-  }
+-
+   .appointments-header {
+     flex-direction: column;
+-    gap: 16px;
+-    align-items: flex-start;
++    gap: 12px;
+   }
+ 
+   .appointments-stats {
+     width: 100%;
+-    justify-content: space-around;
+   }
+ 
+   .appointment-card {
+     flex-direction: column;
+     align-items: flex-start;
+-    gap: 16px;
++    gap: 12px;
+   }
+ 
+   .appointment-time {
+@@ -250,30 +390,21 @@
+     min-width: auto;
+     padding-right: 0;
+     border-right: none;
+-    border-bottom: 1px solid var(--color-border);
+-    padding-bottom: 16px;
++    border-bottom: 1px solid var(--color-border, #eee);
++    padding-bottom: 8px;
+     width: 100%;
+-    justify-content: flex-start;
+     gap: 8px;
+   }
+ 
+   .appointment-info {
+-    padding-left: 0;
++    padding: 0;
+     width: 100%;
+   }
+ 
+-  .appointment-status {
++  .appointment-actions {
++    flex-direction: row;
++    flex-wrap: wrap;
+     min-width: auto;
+-    text-align: left;
+     width: 100%;
+   }
+-
+-  .appointments-filters {
+-    flex-wrap: wrap;
+-  }
+-
+-  .filter-btn {
+-    flex: 1;
+-    min-width: 120px;
+-  }
+-}
+\ No newline at end of file
++}
+diff --git a/frontend/src/components/Appointments.tsx b/frontend/src/components/Appointments.tsx
+index 835d616..18af2a4 100644
+--- a/frontend/src/components/Appointments.tsx
++++ b/frontend/src/components/Appointments.tsx
+@@ -1,204 +1,340 @@
+-import React, { useState, useEffect } from 'react';
++import React, { useState, useEffect, useCallback } from 'react';
+ import { CalendarOutlined, ClockCircleOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
++import { apiInstance } from '../shared/api/instance';
++import { useAuth } from '../shared/lib/hooks/useAuth';
+ import './Appointments.css';
+ 
+ interface Appointment {
+-  id: string;
+-  clientName: string;
+-  phone: string;
+-  time: string;
+-  date: string;
+-  service: string;
+-  status: 'scheduled' | 'completed' | 'cancelled';
++  id: number;
++  office_id: number;
++  lead_id: number;
++  client_id: number | null;
++  client_name: string;
++  client_phone: string;
++  source: string | null;
++  appointment_date: string;
++  appointment_time: string;
++  comment: string | null;
++  operator_id: number;
++  operator_name: string | null;
++  status: 'waiting' | 'arrived' | 'no_show' | 'cancelled';
++  manager_comment: string | null;
++  assigned_lawyer_id: number | null;
++  lead_source: string | null;
++  lead_description: string | null;
++  lead_status: string | null;
++  lawyer_first_name: string | null;
++  lawyer_last_name: string | null;
++  created_at: string;
+ }
+ 
++interface Lawyer {
++  id: number;
++  first_name: string;
++  last_name: string;
++}
++
++const STATUS_LABELS: Record<string, string> = {
++  waiting: 'Ожидает приёма',
++  arrived: 'Клиент пришёл',
++  no_show: 'Не пришёл',
++  cancelled: 'Отменил',
++};
++
++const STATUS_COLORS: Record<string, string> = {
++  waiting: '#f59e0b',
++  arrived: '#10b981',
++  no_show: '#ef4444',
++  cancelled: '#6b7280',
++};
++
+ const Appointments: React.FC = () => {
++  const { user } = useAuth();
+   const [appointments, setAppointments] = useState<Appointment[]>([]);
+-  const [selectedDate, setSelectedDate] = useState<string>('today');
+-  const [loading, setLoading] = useState<boolean>(false);
+-
+-  // Мок-данные для демонстрации
+-  const mockAppointments: Appointment[] = [
+-    {
+-      id: '1',
+-      clientName: 'Иванов Иван Иванович',
+-      phone: '+7 900 123-45-67',
+-      time: '10:00',
+-      date: new Date().toISOString().split('T')[0],
+-      service: 'Консультация по семейному праву',
+-      status: 'scheduled'
+-    },
+-    {
+-      id: '2',
+-      clientName: 'Петрова Мария Сергеевна',
+-      phone: '+7 900 234-56-78',
+-      time: '14:30',
+-      date: new Date().toISOString().split('T')[0],
+-      service: 'Составление договора',
+-      status: 'scheduled'
+-    },
+-    {
+-      id: '3',
+-      clientName: 'Сидоров Петр Александрович',
+-      phone: '+7 900 345-67-89',
+-      time: '11:00',
+-      date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+-      service: 'Представительство в суде',
+-      status: 'scheduled'
+-    },
+-    {
+-      id: '4',
+-      clientName: 'Козлова Елена Викторовна',
+-      phone: '+7 900 456-78-90',
+-      time: '16:00',
+-      date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+-      service: 'Консультация по трудовому праву',
+-      status: 'scheduled'
++  const [lawyers, setLawyers] = useState<Lawyer[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [filterStatus, setFilterStatus] = useState<string>('ALL');
++  const [filterDate, setFilterDate] = useState<string>('today');
++  const [updatingId, setUpdatingId] = useState<number | null>(null);
++
++  const fetchAppointments = useCallback(async () => {
++    try {
++      const params: Record<string, string> = {};
++      if (filterStatus !== 'ALL') params.status = filterStatus;
++
++      const today = new Date().toISOString().split('T')[0];
++      const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
++
++      if (filterDate === 'today') {
++        params.date_from = today;
++        params.date_to = today;
++      } else if (filterDate === 'tomorrow') {
++        params.date_from = tomorrow;
++        params.date_to = tomorrow;
++      }
++
++      const res = await apiInstance.get('/call-center/appointments', { params });
++      setAppointments(res.data.data || []);
++    } catch {
++      setAppointments([]);
+     }
+-  ];
++  }, [filterStatus, filterDate]);
+ 
+-  useEffect(() => {
+-    setLoading(true);
+-    // Имитация загрузки данных
+-    setTimeout(() => {
+-      setAppointments(mockAppointments);
+-      setLoading(false);
+-    }, 500);
++  const fetchLawyers = useCallback(async () => {
++    try {
++      const res = await apiInstance.get('/employees');
++      const all = res.data.data || res.data || [];
++      const lawyerList = all.filter((e: any) =>
++        ['Юрист', 'Представитель'].includes(e.position)
++      ).map((e: any) => ({
++        id: e.user_id || e.id,
++        first_name: e.first_name,
++        last_name: e.last_name,
++      }));
++      setLawyers(lawyerList);
++    } catch {
++      setLawyers([]);
++    }
+   }, []);
+ 
+-  const getFilteredAppointments = () => {
+-    const today = new Date().toISOString().split('T')[0];
+-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+-
+-    switch (selectedDate) {
+-      case 'today':
+-        return appointments.filter(apt => apt.date === today);
+-      case 'tomorrow':
+-        return appointments.filter(apt => apt.date === tomorrow);
+-      case 'all':
+-        return appointments;
+-      default:
+-        return appointments;
++  const refresh = useCallback(async () => {
++    setLoading(true);
++    await Promise.all([fetchAppointments(), fetchLawyers()]);
++    setLoading(false);
++  }, [fetchAppointments, fetchLawyers]);
++
++  useEffect(() => { refresh(); }, [refresh]);
++
++  const updateStatus = async (id: number, status: string, lawyerId?: number) => {
++    setUpdatingId(id);
++    try {
++      const body: Record<string, any> = { status };
++      if (lawyerId) body.assigned_lawyer_id = lawyerId;
++      await apiInstance.patch(`/call-center/appointments/${id}`, body);
++      await fetchAppointments();
++    } catch (err) {
++      console.error('Error updating appointment:', err);
+     }
++    setUpdatingId(null);
+   };
+ 
+-  const getStatusText = (status: string) => {
+-    switch (status) {
+-      case 'scheduled':
+-        return 'Запланировано';
+-      case 'completed':
+-        return 'Завершено';
+-      case 'cancelled':
+-        return 'Отменено';
+-      default:
+-        return status;
++  const assignLawyer = async (id: number, lawyerId: number) => {
++    setUpdatingId(id);
++    try {
++      await apiInstance.patch(`/call-center/appointments/${id}`, {
++        status: 'arrived',
++        assigned_lawyer_id: lawyerId,
++      });
++      await fetchAppointments();
++    } catch (err) {
++      console.error('Error assigning lawyer:', err);
+     }
++    setUpdatingId(null);
+   };
+ 
+-  const getStatusClass = (status: string) => {
+-    switch (status) {
+-      case 'scheduled':
+-        return 'status-scheduled';
+-      case 'completed':
+-        return 'status-completed';
+-      case 'cancelled':
+-        return 'status-cancelled';
+-      default:
+-        return '';
++  const fmtDate = (d: string) => {
++    if (!d) return '—';
++    try {
++      const parts = d.split('T')[0].split('-');
++      return `${parts[2]}.${parts[1]}.${parts[0]}`;
++    } catch {
++      return d;
+     }
+   };
+ 
+-  const filteredAppointments = getFilteredAppointments();
+-  const todayCount = appointments.filter(apt => apt.date === new Date().toISOString().split('T')[0]).length;
+-  const tomorrowCount = appointments.filter(apt => apt.date === new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]).length;
++  const fmtTime = (t: string) => {
++    if (!t) return '—';
++    return t.slice(0, 5);
++  };
++
++  const statusCounts = {
++    waiting: appointments.filter(a => a.status === 'waiting').length,
++    arrived: appointments.filter(a => a.status === 'arrived').length,
++    no_show: appointments.filter(a => a.status === 'no_show').length,
++    cancelled: appointments.filter(a => a.status === 'cancelled').length,
++  };
+ 
+-  if (loading) {
+-    return (
+-      <div className="appointments-container">
+-        <div className="appointments-header">
+-          <h2><CalendarOutlined /> Записи</h2>
+-        </div>
+-        <div className="loading-state">
+-          Загрузка записей...
+-        </div>
+-      </div>
+-    );
+-  }
++  const today = new Date().toISOString().split('T')[0];
++  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+ 
+   return (
+     <div className="appointments-container">
+       <div className="appointments-header">
+-        <h2><CalendarOutlined /> Записи</h2>
++        <div>
++          <h2><CalendarOutlined /> Записанные клиенты</h2>
++          <p className="appointments-subtitle">Клиенты, записанные из колл-центра на приём</p>
++        </div>
+         <div className="appointments-stats">
+-          <div className="stat-item">
+-            <span className="stat-label">Сегодня:</span>
+-            <span className="stat-value">{todayCount}</span>
++          <div className="stat-item stat-waiting">
++            <span className="stat-value">{statusCounts.waiting}</span>
++            <span className="stat-label">Ожидают</span>
++          </div>
++          <div className="stat-item stat-arrived">
++            <span className="stat-value">{statusCounts.arrived}</span>
++            <span className="stat-label">Пришли</span>
+           </div>
+-          <div className="stat-item">
+-            <span className="stat-label">Завтра:</span>
+-            <span className="stat-value">{tomorrowCount}</span>
++          <div className="stat-item stat-noshow">
++            <span className="stat-value">{statusCounts.no_show}</span>
++            <span className="stat-label">Не пришли</span>
+           </div>
+         </div>
+       </div>
+ 
++      {/* Filters */}
+       <div className="appointments-filters">
+-        <button 
+-          className={`filter-btn ${selectedDate === 'today' ? 'active' : ''}`}
+-          onClick={() => setSelectedDate('today')}
+-        >
+-          Сегодня ({todayCount})
+-        </button>
+-        <button 
+-          className={`filter-btn ${selectedDate === 'tomorrow' ? 'active' : ''}`}
+-          onClick={() => setSelectedDate('tomorrow')}
+-        >
+-          Завтра ({tomorrowCount})
+-        </button>
+-        <button 
+-          className={`filter-btn ${selectedDate === 'all' ? 'active' : ''}`}
+-          onClick={() => setSelectedDate('all')}
+-        >
+-          Все записи
+-        </button>
++        <div className="filter-group">
++          <button
++            className={`filter-btn ${filterDate === 'today' ? 'active' : ''}`}
++            onClick={() => setFilterDate('today')}
++          >
++            Сегодня
++          </button>
++          <button
++            className={`filter-btn ${filterDate === 'tomorrow' ? 'active' : ''}`}
++            onClick={() => setFilterDate('tomorrow')}
++          >
++            Завтра
++          </button>
++          <button
++            className={`filter-btn ${filterDate === 'all' ? 'active' : ''}`}
++            onClick={() => setFilterDate('all')}
++          >
++            Все
++          </button>
++        </div>
++        <div className="filter-group">
++          <button
++            className={`filter-btn ${filterStatus === 'ALL' ? 'active' : ''}`}
++            onClick={() => setFilterStatus('ALL')}
++          >
++            Все статусы
++          </button>
++          {Object.entries(STATUS_LABELS).map(([key, label]) => (
++            <button
++              key={key}
++              className={`filter-btn ${filterStatus === key ? 'active' : ''}`}
++              style={filterStatus === key ? { borderColor: STATUS_COLORS[key], color: STATUS_COLORS[key] } : {}}
++              onClick={() => setFilterStatus(filterStatus === key ? 'ALL' : key)}
++            >
++              {label}
++            </button>
++          ))}
++        </div>
++        <button className="filter-btn refresh-btn" onClick={refresh}>🔄 Обновить</button>
+       </div>
+ 
++      {/* Appointments List */}
+       <div className="appointments-list">
+-        {filteredAppointments.length === 0 ? (
++        {loading && <div className="loading-state">Загрузка...</div>}
++        {!loading && appointments.length === 0 && (
+           <div className="empty-state">
+             <CalendarOutlined className="empty-icon" />
+             <p>Нет записей на выбранную дату</p>
+           </div>
+-        ) : (
+-          filteredAppointments.map(appointment => (
+-            <div key={appointment.id} className="appointment-card">
+-              <div className="appointment-time">
+-                <ClockCircleOutlined />
+-                <span>{appointment.time}</span>
++        )}
++        {!loading && appointments.map(appt => (
++          <div key={appt.id} className={`appointment-card appt-card-${appt.status}`}>
++            <div className="appointment-time">
++              <ClockCircleOutlined />
++              <span className="time-value">{fmtTime(appt.appointment_time)}</span>
++              <span className="date-value">{fmtDate(appt.appointment_date)}</span>
++            </div>
++
++            <div className="appointment-info">
++              <div className="client-info">
++                <UserOutlined />
++                <span className="client-name">{appt.client_name}</span>
++              </div>
++              <div className="phone-info">
++                <PhoneOutlined />
++                <a href={`tel:${appt.client_phone}`} className="phone-link">{appt.client_phone}</a>
+               </div>
+-              <div className="appointment-info">
+-                <div className="client-info">
+-                  <UserOutlined />
+-                  <span className="client-name">{appointment.clientName}</span>
++              <div className="source-info">
++                📂 {appt.lead_source || appt.source || '—'}
++                <span className="operator-info">| Записал: {appt.operator_name || '—'}</span>
++              </div>
++              {appt.comment && (
++                <div className="comment-info">💬 {appt.comment}</div>
++              )}
++            </div>
++
++            <div className="appointment-actions">
++              <span
++                className="status-badge"
++                style={{ background: STATUS_COLORS[appt.status] }}
++              >
++                {STATUS_LABELS[appt.status]}
++              </span>
++
++              {appt.status === 'waiting' && (
++                <div className="action-buttons">
++                  <button
++                    className="action-btn arrived-btn"
++                    onClick={() => updateStatus(appt.id, 'arrived')}
++                    disabled={updatingId === appt.id}
++                  >
++                    ✓ Пришёл
++                  </button>
++                  <button
++                    className="action-btn noshow-btn"
++                    onClick={() => updateStatus(appt.id, 'no_show')}
++                    disabled={updatingId === appt.id}
++                  >
++                    ✕ Не пришёл
++                  </button>
++                  <button
++                    className="action-btn cancel-btn"
++                    onClick={() => updateStatus(appt.id, 'cancelled')}
++                    disabled={updatingId === appt.id}
++                  >
++                    Отменил
++                  </button>
+                 </div>
+-                <div className="phone-info">
+-                  <PhoneOutlined />
+-                  <span>{appointment.phone}</span>
++              )}
++
++              {appt.status === 'arrived' && !appt.assigned_lawyer_id && lawyers.length > 0 && (
++                <div className="assign-lawyer">
++                  <label>Назначить юриста:</label>
++                  <select
++                    defaultValue=""
++                    onChange={e => {
++                      if (e.target.value) assignLawyer(appt.id, Number(e.target.value));
++                    }}
++                    disabled={updatingId === appt.id}
++                  >
++                    <option value="">Выбрать...</option>
++                    {lawyers.map(l => (
++                      <option key={l.id} value={l.id}>
++                        {l.first_name} {l.last_name}
++                      </option>
++                    ))}
++                  </select>
+                 </div>
+-                <div className="service-info">
+-                  <span className="service">{appointment.service}</span>
++              )}
++
++              {appt.assigned_lawyer_id && (
++                <div className="lawyer-info">
++                  ⚖️ Юрист: {appt.lawyer_first_name} {appt.lawyer_last_name}
+                 </div>
+-              </div>
+-              <div className="appointment-status">
+-                <span className={`status ${getStatusClass(appointment.status)}`}>
+-                  {getStatusText(appointment.status)}
+-                </span>
+-              </div>
++              )}
+             </div>
+-          ))
+-        )}
++          </div>
++        ))}
++      </div>
++
++      {/* Chain info */}
++      <div className="chain-info">
++        <span>Цепочка: </span>
++        <span className="chain-step">Лид</span>
++        <span className="chain-arrow">→</span>
++        <span className="chain-step active">Запись</span>
++        <span className="chain-arrow">→</span>
++        <span className="chain-step">Клиент</span>
++        <span className="chain-arrow">→</span>
++        <span className="chain-step">Сделка</span>
+       </div>
+     </div>
+   );
+ };
+ 
+-export default Appointments;
+\ No newline at end of file
++export default Appointments;
+diff --git a/frontend/src/components/CallCenter.css b/frontend/src/components/CallCenter.css
+index e5fbc27..97c5976 100644
+--- a/frontend/src/components/CallCenter.css
++++ b/frontend/src/components/CallCenter.css
+@@ -1,710 +1,382 @@
+ /* ============================================================
+-   CallCenter — профессиональный вид оператора
++   CallCenter — профессиональный модуль лидов
+    ============================================================ */
+ 
+-.call-center-page {
++.cc-page {
+   display: flex;
+   flex-direction: column;
+-  gap: 18px;
++  gap: 16px;
+   color: var(--color-text);
+-  animation: cc-fade 0.45s var(--ease-out, ease-out);
++  animation: cc-fade 0.35s ease-out;
+ }
+-
+ @keyframes cc-fade {
+   from { opacity: 0; transform: translateY(6px); }
+   to   { opacity: 1; transform: translateY(0); }
+ }
+ 
+-/* ---------- Shared surface ---------- */
+-
+-.call-center-page .stat-card,
+-.call-center-page .status-chip-card,
+-.call-center-page .lead-card,
+-.call-center-page .editor-card,
+-.call-center-page .history-card,
+-.call-center-page .operator-card,
+-.call-center-page .leads-panel,
+-.call-center-page .lead-details-panel,
+-.call-center-page .operators-panel {
++/* ---------- shared surface ---------- */
++.cc-surface {
+   background: var(--glass-bg, var(--color-bg-alt));
+   backdrop-filter: blur(14px) saturate(140%);
+-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+-  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,0.06)));
+-  border-radius: 18px;
+-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+-  transition: transform 0.2s var(--ease-out, ease), box-shadow 0.2s var(--ease-out, ease), border-color 0.2s var(--ease-out, ease);
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 14px;
++  box-shadow: 0 4px 16px rgba(15,23,42,.05);
+ }
+ 
+-/* ---------- Toolbar ---------- */
+-
+-.call-center-toolbar {
++/* ---------- header ---------- */
++.cc-header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+-  gap: 16px;
+   padding: 18px 22px;
+   background: var(--glass-bg, var(--color-bg-alt));
+-  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,0.06)));
+-  border-radius: 18px;
+-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 14px;
++  box-shadow: 0 4px 16px rgba(15,23,42,.05);
+ }
+-
+-.call-center-toolbar h2 {
++.cc-header h2 {
+   margin: 0;
+   font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 24px;
++  font-size: 22px;
+   font-weight: 700;
+-  letter-spacing: -0.01em;
+-}
+-
+-.call-center-toolbar p {
+-  margin: 4px 0 0;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  font-size: 13px;
+-}
+-
+-.availability-toggle {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: 10px;
+-  padding: 10px 18px;
+-  border: none;
+-  border-radius: 999px;
+-  font-weight: 600;
+-  font-size: 13px;
+-  color: #fff;
+-  cursor: pointer;
+-  transition: transform 0.15s var(--ease-out, ease), box-shadow 0.2s var(--ease-out, ease);
+-}
+-
+-.availability-toggle::before {
+-  content: '';
+-  width: 8px;
+-  height: 8px;
+-  border-radius: 50%;
+-  background: currentColor;
+-  box-shadow: 0 0 0 0 currentColor;
+-  animation: cc-pulse 2s ease-out infinite;
+-}
+-
+-@keyframes cc-pulse {
+-  0%,100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.6); }
+-  70%     { box-shadow: 0 0 0 6px rgba(255,255,255,0); }
+-}
+-
+-.availability-toggle.online {
+-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+-  box-shadow: 0 10px 24px rgba(16,185,129,0.30);
+-}
+-
+-.availability-toggle.offline {
+-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+-  box-shadow: 0 10px 24px rgba(100,116,139,0.28);
+-}
+-
+-.availability-toggle:hover { transform: translateY(-1px); }
+-
+-/* ---------- Stats ---------- */
+-
+-.call-center-stats {
+-  display: grid;
+-  grid-template-columns: repeat(4, minmax(0, 1fr));
+-  gap: 14px;
+ }
+-
+-.stat-card {
+-  padding: 18px 20px;
+-  position: relative;
+-  overflow: hidden;
++.cc-header p { margin: 4px 0 0; color: var(--color-muted, #888); font-size: 13px; }
++.cc-header-actions { display: flex; gap: 10px; }
++
++/* ---------- buttons ---------- */
++.cc-btn {
++  display: inline-flex; align-items: center; gap: 6px;
++  padding: 8px 16px; border: 1px solid var(--color-border, #ddd);
++  border-radius: 8px; background: var(--color-bg-alt, #fff);
++  color: var(--color-text); font-size: 13px; font-weight: 500;
++  cursor: pointer; transition: all .15s ease;
++}
++.cc-btn:hover { background: var(--color-border, #eee); }
++.cc-btn-primary {
++  background: linear-gradient(135deg, var(--color-accent, #b8860b) 0%, #d4a017 100%);
++  color: #fff; border-color: transparent;
++}
++.cc-btn-primary:hover { opacity: .9; }
++.cc-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
++.cc-btn-danger { background: #ef4444; color: #fff; border-color: transparent; }
++.cc-btn-danger:hover { background: #dc2626; }
++.cc-btn-stats { background: var(--color-bg-alt, #fff); }
++.cc-btn-block { width: 100%; justify-content: center; }
++.cc-btn-open {
++  padding: 5px 12px; border: 1px solid var(--color-accent, #b8860b);
++  border-radius: 6px; background: transparent; color: var(--color-accent, #b8860b);
++  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s ease;
++}
++.cc-btn-open:hover { background: var(--color-accent, #b8860b); color: #fff; }
++
++/* ---------- status bar ---------- */
++.cc-status-bar {
++  display: flex; gap: 10px; flex-wrap: wrap;
++}
++.cc-status-chip {
++  display: flex; align-items: center; gap: 8px;
++  padding: 10px 16px;
++  background: var(--glass-bg, var(--color-bg-alt));
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 10px; cursor: pointer;
++  transition: all .15s ease; font-size: 13px;
+ }
+-
+-.stat-card::before {
+-  content: '';
+-  position: absolute;
+-  inset: 0 0 auto 0;
+-  height: 3px;
+-  background: linear-gradient(90deg, var(--color-accent) 0%, #b2892f 100%);
+-  opacity: 0;
+-  transition: opacity 0.2s var(--ease-out, ease);
++.cc-status-chip:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
++.cc-status-chip.active {
++  border-color: var(--chip-color, var(--color-accent));
++  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip-color, var(--color-accent)) 20%, transparent);
+ }
+-
+-.stat-card:hover::before { opacity: 1; }
+-
+-.stat-card:hover {
+-  transform: translateY(-2px);
+-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+-}
+-
+-.stat-card span {
+-  display: block;
+-  font-size: 12px;
+-  font-weight: 500;
+-  text-transform: uppercase;
+-  letter-spacing: 0.06em;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  margin-bottom: 6px;
++.cc-chip-dot {
++  width: 8px; height: 8px; border-radius: 50%;
++  background: var(--chip-color, #999);
+ }
+-
+-.stat-card strong {
++.cc-status-chip strong {
++  font-size: 16px; font-weight: 700;
+   font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 28px;
+-  font-weight: 700;
+-  line-height: 1;
+-  color: var(--color-text);
+-}
+-
+-.stat-card.danger strong {
+-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+-  -webkit-background-clip: text;
+-  background-clip: text;
+-  color: transparent;
+-}
+-
+-/* ---------- Status grid ---------- */
+-
+-.call-center-status-grid {
+-  display: grid;
+-  grid-template-columns: repeat(7, minmax(0, 1fr));
+-  gap: 10px;
+-}
+-
+-.status-chip-card {
+-  padding: 12px 14px;
+-  display: flex;
+-  flex-direction: column;
+-  gap: 4px;
+-  position: relative;
+-  overflow: hidden;
+-}
+-
+-.status-chip-card::before {
+-  content: '';
+-  position: absolute;
+-  left: 0;
+-  top: 0;
+-  bottom: 0;
+-  width: 4px;
+-  border-radius: 18px 0 0 18px;
+ }
+ 
+-.status-chip-card span {
+-  font-size: 12px;
+-  font-weight: 600;
+-  color: var(--color-text-secondary, var(--color-muted));
++/* ---------- sources (folders) ---------- */
++.cc-sources {
++  display: flex; gap: 8px; flex-wrap: wrap;
+ }
+-
+-.status-chip-card strong {
+-  font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 22px;
+-  font-weight: 700;
+-  color: var(--color-text);
+-  line-height: 1;
++.cc-source-btn {
++  display: inline-flex; align-items: center; gap: 6px;
++  padding: 8px 16px;
++  background: var(--glass-bg, var(--color-bg-alt));
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 8px; font-size: 13px; cursor: pointer;
++  transition: all .15s ease;
+ }
+-
+-.status-chip-card.status-new::before        { background: #3b82f6; }
+-.status-chip-card.status-in_progress::before{ background: #f59e0b; }
+-.status-chip-card.status-no_answer::before  { background: #94a3b8; }
+-.status-chip-card.status-call_back::before  { background: #8b5cf6; }
+-.status-chip-card.status-interested::before { background: #10b981; }
+-.status-chip-card.status-rejected::before   { background: #ef4444; }
+-.status-chip-card.status-closed::before     { background: #6b7280; }
+-
+-/* ---------- Layout ---------- */
+-
+-.call-center-layout {
+-  display: grid;
+-  grid-template-columns: 360px minmax(0, 1fr) 280px;
+-  gap: 16px;
+-  align-items: flex-start;
++.cc-source-btn:hover { background: var(--color-border, #eee); }
++.cc-source-btn.active {
++  background: var(--color-accent, #b8860b); color: #fff;
++  border-color: var(--color-accent, #b8860b);
+ }
+-
+-.leads-panel,
+-.lead-details-panel,
+-.operators-panel {
+-  padding: 18px;
++.cc-source-btn span {
++  background: rgba(0,0,0,.1); padding: 2px 8px;
++  border-radius: 10px; font-size: 11px; font-weight: 600;
+ }
++.cc-source-btn.active span { background: rgba(255,255,255,.25); }
+ 
+-.lead-details-panel { min-height: 720px; }
+-
+-/* ---------- Filters ---------- */
+-
+-.lead-filters {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 10px;
+-  margin-bottom: 14px;
+-  padding-bottom: 14px;
+-  border-bottom: 1px dashed var(--color-border, rgba(0,0,0,0.08));
++/* ---------- filters ---------- */
++.cc-filters {
++  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+ }
+-
+-.lead-filters input,
+-.lead-filters select,
+-.editor-card input,
+-.editor-card select,
+-.editor-card textarea {
+-  width: 100%;
+-  padding: 10px 12px;
+-  border: 1px solid var(--color-border, rgba(0,0,0,0.08));
+-  background: var(--color-bg);
++.cc-search {
++  flex: 1; min-width: 200px; padding: 8px 14px;
++  border: 1px solid var(--color-border, #ddd); border-radius: 8px;
++  background: var(--color-bg-alt, #fff); font-size: 13px;
+   color: var(--color-text);
+-  border-radius: 12px;
+-  font-size: 14px;
+-  outline: none;
+-  transition: border-color 0.2s var(--ease-out, ease), box-shadow 0.2s var(--ease-out, ease);
+-  box-sizing: border-box;
+-}
+-
+-.lead-filters input:focus,
+-.lead-filters select:focus,
+-.editor-card input:focus,
+-.editor-card select:focus,
+-.editor-card textarea:focus {
+-  border-color: var(--color-accent);
+-  box-shadow: 0 0 0 3px rgba(192,155,70,0.18);
+-}
+-
+-.lead-filters button,
+-.editor-card button {
+-  display: inline-flex;
+-  align-items: center;
+-  justify-content: center;
+-  padding: 10px 14px;
+-  border: none;
+-  border-radius: 12px;
+-  cursor: pointer;
+-  font-weight: 600;
+-  font-size: 14px;
+-  background: linear-gradient(135deg, var(--color-accent) 0%, #b2892f 100%);
+-  color: #fff;
+-  box-shadow: 0 6px 18px rgba(192,155,70,0.28);
+-  transition: transform 0.15s var(--ease-out, ease), box-shadow 0.2s var(--ease-out, ease), opacity 0.15s var(--ease-out, ease);
+ }
+-
+-.lead-filters button:hover,
+-.editor-card button:hover:not(:disabled) {
+-  transform: translateY(-1px);
+-  box-shadow: 0 10px 24px rgba(192,155,70,0.36);
++.cc-search:focus { outline: none; border-color: var(--color-accent, #b8860b); }
++.cc-select {
++  padding: 8px 12px; border: 1px solid var(--color-border, #ddd);
++  border-radius: 8px; background: var(--color-bg-alt, #fff);
++  font-size: 13px; color: var(--color-text); cursor: pointer;
+ }
+ 
+-.editor-card button:disabled { opacity: 0.55; cursor: not-allowed; }
+-
+-.mine-toggle {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: 8px;
+-  padding: 6px 2px;
++/* ---------- bulk bar ---------- */
++.cc-bulk-bar {
++  display: flex; align-items: center; gap: 12px;
++  padding: 12px 18px;
++  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
++  border: 1px solid #f59e0b; border-radius: 10px;
+   font-size: 13px;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  cursor: pointer;
+-}
+-
+-/* ---------- Lead list ---------- */
+-
+-.lead-list {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 10px;
+-  max-height: 620px;
+-  overflow-y: auto;
+-  padding-right: 4px;
+-}
+-
+-.lead-list::-webkit-scrollbar { width: 6px; }
+-.lead-list::-webkit-scrollbar-thumb {
+-  background: rgba(128,128,128,0.25);
+-  border-radius: 999px;
+-}
+-
+-.lead-card {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 6px;
+-  width: 100%;
+-  padding: 14px 16px;
+-  text-align: left;
+-  cursor: pointer;
+-  position: relative;
+-}
+-
+-.lead-card:hover {
+-  transform: translateY(-1px);
+-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+-  border-color: rgba(192,155,70,0.35);
+-}
+-
+-.lead-card.active {
+-  border-color: var(--color-accent);
+-  box-shadow: 0 10px 28px rgba(192,155,70,0.18), inset 0 0 0 1px rgba(192,155,70,0.35);
+-  background: linear-gradient(135deg,
+-    rgba(192,155,70,0.08) 0%,
+-    transparent 100%);
+-}
+-
+-.lead-card-top,
+-.lead-card-meta,
+-.lead-card-foot {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 10px;
+-}
+-
+-.lead-card-top strong {
+-  font-size: 15px;
+-  font-weight: 600;
+-  color: var(--color-text);
+ }
+ 
+-.lead-card-meta,
+-.lead-card-foot {
+-  font-size: 12px;
+-  color: var(--color-text-secondary, var(--color-muted));
++/* ---------- table ---------- */
++.cc-table-wrap {
++  background: var(--glass-bg, var(--color-bg-alt));
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 14px; overflow: hidden;
++  box-shadow: 0 4px 16px rgba(15,23,42,.05);
+ }
+-
+-/* ---------- Status pills ---------- */
+-
+-.lead-status {
+-  display: inline-flex;
+-  align-items: center;
+-  padding: 4px 10px;
+-  border-radius: 999px;
+-  font-size: 11px;
+-  font-weight: 700;
+-  letter-spacing: 0.02em;
+-  white-space: nowrap;
+-  border: 1px solid transparent;
++.cc-table {
++  width: 100%; border-collapse: collapse; font-size: 13px;
+ }
+-
+-.lead-status.status-new,
+-.lead-status.status-card_new {
+-  background: rgba(59,130,246,0.12);
+-  color: #1d4ed8;
+-  border-color: rgba(59,130,246,0.28);
+-}
+-.lead-status.status-in_progress {
+-  background: rgba(245,158,11,0.12);
+-  color: #b45309;
+-  border-color: rgba(245,158,11,0.28);
+-}
+-.lead-status.status-no_answer {
+-  background: rgba(148,163,184,0.18);
+-  color: #475569;
+-  border-color: rgba(148,163,184,0.32);
+-}
+-.lead-status.status-call_back {
+-  background: rgba(139,92,246,0.14);
+-  color: #6d28d9;
+-  border-color: rgba(139,92,246,0.32);
+-}
+-.lead-status.status-interested {
+-  background: rgba(16,185,129,0.12);
+-  color: #047857;
+-  border-color: rgba(16,185,129,0.28);
+-}
+-.lead-status.status-rejected {
+-  background: rgba(239,68,68,0.12);
+-  color: #b91c1c;
+-  border-color: rgba(239,68,68,0.30);
+-}
+-.lead-status.status-closed {
+-  background: rgba(107,114,128,0.14);
+-  color: #374151;
+-  border-color: rgba(107,114,128,0.30);
++.cc-table thead { background: var(--color-bg, #f9f9f9); }
++.cc-table th {
++  padding: 10px 14px; text-align: left;
++  font-weight: 600; font-size: 11px; text-transform: uppercase;
++  letter-spacing: .05em; color: var(--color-muted, #888);
++  border-bottom: 1px solid var(--color-border, #eee);
+ }
+-
+-/* ---------- Lead header ---------- */
+-
+-.lead-header {
+-  display: flex;
+-  align-items: flex-start;
+-  justify-content: space-between;
+-  gap: 20px;
+-  padding-bottom: 16px;
+-  margin-bottom: 16px;
+-  border-bottom: 1px solid var(--color-border, rgba(0,0,0,0.06));
++.cc-table td {
++  padding: 10px 14px;
++  border-bottom: 1px solid var(--color-border, #f0f0f0);
++  vertical-align: middle;
++}
++.cc-table tbody tr { transition: background .1s ease; }
++.cc-table tbody tr:hover { background: rgba(var(--color-accent-rgb, 184,134,11), .04); }
++.cc-row-selected { background: rgba(var(--color-accent-rgb, 184,134,11), .08) !important; }
++.cc-th-check, .cc-td-check { width: 36px; text-align: center; }
++.cc-td-name { font-weight: 600; white-space: nowrap; }
++.cc-td-desc { max-width: 200px; color: var(--color-muted, #888); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.cc-td-date { white-space: nowrap; font-size: 12px; color: var(--color-muted, #888); }
++.cc-td-source { font-size: 12px; }
++.cc-badge {
++  display: inline-block; padding: 3px 10px;
++  border-radius: 6px; color: #fff;
++  font-size: 11px; font-weight: 600; white-space: nowrap;
++}
++.cc-muted { color: var(--color-muted, #999); font-style: italic; }
++.cc-empty { padding: 40px; text-align: center; color: var(--color-muted, #999); font-size: 14px; }
++
++/* ---------- stats panel ---------- */
++.cc-stats-panel {
++  padding: 18px 22px;
++  background: var(--glass-bg, var(--color-bg-alt));
++  border: 1px solid var(--glass-border, var(--color-border, rgba(0,0,0,.06)));
++  border-radius: 14px; box-shadow: 0 4px 16px rgba(15,23,42,.05);
+ }
+-
+-.lead-header h3 {
+-  margin: 0;
++.cc-stats-panel h3 {
++  margin: 0 0 14px;
+   font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 22px;
+-  font-weight: 700;
+-  color: var(--color-text);
+-}
+-
+-.lead-header p {
+-  margin: 6px 0 0;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  font-size: 13px;
+-  max-width: 480px;
+-}
+-
+-.lead-header-metrics {
+-  display: flex;
+-  gap: 10px;
+-  flex-shrink: 0;
++  font-size: 18px;
+ }
+-
+-.lead-header-metrics > div,
+-.lead-contact-grid > div {
+-  background: var(--color-bg);
+-  border: 1px solid var(--color-border, rgba(0,0,0,0.06));
+-  border-radius: 14px;
++.cc-stats-table { width: 100%; border-collapse: collapse; font-size: 13px; }
++.cc-stats-table th {
++  padding: 8px 12px; text-align: left; font-weight: 600;
++  font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
++  color: var(--color-muted, #888);
++  border-bottom: 2px solid var(--color-border, #eee);
++}
++.cc-stats-table td {
++  padding: 8px 12px;
++  border-bottom: 1px solid var(--color-border, #f0f0f0);
++}
++.cc-good { color: #10b981; font-weight: 600; }
++.cc-bad { color: #ef4444; font-weight: 600; }
++
++/* ---------- modal ---------- */
++.cc-modal-overlay {
++  position: fixed; inset: 0; z-index: 9999;
++  background: rgba(0,0,0,.45);
++  display: flex; align-items: center; justify-content: center;
++  animation: cc-fade .2s ease;
++}
++.cc-modal {
++  background: var(--color-bg, #fff);
++  border-radius: 16px; width: 680px; max-width: 95vw;
++  max-height: 90vh; overflow-y: auto;
++  box-shadow: 0 20px 60px rgba(0,0,0,.2);
++}
++.cc-modal-sm { width: 420px; }
++.cc-modal-header {
++  display: flex; align-items: center; justify-content: space-between;
++  padding: 18px 22px; border-bottom: 1px solid var(--color-border, #eee);
++}
++.cc-modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; }
++.cc-modal-close {
++  width: 32px; height: 32px; border: none; background: var(--color-border, #eee);
++  border-radius: 8px; font-size: 14px; cursor: pointer;
++  display: flex; align-items: center; justify-content: center;
++  transition: background .15s ease;
++}
++.cc-modal-close:hover { background: #ef4444; color: #fff; }
++.cc-modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 16px; }
++
++/* detail grid */
++.cc-detail-grid {
++  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
++}
++.cc-detail-grid > div {
+   padding: 10px 14px;
+-  min-width: 92px;
+-}
+-
+-.lead-header-metrics span,
+-.lead-contact-grid span,
+-.editor-card label span {
+-  display: block;
+-  font-size: 11px;
+-  font-weight: 500;
+-  text-transform: uppercase;
+-  letter-spacing: 0.04em;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  margin-bottom: 2px;
+-}
+-
+-.lead-header-metrics strong,
+-.lead-contact-grid strong {
+-  font-size: 16px;
+-  font-weight: 700;
++  background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 8px;
++}
++.cc-detail-grid span { display: block; font-size: 11px; text-transform: uppercase; color: var(--color-muted, #888); margin-bottom: 4px; }
++.cc-detail-grid strong { font-size: 14px; }
++.cc-detail-desc {
++  padding: 12px 14px; background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 8px;
++}
++.cc-detail-desc span { font-size: 11px; text-transform: uppercase; color: var(--color-muted, #888); }
++.cc-detail-desc p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; }
++
++/* controls */
++.cc-detail-controls {
++  display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
++}
++.cc-control-group { display: flex; flex-direction: column; gap: 4px; }
++.cc-control-group label { font-size: 11px; text-transform: uppercase; color: var(--color-muted, #888); font-weight: 600; }
++.cc-control-group select { padding: 8px 12px; border: 1px solid var(--color-border, #ddd); border-radius: 8px; font-size: 13px; }
++
++/* call logging */
++.cc-detail-call {
++  padding: 14px; background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 10px;
++}
++.cc-detail-call h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
++.cc-call-row {
++  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
++}
++.cc-call-row select, .cc-call-row input {
++  flex: 1; padding: 8px 12px;
++  border: 1px solid var(--color-border, #ddd); border-radius: 8px;
++  font-size: 13px; background: var(--color-bg, #fff);
++}
++
++/* history */
++.cc-detail-history { max-height: 300px; overflow-y: auto; }
++.cc-detail-history h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
++.cc-history-item {
++  padding: 10px 12px; border-left: 3px solid var(--color-accent, #b8860b);
++  margin-bottom: 10px; background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 0 8px 8px 0;
++}
++.cc-history-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
++.cc-history-top strong { font-size: 13px; }
++.cc-history-top span { font-size: 11px; color: var(--color-muted, #888); }
++.cc-history-item p { margin: 0; font-size: 13px; color: var(--color-text); }
++.cc-history-item small { font-size: 11px; color: var(--color-muted, #999); }
++
++/* form */
++.cc-form-group { display: flex; flex-direction: column; gap: 4px; }
++.cc-form-group label { font-size: 12px; font-weight: 600; color: var(--color-muted, #888); }
++.cc-form-group input, .cc-form-group select, .cc-form-group textarea {
++  padding: 8px 12px; border: 1px solid var(--color-border, #ddd);
++  border-radius: 8px; font-size: 13px; background: var(--color-bg-alt, #fff);
+   color: var(--color-text);
+ }
++.cc-form-group textarea { resize: vertical; }
+ 
+-.lead-contact-grid {
+-  display: grid;
+-  grid-template-columns: repeat(4, minmax(0, 1fr));
+-  gap: 10px;
+-  margin-bottom: 18px;
++/* phone link */
++.cc-phone-link {
++  color: var(--color-accent, #b8860b); text-decoration: none; font-weight: 600;
+ }
++.cc-phone-link:hover { text-decoration: underline; }
+ 
+-/* ---------- Editor cards ---------- */
+-
+-.editor-grid {
+-  display: grid;
+-  grid-template-columns: repeat(2, minmax(0, 1fr));
+-  gap: 14px;
+-  margin-bottom: 18px;
++/* ========== Booking Form Modal ========== */
++.cc-booking-modal {
++  border-top: 3px solid #10b981;
+ }
+-
+-.editor-card {
+-  padding: 16px 18px;
+-  display: flex;
+-  flex-direction: column;
+-  gap: 12px;
+-}
+-
+-.editor-card h4 {
+-  margin: 0 0 4px;
+-  font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 16px;
+-  font-weight: 700;
+-  color: var(--color-text);
++.cc-booking-header h3 {
++  color: #10b981;
+ }
+-
+-.editor-card label {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 4px;
++.cc-booking-hint {
+   font-size: 13px;
++  color: var(--color-muted, #888);
++  margin-bottom: 12px;
++  padding: 8px 12px;
++  background: rgba(16, 185, 129, 0.08);
++  border-radius: 8px;
++  border-left: 3px solid #10b981;
++}
++.cc-form-row {
++  display: flex;
++  gap: 12px;
+ }
+-
+-.editor-card textarea {
+-  resize: vertical;
+-  min-height: 86px;
+-  font-family: inherit;
+-}
+-
+-/* ---------- History ---------- */
+-
+-.lead-history-layout {
+-  display: grid;
+-  grid-template-columns: repeat(2, minmax(0, 1fr));
+-  gap: 14px;
+-}
+-
+-.history-card {
+-  padding: 16px 18px;
+-}
+-
+-.history-card h4 {
+-  margin: 0 0 10px;
+-  font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 16px;
+-  font-weight: 700;
+-}
+-
+-.timeline-item {
+-  position: relative;
+-  padding: 12px 0 12px 20px;
+-  border-top: 1px solid var(--color-border, rgba(0,0,0,0.06));
+-}
+-
+-.timeline-item:first-of-type { border-top: none; }
+-
+-.timeline-item::before {
+-  content: '';
+-  position: absolute;
+-  left: 4px;
+-  top: 18px;
+-  width: 9px;
+-  height: 9px;
+-  border-radius: 50%;
+-  background: var(--color-accent);
+-  box-shadow: 0 0 0 3px rgba(192,155,70,0.2);
++.cc-form-row .cc-form-group {
++  flex: 1;
+ }
+-
+-.timeline-top {
++.cc-btn-book {
++  margin-top: 8px;
++  font-size: 15px;
++  padding: 12px 20px;
++  background: linear-gradient(135deg, #10b981, #059669) !important;
++}
++.cc-btn-book:hover {
++  background: linear-gradient(135deg, #059669, #047857) !important;
++}
++.cc-btn-book:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++/* ========== Appointment Info (in lead detail) ========== */
++.cc-detail-appointments {
++  margin-top: 16px;
++  border-top: 1px solid var(--color-border, #eee);
++  padding-top: 12px;
++}
++.cc-detail-appointments h4 {
++  margin-bottom: 8px;
++}
++.cc-appointment-card {
++  background: var(--color-bg-alt, #f9f9f9);
++  border-radius: 10px;
++  padding: 12px 16px;
++  margin-bottom: 8px;
++  border-left: 3px solid #ccc;
++}
++.cc-appt-waiting  { border-left-color: #f59e0b; }
++.cc-appt-arrived  { border-left-color: #10b981; }
++.cc-appt-no_show  { border-left-color: #ef4444; }
++.cc-appt-cancelled { border-left-color: #6b7280; }
++.cc-appt-row {
+   display: flex;
++  gap: 16px;
+   align-items: center;
+-  justify-content: space-between;
+-  gap: 10px;
+   margin-bottom: 4px;
+-}
+-
+-.timeline-top strong { font-size: 14px; color: var(--color-text); }
+-.timeline-top span   { font-size: 11px; color: var(--color-text-secondary, var(--color-muted)); }
+-
+-.timeline-item p {
+-  margin: 0 0 4px;
+   font-size: 13px;
+-  color: var(--color-text);
+-  line-height: 1.4;
+-}
+-
+-.timeline-item small {
+-  font-size: 11px;
+-  color: var(--color-text-secondary, var(--color-muted));
+-}
+-
+-/* ---------- Operators ---------- */
+-
+-.operators-panel h3 {
+-  margin: 0 0 12px;
+-  font-family: var(--font-display, 'Playfair Display', serif);
+-  font-size: 18px;
+-  font-weight: 700;
+-  color: var(--color-text);
+-}
+-
+-.operators-list {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 10px;
+-}
+-
+-.operator-card {
+-  padding: 12px 14px;
+-  transition: transform 0.15s var(--ease-out, ease);
+-}
+-
+-.operator-card:hover { transform: translateY(-1px); }
+-
+-.operator-head {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 10px;
+-  margin-bottom: 6px;
+-}
+-
+-.operator-head strong {
+-  font-size: 14px;
+-  font-weight: 600;
+-  color: var(--color-text);
+-}
+-
+-.operator-online,
+-.operator-offline {
+-  display: inline-flex;
+-  align-items: center;
+-  gap: 5px;
+-  padding: 3px 9px;
+-  border-radius: 999px;
+-  font-size: 11px;
+-  font-weight: 700;
+-  text-transform: uppercase;
+-  letter-spacing: 0.05em;
+-}
+-
+-.operator-online::before,
+-.operator-offline::before {
+-  content: '';
+-  width: 6px;
+-  height: 6px;
+-  border-radius: 50%;
+-  background: currentColor;
+-}
+-
+-.operator-online {
+-  color: #059669;
+-  background: rgba(16,185,129,0.14);
+ }
+-
+-.operator-offline {
+-  color: #64748b;
+-  background: rgba(148,163,184,0.18);
+-}
+-
+-.operator-meta {
+-  display: flex;
+-  justify-content: space-between;
+-  gap: 8px;
+-  margin-top: 4px;
++.cc-appt-badge-waiting  { background: #f59e0b !important; }
++.cc-appt-badge-arrived  { background: #10b981 !important; }
++.cc-appt-badge-no_show  { background: #ef4444 !important; }
++.cc-appt-badge-cancelled { background: #6b7280 !important; }
++.cc-appt-comment {
+   font-size: 12px;
+-  color: var(--color-text-secondary, var(--color-muted));
+-}
+-
+-/* ---------- Empty state ---------- */
+-
+-.empty-state {
+-  display: flex;
+-  align-items: center;
+-  justify-content: center;
+-  padding: 28px 16px;
+-  font-size: 13px;
+-  color: var(--color-text-secondary, var(--color-muted));
+-  text-align: center;
+-  border: 1px dashed var(--color-border, rgba(0,0,0,0.12));
+-  border-radius: 12px;
+-}
+-
+-.empty-state.compact { padding: 14px; font-size: 12px; }
+-
+-/* ---------- Responsive ---------- */
+-
+-@media (max-width: 1280px) {
+-  .call-center-stats,
+-  .lead-contact-grid {
+-    grid-template-columns: repeat(2, minmax(0, 1fr));
+-  }
+-  .call-center-status-grid {
+-    grid-template-columns: repeat(4, minmax(0, 1fr));
+-  }
+-  .call-center-layout {
+-    grid-template-columns: 320px minmax(0, 1fr);
+-  }
+-  .operators-panel {
+-    grid-column: 1 / -1;
+-    width: 100%;
+-  }
+-}
+-
+-@media (max-width: 900px) {
+-  .call-center-layout {
+-    grid-template-columns: 1fr;
+-  }
+-  .call-center-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+-  .editor-grid,
+-  .lead-history-layout { grid-template-columns: 1fr; }
+-  .lead-header { flex-direction: column; }
+-  .lead-header-metrics { flex-wrap: wrap; }
+-}
+-
+-@media (max-width: 520px) {
+-  .call-center-toolbar { flex-direction: column; align-items: flex-start; }
+-  .call-center-stats,
+-  .lead-contact-grid { grid-template-columns: 1fr; }
++  color: var(--color-muted, #888);
++  margin-top: 4px;
+ }
+diff --git a/frontend/src/components/CallCenter.tsx b/frontend/src/components/CallCenter.tsx
+index a4e161a..525c7bc 100644
+--- a/frontend/src/components/CallCenter.tsx
++++ b/frontend/src/components/CallCenter.tsx
+@@ -1,24 +1,10 @@
+-import React, { useEffect, useMemo, useState } from 'react';
++import React, { useCallback, useEffect, useMemo, useState } from 'react';
+ import { apiInstance } from '../shared/api/instance';
+ import { useAuth } from '../shared/lib/hooks/useAuth';
+ import './CallCenter.css';
+ 
+-type LeadStatus =
+-  | 'NEW'
+-  | 'IN_PROGRESS'
+-  | 'NO_ANSWER'
+-  | 'CALL_BACK'
+-  | 'INTERESTED'
+-  | 'REJECTED'
+-  | 'CLOSED';
+-
+-type CallResult =
+-  | 'NO_ANSWER'
+-  | 'CALL_BACK'
+-  | 'INTERESTED'
+-  | 'REJECTED'
+-  | 'CLOSED'
+-  | 'FAILED';
++/* ========== Types ========== */
++type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'BOOKED' | 'REJECTED';
+ 
+ interface Lead {
+   id: number;
+@@ -40,23 +26,15 @@ interface Lead {
+ 
+ interface CallLog {
+   id: number;
+-  result: CallResult;
++  result: string;
+   comment: string | null;
+   created_at: string;
+   user_name?: string | null;
+ }
+ 
+-interface HistoryItem {
+-  id: number;
+-  action: string;
+-  created_at: string;
+-  user_name?: string | null;
+-  details?: string | null;
+-}
+-
+ interface LeadDetails extends Lead {
+   calls: CallLog[];
+-  history: HistoryItem[];
++  history: { id: number; action: string; created_at: string; user_name?: string | null; details?: string | null }[];
+   response_time_minutes: number | null;
+ }
+ 
+@@ -68,498 +46,773 @@ interface Operator {
+   role: string;
+   is_online: boolean;
+   current_load: number;
+-  total_leads?: number;
+-  closed_leads?: number;
+ }
+ 
+-interface DashboardData {
+-  statuses: Record<string, number>;
+-  sla: {
+-    total_leads: number;
+-    contacted_leads: number;
+-    avg_response_time_minutes: number | null;
+-    overdue_leads: number;
+-  };
+-  operators: Operator[];
++interface OperatorStats {
++  id: number;
++  name: string;
++  total_leads: number;
++  booked: number;
++  rejected: number;
++  no_answer: number;
++  booked_pct: number;
++  waste_pct: number;
+ }
+ 
+-const STATUS_OPTIONS: LeadStatus[] = [
+-  'NEW',
+-  'IN_PROGRESS',
+-  'NO_ANSWER',
+-  'CALL_BACK',
+-  'INTERESTED',
+-  'REJECTED',
+-  'CLOSED'
+-];
++interface SourceItem {
++  source: string;
++  count: number;
++}
+ 
+-const CALL_RESULT_OPTIONS: CallResult[] = [
+-  'NO_ANSWER',
+-  'CALL_BACK',
+-  'INTERESTED',
+-  'REJECTED',
+-  'CLOSED',
+-  'FAILED'
+-];
++/* ========== Constants ========== */
++const STATUS_LIST: LeadStatus[] = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'BOOKED', 'REJECTED'];
+ 
+ const STATUS_LABELS: Record<string, string> = {
+   NEW: 'Новый',
+   IN_PROGRESS: 'В работе',
+-  NO_ANSWER: 'Не дозвонились',
+-  CALL_BACK: 'Перезвонить',
+-  INTERESTED: 'Заинтересован',
+-  REJECTED: 'Отказ',
+-  CLOSED: 'Закрыт'
+-};
+-
+-const CALL_LABELS: Record<string, string> = {
+-  NO_ANSWER: 'Не ответил',
+-  CALL_BACK: 'Перезвонить',
+-  INTERESTED: 'Заинтересован',
++  NO_ANSWER: 'Не дозвонился',
++  BOOKED: 'Записан',
+   REJECTED: 'Отказ',
+-  CLOSED: 'Закрыт',
+-  FAILED: 'Ошибка'
+ };
+ 
+-const formatDateTime = (value?: string | null) => {
+-  if (!value) {
+-    return '—';
+-  }
+-
+-  return new Date(value).toLocaleString('ru-RU', {
+-    day: '2-digit',
+-    month: '2-digit',
+-    year: 'numeric',
+-    hour: '2-digit',
+-    minute: '2-digit'
+-  });
++const STATUS_COLORS: Record<string, string> = {
++  NEW: '#3b82f6',
++  IN_PROGRESS: '#f59e0b',
++  NO_ANSWER: '#ef4444',
++  BOOKED: '#10b981',
++  REJECTED: '#6b7280',
+ };
+ 
+-const formatRelativeSla = (minutes: number | null) => {
+-  if (minutes === null || Number.isNaN(minutes)) {
+-    return '—';
+-  }
+-
+-  if (minutes < 60) {
+-    return `${minutes} мин`;
+-  }
++const CALL_RESULT_OPTIONS = [
++  { value: 'NO_ANSWER', label: 'Не дозвонился' },
++  { value: 'BOOKED', label: 'Записан' },
++  { value: 'REJECTED', label: 'Отказ' },
++];
+ 
+-  const hours = Math.floor(minutes / 60);
+-  const restMinutes = minutes % 60;
+-  return `${hours} ч ${restMinutes} мин`;
++const fmtDate = (v?: string | null) => {
++  if (!v) return '—';
++  return new Date(v).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+ };
+ 
++/* ========== Main Component ========== */
+ const CallCenter: React.FC = () => {
+   const { user } = useAuth();
++
++  // Начальник колл-центра видит всё, оператор — только своё
++  const isManager = useMemo(
++    () => user?.position === 'Начальник колл-центра',
++    [user]
++  );
++
++  /* --- State --- */
+   const [leads, setLeads] = useState<Lead[]>([]);
+-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
++  const [sources, setSources] = useState<SourceItem[]>([]);
+   const [operators, setOperators] = useState<Operator[]>([]);
+-  const [selectedLead, setSelectedLead] = useState<LeadDetails | null>(null);
++  const [operatorStats, setOperatorStats] = useState<OperatorStats[]>([]);
+   const [loading, setLoading] = useState(true);
+-  const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+-  const [onlyMine, setOnlyMine] = useState(false);
++
++  // Filters
++  const [filterSource, setFilterSource] = useState<string>('ALL');
++  const [filterStatus, setFilterStatus] = useState<string>('ALL');
++  const [filterOperator, setFilterOperator] = useState<string>('ALL');
+   const [search, setSearch] = useState('');
+-  const [callResult, setCallResult] = useState<CallResult>('NO_ANSWER');
+-  const [callComment, setCallComment] = useState('');
+-  const [nextCallAt, setNextCallAt] = useState('');
+-  const [statusDraft, setStatusDraft] = useState<LeadStatus>('NEW');
+-  const [assignedDraft, setAssignedDraft] = useState<string>('');
+-  const [isOnline, setIsOnline] = useState(false);
++  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc'>('date_desc');
++
++  // Selection
++  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
++  const [assignTarget, setAssignTarget] = useState('');
++
++  // Lead detail modal
++  const [detailLead, setDetailLead] = useState<LeadDetails | null>(null);
++  const [detailComment, setDetailComment] = useState('');
++  const [detailCallResult, setDetailCallResult] = useState<string>('NO_ANSWER');
++  const [detailStatus, setDetailStatus] = useState<LeadStatus>('NEW');
++  const [detailAssigned, setDetailAssigned] = useState('');
+   const [submitting, setSubmitting] = useState(false);
+ 
+-  const canManage = useMemo(
+-    () => ['director', 'manager', 'okk', 'admin'].includes(user?.role || ''),
+-    [user?.role]
+-  );
+-
+-  const fetchDashboard = async () => {
+-    const response = await apiInstance.get('/call-center/dashboard');
+-    setDashboard(response.data.data);
+-  };
++  // Add lead modal
++  const [showAddLead, setShowAddLead] = useState(false);
++  const [newLead, setNewLead] = useState({ name: '', phone: '', email: '', description: '', source: 'Pravoved.ru' });
++
++  // Stats toggle
++  const [showStats, setShowStats] = useState(false);
++
++  // Booking form (when status = BOOKED)
++  const [showBookingForm, setShowBookingForm] = useState(false);
++  const [bookingLeadId, setBookingLeadId] = useState<number | null>(null);
++  const [bookingData, setBookingData] = useState({
++    client_name: '',
++    client_phone: '',
++    appointment_date: '',
++    appointment_time: '',
++    comment: '',
++  });
+ 
+-  const fetchOperators = async () => {
+-    const response = await apiInstance.get('/call-center/operators');
+-    const operatorList = response.data.data as Operator[];
+-    setOperators(operatorList);
+-    const currentOperator = operatorList.find((operator) => operator.id === user?.id);
+-    setIsOnline(Boolean(currentOperator?.is_online));
+-  };
++  // Appointment info for lead detail
++  interface AppointmentInfo {
++    id: number;
++    status: string;
++    status_label: string;
++    appointment_date: string;
++    appointment_time: string;
++    client_name: string;
++    manager_comment?: string;
++  }
++  const [leadAppointments, setLeadAppointments] = useState<AppointmentInfo[]>([]);
+ 
+-  const fetchLeads = async () => {
++  /* --- Fetching --- */
++  const fetchLeads = useCallback(async () => {
+     const params: Record<string, string> = {};
+-    if (selectedStatus !== 'ALL') {
+-      params.status = selectedStatus;
+-    }
+-    if (onlyMine) {
+-      params.assigned_to = 'me';
+-    }
+-    if (search.trim()) {
+-      params.search = search.trim();
++    if (filterSource !== 'ALL') params.source = filterSource;
++    if (filterStatus !== 'ALL') params.status = filterStatus;
++    if (filterOperator !== 'ALL') {
++      params.assigned_to = filterOperator === 'ME' ? 'me' : filterOperator;
+     }
++    if (search.trim()) params.search = search.trim();
++    try {
++      const res = await apiInstance.get('/call-center/leads', { params });
++      setLeads(res.data.data || []);
++    } catch { setLeads([]); }
++  }, [filterSource, filterStatus, filterOperator, search]);
+ 
+-    const response = await apiInstance.get('/call-center/leads', { params });
+-    const leadList = response.data.data as Lead[];
+-    setLeads(leadList);
+-    if (!selectedLead && leadList.length > 0) {
+-      await fetchLeadDetails(leadList[0].id);
+-    }
+-    if (selectedLead && !leadList.some((lead) => lead.id === selectedLead.id)) {
+-      setSelectedLead(null);
+-    }
+-  };
++  const fetchSources = useCallback(async () => {
++    try {
++      const res = await apiInstance.get('/call-center/sources');
++      setSources(res.data.data || []);
++    } catch { setSources([]); }
++  }, []);
+ 
+-  const fetchLeadDetails = async (leadId: number) => {
+-    const response = await apiInstance.get(`/call-center/leads/${leadId}`);
+-    const lead = response.data.data as LeadDetails;
+-    setSelectedLead(lead);
+-    setStatusDraft(lead.status);
+-    setAssignedDraft(lead.assigned_to ? String(lead.assigned_to) : '');
+-    setNextCallAt(lead.next_call_at ? lead.next_call_at.slice(0, 16) : '');
+-  };
++  const fetchOperators = useCallback(async () => {
++    try {
++      const res = await apiInstance.get('/call-center/operators');
++      setOperators(res.data.data || []);
++    } catch { setOperators([]); }
++  }, []);
+ 
+-  const refreshData = async () => {
+-    setLoading(true);
++  const fetchStats = useCallback(async () => {
+     try {
+-      await Promise.all([fetchDashboard(), fetchOperators(), fetchLeads()]);
+-    } finally {
+-      setLoading(false);
++      const res = await apiInstance.get('/call-center/operator-stats');
++      setOperatorStats(res.data.data || []);
++    } catch { setOperatorStats([]); }
++  }, []);
++
++  const refresh = useCallback(async () => {
++    setLoading(true);
++    await Promise.all([fetchLeads(), fetchSources(), fetchOperators(), fetchStats()]);
++    setLoading(false);
++  }, [fetchLeads, fetchSources, fetchOperators, fetchStats]);
++
++  useEffect(() => { refresh(); }, [refresh]);
++
++  /* --- Sorted & grouped leads --- */
++  const sortedLeads = useMemo(() => {
++    const arr = [...leads];
++    arr.sort((a, b) => {
++      if (sortBy === 'date_asc') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
++      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
++    });
++    return arr;
++  }, [leads, sortBy]);
++
++  const statusCounts = useMemo(() => {
++    const map: Record<string, number> = {};
++    STATUS_LIST.forEach(s => { map[s] = 0; });
++    leads.forEach(l => { map[l.status] = (map[l.status] || 0) + 1; });
++    return map;
++  }, [leads]);
++
++  /* --- Selection helpers --- */
++  const toggleSelect = (id: number) => {
++    setSelectedIds(prev => {
++      const next = new Set(prev);
++      next.has(id) ? next.delete(id) : next.add(id);
++      return next;
++    });
++  };
++  const toggleSelectAll = () => {
++    if (selectedIds.size === sortedLeads.length) {
++      setSelectedIds(new Set());
++    } else {
++      setSelectedIds(new Set(sortedLeads.map(l => l.id)));
+     }
+   };
+ 
+-  useEffect(() => {
+-    refreshData();
+-  }, [selectedStatus, onlyMine]);
+-
+-  const handleSearchSubmit = async (event: React.FormEvent) => {
+-    event.preventDefault();
+-    await refreshData();
++  /* --- Bulk actions --- */
++  const handleBulkAssign = async () => {
++    if (selectedIds.size === 0 || !assignTarget) return;
++    try {
++      await apiInstance.post('/call-center/bulk-assign', {
++        lead_ids: Array.from(selectedIds),
++        operator_id: Number(assignTarget),
++      });
++      setSelectedIds(new Set());
++      setAssignTarget('');
++      await refresh();
++    } catch (e) { console.error(e); }
+   };
+ 
+-  const handleOperatorStatusToggle = async () => {
+-    const nextValue = !isOnline;
+-    setIsOnline(nextValue);
++  const handleBulkStatus = async (status: LeadStatus) => {
++    if (selectedIds.size === 0) return;
+     try {
+-      await apiInstance.patch('/call-center/operators/me/status', {
+-        is_online: nextValue
++      await apiInstance.post('/call-center/bulk-status', {
++        lead_ids: Array.from(selectedIds),
++        status,
+       });
+-      await fetchOperators();
+-      await fetchDashboard();
+-    } catch (error) {
+-      console.error('Failed to toggle operator status:', error);
+-      setIsOnline(!nextValue);
+-    }
++      setSelectedIds(new Set());
++      await refresh();
++    } catch (e) { console.error(e); }
++  };
++
++  /* --- Lead detail --- */
++  const openDetail = async (id: number) => {
++    try {
++      const res = await apiInstance.get(`/call-center/leads/${id}`);
++      const lead = res.data.data as LeadDetails;
++      setDetailLead(lead);
++      setDetailStatus(lead.status);
++      setDetailAssigned(lead.assigned_to ? String(lead.assigned_to) : '');
++      setDetailComment('');
++
++      // Загружаем записи (appointments) для этого лида
++      try {
++        const apptRes = await apiInstance.get(`/call-center/leads/${id}/appointments`);
++        setLeadAppointments(apptRes.data.data || []);
++      } catch { setLeadAppointments([]); }
++    } catch { /* ignore */ }
+   };
+ 
+-  const handleSaveLead = async () => {
+-    if (!selectedLead) {
++  const saveDetail = async () => {
++    if (!detailLead) return;
++
++    // Если статус меняется на BOOKED — открываем форму записи
++    if (detailStatus === 'BOOKED' && detailLead.status !== 'BOOKED') {
++      setBookingLeadId(detailLead.id);
++      setBookingData({
++        client_name: detailLead.name || '',
++        client_phone: detailLead.phone || '',
++        appointment_date: '',
++        appointment_time: '',
++        comment: detailLead.description || '',
++      });
++      setShowBookingForm(true);
+       return;
+     }
+ 
+     setSubmitting(true);
+     try {
+-      await apiInstance.patch(`/call-center/leads/${selectedLead.id}`, {
+-        status: statusDraft,
+-        assigned_to: assignedDraft ? Number(assignedDraft) : null,
+-        next_call_at: nextCallAt || null
++      await apiInstance.patch(`/call-center/leads/${detailLead.id}`, {
++        status: detailStatus,
++        assigned_to: detailAssigned ? Number(detailAssigned) : null,
+       });
+-      await Promise.all([fetchDashboard(), fetchOperators(), fetchLeads(), fetchLeadDetails(selectedLead.id)]);
+-    } catch (error) {
+-      console.error('Failed to save lead:', error);
+-    } finally {
+-      setSubmitting(false);
++      await openDetail(detailLead.id);
++      await refresh();
++    } catch { /* ignore */ }
++    setSubmitting(false);
++  };
++
++  // Отправка формы записи клиента
++  const submitBooking = async () => {
++    if (!bookingLeadId) return;
++    if (!bookingData.client_name || !bookingData.client_phone || !bookingData.appointment_date || !bookingData.appointment_time) {
++      alert('Заполните все обязательные поля: ФИО, телефон, дату и время');
++      return;
+     }
++    setSubmitting(true);
++    try {
++      await apiInstance.post(`/call-center/leads/${bookingLeadId}/book`, bookingData);
++      setShowBookingForm(false);
++      setBookingLeadId(null);
++      if (detailLead) await openDetail(detailLead.id);
++      await refresh();
++    } catch (err: any) {
++      const msg = err?.response?.data?.message || 'Ошибка при записи клиента';
++      alert(msg);
++    }
++    setSubmitting(false);
+   };
+ 
+-  const handleLogCall = async () => {
+-    if (!selectedLead) {
++  const logCall = async () => {
++    if (!detailLead) return;
++
++    // Если результат звонка BOOKED — открываем форму записи
++    if (detailCallResult === 'BOOKED') {
++      setBookingLeadId(detailLead.id);
++      setBookingData({
++        client_name: detailLead.name || '',
++        client_phone: detailLead.phone || '',
++        appointment_date: '',
++        appointment_time: '',
++        comment: detailComment || detailLead.description || '',
++      });
++      setShowBookingForm(true);
+       return;
+     }
+ 
+     setSubmitting(true);
+     try {
+       await apiInstance.post('/call-center/calls', {
+-        lead_id: selectedLead.id,
+-        result: callResult,
+-        comment: callComment || null,
+-        next_call_at: nextCallAt || null
++        lead_id: detailLead.id,
++        result: detailCallResult,
++        comment: detailComment || null,
+       });
+-      setCallComment('');
+-      await Promise.all([fetchDashboard(), fetchOperators(), fetchLeads(), fetchLeadDetails(selectedLead.id)]);
+-    } catch (error) {
+-      console.error('Failed to log call:', error);
+-    } finally {
+-      setSubmitting(false);
+-    }
++      setDetailComment('');
++      await openDetail(detailLead.id);
++      await refresh();
++    } catch { /* ignore */ }
++    setSubmitting(false);
++  };
++
++  const addComment = async () => {
++    if (!detailLead || !detailComment.trim()) return;
++    setSubmitting(true);
++    try {
++      await apiInstance.post(`/call-center/leads/${detailLead.id}/comments`, {
++        comment: detailComment.trim(),
++      });
++      setDetailComment('');
++      await openDetail(detailLead.id);
++    } catch { /* ignore */ }
++    setSubmitting(false);
+   };
+ 
++  /* --- Add lead --- */
++  const handleAddLead = async () => {
++    if (!newLead.name || !newLead.source) return;
++    try {
++      await apiInstance.post('/call-center/leads', newLead);
++      setShowAddLead(false);
++      setNewLead({ name: '', phone: '', email: '', description: '', source: 'Pravoved.ru' });
++      await refresh();
++    } catch { /* ignore */ }
++  };
++
++  const operatorName = (op: Operator) =>
++    [op.first_name, op.last_name].filter(Boolean).join(' ') || op.email;
++
++  /* ============================================================
++     RENDER
++     ============================================================ */
+   return (
+-    <div className="call-center-page">
+-      <div className="call-center-toolbar">
++    <div className="cc-page">
++      {/* ===== HEADER ===== */}
++      <div className="cc-header">
+         <div>
+           <h2>Колл-центр</h2>
+-          <p>Приём лидов, работа операторов и SLA первого контакта.</p>
++          <p>{isManager ? 'Управление лидами и операторами' : 'Ваши лиды'}</p>
+         </div>
+-        <button className={`availability-toggle ${isOnline ? 'online' : 'offline'}`} onClick={handleOperatorStatusToggle}>
+-          {isOnline ? 'Оператор онлайн' : 'Оператор оффлайн'}
+-        </button>
+-      </div>
+-
+-      <div className="call-center-stats">
+-        <div className="stat-card">
+-          <span>Всего лидов</span>
+-          <strong>{dashboard?.sla.total_leads ?? 0}</strong>
+-        </div>
+-        <div className="stat-card">
+-          <span>Контактировано</span>
+-          <strong>{dashboard?.sla.contacted_leads ?? 0}</strong>
+-        </div>
+-        <div className="stat-card">
+-          <span>Средний SLA</span>
+-          <strong>{formatRelativeSla(dashboard?.sla.avg_response_time_minutes ?? null)}</strong>
+-        </div>
+-        <div className="stat-card danger">
+-          <span>Просрочено</span>
+-          <strong>{dashboard?.sla.overdue_leads ?? 0}</strong>
++        <div className="cc-header-actions">
++          {isManager && (
++            <button className="cc-btn cc-btn-stats" onClick={() => setShowStats(!showStats)}>
++              📊 Статистика
++            </button>
++          )}
++          {isManager && (
++            <button className="cc-btn cc-btn-primary" onClick={() => setShowAddLead(true)}>
++              + Добавить лид
++            </button>
++          )}
+         </div>
+       </div>
+ 
+-      <div className="call-center-status-grid">
+-        {STATUS_OPTIONS.map((status) => (
+-          <div key={status} className={`status-chip-card status-${status.toLowerCase()}`}>
+-            <span>{STATUS_LABELS[status]}</span>
+-            <strong>{dashboard?.statuses?.[status] ?? 0}</strong>
+-          </div>
++      {/* ===== STATUS CHIPS ===== */}
++      <div className="cc-status-bar">
++        {STATUS_LIST.map(s => (
++          <button
++            key={s}
++            className={`cc-status-chip${filterStatus === s ? ' active' : ''}`}
++            style={{ '--chip-color': STATUS_COLORS[s] } as React.CSSProperties}
++            onClick={() => setFilterStatus(filterStatus === s ? 'ALL' : s)}
++          >
++            <span className="cc-chip-dot" />
++            <span>{STATUS_LABELS[s]}</span>
++            <strong>{statusCounts[s] || 0}</strong>
++          </button>
+         ))}
+       </div>
+ 
+-      <div className="call-center-layout">
+-        <div className="leads-panel">
+-          <form className="lead-filters" onSubmit={handleSearchSubmit}>
+-            <input
+-              value={search}
+-              onChange={(event) => setSearch(event.target.value)}
+-              placeholder="Поиск по имени, телефону, email"
+-            />
+-            <select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)}>
+-              <option value="ALL">Все статусы</option>
+-              {STATUS_OPTIONS.map((status) => (
+-                <option key={status} value={status}>
+-                  {STATUS_LABELS[status]}
+-                </option>
++      {/* ===== STATISTICS PANEL ===== */}
++      {showStats && isManager && (
++        <div className="cc-stats-panel">
++          <h3>Статистика по операторам</h3>
++          <table className="cc-stats-table">
++            <thead>
++              <tr>
++                <th>Оператор</th>
++                <th>Лидов</th>
++                <th>Записей</th>
++                <th>% записи</th>
++                <th>% брака</th>
++                <th>Отказ</th>
++                <th>Не дозв.</th>
++              </tr>
++            </thead>
++            <tbody>
++              {operatorStats.length === 0 && (
++                <tr><td colSpan={7} className="cc-empty">Нет данных</td></tr>
++              )}
++              {operatorStats.map(op => (
++                <tr key={op.id}>
++                  <td><strong>{op.name}</strong></td>
++                  <td>{op.total_leads}</td>
++                  <td>{op.booked}</td>
++                  <td className={Number(op.booked_pct) > 30 ? 'cc-good' : ''}>{op.booked_pct}%</td>
++                  <td className={Number(op.waste_pct) > 50 ? 'cc-bad' : ''}>{op.waste_pct}%</td>
++                  <td>{op.rejected}</td>
++                  <td>{op.no_answer}</td>
++                </tr>
+               ))}
+-            </select>
+-            <label className="mine-toggle">
+-              <input type="checkbox" checked={onlyMine} onChange={(event) => setOnlyMine(event.target.checked)} />
+-              <span>Только мои</span>
+-            </label>
+-            <button type="submit">Обновить</button>
+-          </form>
+-
+-          <div className="lead-list">
+-            {loading && <div className="empty-state">Загрузка лидов...</div>}
+-            {!loading && leads.length === 0 && <div className="empty-state">Лидов пока нет</div>}
+-            {leads.map((lead) => (
+-              <button
+-                key={lead.id}
+-                className={`lead-card ${selectedLead?.id === lead.id ? 'active' : ''}`}
+-                onClick={() => fetchLeadDetails(lead.id)}
+-              >
+-                <div className="lead-card-top">
+-                  <strong>{lead.name}</strong>
+-                  <span className={`lead-status status-${lead.status.toLowerCase()}`}>{STATUS_LABELS[lead.status]}</span>
+-                </div>
+-                <div className="lead-card-meta">
+-                  <span>{lead.phone || lead.email || 'Без контактов'}</span>
+-                  <span>Score {lead.score}</span>
+-                </div>
+-                <div className="lead-card-meta">
+-                  <span>{lead.assigned_to_name || 'Без оператора'}</span>
+-                  <span>{lead.calls_count || 0} звонков</span>
+-                </div>
+-                <div className="lead-card-foot">
+-                  <span>{lead.source}</span>
+-                  <span>{formatDateTime(lead.created_at)}</span>
+-                </div>
+-              </button>
++            </tbody>
++          </table>
++        </div>
++      )}
++
++      {/* ===== SOURCES (FOLDERS) ===== */}
++      <div className="cc-sources">
++        <button
++          className={`cc-source-btn${filterSource === 'ALL' ? ' active' : ''}`}
++          onClick={() => setFilterSource('ALL')}
++        >
++          📁 Все источники <span>{leads.length}</span>
++        </button>
++        {sources.map(s => (
++          <button
++            key={s.source}
++            className={`cc-source-btn${filterSource === s.source ? ' active' : ''}`}
++            onClick={() => setFilterSource(filterSource === s.source ? 'ALL' : s.source)}
++          >
++            📂 {s.source} <span>{s.count}</span>
++          </button>
++        ))}
++      </div>
++
++      {/* ===== FILTERS BAR ===== */}
++      <div className="cc-filters">
++        <input
++          className="cc-search"
++          placeholder="Поиск по имени, телефону, email…"
++          value={search}
++          onChange={e => setSearch(e.target.value)}
++          onKeyDown={e => e.key === 'Enter' && refresh()}
++        />
++        {isManager && (
++          <select className="cc-select" value={filterOperator} onChange={e => setFilterOperator(e.target.value)}>
++            <option value="ALL">Все операторы</option>
++            {operators.map(op => (
++              <option key={op.id} value={op.id}>{operatorName(op)}</option>
+             ))}
+-          </div>
++          </select>
++        )}
++        <select className="cc-select" value={sortBy} onChange={e => setSortBy(e.target.value as any)}>
++          <option value="date_desc">Новые сверху</option>
++          <option value="date_asc">Старые сверху</option>
++        </select>
++        <button className="cc-btn" onClick={refresh}>🔄 Обновить</button>
++      </div>
++
++      {/* ===== BULK ACTIONS ===== */}
++      {isManager && selectedIds.size > 0 && (
++        <div className="cc-bulk-bar">
++          <span>Выбрано: <strong>{selectedIds.size}</strong></span>
++          <select className="cc-select" value={assignTarget} onChange={e => setAssignTarget(e.target.value)}>
++            <option value="">Выбрать оператора</option>
++            {operators.map(op => (
++              <option key={op.id} value={op.id}>{operatorName(op)}</option>
++            ))}
++          </select>
++          <button className="cc-btn cc-btn-primary" onClick={handleBulkAssign} disabled={!assignTarget}>
++            Назначить
++          </button>
++          <button className="cc-btn cc-btn-danger" onClick={() => handleBulkStatus('REJECTED')}>
++            Отказ
++          </button>
+         </div>
++      )}
++
++      {/* ===== LEADS TABLE ===== */}
++      <div className="cc-table-wrap">
++        {loading && <div className="cc-empty">Загрузка…</div>}
++        {!loading && sortedLeads.length === 0 && <div className="cc-empty">Лидов нет</div>}
++        {!loading && sortedLeads.length > 0 && (
++          <table className="cc-table">
++            <thead>
++              <tr>
++                {isManager && (
++                  <th className="cc-th-check">
++                    <input type="checkbox" checked={selectedIds.size === sortedLeads.length && sortedLeads.length > 0} onChange={toggleSelectAll} />
++                  </th>
++                )}
++                <th>Имя</th>
++                <th>Телефон</th>
++                <th>Обращение</th>
++                <th>Дата</th>
++                <th>Статус</th>
++                <th>Оператор</th>
++                <th>Источник</th>
++                <th></th>
++              </tr>
++            </thead>
++            <tbody>
++              {sortedLeads.map(lead => (
++                <tr key={lead.id} className={selectedIds.has(lead.id) ? 'cc-row-selected' : ''}>
++                  {isManager && (
++                    <td className="cc-td-check">
++                      <input type="checkbox" checked={selectedIds.has(lead.id)} onChange={() => toggleSelect(lead.id)} />
++                    </td>
++                  )}
++                  <td className="cc-td-name">{lead.name || '—'}</td>
++                  <td>{lead.phone || '—'}</td>
++                  <td className="cc-td-desc">{lead.description ? lead.description.slice(0, 60) + (lead.description.length > 60 ? '…' : '') : '—'}</td>
++                  <td className="cc-td-date">{fmtDate(lead.created_at)}</td>
++                  <td>
++                    <span className="cc-badge" style={{ background: STATUS_COLORS[lead.status] }}>
++                      {STATUS_LABELS[lead.status]}
++                    </span>
++                  </td>
++                  <td>{lead.assigned_to_name || <em className="cc-muted">Не назначен</em>}</td>
++                  <td className="cc-td-source">{lead.source}</td>
++                  <td>
++                    <button className="cc-btn-open" onClick={() => openDetail(lead.id)}>Открыть</button>
++                  </td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        )}
++      </div>
+ 
+-        <div className="lead-details-panel">
+-          {!selectedLead && <div className="empty-state">Выберите лид, чтобы открыть карточку</div>}
++      {/* ===== LEAD DETAIL MODAL ===== */}
++      {detailLead && (
++        <div className="cc-modal-overlay" onClick={() => setDetailLead(null)}>
++          <div className="cc-modal" onClick={e => e.stopPropagation()}>
++            <div className="cc-modal-header">
++              <h3>{detailLead.name}</h3>
++              <button className="cc-modal-close" onClick={() => setDetailLead(null)}>✕</button>
++            </div>
+ 
+-          {selectedLead && (
+-            <>
+-              <div className="lead-header">
+-                <div>
+-                  <h3>{selectedLead.name}</h3>
+-                  <p>{selectedLead.description || 'Описание не заполнено'}</p>
+-                </div>
+-                <div className="lead-header-metrics">
+-                  <div>
+-                    <span>Источник</span>
+-                    <strong>{selectedLead.source}</strong>
+-                  </div>
+-                  <div>
+-                    <span>Score</span>
+-                    <strong>{selectedLead.score}</strong>
+-                  </div>
+-                  <div>
+-                    <span>SLA</span>
+-                    <strong>{formatRelativeSla(selectedLead.response_time_minutes)}</strong>
+-                  </div>
+-                </div>
++            <div className="cc-modal-body">
++              {/* Contact info */}
++              <div className="cc-detail-grid">
++                <div><span>Телефон</span><strong>{detailLead.phone ? <a href={`tel:${detailLead.phone}`} className="cc-phone-link">📞 {detailLead.phone}</a> : '—'}</strong></div>
++                <div><span>Email</span><strong>{detailLead.email || '—'}</strong></div>
++                <div><span>Источник</span><strong>{detailLead.source}</strong></div>
++                <div><span>Дата</span><strong>{fmtDate(detailLead.created_at)}</strong></div>
+               </div>
+ 
+-              <div className="lead-contact-grid">
+-                <div>
+-                  <span>Телефон</span>
+-                  <strong>{selectedLead.phone || '—'}</strong>
+-                </div>
+-                <div>
+-                  <span>Email</span>
+-                  <strong>{selectedLead.email || '—'}</strong>
+-                </div>
+-                <div>
+-                  <span>Первый звонок</span>
+-                  <strong>{formatDateTime(selectedLead.first_call_at)}</strong>
++              {detailLead.description && (
++                <div className="cc-detail-desc">
++                  <span>Текст обращения</span>
++                  <p>{detailLead.description}</p>
+                 </div>
+-                <div>
+-                  <span>Следующий контакт</span>
+-                  <strong>{formatDateTime(selectedLead.next_call_at)}</strong>
++              )}
++
++              {/* Controls */}
++              <div className="cc-detail-controls">
++                <div className="cc-control-group">
++                  <label>Статус</label>
++                  <select value={detailStatus} onChange={e => setDetailStatus(e.target.value as LeadStatus)}>
++                    {STATUS_LIST.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
++                  </select>
+                 </div>
+-              </div>
+-
+-              <div className="editor-grid">
+-                <div className="editor-card">
+-                  <h4>Управление лидом</h4>
+-                  <label>
+-                    <span>Статус</span>
+-                    <select value={statusDraft} onChange={(event) => setStatusDraft(event.target.value as LeadStatus)}>
+-                      {STATUS_OPTIONS.map((status) => (
+-                        <option key={status} value={status}>
+-                          {STATUS_LABELS[status]}
+-                        </option>
+-                      ))}
+-                    </select>
+-                  </label>
+-
+-                  <label>
+-                    <span>Оператор</span>
+-                    <select value={assignedDraft} onChange={(event) => setAssignedDraft(event.target.value)}>
++                {isManager && (
++                  <div className="cc-control-group">
++                    <label>Оператор</label>
++                    <select value={detailAssigned} onChange={e => setDetailAssigned(e.target.value)}>
+                       <option value="">Не назначен</option>
+-                      {operators.map((operator) => (
+-                        <option key={operator.id} value={operator.id}>
+-                          {[operator.first_name, operator.last_name].filter(Boolean).join(' ') || operator.email}
+-                        </option>
+-                      ))}
++                      {operators.map(op => <option key={op.id} value={op.id}>{operatorName(op)}</option>)}
+                     </select>
+-                  </label>
+-
+-                  <label>
+-                    <span>Дата следующего звонка</span>
+-                    <input
+-                      type="datetime-local"
+-                      value={nextCallAt}
+-                      onChange={(event) => setNextCallAt(event.target.value)}
+-                    />
+-                  </label>
+-
+-                  <button onClick={handleSaveLead} disabled={submitting}>
+-                    Сохранить изменения
+-                  </button>
+-                </div>
++                  </div>
++                )}
++                <button className="cc-btn cc-btn-primary" onClick={saveDetail} disabled={submitting}>
++                  Сохранить
++                </button>
++              </div>
+ 
+-                <div className="editor-card">
+-                  <h4>Логирование звонка</h4>
+-                  <label>
+-                    <span>Результат</span>
+-                    <select value={callResult} onChange={(event) => setCallResult(event.target.value as CallResult)}>
+-                      {CALL_RESULT_OPTIONS.map((result) => (
+-                        <option key={result} value={result}>
+-                          {CALL_LABELS[result]}
+-                        </option>
+-                      ))}
+-                    </select>
+-                  </label>
+-                  <label>
+-                    <span>Комментарий</span>
+-                    <textarea
+-                      rows={4}
+-                      value={callComment}
+-                      onChange={(event) => setCallComment(event.target.value)}
+-                      placeholder="Кратко зафиксируйте результат разговора"
+-                    />
+-                  </label>
+-                  <button onClick={handleLogCall} disabled={submitting}>
++              {/* Log call */}
++              <div className="cc-detail-call">
++                <h4>Зафиксировать результат звонка</h4>
++                <div className="cc-call-row">
++                  <select value={detailCallResult} onChange={e => setDetailCallResult(e.target.value)}>
++                    {CALL_RESULT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
++                  </select>
++                  <input
++                    placeholder="Комментарий…"
++                    value={detailComment}
++                    onChange={e => setDetailComment(e.target.value)}
++                  />
++                  <button className="cc-btn cc-btn-primary" onClick={logCall} disabled={submitting}>
+                     Сохранить звонок
+                   </button>
+                 </div>
+               </div>
+ 
+-              <div className="lead-history-layout">
+-                <div className="history-card">
+-                  <h4>История звонков</h4>
+-                  {selectedLead.calls.length === 0 && <div className="empty-state compact">Звонков ещё не было</div>}
+-                  {selectedLead.calls.map((call) => (
+-                    <div key={call.id} className="timeline-item">
+-                      <div className="timeline-top">
+-                        <strong>{CALL_LABELS[call.result]}</strong>
+-                        <span>{formatDateTime(call.created_at)}</span>
+-                      </div>
+-                      <p>{call.comment || 'Без комментария'}</p>
+-                      <small>{call.user_name || 'Система'}</small>
+-                    </div>
+-                  ))}
++              {/* Comment */}
++              <div className="cc-detail-call">
++                <h4>Добавить комментарий</h4>
++                <div className="cc-call-row">
++                  <input
++                    placeholder="Комментарий…"
++                    value={detailComment}
++                    onChange={e => setDetailComment(e.target.value)}
++                    style={{ flex: 2 }}
++                  />
++                  <button className="cc-btn" onClick={addComment} disabled={submitting || !detailComment.trim()}>
++                    Добавить
++                  </button>
+                 </div>
++              </div>
+ 
+-                <div className="history-card">
+-                  <h4>История изменений</h4>
+-                  {selectedLead.history.length === 0 && <div className="empty-state compact">История пуста</div>}
+-                  {selectedLead.history.map((item) => (
+-                    <div key={item.id} className="timeline-item">
+-                      <div className="timeline-top">
+-                        <strong>{item.action}</strong>
+-                        <span>{formatDateTime(item.created_at)}</span>
++              {/* Appointment info (if booked) */}
++              {leadAppointments.length > 0 && (
++                <div className="cc-detail-appointments">
++                  <h4>📋 Записи на приём</h4>
++                  {leadAppointments.map(a => (
++                    <div key={a.id} className={`cc-appointment-card cc-appt-${a.status}`}>
++                      <div className="cc-appt-row">
++                        <span>📅 {fmtDate(a.appointment_date)}</span>
++                        <span>🕐 {(a.appointment_time || '').slice(0, 5)}</span>
++                        <span className={`cc-badge cc-appt-badge-${a.status}`}>
++                          {a.status_label}
++                        </span>
++                      </div>
++                      <div className="cc-appt-row">
++                        <span>👤 {a.client_name}</span>
+                       </div>
+-                      <p>{item.details || 'Без деталей'}</p>
+-                      <small>{item.user_name || 'Система'}</small>
++                      {a.manager_comment && (
++                        <div className="cc-appt-comment">💬 {a.manager_comment}</div>
++                      )}
+                     </div>
+                   ))}
+                 </div>
++              )}
++
++              {/* History */}
++              <div className="cc-detail-history">
++                <h4>История ({detailLead.calls.length} записей)</h4>
++                {detailLead.calls.length === 0 && <p className="cc-muted">Записей пока нет</p>}
++                {detailLead.calls.map(c => (
++                  <div key={c.id} className="cc-history-item">
++                    <div className="cc-history-top">
++                      <strong>{c.result === 'COMMENT' ? 'Комментарий' : STATUS_LABELS[c.result] || c.result}</strong>
++                      <span>{fmtDate(c.created_at)}</span>
++                    </div>
++                    <p>{c.comment || '—'}</p>
++                    <small>{c.user_name || 'Система'}</small>
++                  </div>
++                ))}
+               </div>
+-            </>
+-          )}
++            </div>
++          </div>
+         </div>
+-
+-        {canManage && (
+-          <div className="operators-panel">
+-            <h3>Операторы</h3>
+-            <div className="operators-list">
+-              {operators.map((operator) => (
+-                <div key={operator.id} className="operator-card">
+-                  <div className="operator-head">
+-                    <strong>{[operator.first_name, operator.last_name].filter(Boolean).join(' ') || operator.email}</strong>
+-                    <span className={operator.is_online ? 'operator-online' : 'operator-offline'}>
+-                      {operator.is_online ? 'online' : 'offline'}
+-                    </span>
+-                  </div>
+-                  <div className="operator-meta">
+-                    <span>{operator.role}</span>
+-                    <span>Нагрузка: {operator.current_load}</span>
+-                  </div>
+-                  {'closed_leads' in operator && (
+-                    <div className="operator-meta">
+-                      <span>Всего лидов: {operator.total_leads || 0}</span>
+-                      <span>Закрыто: {operator.closed_leads || 0}</span>
+-                    </div>
+-                  )}
++      )}
++
++      {/* ===== ADD LEAD MODAL ===== */}
++      {showAddLead && (
++        <div className="cc-modal-overlay" onClick={() => setShowAddLead(false)}>
++          <div className="cc-modal cc-modal-sm" onClick={e => e.stopPropagation()}>
++            <div className="cc-modal-header">
++              <h3>Новый лид</h3>
++              <button className="cc-modal-close" onClick={() => setShowAddLead(false)}>✕</button>
++            </div>
++            <div className="cc-modal-body">
++              <div className="cc-form-group">
++                <label>Имя *</label>
++                <input value={newLead.name} onChange={e => setNewLead({ ...newLead, name: e.target.value })} />
++              </div>
++              <div className="cc-form-group">
++                <label>Телефон</label>
++                <input value={newLead.phone} onChange={e => setNewLead({ ...newLead, phone: e.target.value })} />
++              </div>
++              <div className="cc-form-group">
++                <label>Email</label>
++                <input value={newLead.email} onChange={e => setNewLead({ ...newLead, email: e.target.value })} />
++              </div>
++              <div className="cc-form-group">
++                <label>Источник *</label>
++                <select value={newLead.source} onChange={e => setNewLead({ ...newLead, source: e.target.value })}>
++                  <option value="Pravoved.ru">Pravoved.ru</option>
++                  <option value="Gainnet">Gainnet</option>
++                  <option value="Телефон">Телефон</option>
++                  <option value="Сайт">Сайт</option>
++                  <option value="Другое">Другое</option>
++                </select>
++              </div>
++              <div className="cc-form-group">
++                <label>Описание</label>
++                <textarea rows={3} value={newLead.description} onChange={e => setNewLead({ ...newLead, description: e.target.value })} />
++              </div>
++              <button className="cc-btn cc-btn-primary cc-btn-block" onClick={handleAddLead}>
++                Создать лид
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++
++      {/* ===== BOOKING FORM MODAL ===== */}
++      {showBookingForm && (
++        <div className="cc-modal-overlay" onClick={() => setShowBookingForm(false)}>
++          <div className="cc-modal cc-modal-sm cc-booking-modal" onClick={e => e.stopPropagation()}>
++            <div className="cc-modal-header cc-booking-header">
++              <h3>📋 Запись клиента на приём</h3>
++              <button className="cc-modal-close" onClick={() => setShowBookingForm(false)}>✕</button>
++            </div>
++            <div className="cc-modal-body">
++              <p className="cc-booking-hint">Заполните данные для записи. Клиент будет автоматически создан и передан менеджеру.</p>
++
++              <div className="cc-form-group">
++                <label>ФИО клиента *</label>
++                <input
++                  value={bookingData.client_name}
++                  onChange={e => setBookingData({ ...bookingData, client_name: e.target.value })}
++                  placeholder="Иванов Иван Иванович"
++                />
++              </div>
++              <div className="cc-form-group">
++                <label>Телефон *</label>
++                <input
++                  value={bookingData.client_phone}
++                  onChange={e => setBookingData({ ...bookingData, client_phone: e.target.value })}
++                  placeholder="+7 (999) 123-45-67"
++                />
++              </div>
++              <div className="cc-form-row">
++                <div className="cc-form-group">
++                  <label>Дата консультации *</label>
++                  <input
++                    type="date"
++                    value={bookingData.appointment_date}
++                    onChange={e => setBookingData({ ...bookingData, appointment_date: e.target.value })}
++                  />
+                 </div>
+-              ))}
++                <div className="cc-form-group">
++                  <label>Время *</label>
++                  <input
++                    type="time"
++                    value={bookingData.appointment_time}
++                    onChange={e => setBookingData({ ...bookingData, appointment_time: e.target.value })}
++                  />
++                </div>
++              </div>
++              <div className="cc-form-group">
++                <label>Комментарий (суть обращения)</label>
++                <textarea
++                  rows={3}
++                  value={bookingData.comment}
++                  onChange={e => setBookingData({ ...bookingData, comment: e.target.value })}
++                  placeholder="Кратко опишите суть обращения клиента…"
++                />
++              </div>
++              <button
++                className="cc-btn cc-btn-primary cc-btn-block cc-btn-book"
++                onClick={submitBooking}
++                disabled={submitting || !bookingData.client_name || !bookingData.client_phone || !bookingData.appointment_date || !bookingData.appointment_time}
++              >
++                {submitting ? 'Сохранение…' : '✓ Записать клиента'}
++              </button>
+             </div>
+           </div>
+-        )}
+-      </div>
++        </div>
++      )}
+     </div>
+   );
+ };
+diff --git a/frontend/src/pages/AuthPage.tsx b/frontend/src/pages/AuthPage.tsx
+index 4cbc1e7..c50533c 100644
+--- a/frontend/src/pages/AuthPage.tsx
++++ b/frontend/src/pages/AuthPage.tsx
+@@ -101,6 +101,16 @@ const AuthPage = () => {
+       }
+       const data = await response.json();
+       localStorage.setItem('token', data.token);
++      // Загружаем полные данные пользователя (включая position)
++      try {
++        const meResp = await fetch(buildApiUrl('/auth/me'), {
++          headers: { 'Authorization': `Bearer ${data.token}` },
++        });
++        if (meResp.ok) {
++          const meData = await meResp.json();
++          if (meData.user) localStorage.setItem('user', JSON.stringify(meData.user));
++        }
++      } catch (_) { /* noop */ }
+       message.success('Вход выполнен');
+       navigate('/crm');
+       form.resetFields();
+diff --git a/frontend/src/shared/lib/hooks/useAuth.ts b/frontend/src/shared/lib/hooks/useAuth.ts
+index ec1e6b8..a85f056 100644
+--- a/frontend/src/shared/lib/hooks/useAuth.ts
++++ b/frontend/src/shared/lib/hooks/useAuth.ts
+@@ -5,6 +5,7 @@ export interface AuthUser {
+   id: number;
+   email: string;
+   role?: string;
++  position?: string | null;
+   office_id?: number | null;
+   officeId?: number | null;
+   first_name?: string;
+@@ -85,12 +86,8 @@ export const useAuth = (): UseAuthResult => {
+       return;
+     }
+ 
+-    if (!user) {
+-      refreshUser();
+-      return;
+-    }
+-
+-    setLoading(false);
++    // Всегда обновляем данные пользователя с сервера (для получения position и других полей)
++    refreshUser();
+   }, [token]);
+ 
+   return {
+diff --git a/server/controllers/auth.js b/server/controllers/auth.js
+index 6ab7906..e37c335 100644
+--- a/server/controllers/auth.js
++++ b/server/controllers/auth.js
+@@ -164,11 +164,25 @@ const getCurrentUser = async (req, res) => {
+         }
+ 
+         const user = users[0];
++
++        // Ищем позицию сотрудника в таблице employees
++        let position = null;
++        try {
++            const [empRows] = await db.query(
++                `SELECT position FROM employees
++                 WHERE office_id = ? AND first_name = ? AND last_name = ? LIMIT 1`,
++                [user.office_id, user.first_name, user.last_name]
++            );
++            if (empRows.length > 0) {
++                position = empRows[0].position;
++            }
++        } catch (_) { /* ignore */ }
+         
+         // Преобразуем office_id в officeId для совместимости с фронтендом
+         const userResponse = {
+             ...user,
+-            officeId: user.office_id
++            officeId: user.office_id,
++            position
+         };
+         
+         res.json({
+diff --git a/server/controllers/callCenterController.js b/server/controllers/callCenterController.js
+index bff7c97..7a3a771 100644
+--- a/server/controllers/callCenterController.js
++++ b/server/controllers/callCenterController.js
+@@ -4,50 +4,69 @@ const LEAD_STATUSES = [
+   'NEW',
+   'IN_PROGRESS',
+   'NO_ANSWER',
+-  'CALL_BACK',
+-  'INTERESTED',
+-  'REJECTED',
+-  'CLOSED'
++  'BOOKED',
++  'REJECTED'
+ ];
+ 
+ const CALL_RESULTS = [
+   'NO_ANSWER',
+-  'CALL_BACK',
+-  'INTERESTED',
++  'BOOKED',
+   'REJECTED',
+-  'CLOSED',
+   'FAILED'
+ ];
+ 
+ const STATUS_TRANSITIONS = {
+-  NEW: ['IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED', 'REJECTED', 'CLOSED'],
+-  IN_PROGRESS: ['NO_ANSWER', 'CALL_BACK', 'INTERESTED', 'REJECTED', 'CLOSED'],
+-  NO_ANSWER: ['CALL_BACK', 'IN_PROGRESS', 'INTERESTED', 'REJECTED', 'CLOSED'],
+-  CALL_BACK: ['IN_PROGRESS', 'NO_ANSWER', 'INTERESTED', 'REJECTED', 'CLOSED'],
+-  INTERESTED: ['CLOSED', 'REJECTED'],
+-  REJECTED: [],
+-  CLOSED: []
++  NEW: ['IN_PROGRESS', 'NO_ANSWER', 'BOOKED', 'REJECTED'],
++  IN_PROGRESS: ['NO_ANSWER', 'BOOKED', 'REJECTED'],
++  NO_ANSWER: ['IN_PROGRESS', 'BOOKED', 'REJECTED'],
++  BOOKED: ['REJECTED'],
++  REJECTED: ['NEW', 'IN_PROGRESS']
+ };
+ 
+-const ACTIVE_STATUSES = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED'];
+-const OPERATOR_ROLES = ['manager', 'okk', 'admin', 'director'];
++const ACTIVE_STATUSES = ['NEW', 'IN_PROGRESS', 'NO_ANSWER'];
++const OPERATOR_ROLES = ['callcenter', 'manager', 'okk', 'admin', 'director'];
+ 
+ const normalizePhone = (value = '') => value.replace(/\D/g, '');
+ 
++// Проверяет, является ли пользователь начальником колл-центра
++const isCallCenterManager = async (user) => {
++  try {
++    const [rows] = await db.query(
++      `SELECT position FROM employees
++       WHERE office_id = ? AND first_name = ? AND last_name = ? LIMIT 1`,
++      [user.office_id, user.first_name || '', user.last_name || '']
++    );
++    return rows.length > 0 && rows[0].position === 'Начальник колл-центра';
++  } catch (_) {
++    return false;
++  }
++};
++
++// Проверяет, является ли пользователь сотрудником колл-центра (начальник или оператор)
++const isCallCenterStaff = async (user) => {
++  try {
++    const [rows] = await db.query(
++      `SELECT position FROM employees
++       WHERE office_id = ? AND first_name = ? AND last_name = ? LIMIT 1`,
++      [user.office_id, user.first_name || '', user.last_name || '']
++    );
++    if (rows.length === 0) return false;
++    return ['Начальник колл-центра', 'Оператор колл-центра'].includes(rows[0].position);
++  } catch (_) {
++    return false;
++  }
++};
++
+ const clampScore = (score) => Math.max(0, Math.min(100, Math.round(score)));
+ 
+ const mapCallResultToStatus = (result) => {
+   switch (result) {
+     case 'NO_ANSWER':
+       return 'NO_ANSWER';
+-    case 'CALL_BACK':
+-      return 'CALL_BACK';
+-    case 'INTERESTED':
+-      return 'INTERESTED';
++    case 'BOOKED':
++      return 'BOOKED';
+     case 'REJECTED':
+       return 'REJECTED';
+-    case 'CLOSED':
+-      return 'CLOSED';
+     default:
+       return 'IN_PROGRESS';
+   }
+@@ -120,6 +139,11 @@ const buildLeadWhereClause = (officeId, filters = {}) => {
+     params.push(filters.status);
+   }
+ 
++  if (filters.source) {
++    conditions.push('l.source = ?');
++    params.push(filters.source);
++  }
++
+   if (filters.assigned_to === 'me' && filters.userId) {
+     conditions.push('l.assigned_to = ?');
+     params.push(filters.userId);
+@@ -312,16 +336,43 @@ const getLeadDetails = async (connection, leadId, officeId) => {
+ const ensureOfficeAccess = async (req, res) => {
+   // Если в токене есть office_id, используем его
+   if (req.user?.office_id) {
++    // Подгружаем позицию из employees если ещё не загружена
++    if (!req.user._positionLoaded) {
++      try {
++        const [uRows] = await db.query('SELECT first_name, last_name FROM users WHERE id = ?', [req.user.id]);
++        if (uRows.length > 0) {
++          req.user.first_name = uRows[0].first_name;
++          req.user.last_name = uRows[0].last_name;
++          const [eRows] = await db.query(
++            `SELECT position FROM employees WHERE office_id = ? AND first_name = ? AND last_name = ? LIMIT 1`,
++            [req.user.office_id, uRows[0].first_name, uRows[0].last_name]
++          );
++          req.user.position = eRows.length > 0 ? eRows[0].position : null;
++        }
++        req.user._positionLoaded = true;
++      } catch (_) { /* ignore */ }
++    }
+     return true;
+   }
+ 
+   // Если в токене нет office_id, пробуем получить его из БД (могло обновиться после создания офиса)
+   try {
+-    const [users] = await db.query('SELECT office_id, role FROM users WHERE id = ?', [req.user.id]);
++    const [users] = await db.query('SELECT office_id, role, first_name, last_name FROM users WHERE id = ?', [req.user.id]);
+     if (users.length > 0 && users[0].office_id) {
+       // Обновляем данные в объекте запроса
+       req.user.office_id = users[0].office_id;
+       req.user.role = users[0].role;
++      req.user.first_name = users[0].first_name;
++      req.user.last_name = users[0].last_name;
++      // Загружаем позицию из employees
++      try {
++        const [eRows] = await db.query(
++          `SELECT position FROM employees WHERE office_id = ? AND first_name = ? AND last_name = ? LIMIT 1`,
++          [users[0].office_id, users[0].first_name, users[0].last_name]
++        );
++        req.user.position = eRows.length > 0 ? eRows[0].position : null;
++      } catch (_) { /* ignore */ }
++      req.user._positionLoaded = true;
+       return true;
+     }
+   } catch (error) {
+@@ -466,10 +517,16 @@ const callCenterController = {
+     }
+ 
+     try {
+-      const { status, assigned_to, search } = req.query;
++      const { status, assigned_to, search, source } = req.query;
++      // Операторы колл-центра видят только свои лиды (не начальник)
++      let effectiveAssignedTo = assigned_to;
++      if (req.user.position === 'Оператор колл-центра' && !assigned_to) {
++        effectiveAssignedTo = 'me';
++      }
+       const { whereSql, params } = buildLeadWhereClause(req.user.office_id, {
+         status,
+-        assigned_to,
++        source,
++        assigned_to: effectiveAssignedTo,
+         search,
+         userId: req.user.id
+       });
+@@ -867,15 +924,19 @@ const callCenterController = {
+            u.last_name,
+            u.email,
+            u.role,
++           e.position,
+            COALESCE(s.is_online, 0) AS is_online,
+            COALESCE(s.current_load, 0) AS current_load,
+            s.last_seen_at,
+            s.last_assigned_at
+          FROM users u
++         INNER JOIN employees e
++           ON e.office_id = u.office_id AND e.first_name = u.first_name AND e.last_name = u.last_name
+          LEFT JOIN call_center_operator_status s
+            ON s.user_id = u.id AND s.office_id = u.office_id
+          WHERE u.office_id = ?
+-         ORDER BY COALESCE(s.is_online, 0) DESC, COALESCE(s.current_load, 0) ASC, u.first_name ASC`,
++           AND e.position IN ('Начальник колл-центра', 'Оператор колл-центра')
++         ORDER BY e.position ASC, COALESCE(s.is_online, 0) DESC, u.first_name ASC`,
+         [req.user.office_id]
+       );
+ 
+@@ -948,6 +1009,478 @@ const callCenterController = {
+         call_results: CALL_RESULTS
+       }
+     });
++  },
++
++  // ========== Массовое назначение лидов ==========
++  async bulkAssign(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    const connection = await db.getClient();
++    try {
++      const { lead_ids, operator_id } = req.body;
++      if (!lead_ids || !Array.isArray(lead_ids) || lead_ids.length === 0) {
++        return res.status(400).json({ success: false, message: 'Укажите lead_ids' });
++      }
++      await connection.beginTransaction();
++      const placeholders = lead_ids.map(() => '?').join(',');
++      await connection.query(
++        `UPDATE call_center_leads SET assigned_to = ?, updated_at = CURRENT_TIMESTAMP
++         WHERE id IN (${placeholders}) AND office_id = ?`,
++        [operator_id || null, ...lead_ids, req.user.office_id]
++      );
++      for (const lid of lead_ids) {
++        await addHistoryEntry(connection, lid, 'BULK_ASSIGNED', req.user.id, { assigned_to: operator_id || null });
++      }
++      await recalculateOperatorLoad(connection, req.user.office_id);
++      await connection.commit();
++      res.json({ success: true, message: `Назначено ${lead_ids.length} лидов`, count: lead_ids.length });
++    } catch (error) {
++      await connection.rollback();
++      console.error('Error bulk assigning leads:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при массовом назначении' });
++    } finally {
++      connection.release();
++    }
++  },
++
++  // ========== Массовое обновление статуса ==========
++  async bulkStatus(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    const connection = await db.getClient();
++    try {
++      const { lead_ids, status } = req.body;
++      if (!lead_ids || !Array.isArray(lead_ids) || !status || !LEAD_STATUSES.includes(status)) {
++        return res.status(400).json({ success: false, message: 'Укажите lead_ids и допустимый status' });
++      }
++      await connection.beginTransaction();
++      const placeholders = lead_ids.map(() => '?').join(',');
++      await connection.query(
++        `UPDATE call_center_leads SET status = ?, updated_at = CURRENT_TIMESTAMP
++         WHERE id IN (${placeholders}) AND office_id = ?`,
++        [status, ...lead_ids, req.user.office_id]
++      );
++      for (const lid of lead_ids) {
++        await addHistoryEntry(connection, lid, 'BULK_STATUS_CHANGE', req.user.id, { status });
++      }
++      await recalculateOperatorLoad(connection, req.user.office_id);
++      await connection.commit();
++      res.json({ success: true, message: `Обновлено ${lead_ids.length} лидов`, count: lead_ids.length });
++    } catch (error) {
++      await connection.rollback();
++      console.error('Error bulk status:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при массовом обновлении статуса' });
++    } finally {
++      connection.release();
++    }
++  },
++
++  // ========== Статистика по операторам ==========
++  async getOperatorStats(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    try {
++      const officeId = req.user.office_id;
++      const [rows] = await db.query(
++        `SELECT
++           u.id,
++           CONCAT(u.first_name, ' ', u.last_name) AS name,
++           COUNT(DISTINCT l.id) AS total_leads,
++           SUM(CASE WHEN l.status = 'BOOKED' THEN 1 ELSE 0 END) AS booked,
++           SUM(CASE WHEN l.status = 'REJECTED' THEN 1 ELSE 0 END) AS rejected,
++           SUM(CASE WHEN l.status = 'NO_ANSWER' THEN 1 ELSE 0 END) AS no_answer,
++           ROUND(
++             CASE WHEN COUNT(DISTINCT l.id) > 0
++               THEN SUM(CASE WHEN l.status = 'BOOKED' THEN 1 ELSE 0 END) / COUNT(DISTINCT l.id) * 100
++               ELSE 0 END, 1
++           ) AS booked_pct,
++           ROUND(
++             CASE WHEN COUNT(DISTINCT l.id) > 0
++               THEN (SUM(CASE WHEN l.status IN ('REJECTED','NO_ANSWER') THEN 1 ELSE 0 END)) / COUNT(DISTINCT l.id) * 100
++               ELSE 0 END, 1
++           ) AS waste_pct
++         FROM users u
++         LEFT JOIN call_center_leads l ON l.assigned_to = u.id AND l.office_id = u.office_id
++         WHERE u.office_id = ? AND (u.role IN ('callcenter') OR EXISTS (
++           SELECT 1 FROM employees e WHERE e.office_id = u.office_id
++             AND CONCAT(u.first_name, ' ', u.last_name) = CONCAT(e.first_name, ' ', e.last_name)
++             AND e.position IN ('Оператор колл-центра', 'Начальник колл-центра')
++         ))
++         GROUP BY u.id
++         ORDER BY total_leads DESC`,
++        [officeId]
++      );
++      res.json({ success: true, data: rows });
++    } catch (error) {
++      console.error('Error getting operator stats:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при получении статистики' });
++    }
++  },
++
++  // ========== Получение списка источников ==========
++  async getSources(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    try {
++      const [rows] = await db.query(
++        `SELECT source, COUNT(*) AS count FROM call_center_leads
++         WHERE office_id = ? GROUP BY source ORDER BY count DESC`,
++        [req.user.office_id]
++      );
++      res.json({ success: true, data: rows });
++    } catch (error) {
++      console.error('Error getting sources:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при получении источников' });
++    }
++  },
++
++  // ========== Создание лида вручную ==========
++  async createLead(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    const connection = await db.getClient();
++    try {
++      const { name, phone, email, description, source } = req.body;
++      if (!name || !source) {
++        return res.status(400).json({ success: false, message: 'Укажите name и source' });
++      }
++      const officeId = req.user.office_id;
++      const score = computeLeadScore({ source, description, created_at: new Date() });
++      await connection.beginTransaction();
++      const [result] = await connection.query(
++        `INSERT INTO call_center_leads (office_id, source, name, phone, email, description, status, score)
++         VALUES (?, ?, ?, ?, ?, ?, 'NEW', ?)`,
++        [officeId, source, name, phone || null, email || null, description || null, score]
++      );
++      await addHistoryEntry(connection, result.insertId, 'LEAD_CREATED', req.user.id, { source });
++      await connection.commit();
++      const lead = await getLeadDetails(connection, result.insertId, officeId);
++      res.status(201).json({ success: true, data: lead });
++    } catch (error) {
++      await connection.rollback();
++      console.error('Error creating lead:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при создании лида' });
++    } finally {
++      connection.release();
++    }
++  },
++
++  // ========== Добавление комментария к лиду ==========
++  async addComment(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++    try {
++      const { comment } = req.body;
++      if (!comment) {
++        return res.status(400).json({ success: false, message: 'Укажите комментарий' });
++      }
++      await db.query(
++        `INSERT INTO call_center_calls (lead_id, user_id, result, comment) VALUES (?, ?, 'COMMENT', ?)`,
++        [req.params.id, req.user.id, comment]
++      );
++      res.json({ success: true, message: 'Комментарий добавлен' });
++    } catch (error) {
++      console.error('Error adding comment:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при добавлении комментария' });
++    }
++  },
++
++  // ========== Запись клиента (Лид → Записан → Клиент + Appointment) ==========
++  async bookClient(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++
++    const connection = await db.getClient();
++    try {
++      const { id } = req.params;
++      const { client_name, client_phone, appointment_date, appointment_time, comment } = req.body;
++
++      if (!client_name || !client_phone || !appointment_date || !appointment_time) {
++        return res.status(400).json({
++          success: false,
++          message: 'Необходимо заполнить: ФИО клиента, телефон, дату и время консультации'
++        });
++      }
++
++      await connection.beginTransaction();
++
++      // Проверяем лид
++      const [leadRows] = await connection.query(
++        'SELECT * FROM call_center_leads WHERE id = ? AND office_id = ?',
++        [id, req.user.office_id]
++      );
++
++      if (leadRows.length === 0) {
++        await connection.rollback();
++        return res.status(404).json({ success: false, message: 'Лид не найден' });
++      }
++
++      const lead = leadRows[0];
++
++      // Проверяем, нет ли уже записи для этого лида
++      const [existingAppointment] = await connection.query(
++        'SELECT id FROM appointments WHERE lead_id = ? AND status != ?',
++        [id, 'cancelled']
++      );
++
++      if (existingAppointment.length > 0) {
++        await connection.rollback();
++        return res.status(400).json({
++          success: false,
++          message: 'Для этого лида уже существует активная запись'
++        });
++      }
++
++      // Создаём карточку клиента
++      const [clientResult] = await connection.query(
++        `INSERT INTO clients (name, phone, email, notes, status, office_id)
++         VALUES (?, ?, ?, ?, 'active', ?)`,
++        [
++          client_name,
++          client_phone,
++          lead.email || null,
++          comment || lead.description || null,
++          req.user.office_id
++        ]
++      );
++      const clientId = clientResult.insertId;
++
++      // Получаем имя оператора
++      const operatorName = [req.user.first_name, req.user.last_name].filter(Boolean).join(' ') || 'Оператор';
++
++      // Создаём запись на приём
++      const [appointmentResult] = await connection.query(
++        `INSERT INTO appointments
++          (office_id, lead_id, client_id, client_name, client_phone, source,
++           appointment_date, appointment_time, comment, operator_id, operator_name, status)
++         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
++        [
++          req.user.office_id,
++          id,
++          clientId,
++          client_name,
++          client_phone,
++          lead.source,
++          appointment_date,
++          appointment_time,
++          comment || null,
++          req.user.id,
++          operatorName
++        ]
++      );
++
++      // Обновляем статус лида на BOOKED
++      await connection.query(
++        `UPDATE call_center_leads SET status = 'BOOKED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
++        [id]
++      );
++
++      // Добавляем запись в историю
++      await addHistoryEntry(connection, id, 'STATUS_CHANGED', req.user.id, {
++        from: lead.status,
++        to: 'BOOKED',
++        comment: `Записан на ${appointment_date} ${appointment_time}. ${comment || ''}`
++      });
++
++      // Создаём событие в календаре
++      await connection.query(
++        `INSERT INTO calendar_events (title, description, start_date, time, type, priority, office_id, created_by)
++         VALUES (?, ?, ?, ?, 'consultation', 'high', ?, ?)`,
++        [
++          `Приём: ${client_name}`,
++          `Телефон: ${client_phone}\nИсточник: ${lead.source || '—'}\n${comment || ''}`,
++          appointment_date,
++          appointment_time,
++          req.user.office_id,
++          req.user.id
++        ]
++      );
++
++      await connection.commit();
++
++      res.status(201).json({
++        success: true,
++        message: 'Клиент записан на приём',
++        data: {
++          appointment_id: appointmentResult.insertId,
++          client_id: clientId,
++          lead_id: parseInt(id),
++          appointment_date,
++          appointment_time
++        }
++      });
++    } catch (error) {
++      await connection.rollback();
++      console.error('Error booking client:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при записи клиента' });
++    } finally {
++      connection.release();
++    }
++  },
++
++  // ========== Список записей (для менеджера/ОКК) ==========
++  async getAppointments(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++
++    try {
++      const { status, date_from, date_to } = req.query;
++
++      let where = 'a.office_id = ?';
++      const params = [req.user.office_id];
++
++      if (status && status !== 'ALL') {
++        where += ' AND a.status = ?';
++        params.push(status);
++      }
++
++      if (date_from) {
++        where += ' AND a.appointment_date >= ?';
++        params.push(date_from);
++      }
++
++      if (date_to) {
++        where += ' AND a.appointment_date <= ?';
++        params.push(date_to);
++      }
++
++      const [rows] = await db.query(
++        `SELECT
++           a.*,
++           l.source AS lead_source,
++           l.description AS lead_description,
++           l.status AS lead_status,
++           u.first_name AS lawyer_first_name,
++           u.last_name AS lawyer_last_name
++         FROM appointments a
++         LEFT JOIN call_center_leads l ON l.id = a.lead_id
++         LEFT JOIN users u ON u.id = a.assigned_lawyer_id
++         WHERE ${where}
++         ORDER BY a.appointment_date ASC, a.appointment_time ASC`,
++        params
++      );
++
++      res.json({ success: true, data: rows });
++    } catch (error) {
++      console.error('Error getting appointments:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при получении записей' });
++    }
++  },
++
++  // ========== Обновление статуса записи (менеджер/ОКК) ==========
++  async updateAppointment(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++
++    const connection = await db.getClient();
++    try {
++      const { id } = req.params;
++      const { status, manager_comment, assigned_lawyer_id } = req.body;
++
++      const validStatuses = ['waiting', 'arrived', 'no_show', 'cancelled'];
++      if (status && !validStatuses.includes(status)) {
++        return res.status(400).json({ success: false, message: 'Недопустимый статус' });
++      }
++
++      await connection.beginTransaction();
++
++      const [existing] = await connection.query(
++        'SELECT * FROM appointments WHERE id = ? AND office_id = ?',
++        [id, req.user.office_id]
++      );
++
++      if (existing.length === 0) {
++        await connection.rollback();
++        return res.status(404).json({ success: false, message: 'Запись не найдена' });
++      }
++
++      const appointment = existing[0];
++      const updates = [];
++      const params = [];
++
++      if (status) {
++        updates.push('status = ?');
++        params.push(status);
++      }
++      if (manager_comment !== undefined) {
++        updates.push('manager_comment = ?');
++        params.push(manager_comment);
++      }
++      if (assigned_lawyer_id !== undefined) {
++        updates.push('assigned_lawyer_id = ?');
++        params.push(assigned_lawyer_id || null);
++      }
++
++      if (updates.length > 0) {
++        await connection.query(
++          `UPDATE appointments SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
++          [...params, id]
++        );
++      }
++
++      // Если статус изменён — обновляем историю лида
++      if (status && status !== appointment.status) {
++        const statusLabels = {
++          waiting: 'Ожидает приёма',
++          arrived: 'Клиент пришёл',
++          no_show: 'Не пришёл',
++          cancelled: 'Отменил'
++        };
++
++        await addHistoryEntry(connection, appointment.lead_id, 'APPOINTMENT_STATUS', req.user.id, {
++          appointment_id: parseInt(id),
++          from: appointment.status,
++          to: status,
++          label: statusLabels[status] || status,
++          comment: manager_comment || null
++        });
++
++        // Если клиент пришёл и назначен юрист — обновляем клиента
++        if (status === 'arrived' && assigned_lawyer_id && appointment.client_id) {
++          await connection.query(
++            `UPDATE clients SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
++            [appointment.client_id]
++          );
++        }
++      }
++
++      await connection.commit();
++
++      // Возвращаем обновлённую запись
++      const [updated] = await db.query(
++        `SELECT a.*, l.source AS lead_source, l.description AS lead_description, l.status AS lead_status
++         FROM appointments a
++         LEFT JOIN call_center_leads l ON l.id = a.lead_id
++         WHERE a.id = ?`,
++        [id]
++      );
++
++      res.json({ success: true, data: updated[0] || null });
++    } catch (error) {
++      await connection.rollback();
++      console.error('Error updating appointment:', error);
++      res.status(500).json({ success: false, message: 'Ошибка при обновлении записи' });
++    } finally {
++      connection.release();
++    }
++  },
++
++  // ========== Получение записей по лиду (для начальника КЦ) ==========
++  async getLeadAppointments(req, res) {
++    if (!await ensureOfficeAccess(req, res)) return;
++
++    try {
++      const { id } = req.params;
++      const [rows] = await db.query(
++        `SELECT a.*,
++           CASE a.status
++             WHEN 'waiting' THEN 'Ожидает приёма'
++             WHEN 'arrived' THEN 'Клиент пришёл'
++             WHEN 'no_show' THEN 'Не пришёл'
++             WHEN 'cancelled' THEN 'Отменил'
++           END AS status_label
++         FROM appointments a
++         WHERE a.lead_id = ? AND a.office_id = ?
++         ORDER BY a.created_at DESC`,
++        [id, req.user.office_id]
++      );
++
++      res.json({ success: true, data: rows });
++    } catch (error) {
++      console.error('Error getting lead appointments:', error);
++      res.status(500).json({ success: false, message: 'Ошибка' });
++    }
+   }
+ };
+ 
+diff --git a/server/database/migrations/015_create_appointments.sql b/server/database/migrations/015_create_appointments.sql
+new file mode 100644
+index 0000000..ec0e987
+--- /dev/null
++++ b/server/database/migrations/015_create_appointments.sql
+@@ -0,0 +1,28 @@
++-- Таблица записей клиентов (связка лид → клиент → приём)
++CREATE TABLE IF NOT EXISTS appointments (
++  id INT AUTO_INCREMENT PRIMARY KEY,
++  office_id INT NOT NULL,
++  lead_id INT NOT NULL,
++  client_id INT DEFAULT NULL,
++  client_name VARCHAR(255) NOT NULL,
++  client_phone VARCHAR(50) NOT NULL,
++  source VARCHAR(100) DEFAULT NULL,
++  appointment_date DATE NOT NULL,
++  appointment_time TIME NOT NULL,
++  comment TEXT,
++  operator_id INT NOT NULL,
++  operator_name VARCHAR(255) DEFAULT NULL,
++  status ENUM('waiting','arrived','no_show','cancelled') NOT NULL DEFAULT 'waiting',
++  manager_comment TEXT DEFAULT NULL,
++  assigned_lawyer_id INT DEFAULT NULL,
++  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
++  INDEX idx_appointments_office (office_id),
++  INDEX idx_appointments_lead (lead_id),
++  INDEX idx_appointments_client (client_id),
++  INDEX idx_appointments_status (status),
++  INDEX idx_appointments_date (appointment_date),
++  FOREIGN KEY (lead_id) REFERENCES call_center_leads(id) ON DELETE CASCADE,
++  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
++  FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE CASCADE
++) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+diff --git a/server/routes/callCenter.js b/server/routes/callCenter.js
+index e61165c..cff667b 100644
+--- a/server/routes/callCenter.js
++++ b/server/routes/callCenter.js
+@@ -6,11 +6,25 @@ const { authenticateToken } = require('../middleware/auth');
+ router.get('/meta', authenticateToken, callCenterController.getEnums);
+ router.get('/dashboard', authenticateToken, callCenterController.getDashboard);
+ router.get('/operators', authenticateToken, callCenterController.getOperators);
++router.get('/operator-stats', authenticateToken, callCenterController.getOperatorStats);
++router.get('/sources', authenticateToken, callCenterController.getSources);
+ router.patch('/operators/me/status', authenticateToken, callCenterController.updateMyOperatorStatus);
+ router.get('/leads', authenticateToken, callCenterController.getLeads);
++router.post('/leads', authenticateToken, callCenterController.createLead);
+ router.get('/leads/:id', authenticateToken, callCenterController.getLeadById);
+ router.patch('/leads/:id', authenticateToken, callCenterController.updateLead);
++router.post('/leads/:id/comments', authenticateToken, callCenterController.addComment);
+ router.post('/calls', authenticateToken, callCenterController.createCall);
++router.post('/bulk-assign', authenticateToken, callCenterController.bulkAssign);
++router.post('/bulk-status', authenticateToken, callCenterController.bulkStatus);
++
++// Запись клиента (Лид → Записан → Клиент + Appointment)
++router.post('/leads/:id/book', authenticateToken, callCenterController.bookClient);
++router.get('/leads/:id/appointments', authenticateToken, callCenterController.getLeadAppointments);
++
++// Appointments API (для менеджера/ОКК)
++router.get('/appointments', authenticateToken, callCenterController.getAppointments);
++router.patch('/appointments/:id', authenticateToken, callCenterController.updateAppointment);
+ 
+ module.exports = {
+   router,
+-- 
+2.34.1
+
