@@ -7,10 +7,12 @@ import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage.tsx';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
+import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { OfficeProvider } from './shared/contexts/OfficeContext';
 import { useState, useEffect } from 'react';
 import { useAuth } from './shared/lib/hooks/useAuth';
+import AntThemeProvider from './shared/ui/AntThemeProvider';
 
 // Компонент для маршрутов, который использует useAuth внутри BrowserRouter
 function AppRoutes() {
@@ -62,7 +64,7 @@ function AppRoutes() {
         } />
         
         {/* 404 */}
-        <Route path="*" element={<h1>Страница не найдена</h1>} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </OfficeProvider>
   );
@@ -70,9 +72,11 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
+    <AntThemeProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AntThemeProvider>
   );
 }
 

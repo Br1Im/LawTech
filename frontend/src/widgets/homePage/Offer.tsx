@@ -1,250 +1,256 @@
-import { useEffect, useRef, useState } from 'react';
 import styled from '@emotion/styled';
+import { Quote, Star } from 'lucide-react';
 
-interface Review {
-  name: string;
-  review: string;
-}
-
-const ReviewsContainer = styled.div`
-  width: 100vw;
-  margin: 25px auto;
-  padding: 0;
-  box-sizing: border-box;
-  overflow-x: hidden;
+const Section = styled.section`
+  width: 100%;
+  padding: 120px 24px;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
 
   @media (max-width: 768px) {
-    margin: 80px auto;
+    padding: 80px 20px;
   }
 `;
 
-const InnerContainer = styled.div`
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 20px;
+const Inner = styled.div`
+  max-width: 1240px;
+  width: 100%;
+`;
 
-  @media (max-width: 768px) {
-    padding: 0 10px;
-  }
+const HeadBlock = styled.div`
+  text-align: center;
+  margin-bottom: 48px;
+`;
+
+const Eyebrow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--color-accent-light);
+  color: var(--color-accent-dark);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
 `;
 
 const Title = styled.h2`
-  font-size: 48px;
-  font-weight: bold;
-  line-height: 1.2;
-  margin-bottom: 16px;
-  color: var(--color-accent);
-  text-align: center;
-
-  @media (max-width: 768px) {
-    font-size: 36px;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 28px;
-  }
-`;
-
-const Divider = styled.hr`
-  border: none;
-  border-top: 2px solid var(--color-accent-light);
-  margin: 20px 0 40px;
-`;
-
-const LoopSlide = styled.div`
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  overflow: hidden;
-  margin-bottom: 40px;
-
-  @media (max-width: 768px) {
-    margin-bottom: 32px;
-  }
-`;
-
-const ReviewsTrack = styled.div`
-  display: flex;
-  width: max-content;
-  will-change: transform;
-`;
-
-const ReviewCard = styled.div`
-  background: var(--color-bg-alt);
-  border-radius: 8px;
-  padding: 16px;
-  width: 300px;
-  min-width: 300px;
-  margin: 0 10px;
-  box-sizing: border-box;
-  border: 1px solid var(--color-accent-light);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-  @media (max-width: 768px) {
-    width: 250px;
-    min-width: 250px;
-    padding: 12px;
-    margin: 0 8px;
-  }
-
-  @media (max-width: 480px) {
-    width: 200px;
-    min-width: 200px;
-    padding: 10px;
-    margin: 0 6px;
-  }
-`;
-
-const ReviewCardHeader = styled.div`
-  margin-bottom: 12px;
-
-  @media (max-width: 768px) {
-    margin-bottom: 8px;
-  }
-`;
-
-const ReviewAuthor = styled.p`
-  font-size: 18px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.5vw, 60px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
   color: var(--color-text);
+  margin: 0 auto 16px;
+  max-width: 860px;
 
-  @media (max-width: 768px) {
-    font-size: 16px;
-  }
-
-  @media (max-width: 480px) {
-    font-size: 14px;
+  em {
+    font-style: italic;
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 `;
 
-const ReviewText = styled.p`
+const Subtitle = styled.p`
+  font-size: 18px;
+  color: var(--color-text-secondary);
+  max-width: 620px;
+  margin: 0 auto;
+  line-height: 1.55;
+`;
+
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+
+  @media (max-width: 960px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Card = styled.figure`
+  margin: 0;
+  padding: 28px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  position: relative;
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+
+  &:hover {
+    transform: translateY(-6px);
+    border-color: rgba(212, 175, 55, 0.45);
+    box-shadow: var(--shadow-xl);
+  }
+`;
+
+const QuoteMark = styled.div`
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--gradient-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1a1a1a;
+  box-shadow: 0 6px 14px rgba(212, 175, 55, 0.32);
+
+  svg { width: 18px; height: 18px; }
+`;
+
+const Stars = styled.div`
+  display: inline-flex;
+  gap: 3px;
+  color: var(--color-accent);
+
+  svg {
+    width: 15px;
+    height: 15px;
+    fill: currentColor;
+  }
+`;
+
+const Body = styled.blockquote`
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--color-text);
+  flex: 1;
+`;
+
+const Person = styled.figcaption`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+`;
+
+const Avatar = styled.div<{ $bg: string }>`
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: ${(p) => p.$bg};
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
   font-size: 14px;
-  line-height: 1.5;
-  color: var(--color-muted);
+  flex-shrink: 0;
+`;
 
-  @media (max-width: 768px) {
-    font-size: 12px;
+const PersonInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+
+  .name {
+    font-weight: 700;
+    font-size: 14.5px;
+    color: var(--color-text);
   }
 
-  @media (max-width: 480px) {
-    font-size: 11px;
-    line-height: 1.4;
+  .role {
+    font-size: 12.5px;
+    color: var(--color-muted);
   }
 `;
 
-const Offer = () => {
-  const firstRowReviews: Review[] = [
-    {
-      name: 'Автоматизация документооборота',
-      review:
-        'Современные системы автоматизации позволяют значительно ускорить процесс обработки документов, минимизируя время на рутинные задачи.',
-    },
-    {
-      name: 'Уменьшение ошибок',
-      review:
-        'Автоматизация снижает вероятность ошибок при заполнении и обработке документов, что повышает надежность юридических процессов.',
-    },
-    {
-      name: 'Улучшение доступа к информации',
-      review:
-        'Системы автоматизации обеспечивают быстрый доступ к необходимым данным и документам, что упрощает работу юристов.',
-    },
-    {
-      name: 'Анализ данных',
-      review:
-        'Инструменты ИИ помогают анализировать большие объемы юридических данных, выявляя важные закономерности и тенденции.',
-    },
-    {
-      name: 'Оптимизация рабочего времени',
-      review:
-        'Автоматизация рутинных задач позволяет юристам сосредоточиться на более сложных и важных аспектах своей работы.',
-    },
-  ];
+interface Testimonial {
+  quote: string;
+  name: string;
+  role: string;
+  avatarBg: string;
+  initials: string;
+}
 
-  const secondRowReviews: Review[] = [
-    {
-      name: 'Электронные подписи',
-      review:
-        'Использование электронных подписей упрощает процесс подписания документов и повышает их юридическую силу.',
-    },
-    {
-      name: 'Управление проектами',
-      review:
-        'Автоматизированные системы управления проектами помогают юристам эффективно планировать и контролировать выполнение задач.',
-    },
-    {
-      name: 'Системы мониторинга',
-      review:
-        'Технологии позволяют отслеживать изменения в законодательстве и автоматически уведомлять об этом юристов.',
-    },
-    {
-      name: 'Поддержка принятия решений',
-      review:
-        'Инструменты ИИ помогают юристам принимать обоснованные решения на основе анализа предыдущих дел и судебной практики.',
-    },
-    {
-      name: 'Повышение клиентского сервиса',
-      review:
-        'Автоматизация процессов позволяет улучшить взаимодействие с клиентами и повысить уровень обслуживания.',
-    },
-  ];
+const TESTIMONIALS: Testimonial[] = [
+  {
+    quote:
+      'За квартал перенесли в LawTech весь архив — 18 000 документов. AI-поиск находит нужное за секунды. Заменили нам три отдельных сервиса.',
+    name: 'Анна Иванова',
+    role: 'Партнёр, «Иванова и Петров»',
+    avatarBg: 'linear-gradient(135deg,#d4af37,#a07c28)',
+    initials: 'АИ',
+  },
+  {
+    quote:
+      'Дедлайны больше не «теряются» в календаре — система сама напоминает и сразу подтягивает релевантные документы. Пропусков стало ноль.',
+    name: 'Сергей Петров',
+    role: 'Управляющий партнёр, PetroffLegal',
+    avatarBg: 'linear-gradient(135deg,#0a84ff,#2997ff)',
+    initials: 'СП',
+  },
+  {
+    quote:
+      'Интерфейс приятный и быстрый. Юристы освоились за день. Команда саппорта отвечает меньше чем за час. Большая редкость на российском рынке.',
+    name: 'Мария Самойлова',
+    role: 'Head of Legal Operations, Квант-Групп',
+    avatarBg: 'linear-gradient(135deg,#30d158,#0a8f3c)',
+    initials: 'МС',
+  },
+];
 
-  const ReviewRow = ({ reviews, initialOffset }: { reviews: Review[]; initialOffset: number }) => {
-    const trackRef = useRef<HTMLDivElement>(null);
-    const [offset, setOffset] = useState(initialOffset);
-
-    useEffect(() => {
-      const track = trackRef.current;
-      let animationFrame: number;
-
-      const speed = 1;
-
-      const animate = () => {
-        setOffset((prev: number) => {
-          if (!track) return prev;
-          const newOffset = prev - speed;
-          if (Math.abs(newOffset) >= track.offsetWidth / 2) {
-            return 0;
-          }
-          return newOffset;
-        });
-        animationFrame = requestAnimationFrame(animate);
-      };
-
-      animationFrame = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(animationFrame);
-    }, []);
-
-    return (
-      <ReviewsTrack
-        ref={trackRef}
-        style={{ transform: `translateX(${offset}px)` }}
-      >
-        {reviews.concat(reviews).map((review: Review, index: number) => (
-          <ReviewCard key={index}>
-            <ReviewCardHeader>
-              <ReviewAuthor>{review.name}</ReviewAuthor>
-            </ReviewCardHeader>
-            <ReviewText>{review.review}</ReviewText>
-          </ReviewCard>
-        ))}
-      </ReviewsTrack>
-    );
-  };
-
+const Testimonials = () => {
   return (
-    <ReviewsContainer id="advantages">
-      <InnerContainer>
-        <Title>Что мы предлагаем:</Title>
-        <Divider />
-      </InnerContainer>
-      <LoopSlide>
-        <ReviewRow reviews={firstRowReviews} initialOffset={0} />
-      </LoopSlide>
-      <LoopSlide>
-        <ReviewRow reviews={secondRowReviews} initialOffset={200} />
-      </LoopSlide>
-    </ReviewsContainer>
+    <Section>
+      <Inner>
+        <HeadBlock>
+          <Eyebrow>Отзывы</Eyebrow>
+          <Title>
+            Юристы, которые <em>уже переехали</em> в LawTech
+          </Title>
+          <Subtitle>
+            От небольших бутиков до крупных юротделов — всем нужно было
+            одно и то же: меньше рутины, больше клиентов.
+          </Subtitle>
+        </HeadBlock>
+
+        <Grid>
+          {TESTIMONIALS.map((t) => (
+            <Card key={t.name}>
+              <QuoteMark>
+                <Quote />
+              </QuoteMark>
+              <Stars>
+                <Star /><Star /><Star /><Star /><Star />
+              </Stars>
+              <Body>«{t.quote}»</Body>
+              <Person>
+                <Avatar $bg={t.avatarBg}>{t.initials}</Avatar>
+                <PersonInfo>
+                  <span className="name">{t.name}</span>
+                  <span className="role">{t.role}</span>
+                </PersonInfo>
+              </Person>
+            </Card>
+          ))}
+        </Grid>
+      </Inner>
+    </Section>
   );
 };
 
-export default Offer;
+export default Testimonials;
