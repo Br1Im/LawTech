@@ -1,6 +1,12 @@
 # Тестирование
 
-В репозитории два независимых тест-стека: backend (Jest + Supertest + MySQL) и frontend (Vitest + RTL). На GitHub оба гоняются автоматически в `.github/workflows/test.yml` на каждый PR и push в `main`.
+В репозитории три независимых тест-стека:
+
+- **backend** (Jest + Supertest + MySQL) — интеграция с реальной БД;
+- **frontend unit** (Vitest + RTL) — логика компонентов и хелперов;
+- **E2E** (Playwright) — браузерные тесты против собранного фронтенда + живого бэка.
+
+Все три гоняются в `.github/workflows/test.yml` на каждый PR и push в `main`.
 
 ## Backend
 
@@ -14,7 +20,9 @@
 - `__tests__/chat.test.js` — `GET /api/chat/channels` (видимость по роли), `POST/GET /api/offices/:officeId/messages` (отправка → persist → возврат).
 - `__tests__/dashboard.test.js` — `GET /api/office/:officeId/dashboard` (структура fact/plan/lawyers_cash, 403 чужой офис), `PUT/GET /api/office/:officeId/plan`.
 
-Итого после PR #6 + #9: ~39 интеграционных тестов, все ходят в реальный MySQL.
+По мере мержа PR #7 суда же добавятся: contracts, offices, crm-extra (appointments/applications/cash-register/calendar), security (JWT + X-Office-Id).
+
+Итого (после PR #6 + #9): ~39 интеграционных тестов, все ходят в реальный MySQL.
 
 ### Запуск локально
 
@@ -85,11 +93,37 @@ npm test          # одиночный прогон
 npm run test:watch # watch-режим
 ```
 
+## E2E (Playwright)
+
+### Что покрыто
+
+- `frontend/e2e/landing.spec.ts` — главный экран рендерится, кнопка «Войти» ведёт на `/auth`.
+- `frontend/e2e/theme-toggle.spec.ts` — переключение темы на `/`, персистентность через reload, тогл на `/auth`.
+- `frontend/e2e/auth-flow.spec.ts` — регистрация через API → логин через UI (верификация 200 + токен в localStorage); логин с неверными кредами (401).
+
+### Как это работает
+
+`playwright.config.ts` автоматически поднимает два веб-сервера:
+1. Бэкенд (`node server.js`) с `NODE_ENV=e2e` на `:3001`, с переключённой на `lawtech_test` БД.
+2. Фронтенд (`npm run build && vite preview`) на `:5173`.
+
+Перед тестами `e2e/global-setup.ts` вызывает `server/__tests__/setup/setup-db-cli.js` — это тот же реиниты, что и в Jest, поднимает `lawtech_test` из `schema.sql`.
+
+### Запуск
+
+```bash
+cd frontend
+npx playwright install --with-deps chromium  # один раз
+npm run test:e2e        # прогон
+npm run test:e2e:ui     # UI режим
+```
+
 ## CI
 
-`.github/workflows/test.yml` поднимает MySQL 8 как service container и гоняет:
+`.github/workflows/test.yml` поднимает MySQL 8 как service container и гоняет три параллельные job’а:
 
-1. `server/npm test` — все backend интеграционные тесты.
-2. `frontend/npm test` — Vitest run.
+1. `backend` — `server/npm test` (Jest + MySQL).
+2. `frontend` — `frontend/npm test` (Vitest).
+3. `e2e` — `frontend/npm run test:e2e` (Playwright против живого стека). При падении загружает trace.zip в artifacts на 7 дней.
 
 Каждый job самостоятельный, можно смотреть логи независимо.
