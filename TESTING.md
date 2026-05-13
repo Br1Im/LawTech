@@ -99,6 +99,7 @@ npm run test:watch # watch-режим
 - `frontend/e2e/landing.spec.ts` — главный экран рендерится, кнопка «Войти» ведёт на `/auth`.
 - `frontend/e2e/theme-toggle.spec.ts` — переключение темы на `/`, персистентность через reload, тогл на `/auth`.
 - `frontend/e2e/auth-flow.spec.ts` — регистрация через API → логин через UI (верификация 200 + токен в localStorage); логин с неверными кредами (401).
+- `frontend/e2e/crm-flow.spec.ts` — director с офисом доходит до `/crm` с правильным сайдбаром; `?tab=Клиенты` активирует таб; `POST /api/clients` round-trip persistence через `GET /api/clients`; lawyer без офиса видит lawyer-сайдбар.
 
 ### Как это работает
 
@@ -117,12 +118,33 @@ npm run test:e2e        # прогон
 npm run test:e2e:ui     # UI режим
 ```
 
+## Load (autocannon)
+
+Лёгкий нагрузочный смок на критичные ручки бэка. Цель — не полный perf-бенчмарк, а ловить регрессии в p95-латентности и error rate.
+
+- `server/__tests__/load/run.js` — поднимает Express in-process против `lawtech_test`, прогоняет 3 сценария:
+  - `GET /api/health` (роутинг, без middleware/DB) — ожидаемо 1000+ rps, p95 < 50 ms.
+  - `GET /api/clients` (JWT + X-Office-Id + DB read с 25 записями) — ожидаемо 500+ rps, p95 < 100 ms.
+  - `POST /api/auth/login` (bcrypt verify, медленнее) — ожидаемо 10-30 rps, p95 < 1500 ms.
+
+Запуск:
+
+```bash
+cd server
+DB_HOST=127.0.0.1 DB_PORT=33307 DB_USER=root DB_PASSWORD=testpass \
+  DB_NAME=lawtech_test JWT_SECRET=test_secret \
+  npm run test:load
+```
+
+Детальный README + переменные тюнинга: `server/__tests__/load/README.md`.
+
 ## CI
 
-`.github/workflows/test.yml` поднимает MySQL 8 как service container и гоняет три параллельные job’а:
+`.github/workflows/test.yml` поднимает MySQL 8 как service container и гоняет четыре job’а:
 
 1. `backend` — `server/npm test` (Jest + MySQL).
 2. `frontend` — `frontend/npm test` (Vitest).
 3. `e2e` — `frontend/npm run test:e2e` (Playwright против живого стека). При падении загружает trace.zip в artifacts на 7 дней.
+4. `load` — `server/npm run test:load` (autocannon, **non-blocking**: `continue-on-error: true`, чтобы не блокировать merge при шумных CI-runner'ах).
 
 Каждый job самостоятельный, можно смотреть логи независимо.

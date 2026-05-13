@@ -146,3 +146,63 @@ jobs:
           name: playwright-traces
           path: frontend/test-results/
           retention-days: 7
+
+  load:
+    name: Backend Load (autocannon)
+    runs-on: ubuntu-latest
+    # Не блокирует merge — это перформанс-смок, не функциональный тест.
+    continue-on-error: true
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: lawtech_test
+        ports:
+          - 33307:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent -uroot -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h 127.0.0.1 -P 33307 -uroot -ptestpass --silent; then
+              echo "MySQL is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL never became ready"; exit 1
+
+      - name: Run load smoke
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 33307
+          DB_USER: root
+          DB_PASSWORD: testpass
+          DB_NAME: lawtech_test
+          JWT_SECRET: ci-test-secret
+          # CI runners have variable CPU; raise thresholds and shorten run.
+          LOAD_DURATION: '5'
+          LOAD_CONNECTIONS: '10'
+          LOAD_P95_LATENCY: '1500'
+          LOAD_MAX_ERR_RATIO: '0.02'
+        run: npm run test:load
