@@ -1,5 +1,6 @@
 import Header from '../widgets/homePage/Header';
 import HeroSection from '../widgets/homePage/HeroSection';
+import LogoStrip from '../widgets/homePage/LogoStrip';
 import AnimatedStats from '../widgets/homePage/AnimatedStats';
 import InteractiveFeatures from '../widgets/homePage/InteractiveFeatures';
 import FeaturesSection from '../widgets/homePage/FeaturesSection';
@@ -36,6 +37,7 @@ const Home = () => {
     <LandingMainContainer>
       <Header />
       <HeroSection />
+      <LogoStrip />
       <AnimatedStats />
       <InteractiveFeatures />
       <FeaturesSection />
