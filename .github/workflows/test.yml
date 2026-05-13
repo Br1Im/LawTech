@@ -79,3 +79,71 @@ jobs:
       - run: npm ci
 
       - run: npm test
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpass
+          MYSQL_DATABASE: lawtech_test
+        ports:
+          - 33307:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent -uroot -ptestpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install server deps
+        working-directory: server
+        run: npm ci
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            if mysqladmin ping -h 127.0.0.1 -P 33307 -uroot -ptestpass --silent; then
+              echo "MySQL is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL never became ready"; exit 1
+
+      - name: Run E2E tests
+        working-directory: frontend
+        env:
+          CI: '1'
+          DB_HOST: 127.0.0.1
+          DB_PORT: 33307
+          DB_USER: root
+          DB_PASSWORD: testpass
+          DB_NAME: lawtech_test
+          JWT_SECRET: ci-e2e-secret
+        run: npm run test:e2e
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
+          retention-days: 7
