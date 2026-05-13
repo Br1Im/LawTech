@@ -37,6 +37,16 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const [showTestAccounts, setShowTestAccounts] = useState(false);
   const [form] = Form.useForm();
+  const [activeUsers, setActiveUsers] = useState(247);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveUsers((v) =>
+        Math.max(180, Math.min(420, v + Math.floor(Math.random() * 7) - 3))
+      );
+    }, 3500);
+    return () => clearInterval(id);
+  }, []);
 
   // Если уже авторизован — на CRM
   useEffect(() => {
@@ -154,7 +164,9 @@ const AuthPage = () => {
         </Link>
 
         <div className="auth-brand__hero">
-          <div className="auth-brand__eyebrow">CRM для юридических фирм</div>
+          <div className="auth-brand__eyebrow">
+            <b>{activeUsers}</b>&nbsp;юристов работают сейчас
+          </div>
           <h1 className="auth-brand__title">
             Юридическая практика&nbsp;на <em>автопилоте</em>
           </h1>
@@ -165,17 +177,43 @@ const AuthPage = () => {
           </p>
           <div className="auth-brand__chips">
             <span className="auth-brand__chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               ФЗ-152 · данные в РФ
             </span>
             <span className="auth-brand__chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
               Ответ AI — 1.2s
             </span>
             <span className="auth-brand__chip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               E2E-шифрование
             </span>
+          </div>
+
+          <div className="auth-brand__mockup" aria-hidden>
+            <div className="auth-brand__mockup-glow" />
+            <div className="auth-brand__mockup-head">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 21V9"/></svg>
+              Сегодня в LawTech
+            </div>
+            <div className="auth-brand__mockup-row">
+              <span>Активные дела</span>
+              <span>
+                <b>1 248</b> <span className="delta">↑ 12,4%</span>
+              </span>
+            </div>
+            <div className="auth-brand__mockup-row">
+              <span>Договоров подписано</span>
+              <span>
+                <b>34</b> <span className="delta">сегодня</span>
+              </span>
+            </div>
+            <div className="auth-brand__mockup-row">
+              <span>AI-проверок</span>
+              <span>
+                <b>187</b> <span className="delta">без рисков</span>
+              </span>
+            </div>
           </div>
         </div>
 
