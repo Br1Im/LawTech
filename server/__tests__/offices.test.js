@@ -86,4 +86,64 @@ describe('PUT /api/offices/:officeId', () => {
     expect(rows[0].name).toBe('Renamed Office');
     expect(rows[0].address).toBe('addr2');
   });
+
+  it('returns 403 when a different user tries to update someone else\'s office (IDOR)', async () => {
+    const owner = await registerDirector(app);
+    const stranger = await registerDirector(app);
+
+    const created = await request(app)
+      .post('/api/offices')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ name: 'Owner Office', address: 'private addr' });
+    const officeId = created.body.id;
+
+    const res = await request(app)
+      .put(`/api/offices/${officeId}`)
+      .set('Authorization', `Bearer ${stranger.token}`)
+      .send({ name: 'HACKED', address: 'evil addr' });
+
+    expect(res.status).toBe(403);
+
+    const [rows] = await db.query('SELECT name FROM offices WHERE id = ?', [officeId]);
+    expect(rows[0].name).toBe('Owner Office');
+  });
+});
+
+describe('DELETE /api/offices/:officeId', () => {
+  it('owner can delete own office', async () => {
+    const owner = await registerDirector(app);
+    const created = await request(app)
+      .post('/api/offices')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ name: 'To be deleted' });
+    const officeId = created.body.id;
+
+    const res = await request(app)
+      .delete(`/api/offices/${officeId}`)
+      .set('Authorization', `Bearer ${owner.token}`);
+
+    expect([200, 204]).toContain(res.status);
+    const [rows] = await db.query('SELECT id FROM offices WHERE id = ?', [officeId]);
+    expect(rows.length).toBe(0);
+  });
+
+  it('returns 403 when a stranger tries to delete someone else\'s office (IDOR)', async () => {
+    const owner = await registerDirector(app);
+    const stranger = await registerDirector(app);
+
+    const created = await request(app)
+      .post('/api/offices')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ name: 'Owner Office 2' });
+    const officeId = created.body.id;
+
+    const res = await request(app)
+      .delete(`/api/offices/${officeId}`)
+      .set('Authorization', `Bearer ${stranger.token}`);
+
+    expect(res.status).toBe(403);
+
+    const [rows] = await db.query('SELECT id FROM offices WHERE id = ?', [officeId]);
+    expect(rows.length).toBe(1);
+  });
 });
