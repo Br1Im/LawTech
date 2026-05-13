@@ -51,6 +51,10 @@ export function useCrmMutation<TVars = unknown, TResp = unknown>(
   options?: UseMutationOptions<TResp, Error, TVars>,
 ) {
   const qc = useQueryClient();
+  // Важно: сначала разлапачиваем пользовательские options, а затем
+  // навешиваем свой onSuccess поверх — иначе options?.onSuccess затирает
+  // нашу инвалидацию кэша и таблица не обновляется после мутации.
+  const { onSuccess: userOnSuccess, ...rest } = options || {};
   return useMutation<TResp, Error, TVars>({
     mutationFn: async (vars: TVars) => {
       const path = url ? url(vars) : `/${resource}`;
@@ -65,10 +69,10 @@ export function useCrmMutation<TVars = unknown, TResp = unknown>(
               : await apiInstance.patch(path, cfg);
       return res.data as TResp;
     },
-    onSuccess: (...args) => {
+    ...rest,
+    onSuccess: (data, variables, context) => {
       qc.invalidateQueries({ queryKey: [resource] });
-      options?.onSuccess?.(...args);
+      userOnSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
