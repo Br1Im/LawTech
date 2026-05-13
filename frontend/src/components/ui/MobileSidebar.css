@@ -221,8 +221,8 @@
 
 [data-theme="dark"] .mobile-sidebar-close:hover {
   background: rgba(212, 175, 55, 0.1);
-  border-color: #d4af37;
-  color: #d4af37 !important;
+  border-color: #1E40AF;
+  color: #1E40AF !important;
 }
 
 [data-theme="dark"] .mobile-sidebar-item:hover {

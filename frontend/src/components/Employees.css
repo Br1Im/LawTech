@@ -65,9 +65,9 @@
 }
 
 .employees-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .invite-modal-overlay {
@@ -383,3 +383,186 @@
 .modal-close-btn:hover {
   background-color: #555;
 }
+
+/* --- Credentials box --- */
+.credentials-section {
+  margin: 12px 0;
+}
+.credentials-box {
+  background: #f0faf0;
+  border: 1px solid #b5e8b5;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.credentials-box p {
+  margin: 0;
+}
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-accent);
+  padding: 2px 6px;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.copy-btn:hover { opacity: 0.7; }
+.copy-btn-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.copy-btn-full:hover { opacity: 0.85; }
+.credentials-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #888;
+}
+
+/* --- Inactive badge --- */
+.inactive-badge {
+  color: #e57373;
+  font-size: 12px;
+  font-weight: 500;
+}
+.inactive-badge-large {
+  background: #ffebee;
+  color: #c62828;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  display: inline-block;
+  margin-top: 4px;
+}
+.employee-card-v2.inactive {
+  opacity: 0.55;
+}
+
+/* --- Inactive toggle in filters --- */
+.inactive-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+.inactive-toggle input[type="checkbox"] {
+  accent-color: var(--color-accent);
+}
+/* ── DARK THEME ──────────────────────────────── */
+[data-theme="dark"] .invite-modal-content {
+  background: #161A22;
+  border: 1px solid #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .request-item {
+  background: #161A22;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .request-info h4 {
+  color: #E6E8EF;
+}
+[data-theme="dark"] .request-info p {
+  color: #8B8FA3;
+}
+[data-theme="dark"] .request-date {
+  color: #5A5E72;
+}
+[data-theme="dark"] .no-requests,
+[data-theme="dark"] .no-employees {
+  color: #5A5E72;
+}
+[data-theme="dark"] .invite-link-field input {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .invite-link-field button {
+  background: rgba(124,92,255,0.12);
+  color: #7C5CFF;
+}
+[data-theme="dark"] .invite-instructions {
+  color: #5A5E72;
+}
+[data-theme="dark"] .qr-code {
+  background: #fff;
+}
+[data-theme="dark"] .simple-qr-placeholder {
+  background: #1D2230;
+}
+[data-theme="dark"] .qr-text {
+  color: #8B8FA3;
+}
+[data-theme="dark"] .qr-link {
+  color: #5A5E72;
+}
+[data-theme="dark"] .loading-indicator {
+  background: #1D2230;
+}
+[data-theme="dark"] .period-btn {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #8B8FA3;
+}
+[data-theme="dark"] .period-btn:hover {
+  border-color: #7C5CFF;
+  color: #7C5CFF;
+}
+[data-theme="dark"] .period-btn.active {
+  background: #7C5CFF;
+  border-color: #7C5CFF;
+  color: #fff;
+}
+[data-theme="dark"] .tab {
+  color: #8B8FA3;
+}
+[data-theme="dark"] .tab.active {
+  border-color: #7C5CFF;
+  color: #7C5CFF;
+}
+
+/* ── Additional dark theme overrides ── */
+[data-theme="dark"] .filters {
+  background: #161A22 !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] .filter-text { color: #E6E8EF; }
+[data-theme="dark"] .filter-icon { color: #8B8FA3; }
+[data-theme="dark"] .search-filter input {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .search-filter input::placeholder { color: #5A5E72; }
+[data-theme="dark"] .role-filter select {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .employee-card-v2 {
+  background: #161A22;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .employee-card-v2:hover {
+  border-color: #363C4E;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+[data-theme="dark"] .employee-card-v2 .emp-name { color: #E6E8EF; }
+[data-theme="dark"] .employee-card-v2 .emp-role { color: #8B8FA3; }
+[data-theme="dark"] .modal-content {
+  background: #161A22 !important;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .employee-title { color: #E6E8EF; }
+[data-theme="dark"] .inactive-toggle label { color: #8B8FA3; }

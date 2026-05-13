@@ -7,7 +7,7 @@ const { processFile } = require('../services/file');
 const handleFileUpload = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'Файл не загружен' });
+      return res.status(400).json({ success: false, message: 'Файл не загружен' });
     }
 
     const filePath = req.file.path;
@@ -17,11 +17,11 @@ const handleFileUpload = async (req, res) => {
       const text = await processFile(filePath);
       return res.json({ text });
     } catch (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({ success: false, message: error.message });
     }
   } catch (error) {
     console.error('Ошибка при обработке файла:', error);
-    return res.status(500).json({ error: 'Ошибка при обработке файла' });
+    return res.status(500).json({ success: false, message: 'Ошибка при обработке файла' });
   }
 };
 

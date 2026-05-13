@@ -1,0 +1,28 @@
+-- Таблица записей клиентов (связка лид → клиент → приём)
+CREATE TABLE IF NOT EXISTS appointments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  office_id INT NOT NULL,
+  lead_id INT NOT NULL,
+  client_id INT DEFAULT NULL,
+  client_name VARCHAR(255) NOT NULL,
+  client_phone VARCHAR(50) NOT NULL,
+  source VARCHAR(100) DEFAULT NULL,
+  appointment_date DATE NOT NULL,
+  appointment_time TIME NOT NULL,
+  comment TEXT,
+  operator_id INT NOT NULL,
+  operator_name VARCHAR(255) DEFAULT NULL,
+  status ENUM('waiting','arrived','no_show','cancelled') NOT NULL DEFAULT 'waiting',
+  manager_comment TEXT DEFAULT NULL,
+  assigned_lawyer_id INT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_appointments_office (office_id),
+  INDEX idx_appointments_lead (lead_id),
+  INDEX idx_appointments_client (client_id),
+  INDEX idx_appointments_status (status),
+  INDEX idx_appointments_date (appointment_date),
+  FOREIGN KEY (lead_id) REFERENCES call_center_leads(id) ON DELETE CASCADE,
+  FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
+  FOREIGN KEY (operator_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

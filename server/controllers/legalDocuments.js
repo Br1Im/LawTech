@@ -16,7 +16,7 @@ exports.getAllDocuments = async (req, res) => {
     res.json({ documents });
   } catch (error) {
     console.error('Error retrieving documents:', error);
-    res.status(500).json({ error: 'Failed to retrieve documents' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve documents' });
   }
 };
 
@@ -26,13 +26,13 @@ exports.getDocumentById = async (req, res) => {
     const document = await LegalDocument.findById(documentId);
     
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
     
     res.json({ document });
   } catch (error) {
     console.error('Error retrieving document:', error);
-    res.status(500).json({ error: 'Failed to retrieve document' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve document' });
   }
 };
 
@@ -41,14 +41,14 @@ exports.createDocument = async (req, res) => {
     const { title, content, category, office_id } = req.body;
 
     if (!title || !content) {
-      return res.status(400).json({ error: 'Title and content are required' });
+      return res.status(400).json({ success: false, message: 'Title and content are required' });
     }
 
     // Проверяем наличие office_id в запросе или в данных пользователя
     const documentOfficeId = office_id || (req.user && req.user.office_id);
     
     if (!documentOfficeId) {
-      return res.status(400).json({ error: 'office_id is required. Please provide it in the request body.' });
+      return res.status(400).json({ success: false, message: 'office_id is required. Please provide it in the request body.' });
     }
 
     let embedding = null;
@@ -80,7 +80,7 @@ exports.createDocument = async (req, res) => {
     return res.status(201).json({ document });
   } catch (error) {
     console.error('Error creating document:', error);
-    return res.status(500).json({ error: 'Failed to create document' });
+    return res.status(500).json({ success: false, message: 'Failed to create document' });
   }
 };
 
@@ -92,7 +92,7 @@ exports.updateDocument = async (req, res) => {
     const document = await LegalDocument.findById(documentId);
     
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
     
     const embedding = content !== document.content 
@@ -111,7 +111,7 @@ exports.updateDocument = async (req, res) => {
     res.json({ document: updatedDocument });
   } catch (error) {
     console.error('Error updating document:', error);
-    res.status(500).json({ error: 'Failed to update document' });
+    res.status(500).json({ success: false, message: 'Failed to update document' });
   }
 };
 
@@ -122,7 +122,7 @@ exports.deleteDocument = async (req, res) => {
     const document = await LegalDocument.findById(documentId);
     
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
     
     // Удаляем документ из базы данных
@@ -140,7 +140,7 @@ exports.deleteDocument = async (req, res) => {
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {
     console.error('Error deleting document:', error);
-    res.status(500).json({ error: 'Failed to delete document' });
+    res.status(500).json({ success: false, message: 'Failed to delete document' });
   }
 };
 
@@ -149,7 +149,7 @@ exports.searchDocuments = async (req, res) => {
     const { query } = req.query;
     
     if (!query) {
-      return res.status(400).json({ error: 'Search query is required' });
+      return res.status(400).json({ success: false, message: 'Search query is required' });
     }
     
     const results = await vectorSearch.search(query, 10);
@@ -157,7 +157,7 @@ exports.searchDocuments = async (req, res) => {
     res.json({ results });
   } catch (error) {
     console.error('Error searching documents:', error);
-    res.status(500).json({ error: 'Search failed' });
+    res.status(500).json({ success: false, message: 'Search failed' });
   }
 };
 
@@ -168,11 +168,11 @@ exports.getSimilarDocuments = async (req, res) => {
     const document = await LegalDocument.findById(documentId);
     
     if (!document) {
-      return res.status(404).json({ error: 'Document not found' });
+      return res.status(404).json({ success: false, message: 'Document not found' });
     }
     
     if (!document.embedding) {
-      return res.status(400).json({ error: 'Document has no embedding' });
+      return res.status(400).json({ success: false, message: 'Document has no embedding' });
     }
     
     const embedding = JSON.parse(document.embedding);
@@ -183,7 +183,7 @@ exports.getSimilarDocuments = async (req, res) => {
     res.json({ results: filteredResults });
   } catch (error) {
     console.error('Error finding similar documents:', error);
-    res.status(500).json({ error: 'Failed to find similar documents' });
+    res.status(500).json({ success: false, message: 'Failed to find similar documents' });
   }
 };
 
@@ -192,7 +192,7 @@ exports.getOfficeDocuments = async (req, res) => {
     const officeId = req.params.officeId;
     
     if (!officeId) {
-      return res.status(400).json({ error: 'Office ID is required' });
+      return res.status(400).json({ success: false, message: 'Office ID is required' });
     }
     
     // Возвращаем пустой массив документов
@@ -201,7 +201,7 @@ exports.getOfficeDocuments = async (req, res) => {
     res.json({ documents });
   } catch (error) {
     console.error('Error retrieving office documents:', error);
-    res.status(500).json({ error: 'Failed to retrieve office documents' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve office documents' });
   }
 };
 
@@ -215,7 +215,7 @@ exports.getOfficeContracts = async (req, res) => {
     const officeId = req.params.officeId;
     
     if (!officeId) {
-      return res.status(400).json({ error: 'Office ID is required' });
+      return res.status(400).json({ success: false, message: 'Office ID is required' });
     }
     
     // Проверяем существование таблицы contracts
@@ -249,7 +249,7 @@ exports.getOfficeContracts = async (req, res) => {
     res.json({ contracts });
   } catch (error) {
     console.error('Error retrieving office contracts:', error);
-    res.status(500).json({ error: 'Failed to retrieve office contracts' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve office contracts' });
   }
 };
 
@@ -277,11 +277,11 @@ exports.createContract = async (req, res) => {
     const officeId = req.user?.office_id;
     
     if (!userId || !officeId) {
-      return res.status(401).json({ error: 'User authentication required' });
+      return res.status(401).json({ success: false, message: 'User authentication required' });
     }
     
     if (!client_name || !contract_type || !amount) {
-      return res.status(400).json({ error: 'Client name, contract type, and amount are required' });
+      return res.status(400).json({ success: false, message: 'Client name, contract type, and amount are required' });
     }
 
     // Разбираем имя клиента на имя и фамилию
@@ -386,7 +386,7 @@ exports.createContract = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating contract:', error);
-    res.status(500).json({ error: 'Failed to create contract' });
+    res.status(500).json({ success: false, message: 'Failed to create contract' });
   }
 };
 
@@ -445,13 +445,13 @@ exports.getContractById = async (req, res) => {
     const contract = contracts[0];
     
     if (!contract) {
-      return res.status(404).json({ error: 'Contract not found' });
+      return res.status(404).json({ success: false, message: 'Contract not found' });
     }
     
     res.json({ contract });
   } catch (error) {
     console.error('Error retrieving contract:', error);
-    res.status(500).json({ error: 'Failed to retrieve contract' });
+    res.status(500).json({ success: false, message: 'Failed to retrieve contract' });
   }
 };
 
@@ -465,14 +465,14 @@ exports.deleteContract = async (req, res) => {
     const officeId = req.user?.office_id;
     
     if (!userId || !officeId) {
-      return res.status(401).json({ error: 'User authentication required' });
+      return res.status(401).json({ success: false, message: 'User authentication required' });
     }
     
     // Проверяем существование договора
     const [contracts] = await db.query('SELECT * FROM contracts WHERE id = ? AND office_id = ?', [contractId, officeId]);
     
     if (contracts.length === 0) {
-      return res.status(404).json({ error: 'Contract not found' });
+      return res.status(404).json({ success: false, message: 'Contract not found' });
     }
     
     // Удаляем договор
@@ -481,7 +481,7 @@ exports.deleteContract = async (req, res) => {
     res.status(200).json({ message: 'Contract deleted successfully' });
   } catch (error) {
     console.error('Error deleting contract:', error);
-    res.status(500).json({ error: 'Failed to delete contract' });
+    res.status(500).json({ success: false, message: 'Failed to delete contract' });
   }
 };
 

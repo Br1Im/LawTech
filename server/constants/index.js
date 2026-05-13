@@ -7,15 +7,24 @@ const CONTRACT_STATUS = {
   PENDING: 'pending',
   ACTIVE: 'active',
   COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
+  TERMINATED: 'terminated',
+  REGISTERED: 'registered'
 };
+
+// Роли, которым разрешено подтверждать возврат денег
+const REFUND_CONFIRM_ROLES = ['director', 'manager', 'okk'];
 
 // Роли пользователей
 const USER_ROLES = {
   ADMIN: 'admin',
+  ADMINISTRATOR: 'administrator',
   LAWYER: 'lawyer',
   MANAGER: 'manager',
-  EMPLOYEE: 'employee'
+  EMPLOYEE: 'employee',
+  DIRECTOR: 'director',
+  OKK: 'okk',
+  EXPERT: 'expert'
 };
 
 // Типы документов
@@ -44,6 +53,7 @@ const LIMITS = {
 
 module.exports = {
   CONTRACT_STATUS,
+  REFUND_CONFIRM_ROLES,
   USER_ROLES,
   DOCUMENT_TYPES,
   CLIENT_STATUS,

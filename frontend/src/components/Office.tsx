@@ -5,12 +5,14 @@ import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
 import "./OfficePolish.css";
 import StatCard from "./StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaRegStar, FaTrophy } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaRegStar, FaEllipsisH, FaPlus } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import { Modal, Form, Input, Button, message } from "antd";
-import { buildApiUrl } from "../shared/utils/apiUtils";
+import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useOffice } from "../shared/contexts/OfficeContext";
 import { officeAPI } from "../shared/api/office";
+import { useAuth } from "../shared/lib/hooks/useAuth";
+import { apiInstance } from '../shared/api/instance';
 
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
@@ -91,10 +93,16 @@ const calculatePercentageChange = (current: number, previous: number): { percent
 };
 
 const Office = () => {
+  const { user: authUser } = useAuth();
+  const userRole = authUser?.role || '';
+  // Менеджер привязан к офису директором — не может создавать/добавлять офисы
+  const canManageOffices = !['manager'].includes(userRole);
+
   const [offices, setOffices] = useState<Office[]>([]);
-  const { selectedOffice: officeFromContext } = useOffice();
+  const { selectedOffice: officeFromContext, setSelectedOffice: setSelectedOfficeContext } = useOffice();
   const [selectedOffice, setSelectedOffice] = useState<Office | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [retryCounter, setRetryCounter] = useState(0);
   const [stats, setStats] = useState({ 
     visits: 0, 
     orders: 0, 
@@ -139,6 +147,19 @@ const Office = () => {
     offices: []
   });
   
+  // Consultation stats
+  interface ConsultationStat {
+    id: number;
+    name: string;
+    role: string;
+    total_consultations: number;
+    contracts_signed: number;
+    contracts_not_signed: number;
+    pending: number;
+    conversion: number;
+  }
+  const [consultationStats, setConsultationStats] = useState<ConsultationStat[]>([]);
+
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const dropdownButtonRef = useRef<HTMLDivElement>(null);
@@ -258,7 +279,7 @@ const Office = () => {
             employees: transformedEmployees,
             data: [office.stats?.visits || 0, office.stats?.pending || 0],
             address: office.address,
-            employee_count: Math.max(transformedEmployees.length, 1),
+            employee_count: office.employee_count ?? transformedEmployees.length,
             contact_phone: office.contact_phone || undefined,
             website: office.website || undefined,
             chartData: office.chartData,
@@ -267,29 +288,44 @@ const Office = () => {
           };
         });
 
-        // Если сервер вернул офисы – используем их, иначе применяем мок-данные
+        setOffices(transformedOffices);
+        setHasError(false);
         if (transformedOffices.length > 0) {
-          setOffices(transformedOffices);
-          // Проверяем, что массив не пустой перед обращением к индексу
-          if (transformedOffices && transformedOffices.length > 0) {
-            console.log("🏢 Выбираем первый офис при загрузке:", transformedOffices[0].title);
-            setSelectedOffice(transformedOffices[0]);
+          // Выбираем офис: если activeOfficeId уже есть в localStorage — выбираем его,
+          // иначе — первый офис из списка
+          const storedActiveId = localStorage.getItem('activeOfficeId');
+          const activeOffice = storedActiveId
+            ? transformedOffices.find(o => String(o.id) === storedActiveId)
+            : null;
+          const officeToSelect = activeOffice || transformedOffices[0];
+          console.log("🏢 Выбираем офис при загрузке:", officeToSelect.title);
+          setSelectedOffice(officeToSelect);
+          if (!storedActiveId) {
+            localStorage.setItem('activeOfficeId', String(officeToSelect.id));
           }
           // После загрузки офисов сразу запрашиваем данные для графика
           fetchOfficeRevenueData(transformedOffices);
         } else {
-          throw new Error('Сервер вернул пустой список офисов');
+          // Пустой список — это не ошибка связи, а валидное состояние
+          // (у пользователя ещё нет офиса). Покажем пустой экран с CTA создать.
+          setSelectedOffice(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('❌ Ошибка при получении офисов:', err);
-        // Устанавливаем состояние ошибки вместо показа пустых данных
+        // 401/403 — не считаем ошибкой связи, редирект на логин произойдёт выше
+        const status = err?.response?.status;
+        if (status === 401 || status === 403) {
+          setOffices([]);
+          setSelectedOffice(null);
+          return;
+        }
         setHasError(true);
         setOffices([]);
         setSelectedOffice(null);
       }
     };
     fetchOffices();
-  }, [period]);
+  }, [period, retryCounter]);
 
 
 
@@ -300,6 +336,26 @@ const Office = () => {
       setSelectedOffice(offices[0]);
     }
   }, [offices, selectedOffice]);
+
+  // Синхронизируем выбранный офис в глобальный контекст, чтобы другие вкладки
+  // (Календарь, Расходы и т.д.) знали об этом и не получали null.
+  useEffect(() => {
+    if (selectedOffice && (!officeFromContext || String(officeFromContext.id) !== String(selectedOffice.id))) {
+      try {
+        setSelectedOfficeContext({
+          id: String(selectedOffice.id),
+          title: (selectedOffice as any).title || (selectedOffice as any).name || '',
+          description: (selectedOffice as any).description || '',
+          revenue: (selectedOffice as any).revenue || 0,
+          orders: (selectedOffice as any).orders || 0,
+          employees: [], clients: [], expenses: [], documents: [], contracts: [],
+          stats: { visits: 0, revenue: 0, orders: 0, employees: 0, clients: 0, expenses: 0, documents: 0 },
+        } as any);
+      } catch (e) {
+        console.warn('Failed to sync selectedOffice to context', e);
+      }
+    }
+  }, [selectedOffice, officeFromContext, setSelectedOfficeContext]);
 
   // Загружаем дашборд офиса (план/факт/касса юристов)
   useEffect(() => {
@@ -314,7 +370,7 @@ const Office = () => {
           params.set('to', customTo);
         }
         const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(),
         });
         if (!res.ok) {
           setDashboard(null);
@@ -330,6 +386,8 @@ const Office = () => {
     fetchDashboard();
   }, [selectedOffice?.id, period, customFrom, customTo]);
 
+  const isCcRole = ['cc_manager', 'cc_operator'].includes(userRole);
+
   const isDirector = (() => {
     try {
       const t = localStorage.getItem('token');
@@ -338,6 +396,36 @@ const Office = () => {
       return (payload.role || '').toLowerCase() === 'director';
     } catch { return false; }
   })();
+
+  // CC operator stats for Office tab
+  interface CcOperatorStat {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    is_online: boolean;
+    total_leads: number;
+    booked_leads: number;
+    brak_leads: number;
+    active_leads: number;
+    booking_rate: number;
+    brak_rate: number;
+  }
+  const [ccOperatorStats, setCcOperatorStats] = useState<CcOperatorStat[]>([]);
+
+  useEffect(() => {
+    if (!isCcRole) return;
+    const fetchCcStats = async () => {
+      try {
+        const res = await apiInstance.get('/call-center/stats/operators');
+        const allOps = (res.data?.data || []) as CcOperatorStat[];
+        setCcOperatorStats(allOps.filter((o: CcOperatorStat) => ['cc_manager', 'cc_operator'].includes(o.role)));
+      } catch (e) { /* ignore */ }
+    };
+    fetchCcStats();
+    const iv = setInterval(fetchCcStats, 15000);
+    return () => clearInterval(iv);
+  }, [isCcRole]);
 
   const openPlanEditor = () => {
     setPlanError(null);
@@ -366,7 +454,7 @@ const Office = () => {
       const token = localStorage.getItem('token');
       const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/plan`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           daily_plan_weekday: dayWeekday,
           daily_plan_weekend: dayWeekend,
@@ -384,7 +472,7 @@ const Office = () => {
       const params = new URLSearchParams({ period });
       if (period === 'custom') { params.set('from', customFrom); params.set('to', customTo); }
       const r = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: getAuthHeaders(),
       });
       if (r.ok) { const b = await r.json(); setDashboard(b.data || null); }
     } catch (err) {
@@ -401,7 +489,7 @@ const Office = () => {
         const token = localStorage.getItem('token');
         if (!token) return;
         const res = await fetch(buildApiUrl('/contracts'), {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(),
         });
         if (!res.ok) return;
         const body = await res.json();
@@ -412,6 +500,19 @@ const Office = () => {
       }
     };
     fetchContracts();
+  }, [selectedOffice?.id]);
+
+  // Загружаем статистику консультаций по сотрудникам
+  useEffect(() => {
+    const fetchConsultationStats = async () => {
+      try {
+        const res = await apiInstance.get('/visits/consultation-stats');
+        setConsultationStats(res.data?.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchConsultationStats();
+    const iv = setInterval(fetchConsultationStats, 15000);
+    return () => clearInterval(iv);
   }, [selectedOffice?.id]);
 
   useEffect(() => {
@@ -446,8 +547,22 @@ const Office = () => {
     fetchOfficeRevenueData();
   }, [period]);
 
-  const handleOfficeClick = (office: Office) => {
+  const handleOfficeClick = async (office: Office) => {
     setSelectedOffice(office);
+    // Переключаем активный офис через API, чтобы все данные (касса, статистика и т.д.)
+    // загружались только для выбранного офиса
+    const currentActiveId = localStorage.getItem('activeOfficeId');
+    if (String(office.id) !== currentActiveId) {
+      try {
+        const res = await apiInstance.post('/offices/switch', { officeId: Number(office.id) });
+        if (res.data?.token) {
+          localStorage.setItem('token', res.data.token);
+        }
+        localStorage.setItem('activeOfficeId', String(office.id));
+      } catch (e) {
+        console.error('Ошибка при переключении офиса:', e);
+      }
+    }
   };
 
   const handlePeriodChange = (newPeriod: PeriodType) => {
@@ -548,9 +663,7 @@ const Office = () => {
       // В реальном приложении здесь должен быть запрос к API для получения данных о выручке
       // с учетом выбранного периода (день, неделя, месяц)
       const response = await fetch(buildApiUrl(`/offices/revenue?period=${currentPeriod}`), {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       });
 
       if (response.ok) {
@@ -612,15 +725,14 @@ const Office = () => {
         }
       } else {
         console.error('Ошибка запроса к API:', response.status);
-        // Если запрос не удался, устанавливаем моковые значения
-        const mockRevenue = currentOffices.map(office => ({
-          id: office.id,
-          name: office.title,
-          revenue: periodLabels.map(() => Math.floor(30000 + Math.random() * 40000))
-        }));
+        // Если запрос не удался — показываем нули, не подставляем фейковые числа.
         setOfficeRevenueData({
           labels: periodLabels,
-          offices: mockRevenue,
+          offices: currentOffices.map(office => ({
+            id: office.id,
+            name: office.title,
+            revenue: new Array(periodLabels.length).fill(0)
+          })),
         });
       }
     } catch (error) {
@@ -663,14 +775,10 @@ const Office = () => {
       setIsSubmitting(true);
       const values = await form.validateFields();
 
-      const response = await fetch(buildApiUrl('/office'), {
+      const response = await fetch(buildApiUrl(`/offices/${selectedOffice?.id}`), {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          id: selectedOffice?.id,
           ...values
         })
       });
@@ -734,39 +842,28 @@ const Office = () => {
       setIsSubmitting(true);
       const values = await addForm.validateFields();
 
-      // Получаем данные текущего пользователя
-      const profileResponse = await fetch(buildApiUrl('/profile'), {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!profileResponse.ok) {
-        throw new Error('Не удалось получить данные профиля');
+      // Используем ID из auth контекста — не зависим от отдельного запроса /profile
+      const currentUserId = authUser?.id;
+      if (!currentUserId) {
+        throw new Error('Пользователь не авторизован');
       }
 
-      const profileData = await profileResponse.json();
-
-      // Создаем офис через API
-      const response = await fetch(buildApiUrl('/office'), {
+      // Создаем офис через API — явно маппим поля формы на поля API
+      const response = await fetch(buildApiUrl('/offices'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          ...values,
-          owner_id: profileData.id,
-          // Добавляем данные ИП
-          ip_surname: values.ipSurname,
-          ip_name: values.ipName,
-          ip_middle_name: values.ipMiddleName,
-          // Добавляем ИНН и ОГРН
-          inn: values.inn,
-          ogrn: values.ogrn,
-          // Обновляем поля телефонов
-          work_phone: values.contactPhone,
-          work_phone2: values.work_phone2
+          name: values.officeName,
+          address: values.officeAddress || '',
+          contact_phone: values.contactPhone || '',
+          work_phone: values.contactPhone || '',
+          work_phone2: values.work_phone2 || '',
+          ip_surname: values.ipSurname || '',
+          ip_name: values.ipName || '',
+          ip_middle_name: values.ipMiddleName || '',
+          inn: values.inn || '',
+          ogrn: values.ogrn || '',
+          owner_id: currentUserId
         })
       });
 
@@ -825,51 +922,17 @@ const Office = () => {
     }
   };
 
-  // ===== Аналитика по юристам =====
-  const lawyerEmployees = (selectedOffice?.employees || []).filter(emp =>
-    emp?.position?.toLowerCase().includes('юрист') || emp?.position?.toLowerCase().includes('адвокат')
-  );
-
-  const extractTopic = (title: string): string => {
-    if (!title) return 'Без темы';
-    const idx = title.indexOf(' - ');
-    return idx > 0 ? title.slice(0, idx).trim() : title.trim();
+  // ===== Аналитика по сотрудникам (консультации) =====
+  const roleLabel = (role: string) => {
+    const map: Record<string, string> = { director: 'Директор', manager: 'Менеджер', okk: 'ОКК', lawyer: 'Юрист', admin: 'Администратор' };
+    return map[role] || role;
   };
 
-  type LawyerStats = {
-    total: number;
-    completed: number;
-    closeRate: number;
-    rating: 0 | 1 | 2 | 3;
-    ratingLabel: string;
-    bestTopic: { topic: string; rate: number; total: number } | null;
-    topics: Array<{ topic: string; total: number; completed: number; rate: number }>;
-  };
-
-  const computeLawyerStats = (employeeId: string | number): LawyerStats => {
-    const eid = Number(employeeId);
-    const own = contracts.filter(c => Number(c.id_employee) === eid);
-    const total = own.length;
-    const completed = own.filter(c => (c.status || '').toLowerCase() === 'completed').length;
-    const closeRate = total > 0 ? (completed / total) * 100 : 0;
-    const byTopic = new Map<string, { total: number; completed: number }>();
-    own.forEach(c => {
-      const topic = extractTopic(c.title || '');
-      const cur = byTopic.get(topic) || { total: 0, completed: 0 };
-      cur.total += 1;
-      if ((c.status || '').toLowerCase() === 'completed') cur.completed += 1;
-      byTopic.set(topic, cur);
-    });
-    const topics = Array.from(byTopic.entries())
-      .map(([topic, v]) => ({ topic, total: v.total, completed: v.completed, rate: v.total > 0 ? (v.completed / v.total) * 100 : 0 }))
-      .sort((a, b) => b.rate - a.rate || b.total - a.total);
-    const bestTopic = topics.length > 0 && topics[0].total > 0 ? { topic: topics[0].topic, rate: topics[0].rate, total: topics[0].total } : null;
-    let rating: 0 | 1 | 2 | 3 = 0;
-    let ratingLabel = 'Низкий';
-    if (closeRate >= 33) { rating = 3; ratingLabel = 'Идеальный'; }
-    else if (closeRate >= 25) { rating = 2; ratingLabel = 'Хороший'; }
-    else if (closeRate >= 15) { rating = 1; ratingLabel = 'Средний'; }
-    return { total, completed, closeRate, rating, ratingLabel, bestTopic, topics };
+  const computeConsultationRating = (conversion: number): { rating: 0 | 1 | 2 | 3; ratingLabel: string } => {
+    if (conversion >= 33) return { rating: 3, ratingLabel: 'Идеальный' };
+    if (conversion >= 25) return { rating: 2, ratingLabel: 'Хороший' };
+    if (conversion >= 15) return { rating: 1, ratingLabel: 'Средний' };
+    return { rating: 0, ratingLabel: 'Низкий' };
   };
 
   const renderStars = (rating: 0 | 1 | 2 | 3) => (
@@ -878,10 +941,14 @@ const Office = () => {
     </span>
   );
 
-  const selectedLawyer = selectedLawyerId
-    ? lawyerEmployees.find(e => String(e.id) === String(selectedLawyerId)) || null
+  // Данные для модалки выбранного сотрудника
+  const selectedConsultationEmployee = selectedLawyerId
+    ? consultationStats.find(cs => String(cs.id) === String(selectedLawyerId)) || null
     : null;
-  const selectedLawyerStats = selectedLawyer ? computeLawyerStats(selectedLawyer.id) : null;
+
+  // Cash data by employee id
+  const cashById = new Map<number, { today: number; period: number; full_name: string }>();
+  (dashboard?.lawyers_cash || []).forEach(l => cashById.set(l.id, { today: l.today, period: l.period, full_name: l.full_name }));
 
   // Если есть ошибка загрузки данных - показываем красивое сообщение
   if (hasError) {
@@ -891,11 +958,11 @@ const Office = () => {
           <div className="error-icon">⚠️</div>
           <h2>Ошибка подключения к серверу</h2>
           <p>Не удалось загрузить данные офисов. Проверьте подключение к интернету или попробуйте позже.</p>
-          <button 
-            className="retry-button" 
+          <button
+            className="retry-button"
             onClick={() => {
               setHasError(false);
-              window.location.reload();
+              setRetryCounter((c) => c + 1);
             }}
           >
             Попробовать снова
@@ -905,285 +972,259 @@ const Office = () => {
     );
   }
 
+
   return (
     <div className="office-content">
+      {/* ── HEADER ── */}
       <div className="office-header animate-fade-in-up">
-        <h2><FaBuilding className="header-icon" /> Управление офисами</h2>
-        
-        <div className="period-selector">
-          <div className="period-dropdown">
-            <div 
-              ref={dropdownButtonRef}
-              className={`period-dropdown-header ${showPeriodDropdown ? 'active' : ''}`} 
-              onClick={() => {
-                if (!showPeriodDropdown && dropdownButtonRef.current) {
-                  const rect = dropdownButtonRef.current.getBoundingClientRect();
-                  setDropdownPosition({
-                    top: rect.bottom + window.scrollY,
-                    left: rect.left + window.scrollX,
-                    width: rect.width
-                  });
-                }
-                setShowPeriodDropdown(!showPeriodDropdown);
-              }}
-            >
-              <FaCalendarAlt className="calendar-icon" />
-              <span className="selected-period">{getPeriodText()}</span>
-              <span className="dropdown-arrow"></span>
-            </div>
-            {showPeriodDropdown && createPortal(
-              <div 
-                ref={dropdownContentRef}
-                className="period-dropdown-content"
-                style={{
-                  position: 'fixed',
-                  top: `${dropdownPosition.top}px`,
-                  left: `${dropdownPosition.left}px`,
-                  minWidth: `${dropdownPosition.width}px`
-                }}
-              >
-                {([
-                  { v: 'day', t: 'Сегодня' },
-                  { v: 'yesterday', t: 'Вчера' },
-                  { v: 'week', t: 'Неделя' },
-                  { v: '2weeks', t: '2 недели' },
-                  { v: 'month', t: 'Месяц' },
-                  { v: 'custom', t: 'Произвольный период' },
-                ] as Array<{ v: PeriodType; t: string }>).map(opt => (
-                  <div
-                    key={opt.v}
-                    className={`period-option ${period === opt.v ? 'active' : ''}`}
-                    onClick={() => {
-                      handlePeriodChange(opt.v);
-                      setShowPeriodDropdown(false);
-                    }}
-                  >
-                    {opt.t}
-                  </div>
-                ))}
-                {period === 'custom' && (
-                  <div className="period-custom-range" onClick={(e) => e.stopPropagation()}>
-                    <label>С<input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
-                    <label>По<input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
-                  </div>
-                )}
-              </div>,
-              document.body
-            )}
-          </div>
-        </div>
+        <h2>Управление офисами</h2>
+        {isDirector && canManageOffices && !isOfficeLimit && (
+          <button className="office-header-add-btn" onClick={showAddModal}>
+            <FaPlus style={{ fontSize: 12 }} /> Добавить офис
+          </button>
+        )}
       </div>
-      
-      <div className="main-content-wrapper animate-fade-in-up">
-        {/* Блок 1: Верхний левый - Карточки офисов и статистика */}
-        <div className="office-left-column">
-          <div className="top-four">
-            <div className="office-cards-container">
-              <div className="office-cards">
-                {offices.map(office => (
-                  <div
-                    key={office.id}
-                    className={`office-card ${selectedOffice?.id === office.id ? "selected" : ""}`}
-                    onClick={() => handleOfficeClick(office)}
-                  >
-                    <div className="office-card-header">
-                      <h3>{office.title}</h3>
-                      {selectedOffice?.id === office.id && (
-                        <button 
-                          className="expand-button office-info-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowOfficeInfoModal(true);
-                          }}
-                          title="Открыть информацию об офисе"
-                        >
-                          <FaArrowRight />
-                        </button>
-                      )}
-                    </div>
-                    <div className="office-card-info">
-                      <p><FaUsers /> <b>Сотрудники:</b> {Math.max(office.employee_count || 0, 1)}</p>
-                      <p><FaMapMarkerAlt /> <b>Адрес:</b> {office.address || "Не указан"}</p>
-                    </div>
-                  </div>
-                ))}
-                {!isOfficeLimit && (
-                  <div className="office-add-card" onClick={showAddModal}>
-                    <div className="office-add-content">
-                      <GrAdd className="add-icon" />
-                      <span>Добавить офис</span>
-                    </div>
-                  </div>
-                )}
+
+      {/* ── OFFICE CARDS ── */}
+      <div className="office-cards-row animate-fade-in-up">
+        {offices.map(office => (
+          <div
+            key={office.id}
+            className={`office-card ${selectedOffice?.id === office.id ? 'selected' : ''}`}
+            onClick={() => handleOfficeClick(office)}
+          >
+            <div className="office-card-header">
+              <div className="office-card-title-row">
+                <h3>{office.title}</h3>
+                <span className="office-status-badge">Активен</span>
+              </div>
+              <button
+                className="office-card-menu-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowOfficeInfoModal(true);
+                }}
+                title="Меню"
+              >
+                <FaEllipsisH />
+              </button>
+            </div>
+            <div className="office-card-info">
+              <p><FaUsers /> <b>Сотрудники:</b> {office.employee_count || 0}</p>
+              <p><FaMapMarkerAlt /> <b>Адрес:</b> {office.address || 'Не указан'}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── ПЛАН / ФАКТ ── */}
+      {selectedOffice && !isCcRole && (() => {
+        const dayFact = Number(dashboard?.fact.day || 0);
+        const periodFact = Number(dashboard?.fact.period || 0);
+        const dayPlan = Number(dashboard?.plan?.day || 0);
+        const periodPlan = Number(dashboard?.plan?.period || 0);
+        const dayPct = dayPlan > 0 ? (dayFact / dayPlan) * 100 : null;
+        const periodPct = periodPlan > 0 ? (periodFact / periodPlan) * 100 : null;
+        const fmt = (v: number) => `${Math.round(v).toLocaleString('ru-RU')} ₽`;
+
+        const today = new Date();
+        const dayLabel = `${today.getDate()} ${today.toLocaleDateString('ru-RU', { month: 'long' }).replace(/^./, c => c.toLowerCase())}`;
+        const periodLabel = dashboard?.plan?.period_start && dashboard?.plan?.period_end
+          ? `${new Date(dashboard.plan.period_start).toLocaleDateString('ru-RU')} – ${new Date(dashboard.plan.period_end).toLocaleDateString('ru-RU')}`
+          : '';
+        const planId = dashboard?.plan?.id ? `#${dashboard.plan.id}` : '';
+
+        return (
+          <div className="plan-fact-block animate-fade-in-up">
+            <div className="plan-fact-header">
+              <h4 className="section-title">План / Факт</h4>
+              {isDirector && (
+                <button className="plan-edit-btn-v2" onClick={openPlanEditor}>
+                  <FaEdit style={{ fontSize: 13 }} /> Изменить план
+                </button>
+              )}
+            </div>
+            <div className="plan-fact-grid-v2">
+              <div className="plan-fact-card-v2">
+                <div className="plan-fact-card-label">ПЛАН НА ДЕНЬ — {dayLabel}</div>
+                <div className="plan-fact-card-value">
+                  <span className="pf-fact">{fmt(dayFact)}</span>
+                  <span className="pf-sep"> / </span>
+                  <span className="pf-plan">{dayPlan > 0 ? fmt(dayPlan) : '—'}</span>
+                </div>
+                <div className="plan-fact-card-pct">{dayPct !== null ? `${dayPct.toFixed(0)}%` : '0%'}</div>
+              </div>
+              <div className="plan-fact-card-v2">
+                <div className="plan-fact-card-label">
+                  ПЛАН НА ПЕРИОД {periodLabel ? `— ${periodLabel}` : ''} {planId && <span className="plan-id-tag">{planId}</span>}
+                </div>
+                <div className="plan-fact-card-value">
+                  <span className="pf-fact">{fmt(periodFact)}</span>
+                  <span className="pf-sep"> / </span>
+                  <span className="pf-plan">{periodPlan > 0 ? fmt(periodPlan) : '—'}</span>
+                </div>
+                <div className="plan-fact-card-pct">{periodPct !== null ? `${periodPct.toFixed(0)}%` : '0%'}</div>
               </div>
             </div>
+          </div>
+        );
+      })()}
 
-            {selectedOffice && (() => {
-              const dayFact = Number(dashboard?.fact.day || 0);
-              const periodFact = Number(dashboard?.fact.period || 0);
-              const dayPlan = Number(dashboard?.plan?.day || 0);
-              const periodPlan = Number(dashboard?.plan?.period || 0);
-              const dayPct = dayPlan > 0 ? (dayFact / dayPlan) * 100 : null;
-              const periodPct = periodPlan > 0 ? (periodFact / periodPlan) * 100 : null;
-              const tier = (pct: number | null) =>
-                pct === null ? 'plan-empty' : pct >= 100 ? 'plan-good' : pct >= 50 ? 'plan-warn' : 'plan-bad';
-              const fmt = (v: number) => `${Math.round(v).toLocaleString('ru-RU')} ₽`;
-              return (
-                <div className="plan-fact-block">
-                  <div className="plan-fact-header">
-                    <h4 className="section-title">План / Факт</h4>
-                    {isDirector && (
-                      <button className="btn-secondary plan-edit-btn" onClick={openPlanEditor}>
-                        <FaEdit /> {dashboard?.plan ? 'Изменить план' : 'Задать план'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="plan-fact-grid">
-                    <div className={`plan-fact-card ${tier(dayPct)}`}>
-                      <div className="plan-fact-label">
-                        План на день
-                        {dashboard?.plan?.day_kind && (
-                          <span className="plan-day-kind">
-                            {dashboard.plan.day_kind === 'weekend' ? '— выходной' : '— будний'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="plan-fact-value">
-                        <span className="fact">{fmt(dayFact)}</span>
-                        <span className="sep">/</span>
-                        <span className="plan">{dayPlan > 0 ? fmt(dayPlan) : '—'}</span>
-                      </div>
-                      <div className="plan-fact-progress">
-                        <div className="plan-fact-bar" style={{ width: `${Math.min(dayPct ?? 0, 100)}%` }} />
-                      </div>
-                      <div className="plan-fact-pct">{dayPct === null ? 'План не задан' : `${dayPct.toFixed(0)}%`}</div>
-                    </div>
-                    <div className={`plan-fact-card ${tier(periodPct)}`}>
-                      <div className="plan-fact-label">
-                        План на период
-                        {dashboard?.plan?.period_start && dashboard?.plan?.period_end && (
-                          <span className="period-range"> ({dashboard.plan.period_start.slice(0, 10)} — {dashboard.plan.period_end.slice(0, 10)})</span>
-                        )}
-                      </div>
-                      <div className="plan-fact-value">
-                        <span className="fact">{fmt(periodFact)}</span>
-                        <span className="sep">/</span>
-                        <span className="plan">{periodPlan > 0 ? fmt(periodPlan) : '—'}</span>
-                      </div>
-                      <div className="plan-fact-progress">
-                        <div className="plan-fact-bar" style={{ width: `${Math.min(periodPct ?? 0, 100)}%` }} />
-                      </div>
-                      <div className="plan-fact-pct">{periodPct === null ? 'План не задан' : `${periodPct.toFixed(0)}%`}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+      {/* ── CC: Статистика операторов КЦ ── */}
+      {isCcRole && (
+        <div className="lawyers-section animate-fade-in-up">
+          <div className="table-header">
+            <h4 className="section-title">Статистика операторов колл-центра</h4>
+          </div>
+          <div className="lawyers-table-scroll">
+            <table className="employee-stats-table lawyers-table">
+              <thead>
+                <tr>
+                  <th>Оператор</th>
+                  <th className="num">Статус</th>
+                  <th className="num">Всего лидов</th>
+                  <th className="num">Активных</th>
+                  <th className="num">Записано</th>
+                  <th className="num">% записи</th>
+                  <th className="num">Брак</th>
+                  <th className="num">% брака</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ccOperatorStats.length > 0 ? ccOperatorStats.map(op => (
+                  <tr key={op.id}>
+                    <td><b>{op.name || op.email}</b></td>
+                    <td className="num">
+                      <span style={{ color: op.is_online ? '#138a5d' : '#b45309', fontWeight: 700 }}>
+                        {op.is_online ? 'online' : 'offline'}
+                      </span>
+                    </td>
+                    <td className="num">{op.total_leads}</td>
+                    <td className="num">{op.active_leads}</td>
+                    <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{op.booked_leads}</td>
+                    <td className="num">{op.booking_rate}%</td>
+                    <td className="num" style={{ color: '#c0392b' }}>{op.brak_leads}</td>
+                    <td className="num">{op.brak_rate}%</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={8} className="no-data">Нет данных по операторам</td>
+                  </tr>
+                )}
+              </tbody>
+              {ccOperatorStats.length > 0 && (
+                <tfoot>
+                  <tr>
+                    <td><b>Итого</b></td>
+                    <td></td>
+                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.total_leads, 0)}</b></td>
+                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.active_leads, 0)}</b></td>
+                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.booked_leads, 0)}</b></td>
+                    <td className="num"><b>{(() => {
+                      const total = ccOperatorStats.reduce((s, o) => s + o.total_leads, 0);
+                      const booked = ccOperatorStats.reduce((s, o) => s + o.booked_leads, 0);
+                      return total > 0 ? Math.round(booked / total * 100) : 0;
+                    })()}%</b></td>
+                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.brak_leads, 0)}</b></td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
         </div>
+      )}
 
-        {/* Блок 2: Юристы офиса с рейтингом */}
-        {selectedOffice && (
-          <div className="employee-table-container-container lawyers-block">
-            <div className="employee-table-container">
-              <div className="table-header">
-                <h4 className="section-title">Юристы офиса {selectedOffice.title}</h4>
-                <div className="lawyers-legend">
-                  <span className="legend-item"><FaStar /><FaStar /><FaStar /> ≥ 33% — идеальный</span>
-                  <span className="legend-item"><FaStar /><FaStar /> 25–32% — хороший</span>
-                  <span className="legend-item"><FaStar /> 15–24% — средний</span>
-                </div>
-              </div>
-              <table className="employee-stats-table lawyers-table">
-                <thead>
-                  <tr>
-                    <th>Юрист</th>
-                    <th className="num">Договоров</th>
-                    <th className="num">Закрыто</th>
-                    <th className="num">Процент закрытия</th>
-                    <th>Рейтинг</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lawyerEmployees.length > 0 ? (
-                    lawyerEmployees.map((employee) => {
-                      const s = computeLawyerStats(employee.id);
-                      const fullName = `${employee.surname || ''} ${employee.name || ''} ${employee.middle_name || ''}`.trim() || 'Юрист';
+      {/* ── КАССА ЮРИСТОВ ── */}
+      {selectedOffice && !isCcRole && (
+        <div className="lawyers-section animate-fade-in-up">
+          <div className="table-header">
+            <h4 className="section-title">Касса юристов</h4>
+            <div className="lawyers-legend">
+              <span className="legend-item"><FaStar className="star-gold" /><FaStar className="star-gold" /><FaStar className="star-gold" /> {'\u2265'} 33% — идеальный</span>
+              <span className="legend-item"><FaStar className="star-gold" /><FaStar className="star-gold" /> 25–32% — хороший</span>
+              <span className="legend-item"><FaStar className="star-gold" /> 15–24% — средний</span>
+              <span className="legend-item"><FaStar className="star-muted" /> {'<'} 15% — низкий</span>
+            </div>
+          </div>
+          <div className="lawyers-table-scroll">
+            <table className="employee-stats-table lawyers-table">
+              <thead>
+                <tr>
+                  <th>Сотрудник</th>
+                  <th>Роль</th>
+                  <th className="num">Консультаций</th>
+                  <th className="num">Заключено</th>
+                  <th className="num">Конверсия</th>
+                  <th>Рейтинг</th>
+                  <th className="num">Касса сегодня</th>
+                  <th className="num">Касса за период</th>
+                </tr>
+              </thead>
+              <tbody>
+                {consultationStats.length > 0 ? (
+                  (() => {
+                    const roleOrder: Record<string, number> = { lawyer: 0, manager: 1, okk: 2, expert: 3, representative: 4, reception: 5, cc_operator: 6 };
+                    const sorted = [...consultationStats].sort((a, b) =>
+                      (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9)
+                    );
+                    return sorted.map(cs => {
+                      const cash = cashById.get(cs.id);
+                      const { rating, ratingLabel } = computeConsultationRating(cs.conversion);
                       return (
                         <tr
-                          key={employee.id}
+                          key={cs.id}
                           className="lawyer-row"
-                          onClick={() => setSelectedLawyerId(String(employee.id))}
-                          title="Открыть статистику юриста"
+                          onClick={() => setSelectedLawyerId(String(cs.id))}
+                          title="Открыть статистику сотрудника"
                         >
-                          <td>{fullName}</td>
-                          <td className="num">{s.total}</td>
-                          <td className="num">{s.completed}</td>
-                          <td className="num">{s.total > 0 ? `${s.closeRate.toFixed(1)}%` : '—'}</td>
+                          <td><b>{cs.name}</b></td>
+                          <td>{roleLabel(cs.role)}</td>
+                          <td className="num">{cs.total_consultations}</td>
+                          <td className="num" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{cs.contracts_signed}</td>
+                          <td className="num" style={{ fontWeight: 700 }}>{cs.total_consultations > 0 ? `${cs.conversion}%` : '—'}</td>
                           <td>
-                            {renderStars(s.rating)}
-                            <span className={`rating-badge rating-${s.rating}`}>{s.ratingLabel}</span>
+                            {cs.total_consultations > 0 ? (
+                              <span className="lawyer-rating-stars-v2">
+                                {[1, 2, 3].map(i => (
+                                  <FaStar key={i} className={i <= rating ? 'star-gold' : 'star-muted'} />
+                                ))}
+                              </span>
+                            ) : '—'}
                           </td>
+                          <td className="num">{cash ? `${Math.round(cash.today).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</td>
+                          <td className="num">{cash ? `${Math.round(cash.period).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</td>
                         </tr>
                       );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={5} className="no-data">В офисе нет юристов</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Блок 3: Касса юристов (ФИО / Касса за сегодня / Касса за период) */}
-        {selectedOffice && (
-          <div className="employee-table-container-container lawyers-block">
-            <div className="employee-table-container">
-              <div className="table-header">
-                <h4 className="section-title">Касса юристов</h4>
-                <div className="table-subtitle">Только заключённые и оплаченные договоры за выбранный период ({getPeriodText().toLowerCase()})</div>
-              </div>
-              <table className="employee-stats-table lawyers-cash-table">
-                <thead>
+                    });
+                  })()
+                ) : (
                   <tr>
-                    <th>ФИО юриста</th>
-                    <th className="num">Касса за сегодня</th>
-                    <th className="num">Касса за период</th>
+                    <td colSpan={8} className="no-data">Нет сотрудников</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {(dashboard?.lawyers_cash || []).length > 0 ? (
-                    (dashboard?.lawyers_cash || []).map(l => (
-                      <tr key={`cash-${l.id}`}>
-                        <td>{l.full_name || 'Юрист'}</td>
-                        <td className="num">{`${Math.round(l.today).toLocaleString('ru-RU')} ₽`}</td>
-                        <td className="num strong">{`${Math.round(l.period).toLocaleString('ru-RU')} ₽`}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={3} className="no-data">В офисе пока нет юристов или сделок</td>
-                    </tr>
-                  )}
-                </tbody>
-                {(dashboard?.lawyers_cash || []).length > 0 && (
-                  <tfoot>
-                    <tr>
-                      <td><b>Итого</b></td>
-                      <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.today, 0)).toLocaleString('ru-RU')} ₽`}</b></td>
-                      <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.period, 0)).toLocaleString('ru-RU')} ₽`}</b></td>
-                    </tr>
-                  </tfoot>
                 )}
-              </table>
-            </div>
+              </tbody>
+              {consultationStats.length > 0 && (
+                <tfoot>
+                  <tr>
+                    <td colSpan={2}><b>Итого</b></td>
+                    <td className="num"><b>{consultationStats.reduce((s, c) => s + c.total_consultations, 0)}</b></td>
+                    <td className="num" style={{ color: 'var(--color-primary)' }}><b>{consultationStats.reduce((s, c) => s + c.contracts_signed, 0)}</b></td>
+                    <td className="num"><b>{(() => {
+                      const total = consultationStats.reduce((s, c) => s + c.total_consultations, 0);
+                      const signed = consultationStats.reduce((s, c) => s + c.contracts_signed, 0);
+                      return total > 0 ? `${Math.round(signed / total * 100)}%` : '0%';
+                    })()}</b></td>
+                    <td></td>
+                    <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.today, 0)).toLocaleString('ru-RU')} \u20BD`}</b></td>
+                    <td className="num"><b>{`${Math.round((dashboard?.lawyers_cash || []).reduce((s, l) => s + l.period, 0)).toLocaleString('ru-RU')} \u20BD`}</b></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
-        )}
-      </div>
-
+        </div>
+      )}
       <Modal
         title="Редактирование офиса"
         open={isEditModalVisible}
@@ -1195,8 +1236,8 @@ const Office = () => {
           <Button
             key="submit"
             type="primary"
-            htmlType="submit"
             loading={isSubmitting}
+            onClick={() => form.submit()}
           >
             Сохранить
           </Button>,
@@ -1287,9 +1328,9 @@ const Office = () => {
           <Button
             key="submit"
             type="primary"
-            htmlType="submit"
             loading={isSubmitting}
             style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
+            onClick={() => addForm.submit()}
           >
             Создать офис
           </Button>,
@@ -1402,7 +1443,7 @@ const Office = () => {
                 {selectedOffice.work_phone2 && (
                   <p><strong>Телефон 2:</strong> {selectedOffice.work_phone2}</p>
                 )}
-                <p><strong>Количество сотрудников:</strong> {Math.max(selectedOffice.employee_count || 0, 1)}</p>
+                <p><strong>Количество сотрудников:</strong> {selectedOffice.employee_count || 0}</p>
               </div>
               
               <div className="info-section">
@@ -1439,7 +1480,7 @@ const Office = () => {
             )}
             
             <div className="office-info-footer">
-              {!isOfficeLimit && (
+              {canManageOffices && !isOfficeLimit && (
                 <Button 
                   type="default" 
                   icon={<GrAdd />} 
@@ -1580,77 +1621,75 @@ const Office = () => {
         </div>
       )}
 
-      {selectedLawyer && selectedLawyerStats && (
-        <div className="employee-modal-overlay active" onClick={() => setSelectedLawyerId(null)}>
-          <div className="modal-content lawyer-modal" onClick={(e) => e.stopPropagation()}>
-            <span className="modal-close-icon" onClick={() => setSelectedLawyerId(null)}>
-              <FaTimes />
-            </span>
-            <h3>
-              {`${selectedLawyer.surname || 'Юрист'} ${selectedLawyer.name || ''} ${selectedLawyer.middle_name || ''}`.trim()}
-            </h3>
-            <div className="lawyer-rating-row">
-              {renderStars(selectedLawyerStats.rating)}
-              <span className={`rating-badge rating-${selectedLawyerStats.rating}`}>{selectedLawyerStats.ratingLabel}</span>
-            </div>
+      {selectedConsultationEmployee && (() => {
+        const cs = selectedConsultationEmployee;
+        const { rating, ratingLabel } = computeConsultationRating(cs.conversion);
+        const cash = cashById.get(cs.id);
+        return (
+          <div className="employee-modal-overlay active" onClick={() => setSelectedLawyerId(null)}>
+            <div className="modal-content lawyer-modal" onClick={(e) => e.stopPropagation()}>
+              <span className="modal-close-icon" onClick={() => setSelectedLawyerId(null)}>
+                <FaTimes />
+              </span>
+              <h3>{cs.name}</h3>
+              <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>{roleLabel(cs.role)}</div>
 
-            <div className="lawyer-summary">
-              <div className="lawyer-summary-cell">
-                <div className="cell-label">Договоров</div>
-                <div className="cell-value">{selectedLawyerStats.total}</div>
-              </div>
-              <div className="lawyer-summary-cell">
-                <div className="cell-label">Закрыто</div>
-                <div className="cell-value">{selectedLawyerStats.completed}</div>
-              </div>
-              <div className="lawyer-summary-cell">
-                <div className="cell-label">Процент закрытия</div>
-                <div className="cell-value">{selectedLawyerStats.total > 0 ? `${selectedLawyerStats.closeRate.toFixed(1)}%` : '—'}</div>
-              </div>
-            </div>
-
-            <div className="modal-section">
-              <h4><FaTrophy /> Лучшая тематика</h4>
-              {selectedLawyerStats.bestTopic && selectedLawyerStats.completed > 0 ? (
-                <p>
-                  <b>{selectedLawyerStats.bestTopic.topic}</b> — {selectedLawyerStats.bestTopic.rate.toFixed(1)}% закрытия
-                  {' '}({selectedLawyerStats.bestTopic.total} {selectedLawyerStats.bestTopic.total === 1 ? 'договор' : 'договоров'})
-                </p>
-              ) : (
-                <p className="muted">Пока нет завершённых договоров — статистика по темам появится после закрытия первых сделок.</p>
+              {cs.total_consultations > 0 && (
+                <div className="lawyer-rating-row">
+                  {renderStars(rating)}
+                  <span className={`rating-badge rating-${rating}`}>{ratingLabel}</span>
+                </div>
               )}
-            </div>
 
-            <div className="modal-section">
-              <h4>Статистика по тематикам</h4>
-              {selectedLawyerStats.topics.length > 0 ? (
-                <table className="employee-stats-table lawyer-topics-table">
-                  <thead>
-                    <tr>
-                      <th>Тема</th>
-                      <th className="num">Всего</th>
-                      <th className="num">Закрыто</th>
-                      <th className="num">% закрытия</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedLawyerStats.topics.map(t => (
-                      <tr key={t.topic}>
-                        <td>{t.topic}</td>
-                        <td className="num">{t.total}</td>
-                        <td className="num">{t.completed}</td>
-                        <td className="num">{`${t.rate.toFixed(1)}%`}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="muted">У юриста пока нет договоров.</p>
+              <div className="lawyer-summary">
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Консультаций</div>
+                  <div className="cell-value">{cs.total_consultations}</div>
+                </div>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Заключено</div>
+                  <div className="cell-value" style={{ color: '#138a5d' }}>{cs.contracts_signed}</div>
+                </div>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Не заключено</div>
+                  <div className="cell-value" style={{ color: '#c0392b' }}>{cs.contracts_not_signed}</div>
+                </div>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Ожидает</div>
+                  <div className="cell-value">{cs.pending}</div>
+                </div>
+              </div>
+
+              <div className="lawyer-summary" style={{ marginTop: 12 }}>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Конверсия</div>
+                  <div className="cell-value" style={{ fontWeight: 700 }}>
+                    {cs.total_consultations > 0 ? `${cs.conversion}%` : '—'}
+                  </div>
+                </div>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Касса сегодня</div>
+                  <div className="cell-value">{cash ? `${Math.round(cash.today).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</div>
+                </div>
+                <div className="lawyer-summary-cell">
+                  <div className="cell-label">Касса за период</div>
+                  <div className="cell-value" style={{ fontWeight: 700 }}>{cash ? `${Math.round(cash.period).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</div>
+                </div>
+              </div>
+
+              {cs.total_consultations > 0 && (
+                <div className="modal-section" style={{ marginTop: 16 }}>
+                  <h4>Оценка эффективности</h4>
+                  <div style={{ padding: '10px 0', fontSize: 14, lineHeight: 1.6 }}>
+                    <p>Из <b>{cs.total_consultations}</b> консультаций договор заключён в <b>{cs.contracts_signed}</b> случаях.</p>
+                    <p>Конверсия: <b>{cs.conversion}%</b> — <span className={`rating-badge rating-${rating}`} style={{ display: 'inline' }}>{ratingLabel}</span></p>
+                  </div>
+                </div>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

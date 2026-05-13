@@ -1,399 +1,440 @@
-import React, { useState, useEffect } from 'react';
-import { buildApiUrl } from '../shared/utils/apiUtils';
+import React, { useState, useEffect, useCallback } from 'react';
+import styled from '@emotion/styled';
+import { Table, Select, Button, Space, App, Input, Tabs } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
-import { useOffice } from '../shared/contexts/OfficeContext';
-import './Arrivals.css';
+import AdminContractRegister from './AdminContractRegister';
 
-interface Arrival {
+/* ─── styled (Scandinavian minimal, matching Salary) ─── */
+
+const Page = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0 0;
+`;
+
+const StatRow = styled.div`
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+`;
+
+const Stat = styled.div`
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  padding: 10px 14px;
+  min-width: 150px;
+  flex: 1;
+  .lbl { color: var(--color-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .val { font-weight: 700; font-size: 18px; }
+`;
+
+const TableCard = styled.div`
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: 8px 8px 4px;
+  overflow: hidden;
+  .ant-table-thead > tr > th { background: var(--color-table-head-bg, #FAFAFA) !important; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+  .ant-table-tbody > tr > td { background: transparent !important; }
+`;
+
+const ToolRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+`;
+
+const Badge = styled.span<{ bg: string; border: string; color: string }>`
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  font-weight: 600;
+  background: ${p => p.bg};
+  border: 1px solid ${p => p.border};
+  color: ${p => p.color};
+  cursor: pointer;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.85; }
+`;
+
+const BadgeStatic = styled.span<{ bg: string; border: string; color: string }>`
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  font-weight: 600;
+  background: ${p => p.bg};
+  border: 1px solid ${p => p.border};
+  color: ${p => p.color};
+`;
+
+const FormCard = styled.div`
+  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: 16px 20px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+`;
+
+const FormField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  flex: 1;
+  label { font-size: 12px; font-weight: 500; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+`;
+
+/* ─── interfaces ─── */
+
+interface PrimaryVisit {
   id: number;
-  clientName: string;
-  theme: string;
-  questionEssence: string;
-  ticket: string;
-  lawyerAssigned: string;
-  appointmentTime: string;
-  contractSigned: boolean;
-  didNotArrive: boolean;
+  client_name: string;
+  client_phone: string;
+  source: string | null;
+  appointment_date: string;
+  appointment_time: string;
+  comment: string | null;
+  operator_name: string | null;
+  consultation_result: 'contract_signed' | 'not_signed' | null;
+  signed_by_name: string | null;
+  contract_signed_by: number | null;
+  assigned_lawyer_id: number | null;
+  assigned_lawyer_name: string | null;
+  created_at: string;
+  linked_contract_id: number | null;
+  linked_contract_type: 'docs' | 'court_rep' | null;
+  linked_contract_number: string | null;
+  linked_needs_input: number;
 }
 
-const Arrivals: React.FC = () => {
-  const [arrivals, setArrivals] = useState<Arrival[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [officeId, setOfficeId] = useState<string | null>(null);
-  const { addClient, updateStats } = useOffice();
+interface ExistingVisit {
+  id: number;
+  client_name: string;
+  employee_id: number | null;
+  employee_name: string | null;
+  visited_at: string;
+  created_by_name: string | null;
+  comment: string | null;
+}
 
-  // Получение данных с сервера
-  const { isAuthenticated, user } = useAuth();
+interface VisitsStats {
+  primary: { total: number; contracts_signed: number; contracts_not_signed: number; pending: number; conversion: number };
+  existing: { total: number };
+  total_visits: number;
+}
+
+interface Employee { id: number; name: string; role: string; }
+
+/* ─── helpers ─── */
+
+const fmtDate = (d: string) => {
+  try { return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  catch { return d; }
+};
+const fmtTime = (t: string) => (t ? t.substring(0, 5) : '');
+const fmtDT = (d: string) => {
+  try { return new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  catch { return d; }
+};
+
+/* ─── component ─── */
+
+const Arrivals: React.FC = () => {
+  const { user } = useAuth();
+  const { message } = App.useApp();
+  const canSetResult = ['admin', 'administrator'].includes(user?.role || '');
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
+
+  const [tab, setTab] = useState('primary');
+  const [primaryVisits, setPrimaryVisits] = useState<PrimaryVisit[]>([]);
+  const [existingVisits, setExistingVisits] = useState<ExistingVisit[]>([]);
+  const [stats, setStats] = useState<VisitsStats | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [showForm, setShowForm] = useState(false);
+  const [formName, setFormName] = useState('');
+  const [formEmployee, setFormEmployee] = useState<number | null>(null);
+  const [formComment, setFormComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerAppointment, setRegisterAppointment] = useState<PrimaryVisit | null>(null);
+
+  const fetchPrimary = useCallback(async () => { try { const r = await apiInstance.get('/visits/primary'); setPrimaryVisits(r.data?.data || []); } catch {} }, []);
+  const fetchExisting = useCallback(async () => { try { const r = await apiInstance.get('/visits/existing'); setExistingVisits(r.data?.data || []); } catch {} }, []);
+  const fetchStats = useCallback(async () => { try { const r = await apiInstance.get('/visits/stats'); setStats(r.data?.data || null); } catch {} }, []);
+  const fetchEmployees = useCallback(async () => { try { const r = await apiInstance.get('/visits/employees'); setEmployees(r.data?.data || []); } catch {} }, []);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([fetchPrimary(), fetchExisting(), fetchStats(), fetchEmployees()]);
+    setLoading(false);
+  }, [fetchPrimary, fetchExisting, fetchStats, fetchEmployees]);
 
   useEffect(() => {
-    const fetchArrivals = async () => {
-      if (!isAuthenticated || !user) {
-        setError('Требуется авторизация');
-        setArrivals([]);
-        setLoading(false);
-        return;
-      }
+    reload();
+    const iv = setInterval(() => { fetchPrimary(); fetchExisting(); fetchStats(); }, 15000);
+    return () => clearInterval(iv);
+  }, [reload, fetchPrimary, fetchExisting, fetchStats]);
 
-      setLoading(true);
-      setError(null);
-      try {
-        // Получаем токен авторизации
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Требуется авторизация');
-        }
-
-        // Получаем ID офиса из профиля пользователя
-        const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!profileResponse.ok) {
-          throw new Error('Не удалось получить данные профиля');
-        }
-
-        const profileData = await profileResponse.json();
-        const officeId = profileData.user?.officeId;
-        setOfficeId(officeId);
-
-        if (!officeId) {
-          throw new Error('Офис не найден');
-        }
-
-        // Получаем список приходов для данного офиса
-        const arrivalsResponse = await fetch(buildApiUrl(`/office/${officeId}/arrivals`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!arrivalsResponse.ok) {
-          throw new Error('Не удалось получить список приходов');
-        }
-
-        const arrivalsData = await arrivalsResponse.json();
-        setArrivals(arrivalsData);
-      } catch (err) {
-        console.error('Ошибка получения приходов:', err);
-        setError((err as Error).message || 'Не удалось загрузить список приходов');
-        // Устанавливаем пустой список вместо демо-данных
-        setArrivals([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchArrivals();
-  }, [isAuthenticated, user]);
-
-  // Обработчик изменения статуса
-  const handleStatusChange = async (id: number, type: 'contractSigned' | 'didNotArrive') => {
+  const handleSetResult = async (id: number, result: 'contract_signed' | 'not_signed') => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      // Находим текущий приход
-      const arrival = arrivals.find(a => a.id === id);
-      if (!arrival) return;
-
-      // Определяем новые значения статусов
-      const contractSigned = type === 'contractSigned' ? !arrival.contractSigned : arrival.contractSigned;
-      const didNotArrive = type === 'didNotArrive' ? !arrival.didNotArrive : arrival.didNotArrive;
-
-      // Отправляем запрос на обновление
-      const response = await fetch(buildApiUrl(`/arrivals/${id}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          contractSigned,
-          didNotArrive
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Не удалось обновить статус');
-      }
-
-      // Обновляем локальное состояние
-      setArrivals((prevArrivals) =>
-        prevArrivals.map((arrival) =>
-          arrival.id === id ? { ...arrival, [type]: !arrival[type] } : arrival
-        )
-      );
-    } catch (err) {
-      console.error('Ошибка обновления статуса:', err);
-      setError((err as Error).message || 'Не удалось обновить статус');
-    }
+      await apiInstance.patch(`/appointments/${id}/consultation-result`, { consultation_result: result });
+      message.success(result === 'contract_signed' ? 'Договор заключён' : 'Не заключён');
+      fetchPrimary(); fetchStats();
+    } catch { message.error('Не удалось обновить результат'); }
   };
 
-  // Форматирование даты и времени
-  const formatDateTime = (dateTimeStr: string) => {
-    const date = new Date(dateTimeStr);
-    return date.toLocaleString('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Добавление нового прихода
-  const [showForm, setShowForm] = useState(false);
-  const [newArrival, setNewArrival] = useState<Omit<Arrival, 'id'>>({
-    clientName: '',
-    theme: '',
-    questionEssence: '',
-    ticket: '',
-    lawyerAssigned: '',
-    appointmentTime: '',
-    contractSigned: false,
-    didNotArrive: false
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewArrival(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    // Разрешаем только цифры и ограничиваем до 4 символов
-    if (/^\d{0,4}$/.test(value)) {
-      setNewArrival(prev => ({ ...prev, ticket: value }));
-    }
-  };
-
-  const handleAddArrival = async () => {
-    if (!newArrival.clientName || !newArrival.theme || !newArrival.questionEssence || !newArrival.ticket || !newArrival.lawyerAssigned || !newArrival.appointmentTime) {
-      setError('Пожалуйста, заполните все поля');
-      return;
-    }
-
-    if (newArrival.ticket.length !== 4) {
-      setError('Талон должен содержать ровно 4 цифры');
-      return;
-    }
-
-    if (!officeId) {
-      setError('ID офиса не найден');
-      return;
-    }
-
+  const handleAssignLawyer = async (id: number, lawyerId: number | null) => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Требуется авторизация');
-      }
-
-      const response = await fetch(buildApiUrl('/arrivals'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...newArrival,
-          officeId
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Ошибка при создании прихода');
-      }
-
-      const createdArrival = await response.json();
-
-      // Добавляем новый приход в список
-      setArrivals(prev => [createdArrival, ...prev]);
-
-      // Синхронизируем с другими вкладками - добавляем клиента
-      addClient({
-        id: createdArrival.id.toString(),
-        name: createdArrival.clientName,
-        phone: '', // Можно добавить поле телефона в форму
-        status: 'new',
-        createdAt: new Date().toISOString()
-      });
-      
-      // Обновляем статистику офиса
-      updateStats({ visits: 1 }); // Увеличиваем количество посещений
-
-      // Сбрасываем форму
-      setNewArrival({
-        clientName: '',
-        theme: '',
-        questionEssence: '',
-        ticket: '',
-        lawyerAssigned: '',
-        appointmentTime: '',
-        contractSigned: false,
-        didNotArrive: false
-      });
-      
-      setShowForm(false);
-      setError(null);
-    } catch (err) {
-      console.error('Ошибка создания прихода:', err);
-      setError((err as Error).message || 'Не удалось создать приход');
-    } finally {
-      setLoading(false);
-    }
+      await apiInstance.patch(`/appointments/${id}/assign-lawyer`, { assigned_lawyer_id: lawyerId });
+      message.success('Сотрудник назначен');
+      fetchPrimary();
+    } catch { message.error('Не удалось назначить сотрудника'); }
   };
+
+  const handleAddExisting = async () => {
+    if (!formName.trim()) { message.warning('Укажите ФИО клиента'); return; }
+    setSubmitting(true);
+    try {
+      await apiInstance.post('/visits/existing', { client_name: formName.trim(), employee_id: formEmployee, comment: formComment.trim() || null });
+      message.success('Приход добавлен');
+      setFormName(''); setFormEmployee(null); setFormComment(''); setShowForm(false);
+      fetchExisting(); fetchStats();
+    } catch { message.error('Не удалось добавить приход'); }
+    finally { setSubmitting(false); }
+  };
+
+  /* ─── primary table columns ─── */
+  const primaryCols: ColumnsType<PrimaryVisit> = [
+    { title: 'ФИО', dataIndex: 'client_name', key: 'name', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Телефон', dataIndex: 'client_phone', key: 'phone', width: 140 },
+    { title: 'Дата', dataIndex: 'appointment_date', key: 'date', width: 110, render: (v: string) => fmtDate(v) },
+    { title: 'Время', dataIndex: 'appointment_time', key: 'time', width: 70, render: (v: string) => fmtTime(v) },
+    { title: 'Кто записал', dataIndex: 'operator_name', key: 'op', width: 150, render: (v: string) => v || '—' },
+    {
+      title: 'Сотрудник на консультации', key: 'lawyer', width: 200,
+      render: (_: unknown, row: PrimaryVisit) =>
+        canSetResult ? (
+          <Select
+            size="small"
+            style={{ width: '100%' }}
+            placeholder="Не назначен"
+            allowClear
+            value={row.assigned_lawyer_id || undefined}
+            onChange={(val: number | undefined) => handleAssignLawyer(row.id, val ?? null)}
+            options={employees.map(e => ({ value: e.id, label: e.name }))}
+          />
+        ) : (
+          <span>{row.assigned_lawyer_name || '—'}</span>
+        ),
+    },
+    {
+      title: 'Результат консультации', key: 'result', width: 240,
+      render: (_: unknown, row: PrimaryVisit) => {
+        if (canSetResult) {
+          return (
+            <Space size={6}>
+              <Badge
+                bg={row.consultation_result === 'contract_signed' ? '#F0FDF4' : 'transparent'}
+                border="#059669"
+                color="#059669"
+                style={{ opacity: row.consultation_result === 'not_signed' ? 0.4 : 1 }}
+                onClick={() => handleSetResult(row.id, 'contract_signed')}
+              >
+                Заключён
+              </Badge>
+              <Badge
+                bg={row.consultation_result === 'not_signed' ? '#FEF2F2' : 'transparent'}
+                border="#DC2626"
+                color="#DC2626"
+                style={{ opacity: row.consultation_result === 'contract_signed' ? 0.4 : 1 }}
+                onClick={() => handleSetResult(row.id, 'not_signed')}
+              >
+                Не заключён
+              </Badge>
+            </Space>
+          );
+        }
+        if (row.consultation_result === 'contract_signed')
+          return <BadgeStatic bg="#F0FDF4" border="#059669" color="#059669">Заключён</BadgeStatic>;
+        if (row.consultation_result === 'not_signed')
+          return <BadgeStatic bg="#FEF2F2" border="#DC2626" color="#DC2626">Не заключён</BadgeStatic>;
+        return <span style={{ color: 'var(--color-muted)' }}>Ожидает</span>;
+      },
+    },
+    {
+      title: 'Договор', key: 'contract', width: 180,
+      render: (_: unknown, row: PrimaryVisit) => {
+        if (row.consultation_result !== 'contract_signed') return <span style={{ color: 'var(--color-muted)' }}>—</span>;
+        if (row.linked_contract_id) {
+          return (
+            <Space direction="vertical" size={2}>
+              <BadgeStatic
+                bg={row.linked_contract_type === 'docs' ? '#EFF6FF' : '#F5F3FF'}
+                border={row.linked_contract_type === 'docs' ? '#3B82F6' : '#8B5CF6'}
+                color={row.linked_contract_type === 'docs' ? '#2563EB' : '#7C3AED'}
+              >
+                {row.linked_contract_type === 'docs' ? 'Документы' : 'Представление'}
+              </BadgeStatic>
+              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>№{row.linked_contract_number || row.linked_contract_id}</span>
+            </Space>
+          );
+        }
+        if (isAdmin) {
+          return (
+            <Button size="small" type="primary" onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}>
+              Зарегистрировать
+            </Button>
+          );
+        }
+        return <span style={{ fontSize: 12, color: 'var(--color-muted)', fontStyle: 'italic' }}>Не зарегистрирован</span>;
+      },
+    },
+  ];
+
+  /* ─── existing table columns ─── */
+  const existingCols: ColumnsType<ExistingVisit> = [
+    { title: 'ФИО клиента', dataIndex: 'client_name', key: 'name', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Дата и время прихода', dataIndex: 'visited_at', key: 'dt', width: 180, render: (v: string) => fmtDT(v) },
+    { title: 'К сотруднику', dataIndex: 'employee_name', key: 'emp', width: 180, render: (v: string) => v || '—' },
+    { title: 'Комментарий', dataIndex: 'comment', key: 'comm', render: (v: string) => v || '—' },
+  ];
 
   return (
-    <div className="arrivals-container">
-      <div className="arrivals-header">
-        <h2 className="arrivals-title">Таблица приходов</h2>
-        <button 
-          className="add-arrival-btn" 
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Отменить' : 'Добавить приход'}
-        </button>
-      </div>
-
-      {error && <div className="error-message">{error}</div>}
-
-      {showForm && (
-        <div className="add-arrival-form">
-          <div className="form-group">
-            <label>Клиент</label>
-            <input 
-              type="text" 
-              name="clientName" 
-              value={newArrival.clientName}
-              onChange={handleInputChange}
-              placeholder="ФИО клиента"
-            />
-          </div>
-          <div className="form-group">
-            <label>Тема</label>
-            <input 
-              type="text" 
-              name="theme" 
-              value={newArrival.theme}
-              onChange={handleInputChange}
-              placeholder="Тема консультации"
-            />
-          </div>
-          <div className="form-group">
-            <label>Суть вопроса</label>
-            <input 
-              type="text" 
-              name="questionEssence" 
-              value={newArrival.questionEssence}
-              onChange={handleInputChange}
-              placeholder="Суть вопроса"
-            />
-          </div>
-          <div className="form-group">
-            <label>Талон</label>
-            <input 
-              type="text" 
-              name="ticket" 
-              value={newArrival.ticket}
-              onChange={handleTicketChange}
-              placeholder="0000"
-              maxLength={4}
-              pattern="[0-9]{4}"
-            />
-          </div>
-          <div className="form-group">
-            <label>Юрист</label>
-            <input 
-              type="text" 
-              name="lawyerAssigned" 
-              value={newArrival.lawyerAssigned}
-              onChange={handleInputChange}
-              placeholder="ФИО юриста"
-            />
-          </div>
-          <div className="form-group">
-            <label>Дата и время</label>
-            <input 
-              type="datetime-local" 
-              name="appointmentTime" 
-              value={newArrival.appointmentTime}
-              onChange={handleInputChange}
-            />
-          </div>
-          <div className="form-actions">
-            <button className="save-btn" onClick={handleAddArrival} disabled={loading}>
-              {loading ? 'Сохранение...' : 'Сохранить'}
-            </button>
-            <button className="cancel-btn" onClick={() => {
-              setShowForm(false);
-              setError(null);
-            }}>Отменить</button>
-          </div>
-        </div>
+    <Page>
+      {/* ─── Stats ─── */}
+      {stats && (
+        <StatRow>
+          <Stat>
+            <div className="lbl">Всего пришло</div>
+            <div className="val">{stats.total_visits}</div>
+          </Stat>
+          <Stat>
+            <div className="lbl">Первичных</div>
+            <div className="val">{stats.primary.total}</div>
+          </Stat>
+          <Stat>
+            <div className="lbl">Договор заключён</div>
+            <div className="val" style={{ color: '#059669' }}>{stats.primary.contracts_signed}</div>
+          </Stat>
+          <Stat>
+            <div className="lbl">Не заключён</div>
+            <div className="val" style={{ color: '#DC2626' }}>{stats.primary.contracts_not_signed}</div>
+          </Stat>
+          <Stat>
+            <div className="lbl">Конверсия</div>
+            <div className="val" style={{ color: 'var(--color-primary)' }}>{stats.primary.conversion}%</div>
+          </Stat>
+        </StatRow>
       )}
 
-      {loading && !showForm ? (
-        <div className="loading-indicator">Загрузка приходов...</div>
-      ) : (
-        <div className="arrivals-table-container">
-          <table className="arrivals-table">
-            <thead>
-              <tr>
-                <th>Клиент</th>
-                <th>Тема</th>
-                <th>Суть вопроса</th>
-                <th>Талон</th>
-                <th>Юрист</th>
-                <th>Время приема</th>
-                <th>Заключен договор</th>
-                <th>Не пришел</th>
-              </tr>
-            </thead>
-            <tbody>
-              {arrivals.length > 0 ? (
-                arrivals.map((arrival) => (
-                  <tr key={arrival.id} className={arrival.didNotArrive ? 'not-arrived' : ''}>
-                    <td>{arrival.clientName}</td>
-                    <td>{arrival.theme}</td>
-                    <td>{arrival.questionEssence}</td>
-                    <td>{arrival.ticket}</td>
-                    <td>{arrival.lawyerAssigned}</td>
-                    <td>{formatDateTime(arrival.appointmentTime)}</td>
-                    <td className="checkbox-cell">
-                      <input
-                        type="checkbox"
-                        checked={arrival.contractSigned}
-                        onChange={() => handleStatusChange(arrival.id, 'contractSigned')}
-                        disabled={arrival.didNotArrive}
-                      />
-                    </td>
-                    <td className="checkbox-cell">
-                      <input
-                        type="checkbox"
-                        checked={arrival.didNotArrive}
-                        onChange={() => handleStatusChange(arrival.id, 'didNotArrive')}
-                      />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={8} className="no-data">Нет данных о приходах</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* ─── Tabs ─── */}
+      <Tabs
+        activeKey={tab}
+        onChange={setTab}
+        items={[
+          { key: 'primary', label: `Первичные (${primaryVisits.length})` },
+          { key: 'existing', label: `Действующие клиенты (${existingVisits.length})` },
+        ]}
+        tabBarExtraContent={<Button icon={<ReloadOutlined />} size="small" onClick={reload} loading={loading}>Обновить</Button>}
+      />
+
+      {/* ─── Primary ─── */}
+      {tab === 'primary' && (
+        <TableCard>
+          <Table<PrimaryVisit>
+            dataSource={primaryVisits}
+            columns={primaryCols}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            loading={loading}
+            locale={{ emptyText: 'Нет первичных приходов' }}
+            scroll={{ x: 900 }}
+          />
+        </TableCard>
       )}
-    </div>
+
+      {/* ─── Existing ─── */}
+      {tab === 'existing' && (
+        <>
+          <ToolRow>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowForm(!showForm)}>
+              {showForm ? 'Отменить' : 'Добавить приход'}
+            </Button>
+          </ToolRow>
+
+          {showForm && (
+            <FormCard>
+              <FormField style={{ minWidth: 240 }}>
+                <label>ФИО клиента *</label>
+                <Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Иванов Иван Иванович" />
+              </FormField>
+              <FormField>
+                <label>К какому сотруднику</label>
+                <Select
+                  allowClear
+                  placeholder="Не указано"
+                  value={formEmployee}
+                  onChange={(val: number | null) => setFormEmployee(val)}
+                  options={employees.map(e => ({ value: e.id, label: e.name }))}
+                  style={{ width: '100%' }}
+                />
+              </FormField>
+              <FormField>
+                <label>Комментарий</label>
+                <Input value={formComment} onChange={e => setFormComment(e.target.value)} placeholder="Необязательно" />
+              </FormField>
+              <Button type="primary" loading={submitting} onClick={handleAddExisting}>Сохранить</Button>
+            </FormCard>
+          )}
+
+          <TableCard>
+            <Table<ExistingVisit>
+              dataSource={existingVisits}
+              columns={existingCols}
+              rowKey="id"
+              size="small"
+              pagination={false}
+              loading={loading}
+              locale={{ emptyText: 'Нет приходов действующих клиентов' }}
+              scroll={{ x: 600 }}
+            />
+          </TableCard>
+        </>
+      )}
+
+      {/* Contract Registration Modal */}
+      <AdminContractRegister
+        open={registerOpen}
+        onClose={() => { setRegisterOpen(false); setRegisterAppointment(null); }}
+        onSuccess={() => { fetchPrimary(); fetchStats(); }}
+        appointmentData={registerAppointment ? {
+          id: registerAppointment.id,
+          client_name: registerAppointment.client_name,
+          client_phone: registerAppointment.client_phone,
+          assigned_lawyer_id: registerAppointment.assigned_lawyer_id,
+        } : null}
+      />
+    </Page>
   );
 };
 

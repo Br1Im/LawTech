@@ -12,11 +12,23 @@ router.get('/', contractController.getAllContracts);
 // Получить договоры конкретного офиса
 router.get('/office/:officeId', contractController.getAllContracts);
 
+// Получить расторгнутые договоры
+router.get('/terminated', contractController.getTerminatedContracts);
+
 // Получить статистику по договорам
 router.get('/stats', contractController.getContractStats);
 
+// Генерация номера договора DDMMYYXX
+router.get('/generate-number', contractController.generateNumber);
+
 // Получить договор по ID
 router.get('/:id', contractController.getContractById);
+
+// Расторгнуть договор
+router.post('/:id/terminate', contractController.terminateContract);
+
+// Подтвердить возврат денег
+router.post('/:id/confirm-refund', contractController.confirmRefund);
 
 // Создать новый договор
 router.post('/', contractController.createContract);

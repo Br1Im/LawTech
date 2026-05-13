@@ -1,26 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FaBuilding,
-  FaUsers,
-  FaFileContract,
-  FaCalendarAlt,
-  FaChartLine,
-  FaMoneyBillWave,
-  FaUserTie,
-  FaPhoneAlt,
-  FaRobot,
-  FaBox,
-  FaUserFriends,
-  FaClock,
-  FaChevronLeft,
-  FaChevronRight,
-  FaUser,
-  FaCog,
-  FaSignOutAlt
-} from 'react-icons/fa';
+  Building2,
+  Users,
+  FileText,
+  TrendingUp,
+  Wallet,
+  UserCheck,
+  Phone,
+  Bot,
+  Package,
+  UsersRound,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
+  LogOut,
+  ArrowLeftRight,
+  MessageSquare,
+  Briefcase,
+  ChevronDown,
+} from 'lucide-react';
 import './Sidebar.css';
-import MiniCalendar from './MiniCalendar';
+import apiClient from '../../shared/api/apiClient';
+
+const ICON_SIZE = 20;
+const ICON_STROKE = 1.5;
+
+interface OfficeItem {
+  id: number;
+  name: string;
+  address?: string;
+}
 
 interface SidebarProps {
   collapsed: boolean;
@@ -37,6 +48,12 @@ interface SidebarProps {
   };
 }
 
+const getInitials = (name?: string, surname?: string) => {
+  const s = (surname || '').charAt(0).toUpperCase();
+  const n = (name || '').charAt(0).toUpperCase();
+  return s + n || '?';
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   onCollapse,
@@ -48,88 +65,135 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [offices, setOffices] = useState<OfficeItem[]>([]);
+  const [activeOfficeId, setActiveOfficeId] = useState<number | null>(null);
+  const [isOfficeSwitcherOpen, setIsOfficeSwitcherOpen] = useState(false);
+  const officeSwitcherRef = useRef<HTMLDivElement>(null);
 
-  // Определяем пункты меню в зависимости от роли
+  useEffect(() => {
+    if (user?.role === 'director') {
+      const storedId = localStorage.getItem('activeOfficeId');
+      if (storedId) setActiveOfficeId(Number(storedId));
+
+      apiClient.get('/offices/my')
+        .then((res) => {
+          const list = res.data?.data || [];
+          setOffices(list);
+          if (list.length > 0 && !storedId) {
+            setActiveOfficeId(list[0].id);
+            localStorage.setItem('activeOfficeId', String(list[0].id));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (officeSwitcherRef.current && !officeSwitcherRef.current.contains(e.target as Node)) {
+        setIsOfficeSwitcherOpen(false);
+      }
+    };
+    if (isOfficeSwitcherOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOfficeSwitcherOpen]);
+
+  const handleSwitchOffice = async (officeId: number) => {
+    try {
+      const res = await apiClient.post('/offices/switch', { officeId });
+      if (res.data?.token) {
+        localStorage.setItem('token', res.data.token);
+      }
+      localStorage.setItem('activeOfficeId', String(officeId));
+      setActiveOfficeId(officeId);
+      setIsOfficeSwitcherOpen(false);
+      window.location.reload();
+    } catch (err) {
+      console.error('Ошибка переключения офиса:', err);
+    }
+  };
+
+  const activeOffice = offices.find(o => o.id === activeOfficeId);
+
   const getMenuItemsByRole = (role?: string) => {
     const allItems = {
-      office: { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
-      clients: { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
-      acts: { key: 'Акты', icon: <FaFileContract />, label: 'Акты' },
-      salary: { key: 'Зарплата', icon: <FaMoneyBillWave />, label: 'Зарплата' },
-      calendar: { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
-      appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
-      employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
-      revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
-      expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
-      reception: { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
-      callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
-      materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
-      ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
+      office: { key: 'Офис', icon: <Building2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Офис' },
+      clients: { key: 'Клиенты', icon: <UsersRound size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Клиенты' },
+      acts: { key: 'Акты', icon: <FileText size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Акты' },
+      salary: { key: 'Зарплата', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Зарплата' },
+      appointments: { key: 'Записи', icon: <Clock size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Записи' },
+      employees: { key: 'Сотрудники', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Сотрудники' },
+      revenue: { key: 'Приходы', icon: <TrendingUp size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Приходы' },
+      expenses: { key: 'Расходы', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Расходы' },
+      reception: { key: 'Чат', icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Чат' },
+      callCenter: { key: 'Колл-центр', icon: <Phone size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Колл-центр' },
+      materials: { key: 'Материалы', icon: <Package size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Материалы' },
+      ai: { key: 'AI инструменты', icon: <Bot size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'AI инструменты' },
+      myCases: { key: 'Мои дела', icon: <Briefcase size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Мои дела' },
+      cashRegister: { key: 'Касса', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Касса' },
     };
 
     switch (role) {
+      case 'representative':
+        return [allItems.myCases, allItems.acts];
+
       case 'expert':
-        // Эксперт: Сотрудники, Материалы, Клиенты, Календарь
-        return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
-      
+        return [allItems.employees, allItems.clients];
+
       case 'lawyer':
-        // Юрист: Офис, Клиенты, Акты, Материалы, Календарь
-        return [allItems.office, allItems.clients, allItems.acts, allItems.salary, allItems.materials, allItems.calendar];
-      
+        return [allItems.office, allItems.clients, allItems.acts, allItems.salary];
+
       case 'admin':
-        // Администратор: Клиенты, Приходы, Ресепшен, Календарь
-        return [allItems.clients, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
-      
+        return [allItems.clients, allItems.revenue, allItems.cashRegister, allItems.reception, allItems.appointments];
+
       case 'director':
-        // Директор: все пункты меню (кроме AI)
         return [
           allItems.office,
           allItems.clients,
           allItems.acts,
           allItems.salary,
-          allItems.calendar,
           allItems.appointments,
           allItems.employees,
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
-          allItems.callCenter,
-          allItems.materials,
         ];
-      
+
+      case 'cc_manager':
+      case 'cc_operator':
+        return [
+          allItems.office,
+          allItems.callCenter,
+          allItems.appointments,
+          allItems.employees,
+          allItems.reception,
+        ];
+
       case 'manager':
       case 'okk':
-        // Менеджер и ОКК: все пункты как у директора (но данные только своего офиса)
         return [
           allItems.office,
           allItems.clients,
           allItems.acts,
           allItems.salary,
-          allItems.calendar,
           allItems.appointments,
           allItems.employees,
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
-          allItems.callCenter,
-          allItems.materials,
         ];
-      
+
       default:
-        // По умолчанию показываем все (кроме AI)
         return [
           allItems.office,
           allItems.clients,
           allItems.acts,
           allItems.salary,
-          allItems.calendar,
           allItems.appointments,
           allItems.employees,
           allItems.revenue,
           allItems.expenses,
           allItems.reception,
-          allItems.callCenter,
-          allItems.materials,
         ];
     }
   };
@@ -147,10 +211,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('activeOfficeId');
     navigate('/auth');
   };
 
-  // Закрытие меню при клике вне его
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -171,12 +235,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     return null;
   }
 
+  const initials = getInitials(user?.name, user?.surname);
+  const fullName = user?.name || user?.surname
+    ? `${user.surname || ''} ${user.name || ''}`.trim()
+    : 'Пользователь';
+
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div className="sidebar-header">
         {!collapsed && (
           <div className="sidebar-logo">
-            <span className="logo-text">LawTech CRM</span>
+            <span className="logo-text">Law<span className="logo-dot">.</span>Tech</span>
           </div>
         )}
         <button
@@ -184,15 +253,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onCollapse(!collapsed)}
           title={collapsed ? 'Развернуть' : 'Свернуть'}
         >
-          {collapsed ? <FaChevronRight /> : <FaChevronLeft />}
+          {collapsed
+            ? <ChevronRight size={14} strokeWidth={ICON_STROKE} />
+            : <ChevronLeft size={14} strokeWidth={ICON_STROKE} />}
         </button>
       </div>
 
-      {!collapsed && (
-        <div className="sidebar-calendar">
-          <MiniCalendar />
-        </div>
-      )}
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => (
@@ -214,37 +280,29 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={handleSettingsClick}
           title={collapsed ? 'Настройки' : ''}
         >
-          <span className="sidebar-icon"><FaCog /></span>
+          <span className="sidebar-icon"><Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
           {!collapsed && <span className="sidebar-label">Настройки</span>}
         </button>
-        
+
         <div className="sidebar-user-menu" ref={userMenuRef}>
           <button
             className="sidebar-item sidebar-profile"
             onClick={handleProfileClick}
             title={collapsed ? 'Профиль' : ''}
           >
-            <span className="sidebar-icon">
-              {user?.avatar ? (
-                <img src={user.avatar} alt="Avatar" className="user-avatar" />
-              ) : (
-                <FaUser />
-              )}
-            </span>
+            <div className="user-avatar-initials">{initials}</div>
             {!collapsed && (
               <div className="user-info">
-                <span className="user-name">
-                  {user?.name || user?.surname ? `${user.surname || ''} ${user.name || ''}`.trim() : 'Пользователь'}
-                </span>
+                <span className="user-name">{fullName}</span>
                 <span className="user-email">{user?.email || ''}</span>
               </div>
             )}
           </button>
-          
+
           {isUserMenuOpen && !collapsed && (
             <div className="user-dropdown-menu">
               <button className="user-menu-item" onClick={handleLogout}>
-                <FaSignOutAlt className="user-menu-icon" />
+                <LogOut size={14} strokeWidth={ICON_STROKE} className="user-menu-icon" />
                 <span>Выйти</span>
               </button>
             </div>

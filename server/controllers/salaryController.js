@@ -17,6 +17,7 @@
  *               Эксперт может работать на несколько офисов одного владельца — учитываем все его акты.
  */
 const db = require('../db');
+const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -42,15 +43,22 @@ const ROLE_LABELS = {
   [ROLE_DIRECTOR]: 'Директор',
 };
 
-function normalizeRole(position) {
+function normalizeRole(position, userRole) {
   const p = String(position || '').toLowerCase();
-  if (!p) return null;
   if (p.includes('юрист') || p.includes('адвокат')) return ROLE_LAWYER;
   if (p.includes('окк') || p.includes('контрол')) return ROLE_OKK;
   if (p.includes('менеджер')) return ROLE_MANAGER;
   if (p.includes('представит')) return ROLE_REPRESENTATIVE;
   if (p.includes('ресепш') || p.includes('админ')) return ROLE_ADMIN_RECEPTION;
   if (p.includes('эксперт')) return ROLE_EXPERT;
+  const r = String(userRole || '').toLowerCase();
+  if (r === 'lawyer') return ROLE_LAWYER;
+  if (r === 'okk') return ROLE_OKK;
+  if (r === 'manager') return ROLE_MANAGER;
+  if (r === 'representative') return ROLE_REPRESENTATIVE;
+  if (r === 'admin') return ROLE_ADMIN_RECEPTION;
+  if (r === 'expert') return ROLE_EXPERT;
+  if (r === 'director') return ROLE_DIRECTOR;
   return null;
 }
 
@@ -65,7 +73,7 @@ async function resolveUserOfficeId(user) {
 
 const isPrivileged = (user) => {
   const r = String(user.role || '').toLowerCase();
-  return r === 'admin' || r === 'owner';
+  return r === 'admin' || r === 'owner' || r === 'director';
 };
 
 const isDirectorLike = (user) => {
@@ -110,12 +118,8 @@ async function getOrCreateSettings(officeId) {
 const getSettings = async (req, res) => {
   try {
     const officeId = Number(req.params.id);
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && Number(userOffice) !== officeId) {
-        return bad(res, 403, 'Чужой офис');
-      }
-    }
+    const allowed = await checkOfficeAccess(req.user, officeId);
+    if (!allowed) return bad(res, 403, 'Чужой офис');
     const row = await getOrCreateSettings(officeId);
     return ok(res, row);
   } catch (e) {
@@ -128,12 +132,8 @@ const updateSettings = async (req, res) => {
   try {
     if (!isDirectorLike(req.user)) return bad(res, 403, 'Доступно только директору');
     const officeId = Number(req.params.id);
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && Number(userOffice) !== officeId) {
-        return bad(res, 403, 'Чужой офис');
-      }
-    }
+    const allowedSettings = await checkOfficeAccess(req.user, officeId);
+    if (!allowedSettings) return bad(res, 403, 'Чужой офис');
     await getOrCreateSettings(officeId);
     const fields = [
       'lawyer_percent',
@@ -177,13 +177,11 @@ const updateSettings = async (req, res) => {
 const getEmployeeSalary = async (req, res) => {
   try {
     const empId = Number(req.params.id);
-    const [[emp]] = await db.query('SELECT * FROM employees WHERE id = ?', [empId]);
+    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.id WHERE e.id = ?', [empId]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && emp.office_id && Number(userOffice) !== Number(emp.office_id)) {
-        return bad(res, 403, 'Чужой офис');
-      }
+    if (emp.office_id) {
+      const allowedEmp = await checkOfficeAccess(req.user, emp.office_id);
+      if (!allowedEmp) return bad(res, 403, 'Чужой офис');
     }
     const [[row]] = await db.query('SELECT * FROM employee_salaries WHERE employee_id = ?', [
       empId,
@@ -204,19 +202,16 @@ const getEmployeeSalary = async (req, res) => {
 const upsertEmployeeSalary = async (req, res) => {
   try {
     const empId = Number(req.params.id);
-    const [[emp]] = await db.query('SELECT * FROM employees WHERE id = ?', [empId]);
+    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.id WHERE e.id = ?', [empId]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
     if (!isManagerOrAbove(req.user)) return bad(res, 403, 'Недостаточно прав');
-    const role = normalizeRole(emp.position);
-    // Менеджеру оклад задаёт только директор/admin/owner.
+    const role = normalizeRole(emp.position, emp.user_role);
     if (role === ROLE_MANAGER && !isDirectorLike(req.user)) {
       return bad(res, 403, 'Оклад менеджера задаёт только директор');
     }
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && emp.office_id && Number(userOffice) !== Number(emp.office_id)) {
-        return bad(res, 403, 'Чужой офис');
-      }
+    if (emp.office_id) {
+      const allowedUpsert = await checkOfficeAccess(req.user, emp.office_id);
+      if (!allowedUpsert) return bad(res, 403, 'Чужой офис');
     }
     const { base_salary, custom_percent, custom_shift_rate, custom_per_doc } = req.body;
     await db.query(
@@ -250,14 +245,17 @@ const listShifts = async (req, res) => {
   try {
     const where = [];
     const params = [];
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (!officeId) return bad(res, 403, 'Нет привязки к офису');
+    if (req.query.office_id) {
+      const qOffice = Number(req.query.office_id);
+      const allowedShift = await checkOfficeAccess(req.user, qOffice);
+      if (!allowedShift) return bad(res, 403, 'Чужой офис');
       where.push('s.office_id = ?');
-      params.push(officeId);
-    } else if (req.query.office_id) {
-      where.push('s.office_id = ?');
-      params.push(Number(req.query.office_id));
+      params.push(qOffice);
+    } else {
+      const officeIds = await getUserOfficeIds(req.user);
+      if (!officeIds.length) return bad(res, 403, 'Нет привязки к офису');
+      where.push(`s.office_id IN (${officeIds.map(() => '?').join(',')})`);
+      params.push(...officeIds);
     }
     if (req.query.employee_id) {
       where.push('s.employee_id = ?');
@@ -290,11 +288,9 @@ const createShift = async (req, res) => {
     const [[emp]] = await db.query('SELECT * FROM employees WHERE id = ?', [Number(employee_id)]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
     const officeId = emp.office_id;
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && officeId && Number(userOffice) !== Number(officeId)) {
-        return bad(res, 403, 'Чужой офис');
-      }
+    if (officeId) {
+      const allowedCreate = await checkOfficeAccess(req.user, officeId);
+      if (!allowedCreate) return bad(res, 403, 'Чужой офис');
     }
     try {
       await db.query(
@@ -319,11 +315,9 @@ const removeShift = async (req, res) => {
     const id = Number(req.params.id);
     const [[row]] = await db.query('SELECT * FROM shifts WHERE id = ?', [id]);
     if (!row) return bad(res, 404, 'Смена не найдена');
-    if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && row.office_id && Number(userOffice) !== Number(row.office_id)) {
-        return bad(res, 403, 'Чужой офис');
-      }
+    if (row.office_id) {
+      const allowedDel = await checkOfficeAccess(req.user, row.office_id);
+      if (!allowedDel) return bad(res, 403, 'Чужой офис');
     }
     await db.query('DELETE FROM shifts WHERE id = ?', [id]);
     return ok(res, { id });
@@ -338,12 +332,11 @@ const calculate = async (req, res) => {
   try {
     let officeId = Number(req.query.office_id) || null;
     if (!officeId) {
-      officeId = await resolveUserOfficeId(req.user);
-    } else if (!isPrivileged(req.user)) {
-      const userOffice = await resolveUserOfficeId(req.user);
-      if (userOffice && Number(userOffice) !== Number(officeId)) {
-        return bad(res, 403, 'Чужой офис');
-      }
+      const ids = await getUserOfficeIds(req.user);
+      officeId = ids.length ? ids[0] : null;
+    } else {
+      const allowedCalc = await checkOfficeAccess(req.user, officeId);
+      if (!allowedCalc) return bad(res, 403, 'Чужой офис');
     }
     if (!officeId) return bad(res, 400, 'Не указан офис');
 
@@ -457,11 +450,10 @@ const calculate = async (req, res) => {
     );
     const shiftsByEmp = new Map(shiftRows.map((r) => [r.employee_id, Number(r.cnt)]));
 
-    // 7. Считаем для каждого сотрудника.
+    // 7. Считаем для каждого сотрудника (директора исключаем).
     const computeFor = (emp) => {
-      // Если у сотрудника привязан пользователь с ролью director — ставим роль «Директор».
-      const userRole = String(emp.user_role || '').toLowerCase();
-      const role = userRole === 'director' ? ROLE_DIRECTOR : normalizeRole(emp.position);
+      const role = normalizeRole(emp.position, emp.user_role);
+      if (role === ROLE_DIRECTOR) return null;
       const baseSalary = Number(emp.base_salary || 0);
       const out = {
         employee_id: emp.id,
@@ -539,18 +531,9 @@ const calculate = async (req, res) => {
           }
           break;
         }
-        case ROLE_DIRECTOR: {
-          // Директор получает прибыль офиса = касса офиса − все расходы офиса за период.
-          // Оклад/проценты от актов не применяются.
-          out.base_salary = 0;
-          out.bonus = officeProfit;
-          out.bonus_breakdown.push({
-            label: `Касса офиса (${officeCash.toFixed(0)} ₽) − Расходы (${officeExpenses.toFixed(0)} ₽)`,
-            value: officeProfit,
-          });
-          break;
-        }
+        // Директор исключён из расчёта зарплаты (фильтруется выше)
         case ROLE_ADMIN_RECEPTION: {
+          out.base_salary = 0;
           const shifts = shiftsByEmp.get(emp.id) || 0;
           const customRate = emp.custom_shift_rate !== null && emp.custom_shift_rate !== undefined ? Number(emp.custom_shift_rate) : null;
           const rate = customRate !== null ? customRate : Number(settings.admin_shift_rate);
@@ -567,7 +550,7 @@ const calculate = async (req, res) => {
       return out;
     };
 
-    const results = employees.map(computeFor);
+    const results = employees.map(computeFor).filter(Boolean);
 
     // Эксперты — не привязаны к офису, считаем всех с подтв. актами в системе.
     for (const e of allExperts) {

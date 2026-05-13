@@ -1,89 +1,52 @@
 /* =============================================
-   OFFICE PAGE — VISUAL POLISH OVERRIDES
-   Loaded after OfficeContent.css to cleanly
-   improve the visuals of the "Офис" tab.
+   OFFICE PAGE — VISUAL POLISH (SCANDINAVIAN)
    ============================================= */
 
-/* Hide the awkward "arrow in the middle" expand button that sat
-   between the two stat cards — the cards themselves are clickable. */
-.office-left-column .expand-button-container {
-  display: none;
-}
+/* Header: clean, no decorative accents */
+.office-header { position: relative; overflow: hidden; }
+.office-header::before { display: none; }
 
-/* Make the other floating expand arrows less loud. They're hints
-   for "view details", not primary actions. */
-.office-content .expand-button {
-  width: 26px;
-  height: 26px;
-  background: transparent;
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  box-shadow: none;
-  opacity: 0.55;
-  font-size: 10px;
-  top: 10px;
-  right: 10px;
-}
-.office-content .expand-button:hover {
-  transform: translateX(2px);
-  background: var(--color-accent);
-  color: #fff;
-  opacity: 1;
-}
-
-/* Header: gentle gold gradient accent on the left edge */
-.office-header {
-  position: relative;
-  overflow: hidden;
-}
-.office-header::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-dark, #a88436));
-  border-radius: 4px 0 0 4px;
-}
-
-/* Office card: tidy spacing and cleaner selected state */
+/* Office card refinements */
 .office-card {
-  padding: 18px 18px 16px;
-  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  padding: 16px;
+  transition: border-color 0.15s ease;
 }
 .office-card:hover {
   transform: none;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .office-card.selected {
-  background: linear-gradient(180deg, var(--color-accent-light) 0%, transparent 140%);
-  box-shadow: 0 6px 18px rgba(191,149,63,0.12);
+  background: #FAFAFA;
+  box-shadow: none;
 }
 .office-card-header h3 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--color-text);
+  color: #111827;
 }
 .office-card.selected .office-card-header h3 {
-  color: var(--color-accent);
+  color: #1E40AF;
 }
-.office-card-info p {
-  margin: 6px 0;
-}
+.office-card-info p { margin: 6px 0; }
 
 /* Stat card refinements */
 .stat-card {
-  padding: 20px 22px;
-  border-radius: 16px;
+  padding: 20px;
+  border-radius: 12px;
 }
 .stat-card-title {
   font-size: 12px;
-  letter-spacing: 0.08em;
-  margin-bottom: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6B7280;
+  margin-bottom: 12px;
 }
 .stat-card-value {
-  font-size: 28px;
+  font-size: 24px;
+  font-weight: 600;
   line-height: 1.1;
+  color: #111827;
   font-variant-numeric: tabular-nums;
 }
 .stat-card-percentage {
@@ -94,13 +57,19 @@
 .stat-card-percentage .description {
   font-size: 12px;
   margin-top: 2px;
-  color: var(--color-text-secondary);
-  opacity: 0.85;
+  color: #6B7280;
 }
 
-/* Employee table: calmer zebra stripes, right-align money columns */
+/* Employee table: clean rows */
 .employee-stats-table thead {
-  background: linear-gradient(180deg, var(--color-accent), var(--color-accent-dark, #a88436));
+  background: #FAFAFA;
+}
+.employee-stats-table th {
+  color: #6B7280;
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .employee-stats-table th:nth-child(2),
 .employee-stats-table th:nth-child(3),
@@ -109,105 +78,90 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.employee-stats-table tbody tr:nth-child(odd) {
-  background: var(--color-bg);
-}
-.employee-stats-table tbody tr:nth-child(even) {
-  background: var(--color-bg-alt);
-}
-.employee-stats-table tbody tr:hover td {
-  background: var(--color-accent-light);
-}
+.employee-stats-table tbody tr:nth-child(odd) { background: #FFFFFF; }
+.employee-stats-table tbody tr:nth-child(even) { background: #FAFAFA; }
+.employee-stats-table tbody tr:hover td { background: #F3F4F6; }
 
-/* Chart cards feel less boxed-in */
+/* Chart cards */
 .chart-box-container,
 .charts-container {
-  box-shadow: 0 8px 28px rgba(17,17,17,0.05);
+  box-shadow: none;
 }
 
-/* Section titles: subtle gold underline accent */
+/* Section titles: clean, no decorative underlines */
 .section-title {
   position: relative;
-  padding-bottom: 6px;
+  padding-bottom: 0;
 }
-.section-title::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 28px;
-  height: 2px;
-  background: var(--color-accent);
-  border-radius: 2px;
-}
+.section-title::after { display: none; }
 
-/* Period dropdown: a touch more polish */
+/* Period dropdown */
 .period-dropdown-header {
-  border-radius: 10px;
-  padding: 9px 14px;
+  border-radius: 8px;
+  padding: 8px 14px;
 }
 .period-dropdown-header:hover {
-  box-shadow: 0 2px 10px rgba(191,149,63,0.15);
+  box-shadow: none;
 }
 
-/* === Lawyers block (replaces revenue charts) === */
+/* === Lawyers block === */
 .lawyers-block { grid-column: 1 / -1; }
 .lawyers-legend {
   display: flex; gap: 16px; flex-wrap: wrap;
-  margin-top: 6px; font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+  margin-top: 6px; font-size: 12px; color: #6B7280;
 }
 .lawyers-legend .legend-item { display: inline-flex; align-items: center; gap: 4px; }
-.lawyers-legend svg { color: #d4af37; font-size: 11px; }
+.lawyers-legend svg { color: #6B7280; font-size: 11px; }
 
-.lawyers-table tbody tr.lawyer-row { cursor: pointer; transition: background-color .15s ease; }
-.lawyers-table tbody tr.lawyer-row:hover td { background: rgba(212,175,55,0.10); }
+.lawyers-table tbody tr.lawyer-row { cursor: pointer; transition: background-color 0.15s ease; }
+.lawyers-table tbody tr.lawyer-row:hover td { background: #F3F4F6; }
 .lawyers-table th.num, .lawyers-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-.lawyer-rating-stars { display: inline-flex; gap: 2px; vertical-align: middle; }
-.lawyer-rating-stars svg { color: #d4af37; font-size: 14px; }
+/* Rating: dots (●) instead of stars */
+.lawyer-rating-stars { display: inline-flex; gap: 3px; vertical-align: middle; }
+.lawyer-rating-stars svg { display: none; }
 
 .rating-badge {
   margin-left: 8px; padding: 2px 8px; border-radius: 999px;
   font-size: 11px; font-weight: 600; vertical-align: middle;
 }
-.rating-badge.rating-3 { background: rgba(40,160,80,0.12); color: #1f7a3a; border: 1px solid rgba(40,160,80,0.3); }
-.rating-badge.rating-2 { background: rgba(212,175,55,0.15); color: #8a6b1d; border: 1px solid rgba(212,175,55,0.4); }
-.rating-badge.rating-1 { background: rgba(160,120,40,0.10); color: #8a6b1d; border: 1px solid rgba(160,120,40,0.25); }
-.rating-badge.rating-0 { background: rgba(180,180,180,0.15); color: #6b6b6b; border: 1px solid rgba(160,160,160,0.3); }
+.rating-badge.rating-3 { background: rgba(5,150,105,0.10); color: #059669; border: 1px solid rgba(5,150,105,0.25); }
+.rating-badge.rating-2 { background: rgba(217,119,6,0.08); color: #D97706; border: 1px solid rgba(217,119,6,0.20); }
+.rating-badge.rating-1 { background: rgba(220,38,38,0.08); color: #DC2626; border: 1px solid rgba(220,38,38,0.20); }
+.rating-badge.rating-0 { background: #F3F4F6; color: #9CA3AF; border: 1px solid #E5E7EB; }
 
 .lawyer-modal { max-width: 720px; }
 .lawyer-rating-row {
   display: flex; align-items: center; gap: 10px; margin: 4px 0 14px;
 }
-.lawyer-rating-row .lawyer-rating-stars svg { font-size: 18px; }
 
 .lawyer-summary {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
   margin: 8px 0 18px;
 }
 .lawyer-summary-cell {
-  background: linear-gradient(180deg, rgba(212,175,55,0.06), transparent);
-  border: 1px solid rgba(212,175,55,0.20);
-  border-radius: 10px; padding: 12px 14px;
+  background: #FAFAFA;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px; padding: 12px 14px;
 }
 .lawyer-summary-cell .cell-label {
-  font-size: 11px; color: var(--color-text-muted, #8a7a5a);
-  text-transform: uppercase; letter-spacing: 0.5px;
+  font-size: 12px; color: #6B7280;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 .lawyer-summary-cell .cell-value {
-  font-size: 20px; font-weight: 700; color: var(--color-text);
+  font-size: 20px; font-weight: 600; color: #111827;
   font-variant-numeric: tabular-nums; margin-top: 4px;
 }
 .lawyer-topics-table th.num, .lawyer-topics-table td.num {
   text-align: right; font-variant-numeric: tabular-nums;
 }
-.muted { color: var(--color-text-muted, #8a7a5a); font-size: 13px; }
+.muted { color: #6B7280; font-size: 13px; }
 
 /* === Plan / Fact widgets === */
 .plan-fact-block {
-  background: var(--glass-bg, rgba(255,255,255,0.7));
-  border: 1px solid var(--glass-border, rgba(0,0,0,0.06));
-  border-radius: 16px; padding: 16px; box-shadow: 0 6px 18px rgba(17,17,17,0.04);
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px; padding: 16px; box-shadow: none;
 }
 .plan-fact-header {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -215,53 +169,53 @@
 }
 .plan-edit-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: 8px; cursor: pointer;
-  background: rgba(212,175,55,0.10); border: 1px solid rgba(212,175,55,0.35);
-  color: #8a6b1d; font-weight: 600; font-size: 13px;
-  transition: background-color .15s ease, border-color .15s ease;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  background: #F3F4F6; border: 1px solid #E5E7EB;
+  color: #374151; font-weight: 500; font-size: 13px;
+  transition: background 0.15s ease;
 }
-.plan-edit-btn:hover { background: rgba(212,175,55,0.18); }
+.plan-edit-btn:hover { background: #E5E7EB; }
 .plan-fact-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
 }
 .plan-fact-card {
-  border-radius: 12px; padding: 12px 14px;
-  border: 1px solid rgba(0,0,0,0.06);
-  background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+  border-radius: 8px; padding: 12px 14px;
+  border: 1px solid #E5E7EB;
+  background: #FFFFFF;
 }
-.plan-fact-card.plan-good { border-color: rgba(40,160,80,0.35); background: linear-gradient(180deg, rgba(40,160,80,0.10), rgba(40,160,80,0.02)); }
-.plan-fact-card.plan-warn { border-color: rgba(212,175,55,0.45); background: linear-gradient(180deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); }
-.plan-fact-card.plan-bad  { border-color: rgba(212,73,58,0.40);  background: linear-gradient(180deg, rgba(212,73,58,0.10), rgba(212,73,58,0.02)); }
+.plan-fact-card.plan-good { border-color: rgba(5,150,105,0.30); background: rgba(5,150,105,0.03); }
+.plan-fact-card.plan-warn { border-color: rgba(217,119,6,0.25); background: rgba(217,119,6,0.03); }
+.plan-fact-card.plan-bad  { border-color: rgba(220,38,38,0.25); background: rgba(220,38,38,0.03); }
 .plan-fact-card.plan-empty { border-style: dashed; }
 
 .plan-fact-label {
-  font-size: 12px; color: var(--color-text-muted, #8a7a5a);
-  text-transform: uppercase; letter-spacing: 0.5px;
+  font-size: 12px; color: #6B7280;
+  text-transform: uppercase; letter-spacing: 0.04em;
 }
 .plan-fact-label .period-range { text-transform: none; opacity: 0.8; font-size: 11px; }
-.plan-fact-label .plan-day-kind { text-transform: none; opacity: 0.85; font-size: 11px; margin-left: 4px; color: var(--color-accent, #b8941f); }
+.plan-fact-label .plan-day-kind { text-transform: none; opacity: 0.85; font-size: 11px; margin-left: 4px; color: #6B7280; }
 .plan-fact-value {
   display: inline-flex; align-items: baseline; gap: 6px; margin: 6px 0 8px;
   font-variant-numeric: tabular-nums;
 }
-.plan-fact-value .fact { font-size: 22px; font-weight: 700; color: var(--color-text); }
-.plan-fact-value .sep  { font-size: 18px; opacity: 0.5; }
-.plan-fact-value .plan { font-size: 16px; opacity: 0.75; }
+.plan-fact-value .fact { font-size: 24px; font-weight: 600; color: #111827; }
+.plan-fact-value .sep  { font-size: 18px; opacity: 0.4; }
+.plan-fact-value .plan { font-size: 16px; opacity: 0.6; color: #6B7280; }
 .plan-fact-progress {
-  height: 6px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden;
+  height: 4px; background: #E5E7EB; border-radius: 2px; overflow: hidden;
 }
-.plan-fact-bar { height: 100%; transition: width .3s ease; background: #d4af37; }
-.plan-fact-card.plan-good .plan-fact-bar { background: #28a050; }
-.plan-fact-card.plan-warn .plan-fact-bar { background: #d4af37; }
-.plan-fact-card.plan-bad  .plan-fact-bar { background: #d4493a; }
+.plan-fact-bar { height: 100%; transition: width .3s ease; background: #1E40AF; border-radius: 2px; }
+.plan-fact-card.plan-good .plan-fact-bar { background: #059669; }
+.plan-fact-card.plan-warn .plan-fact-bar { background: #D97706; }
+.plan-fact-card.plan-bad  .plan-fact-bar { background: #DC2626; }
 .plan-fact-pct {
-  margin-top: 6px; font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+  margin-top: 4px; font-size: 12px; color: #6B7280;
 }
 
 /* === Касса юристов === */
-.lawyers-cash-table .num.strong { font-weight: 700; color: var(--color-text); }
-.lawyers-cash-table tfoot td { background: rgba(212,175,55,0.06); }
-.table-subtitle { margin-top: 4px; font-size: 12px; color: var(--color-text-muted, #8a7a5a); }
+.lawyers-cash-table .num.strong { font-weight: 600; color: #111827; }
+.lawyers-cash-table tfoot td { background: #FAFAFA; }
+.table-subtitle { margin-top: 4px; font-size: 12px; color: #6B7280; }
 
 /* === Plan editor modal === */
 .plan-modal { max-width: 520px; }
@@ -269,43 +223,138 @@
 .plan-form-row {
   display: flex; flex-direction: column; gap: 6px;
 }
-.plan-form-row > span { font-size: 12px; color: var(--color-text-muted, #8a7a5a); }
+.plan-form-row > span { font-size: 12px; color: #6B7280; }
 .plan-form-row input[type="number"], .plan-form-row input[type="date"] {
-  padding: 10px 12px; border: 1px solid rgba(0,0,0,0.12); border-radius: 8px;
+  padding: 10px 12px; border: 1px solid #E5E7EB; border-radius: 6px;
   font-size: 14px; outline: none;
 }
-.plan-form-row input:focus { border-color: rgba(212,175,55,0.6); }
+.plan-form-row input:focus { border-color: #1E40AF; }
 .plan-form-range { flex-direction: row; gap: 12px; }
 .plan-form-range label { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .plan-form-actions {
   display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px;
 }
 .btn-primary {
-  padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
-  background: linear-gradient(135deg, #d4af37, #a8841d);
-  color: #fff; font-weight: 600; transition: filter .15s ease;
+  padding: 10px 18px; border-radius: 6px; border: none; cursor: pointer;
+  background: #1E40AF;
+  color: #fff; font-weight: 500; transition: background 0.15s ease;
 }
-.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:hover { background: #1E3A8A; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary {
-  padding: 9px 16px; border-radius: 8px; cursor: pointer;
-  background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.10);
-  color: var(--color-text); font-weight: 600;
+  padding: 9px 16px; border-radius: 6px; cursor: pointer;
+  background: #F3F4F6; border: 1px solid #E5E7EB;
+  color: #374151; font-weight: 500;
 }
-.btn-secondary:hover { background: rgba(0,0,0,0.08); }
-.form-error { color: #b03a2e; font-size: 13px; }
+.btn-secondary:hover { background: #E5E7EB; }
+.form-error { color: #DC2626; font-size: 13px; }
 
-/* Custom range selector inside period dropdown */
+/* Custom range selector */
 .period-custom-range {
   display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 16px; border-top: 1px solid rgba(0,0,0,0.08);
-  background: rgba(212,175,55,0.04);
+  padding: 10px 16px; border-top: 1px solid #E5E7EB;
+  background: #FAFAFA;
 }
 .period-custom-range label {
   display: flex; align-items: center; gap: 8px;
-  font-size: 12px; color: var(--color-text-muted, #8a7a5a);
+  font-size: 12px; color: #6B7280;
 }
 .period-custom-range input[type="date"] {
-  flex: 1; padding: 6px 8px; border: 1px solid rgba(0,0,0,0.10);
+  flex: 1; padding: 6px 8px; border: 1px solid #E5E7EB;
   border-radius: 6px; font-size: 13px;
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] .chart-header-v2 { background: #161A22; }
+[data-theme="dark"] .chart-title-v2 { color: #E6E8EF; }
+[data-theme="dark"] .period-selector select {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .section-title { color: #E6E8EF; }
+[data-theme="dark"] .section-subtitle { color: #5A5E72; }
+[data-theme="dark"] .table-header-v2 { background: #161A22; }
+[data-theme="dark"] .table-header-v2 .section-title { color: #E6E8EF; }
+[data-theme="dark"] .table-toolbar { color: #5A5E72; }
+
+[data-theme="dark"] .employee-stats-table tbody tr:nth-child(odd) { background: #161A22; }
+[data-theme="dark"] .employee-stats-table tbody tr:nth-child(even) { background: #1D2230; }
+[data-theme="dark"] .employee-stats-table tbody tr:hover td { background: #2A2F3D; }
+
+[data-theme="dark"] .lawyers-legend { color: #5A5E72; }
+[data-theme="dark"] .lawyers-legend svg { color: #5A5E72; }
+[data-theme="dark"] .lawyers-table tbody tr.lawyer-row:hover td { background: #2A2F3D; }
+
+[data-theme="dark"] .rating-badge.rating-0 {
+  background: #1D2230;
+  color: #5A5E72;
+  border-color: #2A2F3D;
+}
+
+[data-theme="dark"] .stat-card-mini {
+  background: #161A22;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .stat-card-mini .stat-label { color: #5A5E72; }
+[data-theme="dark"] .stat-card-mini .stat-value { color: #E6E8EF; }
+[data-theme="dark"] .muted { color: #5A5E72; }
+
+[data-theme="dark"] .plan-fact-card {
+  background: #161A22;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .plan-edit-btn {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .plan-edit-btn:hover { background: #2A2F3D; }
+
+[data-theme="dark"] .plan-fact-item {
+  background: #161A22;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .plan-fact-label { color: #5A5E72; }
+[data-theme="dark"] .plan-fact-label .plan-day-kind { color: #5A5E72; }
+[data-theme="dark"] .plan-fact-value .fact { color: #E6E8EF; }
+[data-theme="dark"] .plan-fact-value .sep { color: #363C4E; }
+[data-theme="dark"] .plan-fact-value .plan { color: #5A5E72; }
+
+/* ── Additional dark theme overrides ── */
+[data-theme="dark"] .office-card.selected { background: #1D2230; }
+[data-theme="dark"] .office-card-header h3 { color: #E6E8EF; }
+[data-theme="dark"] .office-card.selected .office-card-header h3 { color: #7C5CFF; }
+[data-theme="dark"] .stat-card-title { color: #5A5E72; }
+[data-theme="dark"] .stat-card-value { color: #E6E8EF; }
+[data-theme="dark"] .stat-card-percentage .description { color: #5A5E72; }
+[data-theme="dark"] .employee-stats-table thead { background: #161A22; }
+[data-theme="dark"] .employee-stats-table th { color: #5A5E72; }
+[data-theme="dark"] .lawyer-summary-cell { background: #1D2230; border-color: #2A2F3D; }
+[data-theme="dark"] .lawyer-summary-cell .cell-label { color: #5A5E72; }
+[data-theme="dark"] .lawyer-summary-cell .cell-value { color: #E6E8EF; }
+[data-theme="dark"] .plan-fact-block { background: #161A22; border-color: #2A2F3D; }
+[data-theme="dark"] .plan-fact-progress { background: #2A2F3D; }
+[data-theme="dark"] .plan-fact-pct { color: #5A5E72; }
+[data-theme="dark"] .lawyers-cash-table .num.strong { color: #E6E8EF; }
+[data-theme="dark"] .lawyers-cash-table tfoot td { background: #1D2230; }
+[data-theme="dark"] .table-subtitle { color: #5A5E72; }
+[data-theme="dark"] .plan-form-row > span { color: #5A5E72; }
+[data-theme="dark"] .plan-form-row input[type="number"],
+[data-theme="dark"] .plan-form-row input[type="date"] {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .plan-form-row input:focus { border-color: #7C5CFF; }
+[data-theme="dark"] .btn-primary { background: #7C5CFF; }
+[data-theme="dark"] .btn-primary:hover { background: #6A4AED; }
+[data-theme="dark"] .btn-secondary { background: #1D2230; border-color: #2A2F3D; color: #E6E8EF; }
+[data-theme="dark"] .btn-secondary:hover { background: #2A2F3D; }
+[data-theme="dark"] .period-custom-range { background: #161A22; border-color: #2A2F3D; }
+[data-theme="dark"] .period-custom-range label { color: #5A5E72; }
+[data-theme="dark"] .period-custom-range input[type="date"] {
+  background: #1D2230;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
 }

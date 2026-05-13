@@ -1,24 +1,18 @@
 const db = require('../db');
 
-/**
- * Модель для работы с клиентами
- */
 class Client {
   /**
-   * Получить всех клиентов офиса
+   * Получить всех клиентов офиса (по office_id в clients)
    */
   static async getAllByOffice(officeId) {
     try {
       const query = `
-        SELECT DISTINCT cl.*,
+        SELECT cl.*,
                COUNT(DISTINCT c.id) as contracts_count,
                COALESCE(SUM(c.amount), 0) as total_spent
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
-        LEFT JOIN employees e ON c.id_employee = e.id
-        WHERE e.office_id = ? OR cl.id NOT IN (
-          SELECT DISTINCT id_client FROM contracts
-        )
+        WHERE cl.office_id = ?
         GROUP BY cl.id
         ORDER BY cl.id DESC
       `;
@@ -30,9 +24,6 @@ class Client {
     }
   }
 
-  /**
-   * Получить клиента по ID
-   */
   static async getById(id) {
     try {
       const query = `
@@ -53,17 +44,17 @@ class Client {
   }
 
   /**
-   * Создать нового клиента
+   * Создать нового клиента с привязкой к офису
    */
   static async create(clientData) {
     try {
-      const { name, full_name, phone, email, address } = clientData;
+      const { name, full_name, phone, email, address, office_id } = clientData;
       const clientName = name || full_name || '';
       
       const [result] = await db.query(
-        `INSERT INTO clients (name, phone, email, address) 
-         VALUES (?, ?, ?, ?)`,
-        [clientName, phone || '', email || '', address || '']
+        `INSERT INTO clients (name, phone, email, address, office_id) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [clientName, phone || '', email || '', address || '', office_id || null]
       );
 
       return await this.getById(result.insertId);
@@ -73,9 +64,6 @@ class Client {
     }
   }
 
-  /**
-   * Обновить клиента
-   */
   static async update(id, clientData) {
     try {
       const { name, full_name, phone, email, address } = clientData;
@@ -95,12 +83,8 @@ class Client {
     }
   }
 
-  /**
-   * Удалить клиента
-   */
   static async delete(id) {
     try {
-      // Проверяем, есть ли у клиента активные договоры
       const [contracts] = await db.query(
         'SELECT COUNT(*) as count FROM contracts WHERE id_client = ? AND status = "active"',
         [id]
@@ -118,19 +102,15 @@ class Client {
     }
   }
 
-  /**
-   * Поиск клиентов
-   */
   static async search(officeId, searchTerm) {
     try {
       const query = `
-        SELECT DISTINCT cl.*,
+        SELECT cl.*,
                COUNT(DISTINCT c.id) as contracts_count,
                COALESCE(SUM(c.amount), 0) as total_spent
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
-        LEFT JOIN employees e ON c.id_employee = e.id
-        WHERE (e.office_id = ? OR cl.id NOT IN (SELECT DISTINCT id_client FROM contracts))
+        WHERE cl.office_id = ?
         AND (
           cl.name LIKE ? OR 
           cl.phone LIKE ? OR 

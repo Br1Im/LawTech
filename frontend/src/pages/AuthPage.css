@@ -319,7 +319,7 @@
   font-size: 15px !important;
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark)) !important;
   border: none !important;
-  color: #1a1b1e !important;
+  color: #ffffff !important;
   box-shadow: var(--shadow-gold) !important;
   transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), filter 0.2s var(--ease-out) !important;
   position: relative;

@@ -126,13 +126,13 @@
 }
 
 [data-theme="dark"] .mini-calendar-day.today {
-  background: #d4af37;
+  background: #1E40AF;
   color: #1a1a1a;
 }
 
 [data-theme="dark"] .mini-calendar-day.selected {
   background: rgba(212, 175, 55, 0.2);
-  color: #d4af37;
+  color: #1E40AF;
 }
 
 

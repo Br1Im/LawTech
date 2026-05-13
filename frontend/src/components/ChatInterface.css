@@ -408,3 +408,10 @@
     height: 32px;
   }
 }
+/* ── DARK THEME ──────────────────────────────── */
+[data-theme="dark"] .chat-history li:hover {
+  background-color: rgba(255,255,255,0.04);
+}
+[data-theme="dark"] .chat-history li.active {
+  background-color: rgba(124,92,255,0.12);
+}

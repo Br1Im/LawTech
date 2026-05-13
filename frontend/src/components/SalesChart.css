@@ -49,3 +49,19 @@
     align-items: center;
     margin-bottom: 25px;
   }
+/* ── DARK THEME ──────────────────────────────── */
+[data-theme="dark"] .sales-chart-container {
+  background-color: #161A22;
+  border: 1px solid #2A2F3D;
+}
+[data-theme="dark"] .tooltip-content {
+  background-color: #1D2230;
+  border: 1px solid #2A2F3D;
+}
+[data-theme="dark"] .sales-chart-select {
+  background-color: #1D2230;
+  border-color: #7C5CFF;
+}
+[data-theme="dark"] .sales-chart-select option {
+  background-color: #161A22;
+}

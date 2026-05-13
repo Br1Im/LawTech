@@ -14,6 +14,10 @@ import {
   BulbOutlined,
   CalendarOutlined,
   CloseOutlined,
+  BankOutlined,
+  AuditOutlined,
+  SolutionOutlined,
+  FormOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -72,9 +76,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
     { name: "Расходы", key: "5", icon: <FallOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
-    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для юристов
@@ -82,27 +84,22 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
-    { name: "Материалы", key: "7", icon: <BookOutlined /> },
-    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для экспертов
   const expertTabNames = [
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
-    { name: "Материалы", key: "7", icon: <BookOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
-    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для администраторов
   const adminTabNames = [
-    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
+    { name: "Касса", key: "12", icon: <BankOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
     { name: "Записи", key: "8", icon: <CalendarOutlined /> },
-    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {

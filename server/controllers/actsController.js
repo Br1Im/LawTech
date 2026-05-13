@@ -9,6 +9,8 @@
  * - доступ: admin/owner — без ограничений; остальные — только акты своего офиса.
  */
 const db = require('../db');
+const socketEmitter = require('../middleware/socketEmitter');
+const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -27,7 +29,7 @@ async function resolveUserOfficeId(user) {
 
 function isPrivileged(user) {
   const role = String(user.role || '').toLowerCase();
-  return role === 'admin' || role === 'owner';
+  return role === 'admin' || role === 'owner' || role === 'director';
 }
 
 const SELECT_BASE = `
@@ -64,14 +66,24 @@ const list = async (req, res) => {
     const where = [];
     const params = [];
 
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (!officeId) return bad(res, 403, 'Нет привязки к офису');
+    if (req.query.office_id) {
+      const qOffice = Number(req.query.office_id);
+      const allowed = await checkOfficeAccess(req.user, qOffice);
+      if (!allowed) return bad(res, 403, 'Нет доступа к этому офису');
       where.push('a.office_id = ?');
-      params.push(officeId);
-    } else if (req.query.office_id) {
-      where.push('a.office_id = ?');
-      params.push(Number(req.query.office_id));
+      params.push(qOffice);
+    } else {
+      const officeIds = await getUserOfficeIds(req.user);
+      if (!officeIds.length) return bad(res, 403, 'Нет привязки к офису');
+      where.push(`a.office_id IN (${officeIds.map(() => '?').join(',')})`);
+      params.push(...officeIds);
+    }
+
+    // Представитель видит только свои акты (которые он создал)
+    const userRole = String(req.user.role || '').toLowerCase();
+    if (userRole === 'representative') {
+      where.push('a.created_by = ?');
+      params.push(req.user.id);
     }
 
     if (req.query.date_from) {
@@ -104,9 +116,27 @@ const list = async (req, res) => {
       params.push(q, q, q);
     }
 
-    const sql = `${SELECT_BASE}
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-      ORDER BY a.act_date DESC, a.id DESC`;
+    const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+    // Пагинация: page и page_size (опциональные)
+    const page = parseInt(req.query.page, 10);
+    const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
+
+    if (page > 0) {
+      const [[{ total }]] = await db.query(
+        `SELECT COUNT(*) AS total FROM acts a
+         LEFT JOIN contracts c ON c.id = a.contract_id
+         LEFT JOIN clients cl ON cl.id = c.id_client
+         ${whereClause}`, params
+      );
+      const offset = (page - 1) * pageSize;
+      const sql = `${SELECT_BASE} ${whereClause} ORDER BY a.act_date DESC, a.id DESC LIMIT ? OFFSET ?`;
+      const [rows] = await db.query(sql, [...params, pageSize, offset]);
+      return res.json({ success: true, data: rows, total, page, page_size: pageSize });
+    }
+
+    // Без пагинации — возвращаем всё (обратная совместимость)
+    const sql = `${SELECT_BASE} ${whereClause} ORDER BY a.act_date DESC, a.id DESC`;
     const [rows] = await db.query(sql, params);
     return ok(res, rows);
   } catch (e) {
@@ -118,12 +148,8 @@ const getOne = async (req, res) => {
   try {
     const [[row]] = await db.query(`${SELECT_BASE} WHERE a.id = ?`, [req.params.id]);
     if (!row) return bad(res, 404, 'Акт не найден');
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (officeId && Number(row.office_id) !== Number(officeId)) {
-        return bad(res, 403, 'Акт другого офиса');
-      }
-    }
+    const allowed = await checkOfficeAccess(req.user, row.office_id);
+    if (!allowed) return bad(res, 403, 'Акт другого офиса');
     return ok(res, row);
   } catch (e) {
     return bad(res, 500, 'Ошибка получения акта', e);
@@ -144,11 +170,9 @@ const createForContract = async (req, res) => {
     if (!contract) return bad(res, 404, 'Договор не найден');
 
     const officeId = contract.lawyer_office_id || null;
-    if (!isPrivileged(req.user)) {
-      const userOfficeId = await resolveUserOfficeId(req.user);
-      if (officeId && userOfficeId && Number(officeId) !== Number(userOfficeId)) {
-        return bad(res, 403, 'Договор находится в другом офисе');
-      }
+    if (officeId) {
+      const allowed = await checkOfficeAccess(req.user, officeId);
+      if (!allowed) return bad(res, 403, 'Договор находится в другом офисе');
     }
 
     const { amount, act_date, responsible_id, description } = req.body;
@@ -186,6 +210,10 @@ const createForContract = async (req, res) => {
       ]
     );
     const [[row]] = await db.query(`${SELECT_BASE} WHERE a.id = ?`, [r.insertId]);
+
+    // Real-time: уведомить офис о новом акте
+    socketEmitter.emitActNew(officeId, { ...row, amount: Number(amount) });
+
     return ok(res, row);
   } catch (e) {
     return bad(res, 500, 'Ошибка создания акта', e);
@@ -199,12 +227,8 @@ const update = async (req, res) => {
     if (row.status === 'confirmed') {
       return bad(res, 409, 'Подтверждённый акт нельзя редактировать');
     }
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (officeId && Number(row.office_id) !== Number(officeId)) {
-        return bad(res, 403, 'Акт другого офиса');
-      }
-    }
+    const allowedUpdate = await checkOfficeAccess(req.user, row.office_id);
+    if (!allowedUpdate) return bad(res, 403, 'Акт другого офиса');
     const fields = ['act_date', 'amount', 'responsible_id', 'description'];
     const updates = [];
     const params = [];
@@ -232,17 +256,17 @@ const confirm = async (req, res) => {
     const [[row]] = await db.query('SELECT * FROM acts WHERE id = ?', [req.params.id]);
     if (!row) return bad(res, 404, 'Акт не найден');
     if (row.status === 'confirmed') return bad(res, 409, 'Акт уже подтверждён');
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (officeId && Number(row.office_id) !== Number(officeId)) {
-        return bad(res, 403, 'Акт другого офиса');
-      }
-    }
+    const allowedConfirm = await checkOfficeAccess(req.user, row.office_id);
+    if (!allowedConfirm) return bad(res, 403, 'Акт другого офиса');
     await db.query(
       "UPDATE acts SET status = 'confirmed', confirmed_at = CURRENT_TIMESTAMP WHERE id = ?",
       [row.id]
     );
     const [[updated]] = await db.query(`${SELECT_BASE} WHERE a.id = ?`, [row.id]);
+
+    // Real-time: уведомить офис о подтверждении акта
+    socketEmitter.emitActConfirmed(row.office_id, updated);
+
     return ok(res, updated);
   } catch (e) {
     return bad(res, 500, 'Ошибка подтверждения акта', e);
@@ -256,12 +280,8 @@ const remove = async (req, res) => {
     if (row.status === 'confirmed') {
       return bad(res, 409, 'Подтверждённый акт нельзя удалить');
     }
-    if (!isPrivileged(req.user)) {
-      const officeId = await resolveUserOfficeId(req.user);
-      if (officeId && Number(row.office_id) !== Number(officeId)) {
-        return bad(res, 403, 'Акт другого офиса');
-      }
-    }
+    const allowedRemove = await checkOfficeAccess(req.user, row.office_id);
+    if (!allowedRemove) return bad(res, 403, 'Акт другого офиса');
     await db.query('DELETE FROM acts WHERE id = ?', [row.id]);
     return ok(res, { id: row.id });
   } catch (e) {

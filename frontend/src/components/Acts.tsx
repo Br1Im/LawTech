@@ -73,7 +73,7 @@ const TableCard = styled.div`
   .ant-table { background: transparent; }
   .ant-table-thead > tr > th { background: transparent !important; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
   .ant-table-tbody > tr > td { background: transparent !important; }
-  .ant-table-tbody > tr:hover > td { background: rgba(192,155,70,0.06) !important; cursor: pointer; }
+  .ant-table-tbody > tr:hover > td { background: rgba(30,64,175,0.03) !important; cursor: pointer; }
 `;
 
 const formatMoney = (v?: string | number | null) => {
@@ -154,41 +154,36 @@ const Acts: React.FC = () => {
   }, []);
 
   const isResponsibleRole = (e: any) => {
-    const role = String(e.position || e.role || e.user_role || '').toLowerCase();
-    return role.includes('юрист')
-      || role.includes('адвокат')
-      || role.includes('эксперт')
-      || role.includes('представит');
+    const pos = String(e.position || '').toLowerCase();
+    const uRole = String(e.user_role || e.role || '').toLowerCase();
+    const ALLOWED_USER_ROLES = ['manager', 'lawyer', 'okk', 'representative'];
+    if (ALLOWED_USER_ROLES.includes(uRole)) return true;
+    return pos.includes('менеджер')
+      || pos.includes('юрист')
+      || pos.includes('адвокат')
+      || pos.includes('окк')
+      || pos.includes('контрол')
+      || pos.includes('представит');
   };
 
   const responsibles = useMemo(() => employees.filter(isResponsibleRole), [employees]);
 
-  // В создании акта подбираем список по типу договора:
-  // «документы» — юрист/эксперт; «суд» — юрист/адвокат/представитель.
   const selectedContract = useMemo(
     () => contracts.find((c) => c.id === createForm.contract_id) || null,
     [contracts, createForm.contract_id]
   );
 
-  const responsibleOptionsForCreate = useMemo(() => {
-    const ct = selectedContract?.contract_type || 'docs';
-    return employees.filter((e: any) => {
-      const role = String(e.position || e.role || e.user_role || '').toLowerCase();
-      if (ct === 'court_rep') {
-        return role.includes('юрист') || role.includes('адвокат') || role.includes('представит');
-      }
-      return role.includes('юрист') || role.includes('эксперт');
-    });
-  }, [employees, selectedContract]);
+  const responsibleOptionsForCreate = useMemo(
+    () => employees.filter(isResponsibleRole),
+    [employees]
+  );
 
   const fmtEmployee = (e: any) => {
     const full = [e.last_name, e.first_name, e.middle_name].filter(Boolean).join(' ') || `#${e.id}`;
     return shortName(full);
   };
 
-  const responsibleLabel = (selectedContract?.contract_type === 'court_rep')
-    ? 'Ответственный (представитель/юрист) *'
-    : 'Ответственный (юрист/эксперт) *';
+  const responsibleLabel = 'Ответственный *';
 
   const openCreate = () => {
     setCreateForm({ contract_id: undefined, amount: undefined, act_date: dayjs(), responsible_id: undefined, description: '' });
@@ -593,7 +588,7 @@ const Acts: React.FC = () => {
               notFoundContent="Нет подходящих сотрудников в этом офисе"
             />
             <div style={{ color: 'var(--color-muted)', fontSize: 12, marginTop: 4 }}>
-              В выпадающем списке фамилия и инициалы юриста или представителя — выборка зависит от типа договора.
+              Менеджер, юристы, сотрудники ОКК, представители.
             </div>
           </div>
           <div>

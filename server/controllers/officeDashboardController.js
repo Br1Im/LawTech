@@ -1,4 +1,5 @@
 const db = require('../db');
+const { checkOfficeAccess } = require('../utils/ensureOffice');
 
 /**
  * Office dashboard controller
@@ -76,21 +77,7 @@ async function resolveUserOfficeId(user) {
 }
 
 async function assertOfficeAccess(user, officeId) {
-  // Admins / owners / experts bypass office filter (cross-office roles).
-  const role = String(user?.role || '').trim().toLowerCase();
-  if (['admin', 'owner', 'expert'].includes(role)) return true;
-  const resolvedOffice = await resolveUserOfficeId(user);
-  if (!resolvedOffice) {
-    console.warn('[plan] user has no resolvable office_id', { user: user?.id, role });
-    return false;
-  }
-  // Cache it on the request user for downstream usage
-  user.office_id = resolvedOffice;
-  const ok = Number(resolvedOffice) === Number(officeId);
-  if (!ok) {
-    console.warn('[plan] office mismatch', { user_office: resolvedOffice, requested: officeId });
-  }
-  return ok;
+  return checkOfficeAccess(user, officeId);
 }
 
 function isWeekend(isoDate) {
@@ -127,8 +114,19 @@ const officeDashboardController = {
          WHERE e.office_id = ? AND c.paid_amount > 0`,
         [today, from, to, officeId]
       );
-      const day_fact = Number(factRows[0]?.day_fact || 0);
-      const period_fact = Number(factRows[0]?.period_fact || 0);
+
+      // Confirmed refunds: subtract from fact on the day/period when refund was confirmed
+      const [refundRows] = await db.query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
+           COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
+         FROM contracts c
+         JOIN employees e ON e.id = c.id_employee
+         WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0`,
+        [today, from, to, officeId]
+      );
+      const day_fact = Number(factRows[0]?.day_fact || 0) - Number(refundRows[0]?.day_refund || 0);
+      const period_fact = Number(factRows[0]?.period_fact || 0) - Number(refundRows[0]?.period_refund || 0);
 
       // Plan: latest record covering this period; otherwise latest record overall.
       const [planRows] = await db.query(
@@ -141,21 +139,49 @@ const officeDashboardController = {
       );
       const plan = planRows[0] || null;
 
-      // Lawyers cash table — only роли «юрист» / «адвокат», только paid_amount > 0
+      // Lawyers cash table — менеджеры, ОКК, юристы/адвокаты/представители, только paid_amount > 0
       const [lawyersRows] = await db.query(
         `SELECT
            e.id,
            TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) AS full_name,
+           e.position,
            COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount ELSE 0 END), 0) AS today_cash,
            COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount ELSE 0 END), 0) AS period_cash
          FROM employees e
+         LEFT JOIN users u ON u.email = e.email
          LEFT JOIN contracts c ON c.id_employee = e.id AND c.paid_amount > 0
          WHERE e.office_id = ?
-           AND (LOWER(e.position) LIKE '%юрист%' OR LOWER(e.position) LIKE '%адвокат%')
-         GROUP BY e.id, e.last_name, e.first_name, e.middle_name
+           AND (
+             LOWER(e.position) LIKE '%юрист%'
+             OR LOWER(e.position) LIKE '%адвокат%'
+             OR LOWER(e.position) LIKE '%менеджер%'
+             OR LOWER(e.position) LIKE '%окк%'
+             OR LOWER(e.position) LIKE '%контрол%'
+             OR LOWER(e.position) LIKE '%представит%'
+             OR u.role IN ('lawyer', 'manager', 'okk', 'representative')
+           )
+         GROUP BY e.id, e.last_name, e.first_name, e.middle_name, e.position
          ORDER BY period_cash DESC, today_cash DESC, e.last_name ASC`,
         [today, from, to, officeId]
       );
+
+      // Per-employee confirmed refunds for lawyers_cash subtraction
+      const [lawyerRefundRows] = await db.query(
+        `SELECT
+           c.id_employee,
+           COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
+           COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
+         FROM contracts c
+         JOIN employees e ON e.id = c.id_employee
+         WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0
+         GROUP BY c.id_employee`,
+        [today, from, to, officeId]
+      );
+      const refundByEmp = new Map();
+      lawyerRefundRows.forEach(r => refundByEmp.set(r.id_employee, {
+        day: Number(r.day_refund || 0),
+        period: Number(r.period_refund || 0),
+      }));
 
       return res.json({
         success: true,
@@ -174,12 +200,16 @@ const officeDashboardController = {
                 period_end: plan.period_end,
               }
             : null,
-          lawyers_cash: lawyersRows.map(r => ({
-            id: r.id,
-            full_name: r.full_name,
-            today: Number(r.today_cash),
-            period: Number(r.period_cash),
-          })),
+          lawyers_cash: lawyersRows.map(r => {
+            const ref = refundByEmp.get(r.id) || { day: 0, period: 0 };
+            return {
+              id: r.id,
+              full_name: r.full_name,
+              position: r.position || '',
+              today: Number(r.today_cash) - ref.day,
+              period: Number(r.period_cash) - ref.period,
+            };
+          }),
         },
       });
     } catch (e) {

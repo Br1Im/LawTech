@@ -24,7 +24,7 @@ body {
   }
   
   .canvas-wrap canvas, #canvasWrap canvas {
-    border: 2px solid #d4af37;
+    border: 2px solid #1E40AF;
     border-radius: 12px;
     max-width: 100%;
     display: block;
@@ -39,7 +39,7 @@ body {
   }
   
   #scanBtn {
-    background-color: #d4af37;
+    background-color: #1E40AF;
     color: white;
     border: none;
     border-radius: 12px;

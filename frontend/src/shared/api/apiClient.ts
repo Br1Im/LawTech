@@ -29,6 +29,12 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    const activeOfficeId = localStorage.getItem('activeOfficeId');
+    if (activeOfficeId) {
+      config.headers['X-Office-Id'] = activeOfficeId;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

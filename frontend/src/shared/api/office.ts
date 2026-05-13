@@ -31,40 +31,53 @@ const officeAPI = {
    * Получить список всех офисов
    */
   getAll: async (period: string = 'day'): Promise<Office[]> => {
-    try {
-      // Используем правильный путь к API с параметром period
-      const response = await apiInstance.get('/offices', {
-        params: { period }
-      });
-      
-      // Обрабатываем ответ от бэкенда, который должен быть в формате {success: true, data: []}
-      if (response.data && response.data.success === false) {
-        throw new Error(response.data.message || 'Ошибка получения данных');
+    // Авто-ретраи для кратковременных сетевых ошибок / перезапусков бэка.
+    const MAX_ATTEMPTS = 3;
+    let lastError: unknown = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await apiInstance.get('/offices', {
+          params: { period },
+          timeout: 15000,
+        });
+
+        if (response.data && response.data.success === false) {
+          throw new Error(response.data.message || 'Ошибка получения данных');
+        }
+
+        let officesData: unknown;
+        if (Array.isArray(response.data)) {
+          officesData = response.data;
+        } else if (response.data && Array.isArray(response.data.data)) {
+          officesData = response.data.data;
+        } else {
+          officesData = [];
+          console.warn('Сервер вернул данные в неожиданном формате', response.data);
+        }
+
+        return (officesData as Office[]) || [];
+      } catch (error: any) {
+        lastError = error;
+        const status = error?.response?.status;
+        // 401/403 — токен недействителен, ретраи не помогут
+        if (status === 401 || status === 403) {
+          console.warn('Offices: auth error', status);
+          throw error;
+        }
+        // Для 5xx / network / timeout — пытаемся ещё.
+        const isRetriable =
+          !status || status >= 500 || error?.code === 'ECONNABORTED' || error?.code === 'ERR_NETWORK';
+        if (!isRetriable || attempt === MAX_ATTEMPTS) {
+          console.error('Ошибка при получении списка офисов:', error);
+          throw error;
+        }
+        // backoff: 400ms, 1200ms
+        await new Promise((r) => setTimeout(r, 400 * attempt * attempt));
       }
-      
-      // Проверяем формат ответа и извлекаем данные
-      let officesData;
-      if (Array.isArray(response.data)) {
-        officesData = response.data;
-      } else if (response.data && response.data.success && Array.isArray(response.data.data)) {
-        officesData = response.data.data;
-      } else if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-        officesData = response.data.data;
-      } else {
-        officesData = [];
-        console.warn('Сервер вернул данные в неожиданном формате');
-      }
-      
-      // Проверяем, не пустой ли список офисов
-      if (!officesData || officesData.length === 0) {
-        console.warn('Сервер вернул пустой список офисов');
-      }
-      
-      return officesData;
-    } catch (error) {
-      console.error('Ошибка при получении списка офисов:', error);
-      throw new Error('Ошибка загрузки офисов');
     }
+
+    throw lastError || new Error('Ошибка загрузки офисов');
   },
 
   /**

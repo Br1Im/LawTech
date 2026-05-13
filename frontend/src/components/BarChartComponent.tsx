@@ -45,7 +45,7 @@ const BarChartComponent: React.FC<BarChartProps> = ({ title, data }) => {
   const getGoldColor = () => {
     // Получаем значение CSS-переменной --color-accent
     const computedStyle = getComputedStyle(document.documentElement);
-    return computedStyle.getPropertyValue('--color-accent').trim() || '#d4af37';
+    return computedStyle.getPropertyValue('--color-accent').trim() || '#1E40AF';
   };
 
   // Отслеживание изменения темы

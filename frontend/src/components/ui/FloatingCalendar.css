@@ -1,0 +1,143 @@
+.floating-calendar-root {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.floating-calendar-root > * {
+  pointer-events: auto;
+}
+
+.floating-calendar-fab {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-accent, #1890ff);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.floating-calendar-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+}
+
+.floating-calendar-fab.is-open {
+  background: #52525b;
+}
+
+.floating-calendar-panel {
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  animation: floating-calendar-in 0.16s ease-out;
+}
+
+@keyframes floating-calendar-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.floating-calendar-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fafafa;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.floating-calendar-panel-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.floating-calendar-close {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.floating-calendar-close:hover {
+  color: #111827;
+}
+
+.floating-calendar-panel-body {
+  padding: 8px 10px 10px;
+}
+
+/* Скрываем фон-шум в мини-календаре для виджета */
+.floating-calendar-panel-body .mini-calendar {
+  margin: 0;
+  padding: 4px;
+  box-shadow: none;
+  border: none;
+  background: transparent;
+}
+
+@media (max-width: 480px) {
+  .floating-calendar-root {
+    right: 16px;
+    bottom: 16px;
+  }
+  .floating-calendar-panel {
+    width: calc(100vw - 32px);
+  }
+}
+
+/* ── DARK THEME ──────────────────────────────── */
+[data-theme="dark"] .floating-calendar-fab {
+  background: #7C5CFF;
+}
+[data-theme="dark"] .floating-calendar-fab.is-open {
+  background: #363C4E;
+}
+[data-theme="dark"] .floating-calendar-panel {
+  background: #161A22;
+  border-color: #2A2F3D;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+}
+[data-theme="dark"] .floating-calendar-panel-header {
+  background: #1D2230;
+  border-color: #2A2F3D;
+}
+[data-theme="dark"] .floating-calendar-panel-title {
+  color: #E6E8EF;
+}
+[data-theme="dark"] .floating-calendar-close {
+  color: #5A5E72;
+}
+[data-theme="dark"] .floating-calendar-close:hover {
+  color: #E6E8EF;
+}

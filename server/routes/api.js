@@ -19,8 +19,9 @@ const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
 const callCenterRoutes = require('./callCenter');
-// Эти контроллеры пока не реализованы
-// const employeeController = require('../controllers/employeeController');
+const caseWorkflowRoutes = require('./caseWorkflow');
+const crmModulesRoutes = require('./crmModules');
+const employeeManagement = require('../controllers/employeeManagementController');
 // const joinRequestController = require('../controllers/joinRequestController');
 
 // Настройка multer для загрузки файлов
@@ -52,6 +53,22 @@ router.get('/profile', authenticateToken, authController.getCurrentUser); // Д�
 router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
 router.use('/call-center', callCenterRoutes.router);
 
+// Маршруты для записей (appointments) — доступны всем авторизованным
+const callCenterController = require('../controllers/callCenterController');
+router.get('/appointments', authenticateToken, callCenterController.getAppointments);
+router.post('/appointments', authenticateToken, callCenterController.createDirectAppointment);
+router.patch('/appointments/:id/status', authenticateToken, callCenterController.updateAppointmentStatus);
+router.patch('/appointments/:id/consultation-result', authenticateToken, callCenterController.setConsultationResult);
+
+// Маршруты для Приходов (visits)
+router.get('/visits/primary', authenticateToken, callCenterController.getPrimaryVisits);
+router.get('/visits/existing', authenticateToken, callCenterController.getExistingClientVisits);
+router.post('/visits/existing', authenticateToken, callCenterController.addExistingClientVisit);
+router.get('/visits/stats', authenticateToken, callCenterController.getVisitsStats);
+router.get('/visits/employees', authenticateToken, callCenterController.getOfficeEmployees);
+router.patch('/appointments/:id/assign-lawyer', authenticateToken, callCenterController.assignLawyer);
+router.get('/visits/consultation-stats', authenticateToken, callCenterController.getConsultationStats);
+
 // Маршруты для юридических запросов
 router.post('/chat', authenticateToken, legalController.handleChatRequest);
 
@@ -59,6 +76,8 @@ router.post('/chat', authenticateToken, legalController.handleChatRequest);
 router.post('/upload', authenticateToken, upload.single('file'), fileController.handleFileUpload);
 
 // Роуты для офисов
+router.get('/offices/my', authenticateToken, officeController.getMyOffices);
+router.post('/offices/switch', authenticateToken, officeController.switchOffice);
 router.get('/offices', authenticateToken, officeController.getAllOffices);
 router.get('/offices/revenue', authenticateToken, officeController.getOfficesRevenue);
 router.get('/offices/:officeId', authenticateToken, officeController.getOfficeById);
@@ -68,6 +87,35 @@ router.delete('/offices/:officeId', authenticateToken, officeController.deleteOf
 
 // Подключаем дополнительные маршруты офисов
 router.use('/offices', authenticateToken, officeRoutes);
+
+// Управление сотрудниками (иерархическая система)
+router.get('/staff', authenticateToken, employeeManagement.getEmployees);
+router.post('/staff', authenticateToken, employeeManagement.createEmployee);
+router.get('/staff/allowed-roles', authenticateToken, employeeManagement.getAllowedRoles);
+router.put('/staff/:id', authenticateToken, employeeManagement.updateEmployee);
+router.post('/staff/:id/reset-password', authenticateToken, employeeManagement.resetPassword);
+router.put('/staff/:id/active', authenticateToken, employeeManagement.deactivateEmployee);
+router.patch('/staff/:id/role', authenticateToken, employeeManagement.changeRole);
+router.get('/staff/changeable-roles', authenticateToken, employeeManagement.getChangeableRoles);
+router.post('/staff/change-password', authenticateToken, employeeManagement.changeOwnPassword);
+
+// Назначения договоров (авто-маршрутизация)
+const contractAssignmentController = require('../controllers/contractAssignmentController');
+router.get('/assignments/my', authenticateToken, contractAssignmentController.getMyAssignments);
+router.get('/assignments/contract/:contractId', authenticateToken, contractAssignmentController.getContractAssignments);
+router.post('/assignments/contract/:contractId/representative', authenticateToken, contractAssignmentController.assignRepresentative);
+router.post('/assignments/contract/:contractId/supplement', authenticateToken, contractAssignmentController.supplementContract);
+router.patch('/assignments/:assignmentId/status', authenticateToken, contractAssignmentController.updateAssignmentStatus);
+
+// Представитель — дела и процессуальные действия
+const representativeController = require('../controllers/representativeController');
+router.get('/representative/cases', authenticateToken, representativeController.getMyCases);
+router.get('/representative/cases/:id', authenticateToken, representativeController.getCaseDetail);
+router.get('/representative/cases/:id/actions', authenticateToken, representativeController.getCaseActions);
+router.post('/representative/cases/:id/actions', authenticateToken, representativeController.addCaseAction);
+router.delete('/representative/actions/:actionId', authenticateToken, representativeController.deleteCaseAction);
+router.post('/representative/cases/:id/assign', authenticateToken, representativeController.assignCase);
+router.get('/representative/list', authenticateToken, representativeController.getRepresentatives);
 
 // Зарплата
 const salaryController = require('../controllers/salaryController');
@@ -128,8 +176,13 @@ router.get('/office/:officeId/plan', authenticateToken, officeDashboardControlle
 router.put('/office/:officeId/plan', authenticateToken, officeDashboardController.upsertPlan);
 
 // Роуты для чата
+router.get('/chat/channels', authenticateToken, chatController.getAvailableChannels);
+router.get('/chat/participants', authenticateToken, chatController.getChannelParticipants);
 router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
-router.post('/offices/:officeId/messages', authenticateToken, chatController.sendMessage);
+router.get('/offices/:officeId/messages/unread', authenticateToken, chatController.getUnreadCounts);
+router.get('/offices/:officeId/messages/search', authenticateToken, chatController.searchMessages);
+router.post('/offices/:officeId/messages', authenticateToken, chatController.chatUploadMiddleware, chatController.sendMessage);
+router.post('/offices/:officeId/messages/read-all', authenticateToken, chatController.markAllAsRead);
 router.put('/messages/:messageId/read', authenticateToken, chatController.markMessageAsRead);
 router.delete('/messages/:messageId', authenticateToken, chatController.deleteMessage);
 
@@ -152,9 +205,11 @@ const clientController = require('../controllers/clientController');
 router.get('/office/:officeId/clients', authenticateToken, clientController.getAllClients);
 
 // Роуты для расходов офиса
-router.get('/office/:officeId/expenses', authenticateToken, (req, res) => {
-  res.json([]);
-});
+const expensesController = require('../controllers/expensesController');
+router.get('/office/:officeId/expenses-summary', authenticateToken, expensesController.getSummary);
+router.post('/expenses', authenticateToken, expensesController.createExpense);
+router.put('/expenses/:id', authenticateToken, expensesController.updateExpense);
+router.delete('/expenses/:id', authenticateToken, expensesController.deleteExpense);
 
 // Роуты для приходов офиса
 router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {
@@ -162,8 +217,60 @@ router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {
 });
 
 // Роуты для сотрудников офиса
-router.get('/office/:officeId/employees', authenticateToken, (req, res) => {
-  res.json([]);
+router.get('/employees', authenticateToken, async (req, res) => {
+  try {
+    const db = require('../db');
+    const officeId = req.query.office_id || req.user.office_id;
+    if (!officeId) return res.json({ success: true, data: [] });
+
+    const page = parseInt(req.query.page, 10);
+    const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
+
+    if (page > 0) {
+      const [[{ total }]] = await db.query(
+        'SELECT COUNT(*) AS total FROM employees e WHERE e.office_id = ?', [officeId]
+      );
+      const offset = (page - 1) * pageSize;
+      const [rows] = await db.query(
+        `SELECT e.*, u.role AS user_role
+         FROM employees e LEFT JOIN users u ON u.email = e.email
+         WHERE e.office_id = ? ORDER BY e.last_name, e.first_name LIMIT ? OFFSET ?`,
+        [officeId, pageSize, offset]
+      );
+      return res.json({ success: true, data: rows, total, page, page_size: pageSize });
+    }
+
+    const [rows] = await db.query(
+      `SELECT e.*, u.role AS user_role
+       FROM employees e
+       LEFT JOIN users u ON u.email = e.email
+       WHERE e.office_id = ?
+       ORDER BY e.last_name, e.first_name`,
+      [officeId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Error fetching employees:', err);
+    res.status(500).json({ success: false, message: 'Ошибка получения сотрудников' });
+  }
+});
+router.get('/office/:officeId/employees', authenticateToken, async (req, res) => {
+  try {
+    const db = require('../db');
+    const officeId = req.params.officeId;
+    const [rows] = await db.query(
+      `SELECT e.*, u.role AS user_role
+       FROM employees e
+       LEFT JOIN users u ON u.email = e.email
+       WHERE e.office_id = ?
+       ORDER BY e.last_name, e.first_name`,
+      [officeId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Error fetching employees:', err);
+    res.status(500).json({ success: false, message: 'Ошибка получения сотрудников' });
+  }
 });
 
 // Роуты для заявок на присоединение к офису
@@ -244,6 +351,22 @@ router.post('/employees/ensure', authenticateToken, async (req, res) => {
 // router.put('/join-requests/:requestId', authenticateToken, joinRequestController.updateRequestStatus);
 // router.post('/join-office', authenticateToken, joinRequestController.joinOffice);
 
+// Заявления
+const applicationsController = require('../controllers/applicationsController');
+router.get('/applications', authenticateToken, applicationsController.list);
+router.post('/applications', authenticateToken, applicationsController.create);
+router.put('/applications/:id', authenticateToken, applicationsController.update);
+router.delete('/applications/:id', authenticateToken, applicationsController.remove);
+
+// Касса (журнал финансовых операций)
+const cashRegisterController = require('../controllers/cashRegisterController');
+router.get('/cash-register', authenticateToken, cashRegisterController.list);
+router.get('/cash-register/totals', authenticateToken, cashRegisterController.totals);
+router.get('/cash-register/stats', authenticateToken, cashRegisterController.stats);
+router.post('/cash-register', authenticateToken, cashRegisterController.create);
+router.put('/cash-register/:id', authenticateToken, cashRegisterController.update);
+router.delete('/cash-register/:id', authenticateToken, cashRegisterController.remove);
+
 // Маршруты для работы с юридическими документами и FAISS
 router.get('/legal-documents', authenticateToken, legalDocumentsController.getAllDocuments);
 router.get('/legal-documents/:id', authenticateToken, legalDocumentsController.getDocumentById);
@@ -257,5 +380,11 @@ router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsCont
 
 // Маршруты для работы с договорами (contracts) - используем новый контроллер через contractRoutes
 // Старые маршруты удалены, используются новые из ./contracts.js
+
+// CRM modules: cases, expenses, arrivals, materials CRUD
+router.use('/', crmModulesRoutes);
+
+// Case workflow: materials upload, inbox, expert assignment
+router.use('/', caseWorkflowRoutes);
 
 module.exports = router;

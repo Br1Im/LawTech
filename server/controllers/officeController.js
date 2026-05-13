@@ -1,48 +1,46 @@
 const Office = require('../models/office');
 const { formatOfficeResponse } = require('../utils/formatters');
+const db = require('../db');
 
-/**
- * Контроллер для работы с офисами
- */
 const officeController = {
   /**
    * Получить данные о выручке офисов за указанный период
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
    */
   async getOfficesRevenue(req, res) {
     try {
       const { period } = req.query;
       
-      // Проверяем, что период указан и является допустимым
       if (!period || !['day', '2weeks', 'month'].includes(period)) {
-        return res.status(400).json({ error: 'Необходимо указать корректный период (day, 2weeks, month)' });
+        return res.status(400).json({ success: false, message: 'Необходимо указать корректный период (day, 2weeks, month)' });
       }
-      
-      const revenueData = await Office.getRevenueByPeriod(period);
-      
+
+      const user = req.user;
+      let officeIds = null;
+      // Для директора — только его офисы
+      if (user && user.role === 'director') {
+        const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ?', [user.id]);
+        officeIds = offices.map(o => o.id);
+      } else if (user && user.office_id) {
+        officeIds = [user.office_id];
+      }
+
+      const revenueData = await Office.getRevenueByPeriod(period, officeIds);
       return res.json(revenueData);
     } catch (error) {
       console.error('Ошибка при получении данных о выручке:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },
   
   /**
-   * Получить все офисы с полными данными
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
+   * Получить все офисы (с учётом прав пользователя)
    */
   async getAllOffices(req, res) {
     try {
-      const { period = 'day' } = req.query;
-      const user = req.user; // Получаем пользователя из middleware
+      const user = req.user;
       
-      let offices;
-      
-      // Если у пользователя нет office_id в токене, пробуем получить его из БД
+      // Получаем актуальную информацию из БД
       if (user && !user.office_id) {
-        const db = require('../db');
         const [dbUser] = await db.query('SELECT office_id, role FROM users WHERE id = ?', [user.id]);
         if (dbUser.length > 0 && dbUser[0].office_id) {
           user.office_id = dbUser[0].office_id;
@@ -50,36 +48,25 @@ const officeController = {
         }
       }
       
-      // Если пользователь привязан к конкретному офису, возвращаем только этот офис
-      if (user && user.office_id && user.role !== 'expert') {
+      let offices;
+      
+      if (user && user.role === 'director') {
+        offices = await Office.getAllByOwner(user.id);
+        // Фоллбек: если owner_id не установлен, берём офис по office_id
+        if (offices.length === 0 && user.office_id) {
+          const userOffice = await Office.getById(user.office_id);
+          offices = userOffice ? [userOffice] : [];
+        }
+      } else if (user && user.office_id) {
         const userOffice = await Office.getById(user.office_id);
         offices = userOffice ? [userOffice] : [];
       } else {
-        // Для экспертов или пользователей без привязки к офису возвращаем все доступные офисы
-        offices = await Office.getAll();
+        offices = [];
       }
-      
-      // Получаем полные данные для каждого офиса
-      const officesWithData = await Promise.all(
-        offices.map(async (office) => {
-          const [employees, stats, chartData] = await Promise.all([
-            Office.getEmployeesByOfficeId(office.id, period),
-            Office.getStatsByOfficeId(office.id, period),
-            Office.getChartDataByOfficeId(office.id)
-          ]);
-          
-          return {
-            ...office,
-            employees,
-            stats,
-            chartData
-          };
-        })
-      );
       
       res.json({
         success: true,
-        data: officesWithData
+        data: offices
       });
     } catch (error) {
       console.error('Error getting all offices:', error);
@@ -91,9 +78,87 @@ const officeController = {
   },
   
   /**
+   * Получить список офисов текущего директора (для переключателя)
+   */
+  async getMyOffices(req, res) {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({ success: false, message: 'Не авторизован' });
+      }
+
+      const [dbUser] = await db.query('SELECT role FROM users WHERE id = ?', [user.id]);
+      const role = dbUser[0]?.role || user.role;
+
+      if (role !== 'director') {
+        // Для не-директоров возвращаем их единственный офис
+        if (user.office_id || dbUser[0]?.office_id) {
+          const officeId = user.office_id || dbUser[0]?.office_id;
+          const office = await Office.getById(officeId);
+          return res.json({ success: true, data: office ? [{ id: office.id, name: office.name, address: office.address }] : [] });
+        }
+        return res.json({ success: true, data: [] });
+      }
+
+      const [offices] = await db.query(
+        'SELECT id, name, address, contact_phone, website, created_at FROM offices WHERE owner_id = ? ORDER BY name',
+        [user.id]
+      );
+      
+      res.json({ success: true, data: offices });
+    } catch (error) {
+      console.error('Error getting my offices:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при получении офисов' });
+    }
+  },
+
+  /**
+   * Переключить активный офис для директора
+   */
+  async switchOffice(req, res) {
+    try {
+      const user = req.user;
+      const { officeId } = req.body;
+
+      if (!officeId) {
+        return res.status(400).json({ success: false, message: 'officeId обязателен' });
+      }
+
+      // Проверяем, что директор владеет этим офисом
+      const [offices] = await db.query(
+        'SELECT id, name FROM offices WHERE id = ? AND owner_id = ?',
+        [officeId, user.id]
+      );
+
+      if (offices.length === 0) {
+        return res.status(403).json({ success: false, message: 'У вас нет доступа к этому офису' });
+      }
+
+      // Обновляем office_id пользователя
+      await db.query('UPDATE users SET office_id = ? WHERE id = ?', [officeId, user.id]);
+
+      // Генерируем новый JWT с обновлённым office_id
+      const jwt = require('jsonwebtoken');
+      const config = require('../config');
+      const token = jwt.sign(
+        { id: user.id, email: user.email, role: 'director', office_id: officeId },
+        config.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      res.json({
+        success: true,
+        token,
+        office: offices[0]
+      });
+    } catch (error) {
+      console.error('Error switching office:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при переключении офиса' });
+    }
+  },
+
+  /**
    * Получить офис по ID
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
    */
   async getOfficeById(req, res) {
     try {
@@ -101,126 +166,98 @@ const officeController = {
       
       const office = await Office.getById(officeId);
       if (!office) {
-        return res.status(404).json({ error: 'Офис не найден' });
+        return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
       
-      // Форматируем ответ
       const formattedOffice = formatOfficeResponse(office);
-      
       return res.json(formattedOffice);
     } catch (error) {
       console.error('Ошибка при получении офиса:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },
   
   /**
    * Создать новый офис
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
    */
   async createOffice(req, res) {
     try {
-      const { name, address, contact_phone, website } = req.body;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 } = req.body;
       
       if (!name) {
-        return res.status(400).json({ error: 'Название офиса обязательно' });
+        return res.status(400).json({ success: false, message: 'Название офиса обязательно' });
       }
       
-      const officeData = {
-        name,
-        address,
-        contact_phone,
-        website
-      };
-      
+      const officeData = { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 };
       const office = await Office.create(officeData);
       
-      // Привязываем пользователя к созданному офису, если он еще не привязан
-      if (req.user && !req.user.office_id) {
-        const db = require('../db');
-        await db.query(
-          'UPDATE users SET office_id = ?, role = ? WHERE id = ?',
-          [office.id, 'director', req.user.id]
-        );
-        // Обновляем данные пользователя в объекте запроса для последующих операций в этом же запросе
-        req.user.office_id = office.id;
-        req.user.role = 'director';
+      // Устанавливаем owner_id — привязываем офис к текущему пользователю
+      if (req.user) {
+        await db.query('UPDATE offices SET owner_id = ? WHERE id = ?', [req.user.id, office.id]);
+        office.owner_id = req.user.id;
+
+        // Если у директора ещё нет активного офиса — ставим этот
+        const [rows] = await db.query('SELECT office_id FROM users WHERE id = ?', [req.user.id]);
+        if (rows[0] && !rows[0].office_id) {
+          await db.query('UPDATE users SET office_id = ? WHERE id = ?', [office.id, req.user.id]);
+          req.user.office_id = office.id;
+        }
       }
       
-      // Форматируем ответ
       const formattedOffice = formatOfficeResponse(office);
-      
       return res.status(201).json(formattedOffice);
     } catch (error) {
       console.error('Ошибка при создании офиса:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },
   
   /**
    * Обновить существующий офис
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
    */
   async updateOffice(req, res) {
     try {
       const { officeId } = req.params;
       const { name, address, contact_phone, website } = req.body;
       
-      // Проверяем, существует ли офис
       const existingOffice = await Office.getById(officeId);
       if (!existingOffice) {
-        return res.status(404).json({ error: 'Офис не найден' });
+        return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
       
       if (!name) {
-        return res.status(400).json({ error: 'Название офиса обязательно' });
+        return res.status(400).json({ success: false, message: 'Название офиса обязательно' });
       }
       
-      const officeData = {
-        name,
-        address,
-        contact_phone,
-        website
-      };
-      
+      const officeData = { name, address, contact_phone, website };
       await Office.update(officeId, officeData);
       
-      // Получаем обновленные данные
       const updatedOffice = await Office.getById(officeId);
-      
-      // Форматируем ответ
       const formattedOffice = formatOfficeResponse(updatedOffice);
-      
       return res.json(formattedOffice);
     } catch (error) {
       console.error('Ошибка при обновлении офиса:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },
   
   /**
    * Удалить офис
-   * @param {Object} req - объект запроса Express
-   * @param {Object} res - объект ответа Express
    */
   async deleteOffice(req, res) {
     try {
       const { officeId } = req.params;
       
-      // Проверяем, существует ли офис
       const office = await Office.getById(officeId);
       if (!office) {
-        return res.status(404).json({ error: 'Офис не найден' });
+        return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
       
       await Office.delete(officeId);
-      
       return res.json({ success: true });
     } catch (error) {
       console.error('Ошибка при удалении офиса:', error);
-      return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },
 
@@ -242,22 +279,13 @@ const officeController = {
       const result = await Office.updateStats(id, period, stats);
       
       if (result) {
-        res.json({
-          success: true,
-          message: 'Статистика обновлена успешно'
-        });
+        res.json({ success: true, message: 'Статистика обновлена успешно' });
       } else {
-        res.status(400).json({
-          success: false,
-          message: 'Ошибка при обновлении статистики'
-        });
+        res.status(400).json({ success: false, message: 'Ошибка при обновлении статистики' });
       }
     } catch (error) {
       console.error('Error updating office stats:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка при обновлении статистики офиса'
-      });
+      res.status(500).json({ success: false, message: 'Ошибка при обновлении статистики офиса' });
     }
   }
 };

@@ -8,16 +8,29 @@ const formatMessageResponse = (message, currentUserId) => {
   const timestamp = message.created_at 
     ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  // Формируем имя отправителя из данных JOIN
+  const senderName = message.sender_name
+    || `${message.first_name || ''} ${message.last_name || ''}`.trim()
+    || message.user_email
+    || 'Пользователь';
   
   return {
     id: message.id.toString(),
-    text: message.text,
-    sender: message.sender,
+    text: message.content || message.text || '',
+    sender: senderName,
+    senderRole: message.user_role || null,
+    senderFirstName: message.first_name || null,
+    senderLastName: message.last_name || null,
     timestamp,
     office_id: message.office_id.toString(),
     isRead: !!message.is_read,
-    isMine: message.user_id === currentUserId,
-    createdAt: message.created_at
+    isMine: message.sender_id === currentUserId,
+    status: message.status || (message.is_read ? 'read' : 'sent'),
+    createdAt: message.created_at,
+    fileUrl: message.file_url || null,
+    fileName: message.file_name || null,
+    fileType: message.file_type || null,
   };
 };
 

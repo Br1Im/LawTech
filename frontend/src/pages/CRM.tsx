@@ -16,12 +16,17 @@ import Clients from '../components/Clients';
 import Acts from '../components/Acts';
 import Salary from '../components/Salary';
 import Appointments from '../components/Appointments';
-import Calendar from '../components/Calendar';
+import MyCases from '../components/MyCases';
 import NotificationPanel from '../components/NotificationPanel';
+import OfficeChat from '../components/OfficeChat';
+import CashRegister from '../components/CashRegister';
+import Applications from '../components/Applications';
+import Cases from '../components/Cases';
 
 import Sidebar from "../components/ui/Sidebar";
 import MobileSidebar from "../components/ui/MobileSidebar";
 import HamburgerButton from "../components/ui/HamburgerButton";
+import ChangePasswordModal from "../components/ChangePasswordModal";
 
 const { Content } = Layout;
 
@@ -37,8 +42,13 @@ const SRM = () => {
         return 'Сотрудники';
       case 'lawyer':
         return 'Офис';
+      case 'representative':
+        return 'Мои дела';
       case 'admin':
         return 'Клиенты';
+      case 'cc_manager':
+      case 'cc_operator':
+        return 'Колл-центр';
       case 'director':
       case 'manager':
       case 'okk':
@@ -77,7 +87,9 @@ const SRM = () => {
     }
     return document.documentElement.getAttribute('data-theme') === 'dark';
   });
+  const [showChangePassword, setShowChangePassword] = useState(() => localStorage.getItem('must_change_password') === 'true');
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const [notifications, setNotifications] = useState([
     {
       id: '1',
@@ -195,13 +207,13 @@ const SRM = () => {
 
     content: {
       flex: 1,
-      marginLeft: isMobile ? "0" : (collapsed ? "80px" : "260px"),
+      marginLeft: isMobile ? "0" : (collapsed ? "64px" : "240px"),
       marginTop: isMobile ? "70px" : "0px",
       padding: isMobile ? "8px" : "16px",
       backgroundColor: "var(--color-bg)",
       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       height: isMobile ? `calc(100vh - 70px)` : "100vh",
-      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "80px" : "260px"})`,
+      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "64px" : "240px"})`,
       overflow: "auto",
       position: "relative" as const,
       WebkitOverflowScrolling: "touch" as const,
@@ -221,7 +233,7 @@ const SRM = () => {
 
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} data-v="3">
       <style>
         {`
           .ant-layout-content::-webkit-scrollbar {
@@ -277,61 +289,6 @@ const SRM = () => {
           isMobile={isMobile}
           user={user ? { ...user } : undefined}
         />
-        <div style={styles.topButtons}>
-          <button
-            onClick={handleNotificationClick}
-            style={{
-              width: isMobile ? '36px' : '40px',
-              height: isMobile ? '36px' : '40px',
-              borderRadius: '50%',
-              border: '2px solid var(--color-border)',
-              backgroundColor: 'var(--color-bg)',
-              color: 'var(--color-text)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.3s ease',
-              position: 'relative' as const,
-            }}
-            title="Уведомления"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.1)';
-              e.currentTarget.style.borderColor = 'var(--color-accent)';
-              e.currentTarget.style.boxShadow = '0 4px 16px rgba(212, 175, 55, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.borderColor = 'var(--color-border)';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <BellOutlined style={{ fontSize: '18px' }} />
-            {notifications.filter(n => !n.read).length > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                backgroundColor: '#ef4444',
-                color: 'white',
-                fontSize: '11px',
-                fontWeight: 'bold',
-                padding: '2px 6px',
-                borderRadius: '12px',
-                minWidth: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
-                border: '2px solid var(--color-bg)',
-              }}>
-                {notifications.filter(n => !n.read).length}
-              </span>
-            )}
-          </button>
-        </div>
-        
         <Content style={styles.content}>
           {activeTab === "Офис" && <Office />}
           {activeTab === "AI инструменты" && <AITools />}
@@ -339,25 +296,27 @@ const SRM = () => {
           {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
           {activeTab === "Приходы" && <Arrivals />}
           {activeTab === "Расходы" && <Expenses />}
-          {activeTab === "Ресепшен" && <Reception />}
           {activeTab === "Колл-центр" && <CallCenter />}
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
+          {activeTab === "Акты" && <Acts />}
+          {activeTab === "Зарплата" && <Salary />}
           {activeTab === "Записи" && <Appointments />}
-          {activeTab === "Календарь" && <Calendar onOpenContract={(contractId) => {
-            setSelectedContractId(contractId);
-            setActiveTab("Договоры");
-          }} />}
+          {activeTab === "Мои дела" && <MyCases />}
+          {activeTab === "Чат" && <OfficeChat />}
+          {activeTab === "Касса" && <CashRegister />}
+          {activeTab === "Представители" && <MyCases />}
+          {activeTab === "Заявления" && <Applications />}
+          {activeTab === "Суды" && <Cases />}
+
         </Content>
       </div>
       
-      <NotificationPanel
-        isOpen={isNotificationPanelOpen}
-        onClose={handleCloseNotificationPanel}
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-      />
+      {showChangePassword && (
+        <ChangePasswordModal onDone={() => setShowChangePassword(false)} />
+      )}
+
+
     </div>
   );
 };

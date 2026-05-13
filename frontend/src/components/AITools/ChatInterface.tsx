@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiTrash2, FiUser, FiClipboard, FiPaperclip, FiDownload } from 'react-icons/fi';
 import { FaRobot, FaBrain } from 'react-icons/fa';
-import { buildApiUrl } from '../../shared/utils/apiUtils';
+import { buildApiUrl, getAuthHeaders } from '../../shared/utils/apiUtils';
 import Scanner from '../Scan/Scanner';
 import './ChatInterface.css';
 
@@ -225,9 +225,7 @@ const ChatInterface: React.FC = () => {
       const response = await fetch(buildApiUrl('/ocr'), {
         method: 'POST',
         body: formData,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: (() => { const h = getAuthHeaders(); delete (h as any)['Content-Type']; return h; })(),
       });
       
       if (!response.ok) {
@@ -284,10 +282,7 @@ const ChatInterface: React.FC = () => {
       try {
         response = await fetch(buildApiUrl('/chat'), {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({ message }),
           signal: AbortSignal.timeout(30000) // 30 секунд таймаут
         });

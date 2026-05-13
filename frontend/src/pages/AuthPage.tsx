@@ -6,7 +6,7 @@ import ThemeToggle from '../components/ui/ThemeToggle';
 import './AuthPage.css';
 
 interface LoginFormValues {
-  email: string;
+  login: string;
   password: string;
 }
 
@@ -66,8 +66,16 @@ const AuthPage = () => {
       }
       const data = await response.json();
       localStorage.setItem('token', data.token);
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
       message.success('Регистрация выполнена. Добро пожаловать!');
-      navigate('/crm');
+      // Директор — на создание офиса, остальные — в CRM
+      if (data.user?.needs_office_setup || data.user?.role === 'director') {
+        navigate('/welcome');
+      } else {
+        navigate('/crm');
+      }
       form.resetFields();
       setUserType('');
       setOfficeType('');
@@ -95,14 +103,22 @@ const AuthPage = () => {
       if (!response.ok) {
         let err = '';
         try { err = (await response.json()).error || ''; } catch { /* noop */ }
-        if (response.status === 401) throw new Error('Неверный email или пароль');
+        if (response.status === 401) throw new Error('Неверный логин или пароль');
         if (response.status >= 500) throw new Error('Ошибка сервера. Попробуйте позже');
         throw new Error(err || `Ошибка: ${response.statusText}`);
       }
       const data = await response.json();
       localStorage.setItem('token', data.token);
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
       message.success('Вход выполнен');
-      navigate('/crm');
+      // Директор без офисов — на создание
+      if (data.user?.needs_office_setup) {
+        navigate('/welcome');
+      } else {
+        navigate('/crm');
+      }
       form.resetFields();
     } catch (e) {
       if (e instanceof TypeError && e.message.includes('fetch')) {
@@ -120,7 +136,7 @@ const AuthPage = () => {
   const fillTestAccount = (acc: typeof testAccounts[number]) => {
     setMode('login');
     setTimeout(() => {
-      form.setFieldsValue({ email: acc.email, password: acc.password });
+      form.setFieldsValue({ login: acc.email, password: acc.password });
     }, 10);
     setShowTestAccounts(false);
   };
@@ -199,11 +215,11 @@ const AuthPage = () => {
           {mode === 'login' ? (
             <Form key="login" form={form} layout="vertical" className="auth-form" onFinish={handleLoginSubmit}>
               <Form.Item
-                label="Электронная почта"
-                name="email"
-                rules={[{ required: true, message: 'Введите почту', type: 'email' }]}
+                label="Логин"
+                name="login"
+                rules={[{ required: true, message: 'Введите логин' }]}
               >
-                <Input autoComplete="email" placeholder="you@example.com" />
+                <Input autoComplete="username" placeholder="Ваш логин" />
               </Form.Item>
               <Form.Item
                 label="Пароль"

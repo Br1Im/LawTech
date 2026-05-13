@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { buildApiUrl } from '../shared/utils/apiUtils';
+import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNotification } from '../hooks/useNotification';
 import { ToastContainer } from './Toast';
@@ -59,6 +59,12 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
   // Состояния для нового договора
   const [newDocument, setNewDocument] = useState({
     clientName: '',
+    // ФИО клиента раздельно
+    clientLastName: '' as string,
+    clientFirstName: '' as string,
+    clientMiddleName: '' as string,
+    // В чьих интересах действует клиент (опционально)
+    actingFor: '' as string,
     representativeName: '',
     clientPhone: '',
     contractDate: new Date().toISOString().split('T')[0],
@@ -72,7 +78,17 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     remainingPaymentDate: new Date().toISOString().split('T')[0],
     materials: [] as File[],
     expertId: '' as string,
+    // ТЗ — обязательно для типа «Документы»
+    customerGoal: '' as string,
+    situationDescription: '' as string,
+    expertDeadlineDays: '' as string,
+    // Финансовые справочные поля (только пометка для эксперта, в статистику не идут)
+    legalCostComp: '' as string,
+    moralComp: '' as string,
   });
+  // id-ы загруженных файлов до отправки договора; привязываются к делу после создания
+  const [uploadedMaterialIds, setUploadedMaterialIds] = useState<number[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   // Experts (роль в employees — expert) из текущего офиса.
   const [experts, setExperts] = useState<Array<{ id: number; name: string }>>([]);
@@ -110,6 +126,10 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     
     setNewDocument({
       clientName: 'Иванов Иван Иванович',
+      clientLastName: 'Иванов',
+      clientFirstName: 'Иван',
+      clientMiddleName: 'Иванович',
+      actingFor: '',
       representativeName: 'Петров Петр Петрович',
       clientPhone: '+7 (999) 123-45-67',
       contractDate: formattedToday,
@@ -123,6 +143,11 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       remainingPaymentDate: formattedNextMonth,
       materials: [],
       expertId: '',
+      customerGoal: 'Подготовить набор претензионно-исковых документов',
+      situationDescription: 'Тестовое описание ситуации клиента для демонстрации ТЗ эксперту.',
+      expertDeadlineDays: '7',
+      legalCostComp: '15000',
+      moralComp: '50000',
     });
     
     setContractTopic('Гражданское право');
@@ -153,9 +178,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
 
         // Получаем ID офиса из профиля пользователя
         const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders()
         });
 
         if (!profileResponse.ok) {
@@ -171,9 +194,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
 
         // Получаем список договоров для данного офиса
         const documentsResponse = await fetch(buildApiUrl(`/office/${officeId}/contracts`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders()
         });
 
         if (!documentsResponse.ok) {
@@ -214,18 +235,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       } catch (err) {
         console.error('Ошибка получения договоров:', err);
         setError((err as Error).message || 'Не удалось загрузить список договоров');
-        // Фолбэк: пробуем взять локально сохранённые договоры
-        try {
-          const local = localStorage.getItem('local_documents');
-          if (local) {
-            const parsed: Document[] = JSON.parse(local);
-            setDocuments(parsed);
-          } else {
-            setDocuments([]);
-          }
-        } catch {
-          setDocuments([]);
-        }
+        // Никаких локальных фолбэков — все данные должны жить в БД.
+        setDocuments([]);
       } finally {
         setLoading(false);
       }
@@ -269,7 +280,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       const token = localStorage.getItem('token');
       if (!token) return;
       const res = await fetch(buildApiUrl('/employees'), {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
       if (!res.ok) return;
       const json = await res.json();
@@ -298,6 +309,10 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     // Сбрасываем форму
     setNewDocument({
       clientName: '',
+      clientLastName: '',
+      clientFirstName: '',
+      clientMiddleName: '',
+      actingFor: '',
       representativeName: '',
       clientPhone: '',
       contractDate: new Date().toISOString().split('T')[0],
@@ -311,7 +326,13 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       remainingPaymentDate: new Date().toISOString().split('T')[0],
       materials: [],
       expertId: '',
+      customerGoal: '',
+      situationDescription: '',
+      expertDeadlineDays: '',
+      legalCostComp: '',
+      moralComp: '',
     });
+    setUploadedMaterialIds([]);
   };
 
   // Функции для просмотра и редактирования документов
@@ -349,10 +370,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
 
         const response = await fetch(buildApiUrl(`/legal-documents/${selectedDocument.id}`), {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             title: editedDocument.title,
             content: editedDocument.client, // используем поле client как content
@@ -410,10 +428,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       
       const response = await fetch(buildApiUrl(`/contracts/${documentToDelete.id}`), {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: getAuthHeaders()
       });
 
       console.log('Ответ сервера:', response.status, response.statusText);
@@ -457,7 +472,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
   };
 
   // Обработка изменений в форме
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewDocument(prev => {
       const updated = {
@@ -536,8 +551,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     e.preventDefault();
     
     // Валидация обязательных полей
-    if (!newDocument.clientName.trim()) {
-      showWarning('Пожалуйста, введите ФИО клиента');
+    if (!newDocument.clientLastName.trim() || !newDocument.clientFirstName.trim()) {
+      showWarning('Пожалуйста, введите Фамилию и Имя клиента');
       return;
     }
 
@@ -559,6 +574,23 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     if (newDocument.subjectType === 'representation' && !newDocument.customSubject.trim()) {
       showWarning('Пожалуйста, опишите предмет представления интересов');
       return;
+    }
+
+    // ТЗ — обязательно только для «Документов»
+    if (newDocument.subjectType === 'documents') {
+      if (!newDocument.customerGoal.trim()) {
+        showWarning('Пожалуйста, укажите цель заказчика');
+        return;
+      }
+      if (!newDocument.situationDescription.trim()) {
+        showWarning('Пожалуйста, опишите ситуацию клиента');
+        return;
+      }
+      const dl = Number(newDocument.expertDeadlineDays);
+      if (!Number.isFinite(dl) || dl <= 0) {
+        showWarning('Пожалуйста, укажите дедлайн для эксперта (число дней > 0)');
+        return;
+      }
     }
     
     if (!newDocument.contractCost || parseFloat(newDocument.contractCost) <= 0) {
@@ -599,14 +631,19 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
 
       // Сначала создаем клиента, если нужно
       let clientId = null;
+      const composedName = [newDocument.clientLastName, newDocument.clientFirstName, newDocument.clientMiddleName]
+        .map((p) => (p || '').trim())
+        .filter(Boolean)
+        .join(' ');
       const clientResponse = await fetch(buildApiUrl('/clients'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          name: newDocument.clientName,
+          name: composedName || newDocument.clientName,
+          first_name: newDocument.clientFirstName.trim() || null,
+          last_name: newDocument.clientLastName.trim() || null,
+          middle_name: newDocument.clientMiddleName.trim() || null,
+          acting_for: newDocument.actingFor.trim() || null,
           phone: newDocument.clientPhone,
           email: '',
           address: ''
@@ -626,10 +663,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       // office_id бэкенд подставит сам через ensureUserOffice.
       const employeeResponse = await fetch(buildApiUrl('/employees/ensure'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           user_id: user.id
         })
@@ -656,13 +690,31 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
         expert_id: contractType === 'docs' ? expertId : null,
         docs_status: 'pending',
       };
+      if (contractType === 'docs') {
+        contractData.customer_goal = newDocument.customerGoal.trim();
+        contractData.situation_description = newDocument.situationDescription.trim();
+        contractData.expert_deadline_days = Number(newDocument.expertDeadlineDays);
+      }
+      // Финансовые справочные поля (только пометка для эксперта)
+      if (newDocument.legalCostComp !== '') {
+        const v = Number(newDocument.legalCostComp);
+        if (Number.isFinite(v)) contractData.legal_cost_comp = v;
+      }
+      if (newDocument.moralComp !== '') {
+        const v = Number(newDocument.moralComp);
+        if (Number.isFinite(v)) contractData.moral_comp = v;
+      }
+      if (newDocument.paymentDate) {
+        contractData.payment_date = newDocument.paymentDate;
+      }
+      // Прикреплённые ранее материалы (загружены через /materials/upload)
+      if (uploadedMaterialIds.length > 0) {
+        contractData.attached_material_ids = uploadedMaterialIds;
+      }
 
       const response = await fetch(buildApiUrl('/contracts'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(contractData)
       });
 
@@ -850,30 +902,66 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
               <button className="modal-close-btn" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={createNewDocument} className="document-form">
-              {/* ФИО клиента */}
+              {/* ФИО клиента — раздельно */}
               <div className="form-group">
-                <label htmlFor="clientName">ФИО клиента *</label>
+                <label htmlFor="clientLastName">Фамилия *</label>
                 <input
                   type="text"
-                  id="clientName"
-                  name="clientName"
-                  value={newDocument.clientName}
+                  id="clientLastName"
+                  name="clientLastName"
+                  value={newDocument.clientLastName}
                   onChange={handleInputChange}
-                  placeholder="Введите ФИО клиента"
+                  placeholder="Введите фамилию"
                   required
                 />
               </div>
-              
-              {/* В интересах ФИО (необязательное) */}
               <div className="form-group">
-                <label htmlFor="representativeName">В интересах ФИО</label>
+                <label htmlFor="clientFirstName">Имя *</label>
+                <input
+                  type="text"
+                  id="clientFirstName"
+                  name="clientFirstName"
+                  value={newDocument.clientFirstName}
+                  onChange={handleInputChange}
+                  placeholder="Введите имя"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="clientMiddleName">Отчество</label>
+                <input
+                  type="text"
+                  id="clientMiddleName"
+                  name="clientMiddleName"
+                  value={newDocument.clientMiddleName}
+                  onChange={handleInputChange}
+                  placeholder="Введите отчество (при наличии)"
+                />
+              </div>
+
+              {/* В чьих интересах действует клиент (опционально) */}
+              <div className="form-group">
+                <label htmlFor="actingFor">В чьих интересах действует клиент</label>
+                <input
+                  type="text"
+                  id="actingFor"
+                  name="actingFor"
+                  value={newDocument.actingFor}
+                  onChange={handleInputChange}
+                  placeholder="Например: в интересах несовершеннолетнего / подопечного (необязательно)"
+                />
+              </div>
+
+              {/* В интересах ФИО (устаревшее — оставим как представитель) */}
+              <div className="form-group">
+                <label htmlFor="representativeName">ФИО представителя</label>
                 <input
                   type="text"
                   id="representativeName"
                   name="representativeName"
                   value={newDocument.representativeName}
                   onChange={handleInputChange}
-                  placeholder="Введите ФИО представляемого лица (необязательно)"
+                  placeholder="Если действует представитель (необязательно)"
                 />
               </div>
               
@@ -1022,21 +1110,129 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
                     </select>
                   </div>
                 )}
+
+                {/* ТЗ для эксперта — обязательно для «Подготовки документов» */}
+                {newDocument.subjectType === 'documents' && (
+                  <div
+                    className="tz-block"
+                    style={{
+                      marginTop: 12,
+                      padding: 12,
+                      border: '1px solid var(--color-border, #e5e7eb)',
+                      borderRadius: 8,
+                      background: 'rgba(30,64,175,0.02)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                      Техническое задание <span style={{ color: 'var(--color-muted, #888)', fontWeight: 400 }}>
+                        (обязательно для документов)
+                      </span>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="customerGoal">Цель заказчика *</label>
+                      <input
+                        type="text"
+                        id="customerGoal"
+                        name="customerGoal"
+                        maxLength={500}
+                        value={newDocument.customerGoal}
+                        onChange={handleInputChange}
+                        placeholder="Коротко: что клиент хочет получить в итоге"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="situationDescription">Описание ситуации *</label>
+                      <textarea
+                        id="situationDescription"
+                        name="situationDescription"
+                        value={newDocument.situationDescription}
+                        onChange={handleInputChange}
+                        rows={4}
+                        placeholder="Кратко изложите ситуацию клиента, факты, стороны, суммы"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="expertDeadlineDays">Дедлайн для эксперта (дней) *</label>
+                      <input
+                        type="number"
+                        id="expertDeadlineDays"
+                        name="expertDeadlineDays"
+                        min="1"
+                        step="1"
+                        value={newDocument.expertDeadlineDays}
+                        onChange={handleInputChange}
+                        placeholder="Например: 7"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               
-              <div className="form-group">
-                <label htmlFor="contractCost">Стоимость договора *</label>
-                <input
-                  type="number"
-                  id="contractCost"
-                  name="contractCost"
-                  value={newDocument.contractCost}
-                  onChange={handleInputChange}
-                  placeholder="Введите стоимость в рублях"
-                  min="0"
-                  step="0.01"
-                  required
-                />
+              {/* Финансовый блок */}
+              <div
+                className="finance-block"
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  border: '1px solid var(--color-border, #e5e7eb)',
+                  borderRadius: 8,
+                  background: 'rgba(100, 116, 139, 0.04)',
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Финансы по договору</div>
+
+                <div className="form-group">
+                  <label htmlFor="contractCost">Стоимость договора *</label>
+                  <input
+                    type="number"
+                    id="contractCost"
+                    name="contractCost"
+                    value={newDocument.contractCost}
+                    onChange={handleInputChange}
+                    placeholder="Введите стоимость в рублях"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group half-width">
+                    <label htmlFor="legalCostComp">Возмещение юр. расходов, ₽</label>
+                    <input
+                      type="number"
+                      id="legalCostComp"
+                      name="legalCostComp"
+                      value={newDocument.legalCostComp}
+                      onChange={handleInputChange}
+                      placeholder="Планируемая сумма"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div className="form-group half-width">
+                    <label htmlFor="moralComp">Моральная компенсация, ₽</label>
+                    <input
+                      type="number"
+                      id="moralComp"
+                      name="moralComp"
+                      value={newDocument.moralComp}
+                      onChange={handleInputChange}
+                      placeholder="Планируемая сумма"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-muted, #777)' }}>
+                  Эти суммы — справочная пометка эксперту. В статистику офиса не идут.
+                </div>
               </div>
               
               {/* Дата и сумма внесения */}
@@ -1089,48 +1285,70 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
                  </div>
                )}
               
-              {/* Материалы дела */}
+              {/* Материалы дела — файлы любых форматов, загружаются сразу */}
               <div className="form-group">
-                <label>Материалы дела</label>
-                <button 
-                  type="button" 
-                  className="materials-btn"
-                  onClick={() => setShowMaterialsUpload(!showMaterialsUpload)}
-                >
-                  {showMaterialsUpload ? 'Скрыть загрузку файлов' : 'Загрузить материалы дела'}
-                </button>
-                
-                {showMaterialsUpload && (
-                  <div className="materials-upload">
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*,.pdf,.doc,.docx"
-                      onChange={handleFileUpload}
-                      className="file-input"
-                    />
-                    
-                    {newDocument.materials.length > 0 && (
-                      <div className="uploaded-files">
-                        <h4>Загруженные файлы:</h4>
-                        <div className="files-list">
-                          {newDocument.materials.map((file, index) => (
-                            <div key={index} className="file-item">
-                              <span className="file-name">{file.name}</span>
-                              <button 
-                                type="button" 
-                                className="remove-file-btn"
-                                onClick={() => removeFile(index)}
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                <label>Материалы дела (фото, сканы, файлы любых форматов)</label>
+                <input
+                  type="file"
+                  multiple
+                  onChange={async (ev) => {
+                    const files = Array.from(ev.target.files || []);
+                    if (files.length === 0) return;
+                    const tok = localStorage.getItem('token');
+                    if (!tok) { showWarning('Требуется авторизация'); return; }
+                    setUploadingFiles(true);
+                    try {
+                      for (const f of files) {
+                        const fd = new FormData();
+                        fd.append('file', f);
+                        fd.append('category', 'Приложение к договору');
+                        const resp = await fetch(buildApiUrl('/materials/upload'), {
+                          method: 'POST',
+                          headers: (() => { const h = getAuthHeaders(); delete (h as any)['Content-Type']; return h; })(),
+                          body: fd,
+                        });
+                        if (resp.ok) {
+                          const j = await resp.json();
+                          if (j?.data?.id) {
+                            setUploadedMaterialIds((prev) => [...prev, Number(j.data.id)]);
+                            setNewDocument((prev) => ({ ...prev, materials: [...prev.materials, f] }));
+                          }
+                        }
+                      }
+                    } catch (err) {
+                      console.warn('upload err', err);
+                    } finally {
+                      setUploadingFiles(false);
+                      ev.target.value = '';
+                    }
+                  }}
+                  className="file-input"
+                />
+                {uploadingFiles && (
+                  <div style={{ fontSize: 12, color: 'var(--color-muted, #777)', marginTop: 6 }}>
+                    Загружаем файлы...
                   </div>
                 )}
+                {newDocument.materials.length > 0 && (
+                  <div className="uploaded-files" style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                      Загружено ({newDocument.materials.length}):
+                    </div>
+                    <div className="files-list">
+                      {newDocument.materials.map((file, index) => (
+                        <div key={index} className="file-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <span className="file-name">{file.name}</span>
+                          <span style={{ color: 'var(--color-muted,#888)', fontSize: 12 }}>
+                            ({Math.round((file.size || 0) / 1024)} КБ)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: 'var(--color-muted, #777)', marginTop: 6 }}>
+                  Файлы автоматически будут привязаны к делу клиента после создания договора.
+                </div>
               </div>
               
               <div className="form-actions">
