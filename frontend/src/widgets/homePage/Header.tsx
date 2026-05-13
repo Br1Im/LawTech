@@ -1,6 +1,7 @@
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import ThemeToggle from '../../components/ui/ThemeToggle';
 
 const HeaderBar = styled.header`
   height: 64px;
@@ -72,6 +73,22 @@ const Nav = styled.nav<{ $open: boolean }>`
   }
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 20;
+`;
+
+const HeaderToggleSlot = styled.div`
+  display: flex;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
 const NavLink = styled.a`
   font-size: 14px;
   font-weight: 500;
@@ -115,6 +132,7 @@ const CTAButton = styled(Link)`
 
 const Burger = styled.button<{ $open: boolean }>`
   display: none;
+  margin: 0;
   background: none;
   border: none;
   cursor: pointer;
@@ -170,9 +188,14 @@ const Header = () => {
         <CTAButton to="/auth" onClick={() => setOpen(false)}>Начать</CTAButton>
       </Nav>
 
-      <Burger $open={open} onClick={() => setOpen(!open)} aria-label="Меню">
-        <span /><span /><span />
-      </Burger>
+      <HeaderActions>
+        <HeaderToggleSlot>
+          <ThemeToggle />
+        </HeaderToggleSlot>
+        <Burger $open={open} onClick={() => setOpen(!open)} aria-label="Меню">
+          <span /><span /><span />
+        </Burger>
+      </HeaderActions>
     </HeaderBar>
   );
 };
