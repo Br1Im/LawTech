@@ -100,6 +100,7 @@ npm run test:watch # watch-режим
 - `frontend/e2e/theme-toggle.spec.ts` — переключение темы на `/`, персистентность через reload, тогл на `/auth`.
 - `frontend/e2e/auth-flow.spec.ts` — регистрация через API → логин через UI (верификация 200 + токен в localStorage); логин с неверными кредами (401).
 - `frontend/e2e/crm-flow.spec.ts` — director с офисом доходит до `/crm` с правильным сайдбаром; `?tab=Клиенты` активирует таб; `POST /api/clients` round-trip persistence через `GET /api/clients`; lawyer без офиса видит lawyer-сайдбар.
+- `frontend/e2e/ui-modal-flow.spec.ts` — Antd Modal flow: клик «Добавить» → ввод 4 полей в Modal «Новое заявление» → клик «Создать» → POST `/api/applications` → строка появляется в таблице + persistence в БД; отмена модалки не пишет в БД (snapshot before/after count).
 
 ### Как это работает
 
