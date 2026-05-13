@@ -21,8 +21,9 @@
 - `__tests__/dashboard.test.js` — `GET /api/office/:officeId/dashboard` (структура fact/plan/lawyers_cash, 403 чужой офис), `PUT/GET /api/office/:officeId/plan`.
 - `__tests__/uploads.test.js` — `POST /api/upload` (text → extract, unsupported ext → 400, no auth → 401), chat-attachments (`/api/offices/:officeId/messages` multipart с file_url/file_type persisted), `POST /api/contracts/:id/documents` (docx → materials row + физический файл на диске + `contracts.docs_status='ready'`, .txt → 4xx, DELETE удаляет файл).
 - `__tests__/websocket.test.js` — socket.io: JWT-аутентификация на handshake (валидный → connect, без токена/невалидный → reject); `contract:new` доставляется в `office:N` room после `POST /api/contracts`; cross-office изоляция (B не получает A's events); `chat:message` доставляется после `switch_office` (role-allowlist через `emitToOfficeRoles`); юристы не получают сообщений из `cc_internal` канала.
+- `__tests__/security-deep.test.js` — JWT tampering (alg:none, payload-only swap, foreign secret → 403), SQL injection probes (логин с SQLi → 401, имя клиента с DROP TABLE → персистится литералом, числовые id с SQLi → 4xx/404), mass-assignment guards (body.office_id игнорируется, userType=super_admin не эскалирует роль), IDOR (юрист офиса A не видит клиентов офиса B, X-Office-Id игнорируется для не-директоров), header sanity (parseInt снимает SQLi из X-Office-Id).
 
-Итого: 80 интеграционных теста, все ходят в реальный MySQL + полноценный socket.io стек.
+Итого: 92 интеграционных теста, все ходят в реальный MySQL + полноценный socket.io стек.
 
 ### Запуск локально
 
