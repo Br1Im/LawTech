@@ -6,6 +6,7 @@ import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
+import { TableSkeleton, EmptyState } from "./ui";
 import "./EmployeesPolish.css";
 
 interface StaffMember {
@@ -596,7 +597,7 @@ const Employees = () => {
       </div>
 
       {loading ? (
-        <div className="no-employees"><p>Загрузка…</p></div>
+        <TableSkeleton rows={4} cols={3} withToolbar={false} />
       ) : filteredEmployees.length > 0 ? (
         <div className="employees-grid">
           {filteredEmployees.map((emp) => (
@@ -606,7 +607,10 @@ const Employees = () => {
           ))}
         </div>
       ) : (
-        <div className="no-employees"><p>Сотрудники не найдены</p></div>
+        <EmptyState
+          title="Сотрудники не найдены"
+          description="Попробуйте изменить фильтры или добавить нового сотрудника."
+        />
       )}
 
       {selectedEmployee && (

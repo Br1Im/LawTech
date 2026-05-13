@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
 import { Table, Select, Button, Space, App, Input, Tabs } from 'antd';
+import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { apiInstance } from '../shared/api/instance';
@@ -360,16 +361,27 @@ const Arrivals: React.FC = () => {
       {/* ─── Primary ─── */}
       {tab === 'primary' && (
         <TableCard>
-          <Table<PrimaryVisit>
-            dataSource={primaryVisits}
-            columns={primaryCols}
-            rowKey="id"
-            size="small"
-            pagination={false}
-            loading={loading}
-            locale={{ emptyText: 'Нет первичных приходов' }}
-            scroll={{ x: 900 }}
-          />
+          {loading && primaryVisits.length === 0 ? (
+            <TableSkeleton rows={6} cols={primaryCols.length} />
+          ) : (
+            <Table<PrimaryVisit>
+              dataSource={primaryVisits}
+              columns={primaryCols}
+              rowKey="id"
+              size="small"
+              pagination={false}
+              loading={loading}
+              locale={{
+                emptyText: (
+                  <EmptyState
+                    title="Нет первичных приходов"
+                    description="Первичные клиенты появятся здесь после регистрации визита."
+                  />
+                ),
+              }}
+              scroll={{ x: 900 }}
+            />
+          )}
         </TableCard>
       )}
 
@@ -408,16 +420,27 @@ const Arrivals: React.FC = () => {
           )}
 
           <TableCard>
-            <Table<ExistingVisit>
-              dataSource={existingVisits}
-              columns={existingCols}
-              rowKey="id"
-              size="small"
-              pagination={false}
-              loading={loading}
-              locale={{ emptyText: 'Нет приходов действующих клиентов' }}
-              scroll={{ x: 600 }}
-            />
+            {loading && existingVisits.length === 0 ? (
+              <TableSkeleton rows={5} cols={existingCols.length} />
+            ) : (
+              <Table<ExistingVisit>
+                dataSource={existingVisits}
+                columns={existingCols}
+                rowKey="id"
+                size="small"
+                pagination={false}
+                loading={loading}
+                locale={{
+                  emptyText: (
+                    <EmptyState
+                      title="Нет приходов действующих клиентов"
+                      description="Добавьте приход действующего клиента кнопкой выше."
+                    />
+                  ),
+                }}
+                scroll={{ x: 600 }}
+              />
+            )}
           </TableCard>
         </>
       )}

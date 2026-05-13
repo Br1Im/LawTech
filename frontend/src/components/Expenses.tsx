@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import { TableSkeleton } from './ui';
 import "./Expenses.css";
 
 interface SalaryDetail {
@@ -427,7 +428,7 @@ const Expenses: React.FC = () => {
       )}
 
       {loading ? (
-        <div className="exp-loading">{'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432...'}</div>
+        <TableSkeleton rows={6} cols={4} withToolbar={false} />
       ) : summary ? (
         <div className="exp-table-wrapper">
           <table className="exp-table">

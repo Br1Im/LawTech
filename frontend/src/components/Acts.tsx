@@ -6,7 +6,6 @@ import {
   Button,
   Space,
   App,
-  Empty,
   Modal,
   DatePicker,
   Select,
@@ -28,6 +27,7 @@ import {
   InfoCircleOutlined,
   FileDoneOutlined,
 } from '@ant-design/icons';
+import { TableSkeleton, EmptyState } from './ui';
 import {
   actsApi,
   contractsApi,
@@ -393,15 +393,26 @@ const Acts: React.FC = () => {
       </FiltersRow>
 
       <TableCard>
-        <Table<CrmAct>
-          rowKey="id"
-          columns={columns}
-          dataSource={acts}
-          loading={loading}
-          pagination={{ pageSize: 12, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
-          locale={{ emptyText: <Empty description="Нет актов по выбранным фильтрам" /> }}
-          onRow={(r) => ({ onClick: () => openDetail(r) })}
-        />
+        {loading && acts.length === 0 ? (
+          <TableSkeleton rows={8} cols={columns.length} />
+        ) : (
+          <Table<CrmAct>
+            rowKey="id"
+            columns={columns}
+            dataSource={acts}
+            loading={loading}
+            pagination={{ pageSize: 12, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+            locale={{
+              emptyText: (
+                <EmptyState
+                  title="Нет актов"
+                  description="По выбранным фильтрам результатов нет — попробуйте их очистить."
+                />
+              ),
+            }}
+            onRow={(r) => ({ onClick: () => openDetail(r) })}
+          />
+        )}
       </TableCard>
 
       {/* Модалка карточки акта */}

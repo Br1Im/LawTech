@@ -11,6 +11,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import { TableSkeleton } from './ui';
 import './Appointments.css';
 
 dayjs.locale('ru');
@@ -323,7 +324,7 @@ const Appointments: React.FC = () => {
   if (loading) {
     return (
       <div className="apt-container">
-        <div className="apt-loading">Загрузка записей...</div>
+        <TableSkeleton rows={6} cols={6} withToolbar />
       </div>
     );
   }

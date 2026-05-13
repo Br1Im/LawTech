@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect } from 'react';
 import styled from '@emotion/styled';
 import dayjs from 'dayjs';
 import {
-  Table, Button, Space, App, Empty, Modal, Input, DatePicker, Popconfirm, Tag,
+  Table, Button, Space, App, Modal, Input, DatePicker, Popconfirm, Tag,
 } from 'antd';
+import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, ReloadOutlined, DeleteOutlined, FileTextOutlined,
@@ -106,15 +107,26 @@ const Applications: React.FC = () => {
         </Space>
       </ToolRow>
       <TableCard>
-        <Table<Application>
-          rowKey="id"
-          dataSource={data}
-          columns={columns}
-          loading={loading}
-          pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
-          locale={{ emptyText: <Empty description="Нет заявлений" /> }}
-          size="middle"
-        />
+        {loading && data.length === 0 ? (
+          <TableSkeleton rows={8} cols={columns.length} withToolbar={false} />
+        ) : (
+          <Table<Application>
+            rowKey="id"
+            dataSource={data}
+            columns={columns}
+            loading={loading}
+            pagination={{ pageSize: 15, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+            locale={{
+              emptyText: (
+                <EmptyState
+                  title="Нет заявлений"
+                  description="Заявления появятся здесь, как только вы их добавите."
+                />
+              ),
+            }}
+            size="middle"
+          />
+        )}
       </TableCard>
 
       <Modal
