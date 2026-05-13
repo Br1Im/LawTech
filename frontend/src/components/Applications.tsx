@@ -1,15 +1,14 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
 import styled from '@emotion/styled';
-import dayjs from 'dayjs';
 import {
-  Table, Button, Space, App, Modal, Input, DatePicker, Popconfirm, Tag,
+  Table, Button, Space, App, Modal, Input, Popconfirm, Tag,
 } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, ReloadOutlined, DeleteOutlined, FileTextOutlined,
 } from '@ant-design/icons';
-import { apiInstance } from '../shared/api/instance';
+import { useCrmList, useCrmMutation } from '../shared/api/queryHooks';
 
 const Page = styled.div`display:flex;flex-direction:column;gap:18px;padding:8px 0 0;`;
 const ToolRow = styled.div`display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;`;
@@ -34,46 +33,34 @@ interface Application {
 
 const Applications: React.FC = () => {
   const { message } = App.useApp();
-  const [data, setData] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ client_name: '', topic: '', lawyer_name: '', comment: '' });
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiInstance.get('/applications');
-      setData(res.data?.data || res.data || []);
-    } catch {
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data = [], isFetching: loading, refetch } = useCrmList<Application>('applications');
 
-  useEffect(() => { load(); }, [load]);
+  const createMut = useCrmMutation<typeof form>(
+    { resource: 'applications', method: 'post' },
+    {
+      onSuccess: () => {
+        message.success('Заявление создано');
+        setModalOpen(false);
+        setForm({ client_name: '', topic: '', lawyer_name: '', comment: '' });
+      },
+      onError: () => message.error('Ошибка при создании'),
+    },
+  );
 
-  const handleCreate = async () => {
-    try {
-      await apiInstance.post('/applications', form);
-      message.success('Заявление создано');
-      setModalOpen(false);
-      setForm({ client_name: '', topic: '', lawyer_name: '', comment: '' });
-      load();
-    } catch {
-      message.error('Ошибка при создании');
-    }
-  };
+  const deleteMut = useCrmMutation<{ id: number }>(
+    { resource: 'applications', method: 'delete', url: ({ id }) => `/applications/${id}` },
+    {
+      onSuccess: () => message.success('Удалено'),
+      onError: () => message.error('Ошибка при удалении'),
+    },
+  );
 
-  const handleDelete = async (id: number) => {
-    try {
-      await apiInstance.delete(`/applications/${id}`);
-      message.success('Удалено');
-      load();
-    } catch {
-      message.error('Ошибка при удалении');
-    }
-  };
+  const handleCreate = () => createMut.mutate(form);
+  const handleDelete = (id: number) => deleteMut.mutate({ id });
+  const load = () => { refetch(); };
 
   const columns: ColumnsType<Application> = [
     { title: 'ФИО клиента', dataIndex: 'client_name', key: 'client_name',
