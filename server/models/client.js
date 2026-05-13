@@ -2,21 +2,43 @@ const db = require('../db');
 
 class Client {
   /**
-   * Получить всех клиентов офиса (по office_id в clients)
+   * Получить всех клиентов офиса (по office_id в clients).
+   * Поддерживает опциональную пагинацию: { page, pageSize } — если оба > 0,
+   * возвращает { items, total, page, pageSize }. Без пагинации возвращает
+   * массив (обратная совместимость).
    */
-  static async getAllByOffice(officeId) {
+  static async getAllByOffice(officeId, options = {}) {
     try {
-      const query = `
-        SELECT cl.*,
-               COUNT(DISTINCT c.id) as contracts_count,
-               COALESCE(SUM(c.amount), 0) as total_spent
+      const { page, pageSize } = options;
+
+      const baseFrom = `
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         WHERE cl.office_id = ?
-        GROUP BY cl.id
-        ORDER BY cl.id DESC
       `;
-      const [clients] = await db.query(query, [officeId]);
+      const selectFields = `
+        SELECT cl.*,
+               COUNT(DISTINCT c.id) as contracts_count,
+               COALESCE(SUM(c.amount), 0) as total_spent
+      `;
+
+      if (page > 0 && pageSize > 0) {
+        const [[{ total }]] = await db.query(
+          `SELECT COUNT(DISTINCT cl.id) AS total ${baseFrom}`,
+          [officeId]
+        );
+        const offset = (page - 1) * pageSize;
+        const [items] = await db.query(
+          `${selectFields} ${baseFrom} GROUP BY cl.id ORDER BY cl.id DESC LIMIT ? OFFSET ?`,
+          [officeId, pageSize, offset]
+        );
+        return { items, total, page, pageSize };
+      }
+
+      const [clients] = await db.query(
+        `${selectFields} ${baseFrom} GROUP BY cl.id ORDER BY cl.id DESC`,
+        [officeId]
+      );
       return clients;
     } catch (error) {
       console.error('Error getting clients:', error);

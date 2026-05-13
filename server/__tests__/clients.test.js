@@ -88,6 +88,43 @@ describe('GET /api/clients', () => {
     expect(listB.body.data).toHaveLength(1);
     expect(listB.body.data[0].name).toBe('Office B Client');
   });
+
+  it('supports pagination via ?page= and ?page_size= with metadata in body', async () => {
+    const { token } = await registerLawyerWithOffice(app);
+
+    for (let i = 0; i < 5; i++) {
+      await request(app)
+        .post('/api/clients')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: `Client ${i + 1}` });
+    }
+
+    const page1 = await request(app)
+      .get('/api/clients?page=1&page_size=2')
+      .set('Authorization', `Bearer ${token}`);
+    expect(page1.status).toBe(200);
+    expect(page1.body.data).toHaveLength(2);
+    expect(page1.body.total).toBe(5);
+    expect(page1.body.page).toBe(1);
+    expect(page1.body.page_size).toBe(2);
+
+    const page2 = await request(app)
+      .get('/api/clients?page=2&page_size=2')
+      .set('Authorization', `Bearer ${token}`);
+    expect(page2.body.data).toHaveLength(2);
+
+    const page3 = await request(app)
+      .get('/api/clients?page=3&page_size=2')
+      .set('Authorization', `Bearer ${token}`);
+    expect(page3.body.data).toHaveLength(1);
+
+    const allIds = [
+      ...page1.body.data.map((c) => c.id),
+      ...page2.body.data.map((c) => c.id),
+      ...page3.body.data.map((c) => c.id),
+    ];
+    expect(new Set(allIds).size).toBe(5);
+  });
 });
 
 describe('PUT /api/clients/:id', () => {

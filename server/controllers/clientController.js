@@ -18,8 +18,23 @@ const clientController = {
         return res.json({ success: true, data: [] });
       }
 
+      // Опциональная пагинация: ?page=1&page_size=50 (page_size capped at 200)
+      const page = parseInt(req.query.page, 10);
+      const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
+
+      if (page > 0) {
+        const result = await Client.getAllByOffice(officeId, { page, pageSize });
+        return res.json({
+          success: true,
+          data: result.items,
+          total: result.total,
+          page,
+          page_size: pageSize,
+        });
+      }
+
       const clients = await Client.getAllByOffice(officeId);
-      
+
       res.json({
         success: true,
         data: clients

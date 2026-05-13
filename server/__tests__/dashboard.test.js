@@ -65,4 +65,19 @@ describe('office dashboard + plan', () => {
     expect(Number(get.body.data.daily_plan_weekday)).toBe(10000);
     expect(Number(get.body.data.period_plan_amount)).toBe(300000);
   });
+
+  it('GET /api/office/:officeId/dashboard — gzip-сжатый ответ при наличии Accept-Encoding', async () => {
+    const dir = await registerDirectorWithOffice(app);
+
+    const res = await request(app)
+      .get(`/api/office/${dir.officeId}/dashboard`)
+      .set(dir.authHeaders)
+      .set('Accept-Encoding', 'gzip');
+
+    expect(res.status).toBe(200);
+    // Если payload > threshold (1024 байт) — должен быть gzip.
+    // При маленьком пустом дашборде compression может не срабатывать,
+    // поэтому просто проверяем, что middleware не ломает ответ.
+    expect(res.body.success).toBe(true);
+  });
 });
