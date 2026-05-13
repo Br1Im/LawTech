@@ -8,12 +8,16 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+// В тестах (NODE_ENV=test для Jest или NODE_ENV=e2e для Playwright) лимиты
+// поднимаем на потолок — иначе интеграционные/E2E тесты, которые регистрируют
+// сотни директоров подряд из одного IP, упрутся в 429.
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'e2e';
+
 // Брутфорс-защита логина: 10 неуспешных попыток на 15 минут с одного IP
-// (успешные ответы не считаются — skipSuccessfulRequests). В тестах NODE_ENV=test
-// поднимаем лимит на потолок, чтобы не мешать integration-тестам.
+// (успешные ответы не считаются — skipSuccessfulRequests).
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 10,
+  max: isTestEnv ? 100000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
@@ -26,7 +30,7 @@ const loginRateLimiter = rateLimit({
 // Регистрация: 5 аккаунтов в час с одного IP (антиспам).
 const registerRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: process.env.NODE_ENV === 'test' ? 10000 : 5,
+  max: isTestEnv ? 100000 : 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
