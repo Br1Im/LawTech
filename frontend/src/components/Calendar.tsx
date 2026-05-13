@@ -26,7 +26,7 @@ import localeData from 'dayjs/plugin/localeData';
 import locale from 'antd/locale/ru_RU';
 import { useAuth } from '@/shared/lib/hooks/useAuth';
 import { useOffice } from '@/shared/contexts/OfficeContext';
-import { buildApiUrl } from '@/shared/utils/apiUtils';
+import { buildApiUrl, getAuthHeaders } from '@/shared/utils/apiUtils';
 import './Calendar.css';
 
 dayjs.locale('ru');
@@ -101,7 +101,8 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     if (token) {
       fetchEvents();
     }
-  }, [token, selectedOffice, showAllEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, selectedOffice, showAllEvents, (user as any)?.office_id]);
 
   // Логируем события при изменении
   useEffect(() => {
@@ -124,10 +125,11 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     setError(null);
 
     let url = '';
+    const effectiveOfficeId = selectedOffice?.id || (user as any)?.office_id;
     if (showAllEvents) {
       url = buildApiUrl('/calendar-events/all');
-    } else if (selectedOffice) {
-      url = buildApiUrl(`/office/${selectedOffice.id}/calendar-events`);
+    } else if (effectiveOfficeId) {
+      url = buildApiUrl(`/office/${effectiveOfficeId}/calendar-events`);
     } else {
       console.log('❌ No office selected, skipping fetch');
       setEvents([]);
@@ -139,9 +141,7 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
 
     try {
       const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
       });
       const data = await response.json();
       console.log('📊 Calendar API response:', { ok: response.ok, success: data.success, eventsCount: data.events?.length });
@@ -270,18 +270,31 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
   };
 
   const handleSubmit = async (values: any) => {
-    if (!token || !user?.id || !selectedOffice?.id) {
+    // Если selectedOffice не подгрузился из контекста — берём office_id из профиля пользователя.
+    const effectiveOfficeId = selectedOffice?.id || (user as any)?.office_id;
+    if (!token || !user?.id || !effectiveOfficeId) {
         notification.error({ message: 'Ошибка', description: 'Не удалось определить пользователя или офис.' });
         return;
     }
     setLoading(true);
     setError(null);
     try {
+      // Бэкенд принимает оба варианта именования; шлём максимально совместимо.
+      const dateStr = values.date?.format ? values.date.format('YYYY-MM-DD') : values.date;
+      const timeStr = values.time?.format ? values.time.format('HH:mm:ss') : values.time;
       const eventData = {
-        ...values,
-        date: values.date.format('YYYY-MM-DD'),
-        time: values.time.format('HH:mm'),
-        officeId: selectedOffice.id,
+        title: values.title,
+        description: values.description || null,
+        date: dateStr,
+        start_date: dateStr,
+        time: timeStr,
+        type: values.type,
+        event_type: values.type,
+        priority: values.priority || 'medium',
+        location: values.location || null,
+        participants: values.participants || null,
+        officeId: effectiveOfficeId,
+        office_id: effectiveOfficeId,
         createdBy: user.id
       };
 
@@ -293,10 +306,7 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
 
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(eventData)
       });
       const result = await response.json();
@@ -323,9 +333,7 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     try {
       const response = await fetch(buildApiUrl(`/calendar-events/${eventId}`), {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       });
       const result = await response.json();
 

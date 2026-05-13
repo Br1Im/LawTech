@@ -127,7 +127,7 @@ export const arrivalsApi = {
 
 // MATERIALS
 export const materialsApi = {
-  list: () => unwrap<CrmMaterial[]>(apiInstance.get('/materials')),
+  list: (params?: { contract_id?: number }) => unwrap<CrmMaterial[]>(apiInstance.get('/materials', { params })),
   create: (payload: Partial<CrmMaterial>) => unwrap<CrmMaterial>(apiInstance.post('/materials', payload)),
   update: (id: number, payload: Partial<CrmMaterial>) => unwrap<CrmMaterial>(apiInstance.put(`/materials/${id}`, payload)),
   remove: (id: number) => unwrap<{ id: number }>(apiInstance.delete(`/materials/${id}`)),
@@ -157,13 +157,102 @@ export interface CrmContract {
   lawyer_short?: string | null;
   expert_full_name?: string | null;
   expert_short?: string | null;
+  // Техническое задание (обязательно для contract_type='docs')
+  customer_goal?: string | null;
+  situation_description?: string | null;
+  expert_deadline_days?: number | null;
+  // Расторжение
+  terminated_at?: string | null;
+  termination_reason?: string | null;
+  refund_amount?: number | string | null;
+  refund_deadline?: string | null;
+  refund_confirmed?: number | boolean | null;
+  refund_confirmed_by?: number | null;
+  refund_confirmed_at?: string | null;
+  refund_confirmed_by_name?: string | null;
+  // Регистрация админом
+  contract_number?: string | null;
+  additional_payment_date?: string | null;
+  additional_payment_amount?: number | string | null;
+  registered_by?: number | null;
+  signed_by?: number | null;
+  signed_by_name?: string | null;
+  payment_method?: 'cash' | 'noncash' | 'bank' | null;
+  on_behalf_of?: string | null;
+  needs_lawyer_input?: number | null;
+  appointment_id?: number | null;
 }
 
 export const contractsApi = {
   list: () => unwrap<CrmContract[]>(apiInstance.get('/contracts')),
+  create: (payload: Record<string, unknown>) =>
+    unwrap<CrmContract>(apiInstance.post('/contracts', payload)),
   update: (id: number, payload: Partial<CrmContract>) =>
     unwrap<CrmContract>(apiInstance.put(`/contracts/${id}`, payload)),
+  terminate: (id: number, payload: {
+    terminated_at: string;
+    termination_reason?: string;
+    refund_amount?: number;
+    refund_deadline?: string;
+  }) => unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/terminate`, payload)),
+  confirmRefund: (id: number) =>
+    unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/confirm-refund`, {})),
+  listTerminated: () =>
+    unwrap<CrmContract[]>(apiInstance.get('/contracts/terminated')),
+  generateNumber: (contractDate: string) =>
+    unwrap<{ contract_number: string }>(apiInstance.get('/contracts/generate-number', { params: { contract_date: contractDate } })),
+  remove: (id: number) =>
+    unwrap<{ id: number }>(apiInstance.delete(`/contracts/${id}`)),
+  supplement: (id: number, payload: Record<string, unknown>) =>
+    unwrap<{ message: string }>(apiInstance.post(`/assignments/contract/${id}/supplement`, payload)),
 };
+
+export interface ContractAssignment {
+  assignment_id: number;
+  contract_id: number;
+  assigned_role: string;
+  assignment_type: 'auto' | 'manual';
+  assignment_status: 'pending' | 'in_progress' | 'completed';
+  assigned_at: string;
+  contract_type: string;
+  contract_number: string | null;
+  title: string | null;
+  description: string | null;
+  amount: string;
+  paid_amount: string;
+  contract_status: string;
+  contract_date: string;
+  needs_lawyer_input: number;
+  docs_status: string;
+  customer_goal: string | null;
+  situation_description: string | null;
+  client_name: string;
+  client_phone: string | null;
+  client_email: string | null;
+  employee_name: string | null;
+  representative_name: string | null;
+}
+
+export const assignmentsApi = {
+  myAssignments: () =>
+    unwrap<ContractAssignment[]>(apiInstance.get('/assignments/my')),
+  contractAssignments: (contractId: number) =>
+    unwrap<unknown[]>(apiInstance.get(`/assignments/contract/${contractId}`)),
+  assignRepresentative: (contractId: number, representativeId: number) =>
+    unwrap<{ message: string }>(apiInstance.post(`/assignments/contract/${contractId}/representative`, { representative_id: representativeId })),
+  updateStatus: (assignmentId: number, status: string) =>
+    unwrap<{ message: string }>(apiInstance.patch(`/assignments/${assignmentId}/status`, { status })),
+};
+
+export interface CashStats {
+  total_cash: number;
+  total_noncash: number;
+  total_bank: number;
+  total_expense: number;
+  total_income: number;
+  net_total: number;
+  entries_count: number;
+}
 
 // Зарплата
 export interface SalarySettings {
@@ -324,6 +413,43 @@ export const contractDocsApi = {
     ),
   downloadUrl: (contractId: number, docId: number) =>
     `/api/contracts/${contractId}/documents/${docId}/download`,
+};
+
+// КАССА
+export interface CashEntry {
+  id: number;
+  office_id: number;
+  entry_date: string;
+  client_name?: string | null;
+  contract_number?: string | null;
+  action?: string | null;
+  lawyer_name?: string | null;
+  employee_id?: number | null;
+  cash_amount: number;
+  noncash_amount: number;
+  bank_amount: number;
+  expense_amount: number;
+  comment?: string | null;
+  created_by?: number | null;
+  created_by_name?: string | null;
+  created_at?: string;
+}
+
+export const cashRegisterApi = {
+  list: (params?: { date_from?: string; date_to?: string }) =>
+    unwrap<CashEntry[]>(apiInstance.get('/cash-register', { params })),
+  totals: (params?: { date_from?: string; date_to?: string }) =>
+    unwrap<{ entry_date: string; total_cash: number; total_noncash: number; total_bank: number; total_expense: number; entries_count: number }[]>(
+      apiInstance.get('/cash-register/totals', { params })
+    ),
+  stats: (params?: { date_from?: string; date_to?: string }) =>
+    unwrap<CashStats>(apiInstance.get('/cash-register/stats', { params })),
+  create: (payload: Partial<CashEntry>) =>
+    unwrap<CashEntry>(apiInstance.post('/cash-register', payload)),
+  update: (id: number, payload: Partial<CashEntry>) =>
+    unwrap<CashEntry>(apiInstance.put(`/cash-register/${id}`, payload)),
+  remove: (id: number) =>
+    unwrap<{ id: number }>(apiInstance.delete(`/cash-register/${id}`)),
 };
 
 // EMPLOYEES

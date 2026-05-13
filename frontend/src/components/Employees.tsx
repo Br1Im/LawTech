@@ -1,307 +1,54 @@
 import { useState, useEffect, useMemo } from "react";
-import { FaUser, FaUserPlus, FaUserShield, FaIdCard, FaEnvelope, FaPhone, FaBirthdayCake } from "react-icons/fa";
+import { FaUser, FaUserPlus, FaUserShield, FaEnvelope, FaPhone, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt } from "react-icons/fa";
 import { MdFilterList, MdReplay, MdClose } from "react-icons/md";
-import { buildApiUrl } from "../shared/utils/apiUtils";
+import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
 import "./EmployeesPolish.css";
 
-interface Employee {
+interface StaffMember {
   id: number;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  middle_name?: string;
-  position?: string;
-  office?: string;
-  avatar?: string;
-  email?: string;
-  phone?: string;
-  role: string;
-  status: 'active' | 'pending' | 'rejected';
-  joinDate?: string;
-  birth_date?: string | null;
-  passport_series?: string | null;
-  passport_number?: string | null;
-  passport_issued_by?: string | null;
-  passport_issue_date?: string | null;
-  passport_department_code?: string | null;
-}
-
-const POSITION_OPTIONS = [
-  'Юрист',
-  'Эксперт',
-  'Менеджер',
-  'ОКК',
-  'Колл-центр',
-  'Ресепшен',
-  'Руководитель',
-];
-
-const getInitials = (name: string): string => {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-};
-
-const normalizeRaw = (e: Record<string, unknown>): Employee => {
-  const first = (e.first_name as string) || '';
-  const last = (e.last_name as string) || '';
-  const middle = (e.middle_name as string) || '';
-  const nameFromFields = `${last} ${first}${middle ? ' ' + middle : ''}`.trim();
-  return {
-    id: Number(e.id) || 0,
-    name: (e.name as string) || nameFromFields || (e.email as string) || 'Сотрудник',
-    first_name: first,
-    last_name: last,
-    middle_name: middle,
-    position: (e.position as string) || '',
-    office: (e.office as string) || '',
-    avatar: (e.avatar as string) || undefined,
-    email: (e.email as string) || undefined,
-    phone: (e.phone as string) || undefined,
-    role: (e.user_role as string) || (e.role as string) || '',
-    status: ((e.status as Employee['status']) || 'active'),
-    joinDate: (e.created_at as string) || undefined,
-    birth_date: (e.birth_date as string) || null,
-    passport_series: (e.passport_series as string) || null,
-    passport_number: (e.passport_number as string) || null,
-    passport_issued_by: (e.passport_issued_by as string) || null,
-    passport_issue_date: (e.passport_issue_date as string) || null,
-    passport_department_code: (e.passport_department_code as string) || null,
-  };
-};
-
-const formatRuDate = (v?: string | null): string => {
-  if (!v) return '—';
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
-
-// ===== Карточка сотрудника =====
-const EmployeeCard = ({ employee }: { employee: Employee }) => {
-  return (
-    <div className="employee-card-v2">
-      <div className="emp-avatar">
-        {employee.avatar ? (
-          <img src={employee.avatar} alt={employee.name} />
-        ) : (
-          <div className="emp-initials">{getInitials(employee.name)}</div>
-        )}
-      </div>
-      <div className="emp-body">
-        <div className="emp-name">{employee.name}</div>
-        {employee.position && (
-          <div className="emp-position">{employee.position}</div>
-        )}
-        <div className="emp-meta">
-          {employee.email && (
-            <span title={employee.email}><FaEnvelope /> {employee.email}</span>
-          )}
-          {employee.phone && (
-            <span title={employee.phone}><FaPhone /> {employee.phone}</span>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ===== Модалка «Информация о сотруднике» =====
-const EmployeeModal = ({
-  employee,
-  onClose,
-  canEditRole,
-  canDelete,
-  onRoleUpdated,
-  onDeleted,
-}: {
-  employee: Employee;
-  onClose: () => void;
-  canEditRole: boolean;
-  canDelete: boolean;
-  onRoleUpdated: (id: number, position: string) => void;
-  onDeleted: (id: number) => void;
-}) => {
-  const [position, setPosition] = useState<string>(employee.position || 'Юрист');
-  const [savingRole, setSavingRole] = useState(false);
-  const [roleError, setRoleError] = useState<string | null>(null);
-  const [roleSuccess, setRoleSuccess] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const dirty = canEditRole && position !== (employee.position || 'Юрист');
-
-  const handleDelete = async () => {
-    setDeleteError(null);
-    setDeleting(true);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Требуется авторизация');
-      const res = await fetch(buildApiUrl(`/employees/${employee.id}`), {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || 'Не удалось удалить сотрудника');
-      }
-      onDeleted(employee.id);
-      onClose();
-    } catch (err) {
-      setDeleteError((err as Error).message || 'Ошибка удаления');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleSaveRole = async () => {
-    setRoleError(null);
-    setRoleSuccess(false);
-    setSavingRole(true);
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Требуется авторизация');
-      const res = await fetch(buildApiUrl(`/employees/${employee.id}`), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ position }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || 'Не удалось обновить роль');
-      }
-      onRoleUpdated(employee.id, position);
-      setRoleSuccess(true);
-    } catch (err) {
-      setRoleError((err as Error).message || 'Ошибка обновления');
-    } finally {
-      setSavingRole(false);
-    }
-  };
-
-  return (
-    <div className="emp-modal-overlay" onClick={onClose}>
-      <div className="emp-modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="emp-modal-close" onClick={onClose}><MdClose size={22} /></button>
-        <div className="emp-modal-header">
-          <div className="emp-avatar large">
-            {employee.avatar ? (
-              <img src={employee.avatar} alt={employee.name} />
-            ) : (
-              <div className="emp-initials">{getInitials(employee.name)}</div>
-            )}
-          </div>
-          <div>
-            <h3>{employee.name}</h3>
-            {employee.position && <div className="emp-position">{employee.position}</div>}
-          </div>
-        </div>
-
-        <div className="emp-modal-section">
-          <h4><FaUser /> Контакты</h4>
-          <p><b>Email:</b> {employee.email || '—'}</p>
-          <p><b>Телефон:</b> {employee.phone || '—'}</p>
-          <p><b>Дата рождения:</b> {formatRuDate(employee.birth_date)}</p>
-        </div>
-
-        <div className="emp-modal-section">
-          <h4><FaIdCard /> Паспортные данные</h4>
-          <p><b>Серия и номер:</b> {employee.passport_series || '—'} {employee.passport_number || ''}</p>
-          <p><b>Кем выдан:</b> {employee.passport_issued_by || '—'}</p>
-          <p><b>Когда выдан:</b> {formatRuDate(employee.passport_issue_date)}</p>
-          <p><b>Код подразделения:</b> {employee.passport_department_code || '—'}</p>
-        </div>
-
-        {canEditRole && (
-          <div className="emp-modal-section role-edit-section">
-            <h4><FaUserShield /> Изменить роль</h4>
-            <div className="role-edit-row">
-              <select
-                value={position}
-                onChange={(e) => { setPosition(e.target.value); setRoleSuccess(false); }}
-                disabled={savingRole}
-              >
-                {POSITION_OPTIONS.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <button
-                className="btn-primary"
-                onClick={handleSaveRole}
-                disabled={!dirty || savingRole}
-              >
-                {savingRole ? 'Сохранение…' : 'Сохранить роль'}
-              </button>
-            </div>
-            {roleError && <div className="form-error">{roleError}</div>}
-            {roleSuccess && <div className="form-success">Роль обновлена</div>}
-            <p className="role-hint">Только директор может изменить роль сотрудника.</p>
-          </div>
-        )}
-
-        <div className="emp-modal-footer">
-          {canDelete && (
-            confirmDelete ? (
-              <div className="delete-confirm">
-                <span>Удалить сотрудника безвозвратно?</span>
-                <button className="btn-danger" onClick={handleDelete} disabled={deleting}>
-                  {deleting ? 'Удаление…' : 'Да, удалить'}
-                </button>
-                <button className="btn-secondary" onClick={() => setConfirmDelete(false)} disabled={deleting}>
-                  Отмена
-                </button>
-              </div>
-            ) : (
-              <button className="btn-danger" onClick={() => setConfirmDelete(true)}>
-                Удалить сотрудника
-              </button>
-            )
-          )}
-          {deleteError && <div className="form-error">{deleteError}</div>}
-          <button className="btn-secondary" onClick={onClose}>Закрыть</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ===== Модалка «Добавить сотрудника» =====
-interface NewEmployeeForm {
-  last_name: string;
   first_name: string;
-  middle_name: string;
-  position: string;
-  email: string;
-  phone: string;
-  birth_date: string;
-  passport_series: string;
-  passport_number: string;
-  passport_issued_by: string;
-  passport_issue_date: string;
-  passport_department_code: string;
+  last_name: string;
+  middle_name?: string;
+  login?: string;
+  phone?: string;
+  email?: string;
+  role: string;
+  role_label?: string;
+  office_id?: number;
+  is_active?: number;
+  created_by?: number;
+  created_at?: string;
 }
 
-const emptyForm: NewEmployeeForm = {
-  last_name: '',
-  first_name: '',
-  middle_name: '',
-  position: 'Юрист',
-  email: '',
-  phone: '',
-  birth_date: '',
-  passport_series: '',
-  passport_number: '',
-  passport_issued_by: '',
-  passport_issue_date: '',
-  passport_department_code: '',
+interface AllowedRole {
+  value: string;
+  label: string;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  director: 'Генеральный директор',
+  manager: 'Менеджер',
+  okk: 'ОКК',
+  cc_manager: 'Начальник КЦ',
+  cc_operator: 'Оператор КЦ',
+  expert: 'Эксперт',
+  lawyer: 'Юрист',
+  representative: 'Представитель',
+  admin: 'Администратор',
+};
+
+const getInitials = (first: string, last: string): string => {
+  const f = (first || '')[0] || '';
+  const l = (last || '')[0] || '';
+  return (l + f).toUpperCase() || '?';
+};
+
+const getFullName = (s: StaffMember): string => {
+  return [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
 };
 
 const formatPhone = (raw: string): string => {
@@ -319,93 +66,390 @@ const formatPhone = (raw: string): string => {
   return out;
 };
 
-const AddEmployeeModal = ({
+const copyToClipboard = (text: string) => {
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+};
+
+// ===== Карточка сотрудника =====
+const StaffCard = ({ staff }: { staff: StaffMember }) => {
+  const name = getFullName(staff);
+  const roleLabel = staff.role_label || ROLE_LABELS[staff.role] || staff.role;
+  const inactive = staff.is_active === 0;
+  return (
+    <div className={`employee-card-v2${inactive ? ' inactive' : ''}`}>
+      <div className="emp-avatar">
+        <div className="emp-initials">{getInitials(staff.first_name, staff.last_name)}</div>
+      </div>
+      <div className="emp-body">
+        <div className="emp-name">{name}{inactive && <span className="inactive-badge"> (неактив.)</span>}</div>
+        <div className="emp-position">{roleLabel}</div>
+        <div className="emp-meta">
+          {staff.phone && <span><FaPhone /> {staff.phone}</span>}
+          {staff.login && <span><FaUser /> {staff.login}</span>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== Модалка «Информация о сотруднике» =====
+const StaffDetailModal = ({
+  staff,
+  onClose,
+  canManage,
+  onUpdated,
+}: {
+  staff: StaffMember;
+  onClose: () => void;
+  canManage: boolean;
+  onUpdated: () => void;
+}) => {
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ first_name: staff.first_name, last_name: staff.last_name, middle_name: staff.middle_name || '', phone: staff.phone || '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [resetCreds, setResetCreds] = useState<{ login: string; password: string } | null>(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [customPassword, setCustomPassword] = useState('');
+  const [passwordMode, setPasswordMode] = useState<'choose' | 'custom' | 'loading'>('choose');
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [showRoleChange, setShowRoleChange] = useState(false);
+  const [changeableRoles, setChangeableRoles] = useState<AllowedRole[]>([]);
+  const [selectedNewRole, setSelectedNewRole] = useState<string>(staff.role);
+  const [changingRole, setChangingRole] = useState(false);
+
+  useEffect(() => {
+    if (showRoleChange && changeableRoles.length === 0) {
+      fetch(buildApiUrl('/staff/changeable-roles'), { headers: getAuthHeaders() })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          const roles = (data.allowed_roles || []).filter((r: AllowedRole) => r.value !== staff.role);
+          setChangeableRoles(roles);
+          if (roles.length > 0) setSelectedNewRole(roles[0].value);
+        })
+        .catch(() => setChangeableRoles([]));
+    }
+  }, [showRoleChange]);
+
+  const handleChangeRole = async () => {
+    if (!selectedNewRole || selectedNewRole === staff.role) return;
+    setError(null); setChangingRole(true);
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/role`), {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ role: selectedNewRole }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || 'Ошибка'); }
+      const data = await res.json();
+      setSuccess(`Роль изменена на: ${data.new_role_label}`);
+      setShowRoleChange(false);
+      onUpdated();
+    } catch (e) { setError((e as Error).message); }
+    finally { setChangingRole(false); }
+  };
+
+  const handleSave = async () => {
+    setError(null); setSaving(true);
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}`), {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || 'Ошибка'); }
+      setSuccess('Данные обновлены');
+      setEditing(false);
+      onUpdated();
+    } catch (e) { setError((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  const handleChangePassword = async (useCustom: boolean) => {
+    setError(null); setResetCreds(null); setPasswordMode('loading');
+    try {
+      const body: Record<string, string> = {};
+      if (useCustom && customPassword.trim()) {
+        body.password = customPassword.trim();
+      }
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/reset-password`), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || 'Ошибка'); }
+      const data = await res.json();
+      setResetCreds({ login: data.login, password: data.password });
+      setShowPasswordChange(false);
+      setPasswordMode('choose');
+      setCustomPassword('');
+    } catch (e) { setError((e as Error).message); setPasswordMode('choose'); }
+  };
+
+  const handleToggleActive = async () => {
+    setError(null);
+    try {
+      const newActive = staff.is_active === 0 ? 1 : 0;
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/active`), {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ is_active: newActive }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || 'Ошибка'); }
+      setSuccess(newActive ? 'Сотрудник активирован' : 'Сотрудник деактивирован');
+      setConfirmDeactivate(false);
+      onUpdated();
+    } catch (e) { setError((e as Error).message); }
+  };
+
+  const roleLabel = staff.role_label || ROLE_LABELS[staff.role] || staff.role;
+
+  return (
+    <div className="emp-modal-overlay" onClick={onClose}>
+      <div className="emp-modal-card" onClick={(e) => e.stopPropagation()}>
+        <button className="emp-modal-close" onClick={onClose}><MdClose size={22} /></button>
+        <div className="emp-modal-header">
+          <div className="emp-avatar large">
+            <div className="emp-initials">{getInitials(staff.first_name, staff.last_name)}</div>
+          </div>
+          <div>
+            <h3>{getFullName(staff)}</h3>
+            <div className="emp-position">{roleLabel}</div>
+            {staff.is_active === 0 && <div className="inactive-badge-large">Деактивирован</div>}
+          </div>
+        </div>
+
+        <div className="emp-modal-section">
+          <h4><FaUser /> Информация</h4>
+          {!editing ? (
+            <>
+              <p><b>Логин:</b> {staff.login || '—'}</p>
+              <p><b>Телефон:</b> {staff.phone || '—'}</p>
+              <p><b>Email:</b> {staff.email || '—'}</p>
+            </>
+          ) : (
+            <div className="form-grid">
+              <label><span>Фамилия</span><input value={editForm.last_name} onChange={(e) => setEditForm(p => ({ ...p, last_name: e.target.value }))} /></label>
+              <label><span>Имя</span><input value={editForm.first_name} onChange={(e) => setEditForm(p => ({ ...p, first_name: e.target.value }))} /></label>
+              <label><span>Отчество</span><input value={editForm.middle_name} onChange={(e) => setEditForm(p => ({ ...p, middle_name: e.target.value }))} /></label>
+              <label><span>Телефон</span><input value={editForm.phone} onChange={(e) => setEditForm(p => ({ ...p, phone: formatPhone(e.target.value) }))} /></label>
+            </div>
+          )}
+        </div>
+
+        {showPasswordChange && !resetCreds && (
+          <div className="emp-modal-section">
+            <h4><FaKey /> Изменить пароль</h4>
+            {passwordMode === 'choose' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder="Введите новый пароль (мин. 6 символов)"
+                    value={customPassword}
+                    onChange={(e) => setCustomPassword(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9', fontSize: '14px' }}
+                  />
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleChangePassword(true)}
+                    disabled={customPassword.trim().length < 6}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    Установить
+                  </button>
+                </div>
+                <div style={{ textAlign: 'center', color: '#999', fontSize: '13px' }}>или</div>
+                <button className="btn-secondary" onClick={() => handleChangePassword(false)} style={{ width: '100%' }}>
+                  Сгенерировать надёжный пароль
+                </button>
+              </div>
+            )}
+            {passwordMode === 'loading' && (
+              <p style={{ color: '#888', fontSize: '13px' }}>Сохранение...</p>
+            )}
+          </div>
+        )}
+
+        {resetCreds && (
+          <div className="emp-modal-section credentials-section">
+            <h4><FaKey /> Новый пароль установлен</h4>
+            <div className="credentials-box">
+              <p><b>Логин:</b> {resetCreds.login} <button className="copy-btn" onClick={() => copyToClipboard(resetCreds.login)} title="Копировать"><FaCopy /></button></p>
+              <p><b>Пароль:</b> {resetCreds.password} <button className="copy-btn" onClick={() => copyToClipboard(resetCreds.password)} title="Копировать"><FaCopy /></button></p>
+              <button className="copy-btn-full" onClick={() => copyToClipboard(`Логин: ${resetCreds.login}\nПароль: ${resetCreds.password}`)}>
+                <FaCopy /> Копировать всё
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showRoleChange && (
+          <div className="emp-modal-section">
+            <h4><FaExchangeAlt /> Смена роли</h4>
+            <p style={{ fontSize: '13px', color: '#888', margin: '0 0 8px' }}>Текущая роль: <b>{ROLE_LABELS[staff.role] || staff.role}</b></p>
+            {changeableRoles.length > 0 ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select value={selectedNewRole} onChange={(e) => setSelectedNewRole(e.target.value)} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9', fontSize: '14px' }}>
+                  {changeableRoles.map(r => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+                <button className="btn-primary" onClick={handleChangeRole} disabled={changingRole} style={{ whiteSpace: 'nowrap' }}>
+                  {changingRole ? 'Сохранение…' : 'Применить'}
+                </button>
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: '#999' }}>Нет доступных ролей для смены</p>
+            )}
+          </div>
+        )}
+
+        {error && <div className="form-error">{error}</div>}
+        {success && <div className="form-success">{success}</div>}
+
+        {canManage && (
+          <div className="emp-modal-footer">
+            {editing ? (
+              <>
+                <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Сохранение…' : 'Сохранить'}</button>
+                <button className="btn-secondary" onClick={() => setEditing(false)} disabled={saving}>Отмена</button>
+              </>
+            ) : (
+              <>
+                <button className="btn-secondary" onClick={() => setEditing(true)}><FaUserShield /> Редактировать</button>
+                <button className="btn-secondary" onClick={() => { setShowPasswordChange(!showPasswordChange); setResetCreds(null); setPasswordMode('choose'); setCustomPassword(''); }}><FaKey /> Изменить пароль</button>
+                {staff.role !== 'director' && (
+                  <button className="btn-secondary" onClick={() => setShowRoleChange(!showRoleChange)}><FaExchangeAlt /> Сменить роль</button>
+                )}
+                {confirmDeactivate ? (
+                  <div className="delete-confirm">
+                    <span>{staff.is_active === 0 ? 'Активировать?' : 'Деактивировать?'}</span>
+                    <button className="btn-danger" onClick={handleToggleActive}>{staff.is_active === 0 ? 'Да, активировать' : 'Да, деактивировать'}</button>
+                    <button className="btn-secondary" onClick={() => setConfirmDeactivate(false)}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className={staff.is_active === 0 ? 'btn-primary' : 'btn-danger'} onClick={() => setConfirmDeactivate(true)}>
+                    {staff.is_active === 0 ? <><FaCheck /> Активировать</> : <><FaBan /> Деактивировать</>}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+        {!canManage && (
+          <div className="emp-modal-footer">
+            <button className="btn-secondary" onClick={onClose}>Закрыть</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ===== Модалка «Создать сотрудника» =====
+const CreateStaffModal = ({
+  allowedRoles,
   onClose,
   onCreated,
 }: {
+  allowedRoles: AllowedRole[];
   onClose: () => void;
-  onCreated: (emp: Employee) => void;
+  onCreated: () => void;
 }) => {
-  const [form, setForm] = useState<NewEmployeeForm>(emptyForm);
+  const [form, setForm] = useState({
+    last_name: '',
+    first_name: '',
+    middle_name: '',
+    phone: '',
+    role: allowedRoles[0]?.value || '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdCreds, setCreatedCreds] = useState<{ login: string; password: string; name: string } | null>(null);
 
-  const update = <K extends keyof NewEmployeeForm>(key: K, value: NewEmployeeForm[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const update = (key: string, value: string) => setForm(p => ({ ...p, [key]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!form.last_name.trim() || !form.first_name.trim()) {
-      setError('Фамилия и Имя обязательны');
-      return;
-    }
-    if (form.passport_series && !/^\d{4}$/.test(form.passport_series)) {
-      setError('Серия паспорта — 4 цифры');
-      return;
-    }
-    if (form.passport_number && !/^\d{6}$/.test(form.passport_number)) {
-      setError('Номер паспорта — 6 цифр');
-      return;
-    }
-    if (form.passport_department_code && !/^\d{3}-\d{3}$|^\d{6}$/.test(form.passport_department_code)) {
-      setError('Код подразделения в формате 123-456');
-      return;
-    }
-    if (form.phone) {
-      const digits = form.phone.replace(/\D/g, '');
-      if (digits.length !== 11 || !['7', '8'].includes(digits[0])) {
-        setError('Телефон: 11 цифр, только российские');
-        return;
-      }
-    }
+    if (!form.last_name.trim() || !form.first_name.trim()) { setError('Фамилия и Имя обязательны'); return; }
+    if (!form.phone.trim()) { setError('Телефон обязателен'); return; }
+    const digits = form.phone.replace(/\D/g, '');
+    if (digits.length !== 11) { setError('Телефон: 11 цифр'); return; }
+    if (!form.role) { setError('Выберите роль'); return; }
 
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Требуется авторизация');
-      const res = await fetch(buildApiUrl('/employees'), {
+      const res = await fetch(buildApiUrl('/staff'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
-          middle_name: form.middle_name.trim() || null,
-          position: form.position,
-          email: form.email.trim() || null,
-          phone: form.phone.trim() || null,
-          birth_date: form.birth_date || null,
-          passport_series: form.passport_series || null,
-          passport_number: form.passport_number || null,
-          passport_issued_by: form.passport_issued_by.trim() || null,
-          passport_issue_date: form.passport_issue_date || null,
-          passport_department_code: form.passport_department_code || null,
+          middle_name: form.middle_name.trim() || undefined,
+          phone: form.phone.trim(),
+          role: form.role,
         }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.message || 'Не удалось сохранить сотрудника');
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error || 'Не удалось создать сотрудника');
       }
-      const body = await res.json();
-      const raw = body?.data || body;
-      onCreated(normalizeRaw(raw));
-      onClose();
+      const data = await res.json();
+      const emp = data.employee;
+      setCreatedCreds({
+        login: emp.login,
+        password: emp.password,
+        name: `${emp.last_name} ${emp.first_name}`,
+      });
     } catch (err) {
-      setError((err as Error).message || 'Ошибка сохранения');
+      setError((err as Error).message);
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (createdCreds) {
+    return (
+      <div className="emp-modal-overlay" onClick={onClose}>
+        <div className="emp-modal-card" onClick={(e) => e.stopPropagation()}>
+          <button className="emp-modal-close" onClick={() => { onCreated(); onClose(); }}><MdClose size={22} /></button>
+          <h3 className="add-employee-title"><FaCheck /> Сотрудник создан</h3>
+          <p style={{ margin: '8px 0', fontSize: '15px' }}>
+            <b>{createdCreds.name}</b>
+          </p>
+          <div className="credentials-section">
+            <div className="credentials-box">
+              <p><b>Логин:</b> {createdCreds.login} <button className="copy-btn" onClick={() => copyToClipboard(createdCreds.login)} title="Копировать"><FaCopy /></button></p>
+              <p><b>Пароль:</b> {createdCreds.password} <button className="copy-btn" onClick={() => copyToClipboard(createdCreds.password)} title="Копировать"><FaCopy /></button></p>
+              <button className="copy-btn-full" onClick={() => copyToClipboard(`Логин: ${createdCreds.login}\nПароль: ${createdCreds.password}`)}>
+                <FaCopy /> Копировать всё
+              </button>
+            </div>
+            <p className="credentials-hint">Передайте эти данные сотруднику. Пароль показывается только один раз.</p>
+          </div>
+          <div className="emp-modal-footer">
+            <button className="btn-primary" onClick={() => { onCreated(); onClose(); }}>Готово</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="emp-modal-overlay" onClick={onClose}>
       <div className="emp-modal-card add-employee-card" onClick={(e) => e.stopPropagation()}>
         <button className="emp-modal-close" onClick={onClose}><MdClose size={22} /></button>
-        <h3 className="add-employee-title"><FaUserPlus /> Добавить сотрудника</h3>
+        <h3 className="add-employee-title"><FaUserPlus /> Создать сотрудника</h3>
 
         <form className="add-employee-form" onSubmit={handleSubmit}>
           <fieldset>
@@ -425,9 +469,9 @@ const AddEmployeeModal = ({
               </label>
               <label>
                 <span>Роль *</span>
-                <select value={form.position} onChange={(e) => update('position', e.target.value)}>
-                  {POSITION_OPTIONS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
+                <select value={form.role} onChange={(e) => update('role', e.target.value)}>
+                  {allowedRoles.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
               </label>
@@ -435,55 +479,11 @@ const AddEmployeeModal = ({
           </fieldset>
 
           <fieldset>
-            <legend><FaEnvelope /> Контакты</legend>
+            <legend><FaPhone /> Контакт</legend>
             <div className="form-grid">
               <label>
-                <span>Email</span>
-                <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="name@example.com" />
-              </label>
-              <label>
-                <span>Телефон</span>
+                <span>Телефон *</span>
                 <input value={form.phone} onChange={(e) => update('phone', formatPhone(e.target.value))} placeholder="+7 (___) ___-__-__" />
-              </label>
-              <label>
-                <span><FaBirthdayCake /> Дата рождения</span>
-                <input type="date" value={form.birth_date} onChange={(e) => update('birth_date', e.target.value)} />
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend><FaIdCard /> Паспорт РФ</legend>
-            <div className="form-grid">
-              <label>
-                <span>Серия</span>
-                <input value={form.passport_series} onChange={(e) => update('passport_series', e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4514" inputMode="numeric" maxLength={4} />
-              </label>
-              <label>
-                <span>Номер</span>
-                <input value={form.passport_number} onChange={(e) => update('passport_number', e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" inputMode="numeric" maxLength={6} />
-              </label>
-              <label className="span-2">
-                <span>Кем выдан</span>
-                <input value={form.passport_issued_by} onChange={(e) => update('passport_issued_by', e.target.value)} placeholder="ОВД района ..." />
-              </label>
-              <label>
-                <span>Дата выдачи</span>
-                <input type="date" value={form.passport_issue_date} onChange={(e) => update('passport_issue_date', e.target.value)} />
-              </label>
-              <label>
-                <span>Код подразделения</span>
-                <input
-                  value={form.passport_department_code}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^\d]/g, '').slice(0, 6);
-                    const formatted = raw.length > 3 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw;
-                    update('passport_department_code', formatted);
-                  }}
-                  placeholder="770-001"
-                  inputMode="numeric"
-                  maxLength={7}
-                />
               </label>
             </div>
           </fieldset>
@@ -493,7 +493,7 @@ const AddEmployeeModal = ({
           <div className="emp-modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>Отмена</button>
             <button type="submit" className="btn-primary" disabled={submitting}>
-              {submitting ? 'Сохранение…' : 'Сохранить'}
+              {submitting ? 'Создание…' : 'Создать'}
             </button>
           </div>
         </form>
@@ -505,107 +505,93 @@ const AddEmployeeModal = ({
 // ===== Главный компонент =====
 const Employees = () => {
   const { isAuthenticated, user } = useAuth();
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedRole, setSelectedRole] = useState<string>('Все роли');
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [employees, setEmployees] = useState<StaffMember[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedEmployee, setSelectedEmployee] = useState<StaffMember | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [allowedRoles, setAllowedRoles] = useState<AllowedRole[]>([]);
+  const [showInactive, setShowInactive] = useState(false);
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      if (!isAuthenticated || !user) {
-        setEmployees([]);
-        return;
-      }
-      setLoading(true);
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('Требуется авторизация');
-        const profileRes = await fetch(buildApiUrl('/profile'), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!profileRes.ok) throw new Error('Профиль не найден');
-        const profileData = await profileRes.json();
-        const officeId = profileData.user?.officeId;
-        if (!officeId) throw new Error('Офис не найден');
-        const res = await fetch(buildApiUrl(`/office/${officeId}/employees`), {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('Не удалось получить сотрудников');
-        const raw = await res.json();
-        const list: Array<Record<string, unknown>> = Array.isArray(raw)
-          ? raw
-          : Array.isArray(raw?.data)
-            ? raw.data
-            : [];
-        setEmployees(list.map(normalizeRaw));
-      } catch (err) {
-        console.error('Ошибка получения сотрудников:', err);
-        setEmployees([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEmployees();
-  }, [isAuthenticated, user]);
+  const fetchEmployees = async () => {
+    if (!isAuthenticated || !user) { setEmployees([]); return; }
+    setLoading(true);
+    try {
+      const url = buildApiUrl(`/staff${showInactive ? '?include_inactive=true' : ''}`);
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Не удалось получить сотрудников');
+      const data = await res.json();
+      setEmployees(data.employees || []);
+    } catch (err) {
+      console.error('Ошибка получения сотрудников:', err);
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const roles = useMemo(() => {
-    const uniq = Array.from(new Set(employees.map((e) => e.position).filter(Boolean) as string[]));
-    return ['Все роли', ...uniq];
+  const fetchAllowedRoles = async () => {
+    try {
+      const res = await fetch(buildApiUrl('/staff/allowed-roles'), { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setAllowedRoles(data.allowed_roles || []);
+      }
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => { fetchEmployees(); fetchAllowedRoles(); }, [isAuthenticated, user, showInactive]);
+
+  const roleOptions = useMemo(() => {
+    const uniq = Array.from(new Set(employees.map(e => e.role).filter(Boolean)));
+    return [{ value: 'all', label: 'Все роли' }, ...uniq.map(r => ({ value: r, label: ROLE_LABELS[r] || r }))];
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return employees.filter((e) => {
-      const matchRole = selectedRole === 'Все роли' || e.position === selectedRole;
-      const matchSearch = !q
-        || e.name.toLowerCase().includes(q)
-        || (e.email || '').toLowerCase().includes(q)
-        || (e.phone || '').toLowerCase().includes(q)
-        || (e.position || '').toLowerCase().includes(q);
+    return employees.filter(e => {
+      const matchRole = selectedRole === 'all' || e.role === selectedRole;
+      const name = getFullName(e).toLowerCase();
+      const matchSearch = !q || name.includes(q) || (e.login || '').toLowerCase().includes(q) || (e.phone || '').includes(q);
       return matchRole && matchSearch;
     });
   }, [employees, selectedRole, search]);
 
-  const handleResetFilters = () => {
-    setSelectedRole('Все роли');
-    setSearch('');
-  };
+  const canCreate = allowedRoles.length > 0;
+  const canManage = ['director', 'manager', 'okk', 'cc_manager'].includes(user?.role || '');
 
   return (
     <div className="employees-content employees-v2">
       <div className="employees-header">
         <h2 className="employees-title">Сотрудники</h2>
-        <button className="add-employee-btn" onClick={() => setShowAddModal(true)}>
-          <FaUserPlus size={16} />
-          <span>Добавить сотрудника</span>
-        </button>
+        {canCreate && (
+          <button className="add-employee-btn" onClick={() => setShowCreateModal(true)}>
+            <FaUserPlus size={16} />
+            <span>Создать сотрудника</span>
+          </button>
+        )}
       </div>
 
       <div className="filters filters-v2">
-        <div className="filter-icon">
-          <MdFilterList size={22} />
-        </div>
+        <div className="filter-icon"><MdFilterList size={22} /></div>
         <div className="filter-text">Фильтр</div>
         <div className="role-filter">
           <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
-            {roles.map((role) => (
-              <option key={role} value={role}>{role}</option>
+            {roleOptions.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
             ))}
           </select>
         </div>
         <div className="search-filter">
-          <input
-            type="text"
-            placeholder="Поиск по ФИО, email, телефону…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <input type="text" placeholder="Поиск по ФИО, логину, телефону…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <button className="reset-filter" onClick={handleResetFilters}>
-          <MdReplay size={18} />
-          <span>Сбросить</span>
+        <label className="inactive-toggle">
+          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+          <span>Показать неактивных</span>
+        </label>
+        <button className="reset-filter" onClick={() => { setSelectedRole('all'); setSearch(''); }}>
+          <MdReplay size={18} /><span>Сбросить</span>
         </button>
       </div>
 
@@ -613,9 +599,9 @@ const Employees = () => {
         <div className="no-employees"><p>Загрузка…</p></div>
       ) : filteredEmployees.length > 0 ? (
         <div className="employees-grid">
-          {filteredEmployees.map((employee) => (
-            <div onClick={() => setSelectedEmployee(employee)} key={employee.id} className="employee-grid-item">
-              <EmployeeCard employee={employee} />
+          {filteredEmployees.map((emp) => (
+            <div onClick={() => setSelectedEmployee(emp)} key={emp.id} className="employee-grid-item">
+              <StaffCard staff={emp} />
             </div>
           ))}
         </div>
@@ -624,23 +610,19 @@ const Employees = () => {
       )}
 
       {selectedEmployee && (
-        <EmployeeModal
-          employee={selectedEmployee}
+        <StaffDetailModal
+          staff={selectedEmployee}
           onClose={() => setSelectedEmployee(null)}
-          canEditRole={(user?.role || '').toLowerCase() === 'director'}
-          canDelete={['director', 'manager'].includes((user?.role || '').toLowerCase())}
-          onRoleUpdated={(id, newPosition) => {
-            setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, position: newPosition } : e)));
-            setSelectedEmployee((prev) => (prev && prev.id === id ? { ...prev, position: newPosition } : prev));
-          }}
-          onDeleted={(id) => setEmployees((prev) => prev.filter((e) => e.id !== id))}
+          canManage={canManage}
+          onUpdated={() => { fetchEmployees(); setSelectedEmployee(null); }}
         />
       )}
 
-      {showAddModal && (
-        <AddEmployeeModal
-          onClose={() => setShowAddModal(false)}
-          onCreated={(emp) => setEmployees((prev) => [emp, ...prev])}
+      {showCreateModal && (
+        <CreateStaffModal
+          allowedRoles={allowedRoles}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => fetchEmployees()}
         />
       )}
     </div>

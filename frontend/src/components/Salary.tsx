@@ -296,7 +296,6 @@ const Salary: React.FC = () => {
         </Space>
       ),
       filters: [
-        { text: 'Директор', value: 'director' },
         { text: 'Юрист', value: 'lawyer' },
         { text: 'ОКК', value: 'okk' },
         { text: 'Менеджер', value: 'manager' },
@@ -315,14 +314,14 @@ const Salary: React.FC = () => {
       render: (v) => formatMoney(v),
     },
     {
-      title: 'Бонусы',
+      title: 'Процент',
       dataIndex: 'bonus',
       key: 'bonus',
       align: 'right',
       width: 160,
       render: (v, r) => (
         <Popover
-          title="Расчёт премии"
+          title="Расчёт процента"
           content={
             r.bonus_breakdown.length === 0
               ? <span>—</span>
@@ -355,16 +354,14 @@ const Salary: React.FC = () => {
       width: 110,
       render: (_, r) => (
         <Button size="small" icon={<EditOutlined />} disabled={!isManagerOrAbove} onClick={() => openSalaryEditor(r)}>
-          Оклад
+          Настроить
         </Button>
       ),
     },
   ];
 
-  // ФОТ — сумма зарплат всех сотрудников офиса, КРОМЕ директора
-  // (директор получает прибыль офиса = касса − расходы, в ФОТ не входит).
+  // ФОТ — сумма зарплат всех сотрудников офиса
   const totalPayroll = (data?.rows || [])
-    .filter((r) => r.role !== 'director')
     .reduce((acc, r) => acc + (Number(r.total) || 0), 0);
 
   return (
@@ -413,11 +410,11 @@ const Salary: React.FC = () => {
           <div className="val">{formatMoney(data?.office_expenses)}</div>
         </Stat>
         <Stat>
-          <div className="lbl">Прибыль офиса (директору)</div>
+          <div className="lbl">Прибыль офиса</div>
           <div className="val">{formatMoney(data?.office_profit)}</div>
         </Stat>
         <Stat>
-          <div className="lbl">ФОТ (без директора)</div>
+          <div className="lbl">ФОТ</div>
           <div className="val">{formatMoney(totalPayroll)}</div>
         </Stat>
         <Stat>
@@ -479,15 +476,7 @@ const Salary: React.FC = () => {
               </Space>
             ),
           },
-          {
-            key: 'bonuses',
-            label: 'Бонусы',
-            children: (
-              <TableCard>
-                <Empty description="Раздел в разработке" />
-              </TableCard>
-            ),
-          },
+
         ]}
       />
 
@@ -530,9 +519,9 @@ const Salary: React.FC = () => {
         )}
       </Modal>
 
-      {/* Окладная карточка сотрудника */}
+      {/* Настройка зарплаты сотрудника */}
       <Modal
-        title={salaryEditEmp ? `Оклад: ${shortName(salaryEditEmp.full_name)}` : 'Оклад'}
+        title={salaryEditEmp ? `Настройка: ${shortName(salaryEditEmp.full_name)} (${salaryEditEmp.role_label})` : 'Настройка'}
         open={!!salaryEditEmp}
         onCancel={() => { setSalaryEditEmp(null); setSalaryEditForm(null); }}
         onOk={saveEmployeeSalary}
@@ -541,21 +530,70 @@ const Salary: React.FC = () => {
         destroyOnClose
         width={520}
       >
-        {salaryEditForm && (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
-              onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
-            <SettingField label="Индивидуальный % от актов (если задан — заменит офисный)" suffix="%" value={salaryEditForm.custom_percent ?? ''}
-              onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_percent: v })} allowEmpty />
-            <SettingField label="Индивидуальная ставка смены (для администратора)" suffix="₽" value={salaryEditForm.custom_shift_rate ?? ''}
-              onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_shift_rate: v })} allowEmpty />
-            <SettingField label="Индивидуальная оплата за пакет (для эксперта)" suffix="₽" value={salaryEditForm.custom_per_doc ?? ''}
-              onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_per_doc: v })} allowEmpty />
-            <div style={{ color: 'var(--color-muted)', fontSize: 12 }}>
-              Оставьте пустым, чтобы использовалось офисное значение.
-            </div>
-          </Space>
-        )}
+        {salaryEditForm && salaryEditEmp && (() => {
+          const role = salaryEditEmp.role;
+          const s = data?.settings;
+          const hint = (text: string) => (
+            <div style={{ color: 'var(--color-muted)', fontSize: 12 }}>{text}</div>
+          );
+          return (
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              {role === 'manager' ? (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  <SettingField label="Процент от кассы офиса, %" suffix="%" value={salaryEditForm.custom_percent ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_percent: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s?.manager_office_percent ?? '—'}%`)}
+                </>
+              ) : role === 'okk' ? (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  <SettingField label="Процент от актов, %" suffix="%" value={salaryEditForm.custom_percent ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_percent: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s?.okk_percent ?? '—'}%`)}
+                </>
+              ) : role === 'lawyer' ? (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  <SettingField label="Процент от актов, %" suffix="%" value={salaryEditForm.custom_percent ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_percent: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s?.lawyer_percent ?? '—'}%`)}
+                </>
+              ) : role === 'representative' ? (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  <SettingField label="Процент от актов, %" suffix="%" value={salaryEditForm.custom_percent ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_percent: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s?.representative_percent ?? '—'}%`)}
+                </>
+              ) : role === 'reception' ? (
+                <>
+                  <SettingField label="Стоимость смены, ₽" suffix="₽" value={salaryEditForm.custom_shift_rate ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_shift_rate: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s ? formatMoney(s.admin_shift_rate) : '—'} за смену`)}
+                </>
+              ) : role === 'expert' ? (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  <SettingField label="Оплата за пакет документов, ₽" suffix="₽" value={salaryEditForm.custom_per_doc ?? ''}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, custom_per_doc: v })} allowEmpty />
+                  {hint(`Оставьте пустым — офисное значение: ${s ? formatMoney(s.expert_per_doc_amount) : '—'} за пакет`)}
+                </>
+              ) : (
+                <>
+                  <SettingField label="Оклад, ₽" suffix="₽" value={salaryEditForm.base_salary}
+                    onChange={(v) => setSalaryEditForm({ ...salaryEditForm, base_salary: v })} />
+                  {hint('Роль не определена — задайте оклад вручную.')}
+                </>
+              )}
+            </Space>
+          );
+        })()}
       </Modal>
 
       {/* Добавление смены */}

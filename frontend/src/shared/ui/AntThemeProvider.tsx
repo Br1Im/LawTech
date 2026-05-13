@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ConfigProvider, theme as antTheme } from 'antd';
+import { App, ConfigProvider, theme as antTheme } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 
 export type ThemeMode = 'light' | 'dark';
@@ -8,7 +8,7 @@ function readInitialTheme(): ThemeMode {
   if (typeof window === 'undefined') return 'light';
   const saved = localStorage.getItem('theme');
   if (saved === 'dark' || saved === 'light') return saved;
-  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  return 'light';
 }
 
 interface AntThemeContextValue {
@@ -50,17 +50,17 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
   const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
 
   const tokens = {
-    colorPrimary: mode === 'dark' ? '#d4af37' : '#c09b46',
-    colorInfo: mode === 'dark' ? '#0a84ff' : '#0071e3',
-    colorSuccess: '#22c55e',
-    colorWarning: '#f59e0b',
-    colorError: '#ef4444',
-    colorBgBase: mode === 'dark' ? '#0c0d10' : '#f5f6fa',
-    colorTextBase: mode === 'dark' ? '#e7e9ee' : '#0f172a',
-    colorBorder: mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
-    borderRadius: 12,
-    borderRadiusLG: 14,
-    borderRadiusSM: 10,
+    colorPrimary: mode === 'dark' ? '#7C5CFF' : '#1E40AF',
+    colorInfo: mode === 'dark' ? '#3B82F6' : '#0071e3',
+    colorSuccess: '#22C55E',
+    colorWarning: '#F59E0B',
+    colorError: '#EF4444',
+    colorBgBase: mode === 'dark' ? '#0F1116' : '#f5f6fa',
+    colorTextBase: mode === 'dark' ? '#E6E8EF' : '#0f172a',
+    colorBorder: mode === 'dark' ? '#2A2F3D' : 'rgba(15,23,42,0.08)',
+    borderRadius: 8,
+    borderRadiusLG: 8,
+    borderRadiusSM: 8,
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     wireframe: false,
   };
@@ -74,28 +74,74 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
           token: tokens,
           components: {
             Table: {
-              headerBg: mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.03)',
-              headerColor: mode === 'dark' ? '#e7e9ee' : '#0f172a',
-              rowHoverBg: mode === 'dark' ? 'rgba(212,175,55,0.08)' : 'rgba(192,155,70,0.06)',
-              borderColor: mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+              headerBg: mode === 'dark' ? '#161A22' : 'rgba(15,23,42,0.03)',
+              headerColor: mode === 'dark' ? '#8B8FA3' : '#0f172a',
+              rowHoverBg: mode === 'dark' ? 'rgba(124,92,255,0.06)' : 'rgba(30,64,175,0.03)',
+              borderColor: mode === 'dark' ? '#2A2F3D' : 'rgba(15,23,42,0.06)',
+              colorBgContainer: mode === 'dark' ? '#161A22' : undefined,
             },
             Card: {
-              colorBgContainer: mode === 'dark' ? 'rgba(24,27,33,0.72)' : 'rgba(255,255,255,0.72)',
+              colorBgContainer: mode === 'dark' ? '#161A22' : 'rgba(255,255,255,0.72)',
             },
             Button: {
               controlHeight: 38,
               fontWeight: 500,
+              borderRadius: 8,
             },
             Modal: {
-              borderRadiusLG: 18,
+              borderRadiusLG: 8,
+              contentBg: mode === 'dark' ? '#161A22' : undefined,
+              headerBg: mode === 'dark' ? '#161A22' : undefined,
             },
-            Input: { controlHeight: 38 },
-            Select: { controlHeight: 38 },
-            DatePicker: { controlHeight: 38 },
+            Drawer: {
+              colorBgElevated: mode === 'dark' ? '#161A22' : undefined,
+            },
+            Input: {
+              controlHeight: 38,
+              colorBgContainer: mode === 'dark' ? '#1D2230' : undefined,
+              activeBorderColor: mode === 'dark' ? '#7C5CFF' : undefined,
+              hoverBorderColor: mode === 'dark' ? '#7C5CFF' : undefined,
+            },
+            Select: {
+              controlHeight: 38,
+              colorBgContainer: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+              optionActiveBg: mode === 'dark' ? 'rgba(124,92,255,0.12)' : undefined,
+              optionSelectedBg: mode === 'dark' ? 'rgba(124,92,255,0.16)' : undefined,
+            },
+            DatePicker: {
+              controlHeight: 38,
+              colorBgContainer: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+            },
+            Tabs: {
+              inkBarColor: mode === 'dark' ? '#7C5CFF' : undefined,
+              itemActiveColor: mode === 'dark' ? '#E6E8EF' : undefined,
+              itemSelectedColor: mode === 'dark' ? '#E6E8EF' : undefined,
+              itemColor: mode === 'dark' ? '#8B8FA3' : undefined,
+            },
+            Tag: {
+              borderRadiusSM: 6,
+            },
+            Dropdown: {
+              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+            },
+            Popover: {
+              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+            },
+            Tooltip: {
+              colorBgSpotlight: mode === 'dark' ? '#1D2230' : undefined,
+            },
+            Menu: {
+              colorBgContainer: mode === 'dark' ? '#161A22' : undefined,
+              itemBg: mode === 'dark' ? '#161A22' : undefined,
+              itemSelectedBg: mode === 'dark' ? 'rgba(124,92,255,0.12)' : undefined,
+              itemSelectedColor: mode === 'dark' ? '#7C5CFF' : undefined,
+            },
           },
         }}
       >
-        {children}
+        <App>{children}</App>
       </ConfigProvider>
     </AntThemeContext.Provider>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./Materials.css";
-import { buildApiUrl } from "../shared/utils/apiUtils";
+import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
 
 interface Employee {
@@ -110,9 +110,7 @@ const Materials: React.FC = () => {
 
         // Получаем ID офиса из профиля пользователя
         const profileResponse = await fetch(buildApiUrl('/profile'), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders()
         });
 
         if (!profileResponse.ok) {
@@ -129,9 +127,7 @@ const Materials: React.FC = () => {
 
         // Получаем список материалов дел для данного офиса
         const casesResponse = await fetch(buildApiUrl(`/office/${officeId}/cases`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders()
         });
 
         if (!casesResponse.ok) {
@@ -143,9 +139,7 @@ const Materials: React.FC = () => {
 
         // Получаем список сотрудников
         const employeesResponse = await fetch(buildApiUrl(`/office/${officeId}/employees`), {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders()
         });
 
         if (employeesResponse.ok) {
@@ -243,10 +237,7 @@ const Materials: React.FC = () => {
       // Исправляем URL с /cases на /documents, так как маршрут /cases отсутствует на бэкенде
       const response = await fetch(buildApiUrl('/documents'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           title: newCase.topic || 'Новое дело',
           content: newCase.case_description || 'Описание отсутствует',
@@ -343,10 +334,7 @@ const Materials: React.FC = () => {
       // Сейчас просто сохраним имя файла
       const response = await fetch(buildApiUrl(`/cases/${selectedCase.id}/documents`), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: file.name,
           file_path: URL.createObjectURL(file)

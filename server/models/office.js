@@ -1,42 +1,23 @@
 const db = require('../db');
 
-/**
- * Модель для работы с офисами
- */
 class Office {
   /**
-   * Получить все офисы с сотрудниками и статистикой
-   * @returns {Promise<Array>} - Массив офисов
+   * Получить все офисы с сотрудниками и статистикой — одним набором запросов
    */
   static async getAll() {
     try {
-      const query = `
-        SELECT o.*, 
-               COUNT(DISTINCT u.id) as employees_count,
-               CASE 
-                 WHEN MAX(u.updated_at) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
-                 ELSE 0 
-               END as online,
+      const [offices] = await db.query(`
+        SELECT o.*,
+               COUNT(DISTINCT CASE WHEN u.role != 'director' THEN u.id END) as employee_count,
                MAX(u.updated_at) as last_activity
         FROM offices o
-        LEFT JOIN users u ON u.office_id = o.id
+        LEFT JOIN users u ON u.office_id = o.id AND u.is_active = 1
         GROUP BY o.id
         ORDER BY o.name ASC
-      `;
-      const [offices] = await db.query(query);
-      
-      // Для каждого офиса получаем сотрудников и статистику
-      for (let office of offices) {
-        office.employees = await this.getEmployeesByOfficeId(office.id);
-        office.stats = await this.getStatsByOfficeId(office.id, 'day');
-        office.chartData = await this.getChartDataByOfficeId(office.id);
-        
-        // Определяем онлайн-статус на основе last_activity (из updated_at)
-        office.online = office.last_activity && 
-          new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
-      }
-      
-      return offices;
+      `);
+
+      if (offices.length === 0) return [];
+      return this._enrichOffices(offices);
     } catch (error) {
       console.error('Error getting offices:', error);
       throw error;
@@ -44,37 +25,111 @@ class Office {
   }
 
   /**
-   * Получить офис по ID
-   * @param {number} id - ID офиса
-   * @returns {Promise<Object|null>} - Объект офиса или null
+   * Получить все офисы директора — без N+1
    */
+  static async getAllByOwner(ownerId) {
+    try {
+      const [offices] = await db.query(`
+        SELECT o.*,
+               COUNT(DISTINCT CASE WHEN u.role != 'director' THEN u.id END) as employee_count,
+               MAX(u.updated_at) as last_activity
+        FROM offices o
+        LEFT JOIN users u ON u.office_id = o.id AND u.is_active = 1
+        WHERE o.owner_id = ?
+        GROUP BY o.id
+        ORDER BY o.name ASC
+      `, [ownerId]);
+
+      if (offices.length === 0) return [];
+      return this._enrichOffices(offices);
+    } catch (error) {
+      console.error('Error getting offices by owner:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Обогащает массив офисов сотрудниками и статистикой за 2 batch-запроса
+   */
+  static async _enrichOffices(offices) {
+    const ids = offices.map(o => o.id);
+    if (ids.length === 0) return offices;
+
+    const placeholders = ids.map(() => '?').join(',');
+
+    // Batch: сотрудники + их статистика (один JOIN)
+    const [allEmployees] = await db.query(`
+      SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
+             e.office_id,
+             COALESCE(SUM(es.revenue), 0) as revenue,
+             COALESCE(SUM(es.orders), 0) as orders
+      FROM employees e
+      LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = 'month'
+      WHERE e.office_id IN (${placeholders})
+      GROUP BY e.id
+      ORDER BY e.last_name ASC
+    `, ids);
+
+    // Batch: статистика офисов
+    const [allStats] = await db.query(`
+      SELECT office_id,
+             COALESCE(SUM(revenue), 0) as revenue,
+             COALESCE(SUM(orders), 0) as orders
+      FROM office_stats
+      WHERE office_id IN (${placeholders}) AND period_type = 'day'
+      GROUP BY office_id
+    `, ids);
+
+    // Группируем по office_id
+    const empMap = {};
+    const statsMap = {};
+    for (const e of allEmployees) {
+      if (!empMap[e.office_id]) empMap[e.office_id] = [];
+      empMap[e.office_id].push({
+        id: e.id, first_name: e.first_name, last_name: e.last_name,
+        email: e.email, position: e.position, phone: e.phone,
+        is_active: 1, revenue: parseFloat(e.revenue), orders: parseInt(e.orders)
+      });
+    }
+    for (const s of allStats) {
+      statsMap[s.office_id] = {
+        revenue: parseFloat(s.revenue), orders: parseInt(s.orders),
+        clients: 0, employees: 0, expenses: 0, documents: 0, visits: 0
+      };
+    }
+
+    const defaultStats = { revenue: 0, orders: 0, clients: 0, employees: 0, expenses: 0, documents: 0, visits: 0 };
+    const defaultChart = { pie: [], bar: [], line: [] };
+
+    for (const office of offices) {
+      office.employees = empMap[office.id] || [];
+      office.stats = statsMap[office.id] || { ...defaultStats };
+      office.chartData = defaultChart;
+      office.online = office.last_activity &&
+        new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
+    }
+
+    return offices;
+  }
+
   static async getById(id) {
     try {
-      const query = `
-        SELECT o.*, 
-               COUNT(u.id) as employees_count,
-               CASE 
-                 WHEN MAX(u.updated_at) > DATE_SUB(NOW(), INTERVAL 5 MINUTE) THEN 1 
-                 ELSE 0 
-               END as online,
+      const [offices] = await db.query(`
+        SELECT o.*,
+               COUNT(CASE WHEN u.role != 'director' AND u.is_active = 1 THEN u.id END) as employee_count,
                MAX(u.updated_at) as last_activity
         FROM offices o
         LEFT JOIN users u ON u.office_id = o.id
         WHERE o.id = ?
         GROUP BY o.id
-      `;
-      const [offices] = await db.query(query, [id]);
-      
+      `, [id]);
+
       if (offices.length > 0) {
         const office = offices[0];
-        
-        // Определяем онлайн-статус на основе last_activity
-        office.online = office.last_activity && 
+        office.online = office.last_activity &&
           new Date(office.last_activity) > new Date(Date.now() - 5 * 60 * 1000) ? 1 : 0;
-          
         return office;
       }
-      
       return null;
     } catch (error) {
       console.error('Error getting office by ID:', error);
@@ -82,55 +137,27 @@ class Office {
     }
   }
 
-  /**
-   * Создать новый офис
-   * @param {Object} office - Объект офиса
-   * @returns {Promise<Object>} - Созданный офис
-   */
   static async create(office) {
     try {
-      const { name, address, contact_phone, website } = office;
-      const query = `
-        INSERT INTO offices (name, address, contact_phone, website, created_at) 
-        VALUES (?, ?, ?, ?, NOW())
-      `;
-      const [result] = await db.query(query, [name, address, contact_phone, website]);
-      
-      const newOffice = {
-        id: result.insertId,
-        name,
-        address,
-        contact_phone,
-        website,
-        created_at: new Date()
-      };
-      
-      return newOffice;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 } = office;
+      const [result] = await db.query(
+        'INSERT INTO offices (name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+        [name, address, contact_phone, website, ip_surname || null, ip_name || null, ip_middle_name || null, inn || null, ogrn || null, work_phone || null, work_phone2 || null]
+      );
+      return { id: result.insertId, name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, created_at: new Date() };
     } catch (error) {
       console.error('Error creating office:', error);
       throw error;
     }
   }
 
-  /**
-   * Обновить офис
-   * @param {number} id - ID офиса
-   * @param {Object} office - Объект офиса
-   * @returns {Promise<boolean>} - Результат операции
-   */
   static async update(id, office) {
     try {
       const { name, address, contact_phone, website } = office;
-      const query = `
-        UPDATE offices 
-        SET name = ?, 
-            address = ?, 
-            contact_phone = ?, 
-            website = ?,
-            updated_at = NOW()
-        WHERE id = ?
-      `;
-      await db.query(query, [name, address, contact_phone, website, id]);
+      await db.query(
+        'UPDATE offices SET name = ?, address = ?, contact_phone = ?, website = ?, updated_at = NOW() WHERE id = ?',
+        [name, address, contact_phone, website, id]
+      );
       return true;
     } catch (error) {
       console.error('Error updating office:', error);
@@ -138,18 +165,9 @@ class Office {
     }
   }
 
-  /**
-   * Удалить офис
-   * @param {number} id - ID офиса
-   * @returns {Promise<boolean>} - Результат операции
-   */
   static async delete(id) {
     try {
-      const query = `
-        DELETE FROM offices 
-        WHERE id = ?
-      `;
-      await db.query(query, [id]);
+      await db.query('DELETE FROM offices WHERE id = ?', [id]);
       return true;
     } catch (error) {
       console.error('Error deleting office:', error);
@@ -157,37 +175,24 @@ class Office {
     }
   }
 
-  /**
-   * Получить сотрудников офиса
-   * @param {number} officeId - ID офиса
-   * @param {string} period - Период для статистики
-   * @returns {Promise<Array>} - Массив сотрудников
-   */
   static async getEmployeesByOfficeId(officeId, period = 'month') {
     try {
-      // Получаем сотрудников из таблицы employees
-      const query = `
-        SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone, 
-               1 as is_active
+      const [employees] = await db.query(`
+        SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
+               1 as is_active,
+               COALESCE(SUM(es.revenue), 0) as revenue,
+               COALESCE(SUM(es.orders), 0) as orders
         FROM employees e
+        LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = ?
         WHERE e.office_id = ?
+        GROUP BY e.id
         ORDER BY e.last_name ASC
-      `;
-      const [employees] = await db.query(query, [officeId]);
-      
-      // Для каждого сотрудника получаем статистику
-      for (let employee of employees) {
-        const [stats] = await db.query(
-          `SELECT COALESCE(SUM(revenue), 0) as revenue, COALESCE(SUM(orders), 0) as orders
-           FROM employee_stats
-           WHERE employee_id = ? AND period_type = ?`,
-          [employee.id, period]
-        );
-        
-        employee.revenue = stats.length > 0 ? parseFloat(stats[0].revenue) : 0;
-        employee.orders = stats.length > 0 ? parseInt(stats[0].orders) : 0;
+      `, [period, officeId]);
+
+      for (const emp of employees) {
+        emp.revenue = parseFloat(emp.revenue);
+        emp.orders = parseInt(emp.orders);
       }
-      
       return employees;
     } catch (error) {
       console.error('Error getting employees:', error);
@@ -195,124 +200,92 @@ class Office {
     }
   }
 
-  /**
-   * Получить статистику офиса по периоду
-   * @param {number} officeId - ID офиса
-   * @param {string} period - Период (day, 2weeks, month)
-   * @returns {Promise<Object>} - Статистика офиса
-   */
   static async getStatsByOfficeId(officeId, period = 'day') {
     try {
-      // Суммируем все данные за выбранный период
-      const query = `
-        SELECT 
+      const [stats] = await db.query(`
+        SELECT
           COALESCE(SUM(revenue), 0) as revenue,
           COALESCE(SUM(orders), 0) as orders,
-          0 as clients,
-          0 as employees,
-          0 as expenses,
-          0 as documents,
-          0 as visits
-        FROM office_stats 
+          0 as clients, 0 as employees, 0 as expenses, 0 as documents, 0 as visits
+        FROM office_stats
         WHERE office_id = ? AND period_type = ?
-      `;
-      const [stats] = await db.query(query, [officeId, period]);
-      
-      if (stats && stats.length > 0) {
-        return stats[0];
-      }
-      
-      // Если данных нет, возвращаем пустую статистику
-      return {
-        revenue: 0,
-        orders: 0,
-        clients: 0,
-        employees: 0,
-        expenses: 0,
-        documents: 0,
-        visits: 0
-      };
+      `, [officeId, period]);
+
+      return stats[0] || { revenue: 0, orders: 0, clients: 0, employees: 0, expenses: 0, documents: 0, visits: 0 };
     } catch (error) {
       console.error('Error getting office stats:', error);
-      return {
-        revenue: 0,
-        orders: 0,
-        clients: 0,
-        employees: 0,
-        expenses: 0,
-        documents: 0,
-        visits: 0
-      };
+      return { revenue: 0, orders: 0, clients: 0, employees: 0, expenses: 0, documents: 0, visits: 0 };
     }
   }
 
-  /**
-   * Получить данные для графиков офиса
-   * @param {number} officeId - ID офиса
-   * @returns {Promise<Object>} - Данные для графиков
-   */
-  static async getChartDataByOfficeId(officeId) {
-    try {
-      // Заглушка для данных графиков
-      return {
-        pie: [],
-        bar: [],
-        line: []
-      };
-    } catch (error) {
-      console.error('Error getting chart data:', error);
-      throw error;
-    }
+  static async getChartDataByOfficeId() {
+    return { pie: [], bar: [], line: [] };
   }
 
-  /**
-   * Получить данные о выручке офисов за указанный период
-   * @param {string} period - Период (day, 2weeks, month)
-   * @returns {Promise<Object>} - Данные о выручке
-   */
-  static async getRevenueByPeriod(period) {
+  static async getRevenueByPeriod(period, officeIds = null) {
     try {
-      // Получаем все офисы
-      const [offices] = await db.query('SELECT id, name FROM offices ORDER BY name ASC');
-      
-      // Определяем тип периода для запроса
       let periodType = 'day';
       if (period === '2weeks') periodType = 'week';
       else if (period === 'month') periodType = 'month';
-      
-      // Для каждого офиса получаем данные за последние 6 периодов
-      const officesWithRevenue = await Promise.all(offices.map(async (office) => {
-        const [stats] = await db.query(
-          `SELECT period_value, revenue 
-           FROM office_stats 
-           WHERE office_id = ? AND period_type = ?
-           ORDER BY period_value DESC
-           LIMIT 6`,
-          [office.id, periodType]
-        );
-        
-        // Создаем массив выручки (в обратном порядке, чтобы старые данные были слева)
-        const revenue = stats.reverse().map(s => parseFloat(s.revenue) || 0);
-        
-        // Дополняем нулями, если данных меньше 6
-        while (revenue.length < 6) {
-          revenue.unshift(0);
+
+      let query = `
+        SELECT o.id, o.name,
+               os.period_value, COALESCE(os.revenue, 0) as revenue
+        FROM offices o
+        LEFT JOIN (
+          SELECT office_id, period_value, revenue
+          FROM office_stats
+          WHERE period_type = ?
+          ORDER BY period_value DESC
+        ) os ON os.office_id = o.id`;
+      const params = [periodType];
+
+      if (officeIds && officeIds.length > 0) {
+        query += ` WHERE o.id IN (${officeIds.map(() => '?').join(',')})`;
+        params.push(...officeIds);
+      }
+
+      query += ` ORDER BY o.name ASC, os.period_value DESC`;
+
+      const [rows] = await db.query(query, params);
+
+      const officeMap = {};
+      for (const r of rows) {
+        const key = r.id.toString();
+        if (!officeMap[key]) officeMap[key] = { id: key, name: r.name, revenue: [] };
+        if (r.period_value && officeMap[key].revenue.length < 6) {
+          officeMap[key].revenue.push(parseFloat(r.revenue) || 0);
         }
-        
-        return {
-          id: office.id.toString(),
-          name: office.name,
-          revenue: revenue
-        };
-      }));
-      
-      return {
-        labels: [], // Метки будут сгенерированы на фронтенде
-        offices: officesWithRevenue
-      };
+      }
+
+      const officesWithRevenue = Object.values(officeMap).map(o => {
+        const rev = o.revenue.reverse();
+        while (rev.length < 6) rev.unshift(0);
+        return { ...o, revenue: rev };
+      });
+
+      return { labels: [], offices: officesWithRevenue };
     } catch (error) {
       console.error('Error getting revenue by period:', error);
       throw error;
+    }
+  }
+
+  static async updateStats(id, period, stats) {
+    try {
+      const periodValue = new Date().toISOString().split('T')[0];
+      await db.query(`
+        INSERT INTO office_stats (office_id, period_type, period_value, revenue, orders)
+        VALUES (?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          revenue = VALUES(revenue),
+          orders = VALUES(orders),
+          updated_at = NOW()
+      `, [id, period, periodValue, stats.revenue || 0, stats.orders || 0]);
+      return true;
+    } catch (error) {
+      console.error('Error updating office stats:', error);
+      return false;
     }
   }
 }

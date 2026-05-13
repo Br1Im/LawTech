@@ -1,256 +1,226 @@
 import styled from '@emotion/styled';
-import { Quote, Star } from 'lucide-react';
+import { keyframes } from '@emotion/react';
+import { Link } from 'react-router-dom';
+import { Check, ArrowRight } from 'lucide-react';
 
 const Section = styled.section`
   width: 100%;
-  padding: 120px 24px;
-  display: flex;
-  justify-content: center;
-  position: relative;
-  z-index: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 24px;
 
   @media (max-width: 768px) {
-    padding: 80px 20px;
+    padding: 60px 20px;
   }
 `;
 
-const Inner = styled.div`
-  max-width: 1240px;
-  width: 100%;
-`;
-
-const HeadBlock = styled.div`
+const SectionHeader = styled.div`
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 56px;
 `;
 
-const Eyebrow = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  background: var(--color-accent-light);
-  color: var(--color-accent-dark);
-  border-radius: var(--radius-pill);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  margin-bottom: 16px;
-`;
-
-const Title = styled.h2`
+const SectionTitle = styled.h2`
   font-family: var(--font-display);
-  font-size: clamp(34px, 4.5vw, 60px);
+  font-size: clamp(28px, 3.5vw, 40px);
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.025em;
   color: var(--color-text);
-  margin: 0 auto 16px;
-  max-width: 860px;
-
-  em {
-    font-style: italic;
-    background: var(--gradient-gold);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  margin-bottom: 12px;
+  letter-spacing: -0.8px;
 `;
 
-const Subtitle = styled.p`
-  font-size: 18px;
+const SectionSub = styled.p`
+  font-size: 16px;
   color: var(--color-text-secondary);
-  max-width: 620px;
+  max-width: 500px;
   margin: 0 auto;
-  line-height: 1.55;
+  line-height: 1.5;
+  font-family: var(--font-sans);
 `;
 
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
+  align-items: start;
 
-  @media (max-width: 960px) {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  @media (max-width: 640px) {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
   }
 `;
 
-const Card = styled.figure`
-  margin: 0;
-  padding: 28px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+const PlanCard = styled.div<{ $featured?: boolean }>`
+  background: ${({ $featured }) => $featured ? 'var(--color-primary)' : 'var(--color-bg-elevated)'};
+  border: 1px solid ${({ $featured }) => $featured ? 'var(--color-primary)' : 'var(--color-border)'};
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
   position: relative;
-  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  transition: all 0.25s var(--ease-out);
 
   &:hover {
     transform: translateY(-6px);
-    border-color: rgba(212, 175, 55, 0.45);
     box-shadow: var(--shadow-xl);
   }
 `;
 
-const QuoteMark = styled.div`
+const PlanBadge = styled.div`
   position: absolute;
-  top: 18px;
-  right: 22px;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--gradient-gold);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #1a1a1a;
-  box-shadow: 0 6px 14px rgba(212, 175, 55, 0.32);
-
-  svg { width: 18px; height: 18px; }
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-warning);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-sans);
+  white-space: nowrap;
 `;
 
-const Stars = styled.div`
-  display: inline-flex;
-  gap: 3px;
-  color: var(--color-accent);
+const PlanName = styled.h3<{ $light?: boolean }>`
+  font-size: 20px;
+  font-weight: 700;
+  color: ${({ $light }) => $light ? '#fff' : 'var(--color-text)'};
+  margin-bottom: 4px;
+  font-family: var(--font-sans);
+`;
 
-  svg {
-    width: 15px;
-    height: 15px;
-    fill: currentColor;
+const PlanDesc = styled.p<{ $light?: boolean }>`
+  font-size: 14px;
+  color: ${({ $light }) => $light ? 'rgba(255,255,255,0.8)' : 'var(--color-text-secondary)'};
+  margin-bottom: 20px;
+  font-family: var(--font-sans);
+`;
+
+const PlanPrice = styled.div<{ $light?: boolean }>`
+  font-size: 36px;
+  font-weight: 800;
+  color: ${({ $light }) => $light ? '#fff' : 'var(--color-text)'};
+  font-family: var(--font-display);
+  margin-bottom: 4px;
+  letter-spacing: -1px;
+
+  span {
+    font-size: 16px;
+    font-weight: 500;
+    color: ${({ $light }) => $light ? 'rgba(255,255,255,0.7)' : 'var(--color-muted)'};
   }
 `;
 
-const Body = styled.blockquote`
-  margin: 0;
-  font-size: 15.5px;
-  line-height: 1.6;
-  color: var(--color-text);
-  flex: 1;
+const PlanPeriod = styled.div<{ $light?: boolean }>`
+  font-size: 13px;
+  color: ${({ $light }) => $light ? 'rgba(255,255,255,0.6)' : 'var(--color-muted)'};
+  margin-bottom: 24px;
+  font-family: var(--font-sans);
 `;
 
-const Person = styled.figcaption`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
-`;
-
-const Avatar = styled.div<{ $bg: string }>`
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: ${(p) => p.$bg};
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 14px;
-  flex-shrink: 0;
-`;
-
-const PersonInfo = styled.div`
+const FeatureList = styled.ul`
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+`;
 
-  .name {
-    font-weight: 700;
-    font-size: 14.5px;
-    color: var(--color-text);
-  }
+const FeatureItem = styled.li<{ $light?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: ${({ $light }) => $light ? 'rgba(255,255,255,0.9)' : 'var(--color-text-secondary)'};
+  font-family: var(--font-sans);
 
-  .role {
-    font-size: 12.5px;
-    color: var(--color-muted);
+  svg {
+    width: 16px;
+    height: 16px;
+    color: ${({ $light }) => $light ? '#fff' : 'var(--color-success)'};
+    flex-shrink: 0;
   }
 `;
 
-interface Testimonial {
-  quote: string;
-  name: string;
-  role: string;
-  avatarBg: string;
-  initials: string;
-}
+const PlanButton = styled(Link)<{ $light?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  font-family: var(--font-sans);
+  transition: all 0.2s;
+  border: none;
+  background: ${({ $light }) => $light ? '#fff' : 'var(--color-primary)'};
+  color: ${({ $light }) => $light ? 'var(--color-primary)' : '#fff'};
 
-const TESTIMONIALS: Testimonial[] = [
+  &:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
+
+  svg { width: 16px; height: 16px; }
+`;
+
+const plans = [
   {
-    quote:
-      'За квартал перенесли в LawTech весь архив — 18 000 документов. AI-поиск находит нужное за секунды. Заменили нам три отдельных сервиса.',
-    name: 'Анна Иванова',
-    role: 'Партнёр, «Иванова и Петров»',
-    avatarBg: 'linear-gradient(135deg,#d4af37,#a07c28)',
-    initials: 'АИ',
+    name: 'Старт',
+    desc: 'Для небольших практик',
+    price: 'Бесплатно',
+    period: 'До 3 сотрудников',
+    features: ['Управление клиентами', 'Базовая аналитика', 'Документооборот', '1 ГБ хранилище'],
   },
   {
-    quote:
-      'Дедлайны больше не «теряются» в календаре — система сама напоминает и сразу подтягивает релевантные документы. Пропусков стало ноль.',
-    name: 'Сергей Петров',
-    role: 'Управляющий партнёр, PetroffLegal',
-    avatarBg: 'linear-gradient(135deg,#0a84ff,#2997ff)',
-    initials: 'СП',
+    name: 'Бизнес',
+    desc: 'Самый популярный',
+    price: '4 990 ₽',
+    priceSuffix: '/мес',
+    period: 'До 20 сотрудников',
+    featured: true,
+    badge: 'Популярный',
+    features: ['Всё из «Старт»', 'AI-ассистент', 'Расширенная аналитика', '50 ГБ хранилище', 'Приоритетная поддержка'],
   },
   {
-    quote:
-      'Интерфейс приятный и быстрый. Юристы освоились за день. Команда саппорта отвечает меньше чем за час. Большая редкость на российском рынке.',
-    name: 'Мария Самойлова',
-    role: 'Head of Legal Operations, Квант-Групп',
-    avatarBg: 'linear-gradient(135deg,#30d158,#0a8f3c)',
-    initials: 'МС',
+    name: 'Корпорация',
+    desc: 'Для крупных фирм',
+    price: 'По запросу',
+    period: 'Безлимит сотрудников',
+    features: ['Всё из «Бизнес»', 'Выделенный сервер', 'SLA 99.9%', 'Интеграция с 1C', 'Персональный менеджер'],
   },
 ];
 
-const Testimonials = () => {
-  return (
-    <Section>
-      <Inner>
-        <HeadBlock>
-          <Eyebrow>Отзывы</Eyebrow>
-          <Title>
-            Юристы, которые <em>уже переехали</em> в LawTech
-          </Title>
-          <Subtitle>
-            От небольших бутиков до крупных юротделов — всем нужно было
-            одно и то же: меньше рутины, больше клиентов.
-          </Subtitle>
-        </HeadBlock>
+const Offer = () => (
+  <Section>
+    <SectionHeader>
+      <SectionTitle>Тарифы</SectionTitle>
+      <SectionSub>Выберите план, который подходит вашей практике</SectionSub>
+    </SectionHeader>
+    <Grid>
+      {plans.map((p, i) => (
+        <PlanCard key={i} $featured={p.featured}>
+          {p.badge && <PlanBadge>{p.badge}</PlanBadge>}
+          <PlanName $light={p.featured}>{p.name}</PlanName>
+          <PlanDesc $light={p.featured}>{p.desc}</PlanDesc>
+          <PlanPrice $light={p.featured}>
+            {p.price}{p.priceSuffix && <span>{p.priceSuffix}</span>}
+          </PlanPrice>
+          <PlanPeriod $light={p.featured}>{p.period}</PlanPeriod>
+          <FeatureList>
+            {p.features.map((f, fi) => (
+              <FeatureItem key={fi} $light={p.featured}><Check />{f}</FeatureItem>
+            ))}
+          </FeatureList>
+          <PlanButton to="/auth" $light={p.featured}>
+            Начать <ArrowRight />
+          </PlanButton>
+        </PlanCard>
+      ))}
+    </Grid>
+  </Section>
+);
 
-        <Grid>
-          {TESTIMONIALS.map((t) => (
-            <Card key={t.name}>
-              <QuoteMark>
-                <Quote />
-              </QuoteMark>
-              <Stars>
-                <Star /><Star /><Star /><Star /><Star />
-              </Stars>
-              <Body>«{t.quote}»</Body>
-              <Person>
-                <Avatar $bg={t.avatarBg}>{t.initials}</Avatar>
-                <PersonInfo>
-                  <span className="name">{t.name}</span>
-                  <span className="role">{t.role}</span>
-                </PersonInfo>
-              </Person>
-            </Card>
-          ))}
-        </Grid>
-      </Inner>
-    </Section>
-  );
-};
-
-export default Testimonials;
+export default Offer;

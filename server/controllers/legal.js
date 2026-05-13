@@ -32,7 +32,7 @@ const handleChatRequest = async (req, res) => {
         const { message } = req.body;
         
         if (!message) {
-            return res.status(400).json({ error: 'Отсутствует обязательное поле "message"' });
+            return res.status(400).json({ success: false, message: 'Отсутствует обязательное поле "message"' });
         }
 
         try {
@@ -87,7 +87,7 @@ const handleChatRequest = async (req, res) => {
         
     } catch (error) {
         console.error('Ошибка при обработке запроса:', error);
-        return res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+        return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
 };
 

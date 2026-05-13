@@ -4,7 +4,7 @@ import {
   FaBuilding,
   FaUsers,
   FaFileContract,
-  FaCalendarAlt,
+
   FaChartLine,
   FaMoneyBillWave,
   FaUserTie,
@@ -15,10 +15,13 @@ import {
   FaClock,
   FaUser,
   FaCog,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaComments,
+  FaExchangeAlt,
 } from 'react-icons/fa';
-import MiniCalendar from './MiniCalendar';
+
 import './MobileSidebar.css';
+import { buildApiUrl, getAuthHeaders } from '../../shared/utils/apiUtils';
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -46,48 +49,95 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [offices, setOffices] = useState<{id: number; name: string}[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(() => localStorage.getItem('selected_office_id') || '');
+
+  useEffect(() => {
+    if (user?.role !== 'director') return;
+    const fetchOffices = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(buildApiUrl('/offices/all'), {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = data?.data || data || [];
+        if (Array.isArray(list)) {
+          setOffices(list.map((o: any) => ({ id: o.id, name: o.name || o.title || `Офис #${o.id}` })));
+        }
+      } catch { /* ignore */ }
+    };
+    fetchOffices();
+  }, [user?.role]);
+
+  const handleOfficeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setSelectedOfficeId(val);
+    if (val) {
+      localStorage.setItem('selected_office_id', val);
+    } else {
+      localStorage.removeItem('selected_office_id');
+    }
+    window.location.reload();
+  };
 
   // Определяем пункты меню в зависимости от роли
   const getMenuItemsByRole = (role?: string) => {
     const allItems = {
       office: { key: 'Офис', icon: <FaBuilding />, label: 'Офис' },
       clients: { key: 'Клиенты', icon: <FaUserFriends />, label: 'Клиенты' },
-      calendar: { key: 'Календарь', icon: <FaCalendarAlt />, label: 'Календарь' },
+
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
       expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
-      reception: { key: 'Ресепшен', icon: <FaUserTie />, label: 'Ресепшен' },
+      reception: { key: 'Чат', icon: <FaUserTie />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
       ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
+      officeChat: { key: 'Чат', icon: <FaComments />, label: 'Чат' },
+      myCases: { key: 'Мои дела', icon: <FaFileContract />, label: 'Мои дела' },
+      acts: { key: 'Акты', icon: <FaFileContract />, label: 'Акты' },
+      cashRegister: { key: 'Касса', icon: <FaMoneyBillWave />, label: 'Касса' },
     };
 
     switch (role) {
+      case 'representative':
+        return [allItems.myCases, allItems.acts];
       case 'expert':
-        return [allItems.employees, allItems.materials, allItems.clients, allItems.calendar];
+        return [allItems.employees, allItems.clients];
       case 'lawyer':
-        return [allItems.office, allItems.clients, allItems.materials, allItems.calendar];
+        return [allItems.office, allItems.clients];
       case 'admin':
-        return [allItems.clients, allItems.revenue, allItems.reception, allItems.callCenter, allItems.calendar];
+        return [allItems.clients, allItems.revenue, allItems.cashRegister, allItems.reception, allItems.appointments];
+      case 'cc_manager':
+      case 'cc_operator':
+        // Колл-центр: Офис, Колл-центр, Сотрудники, Чат
+        return [
+          allItems.office,
+          allItems.callCenter,
+          allItems.employees,
+          allItems.reception,
+        ];
       case 'director':
         return [
-          allItems.office, allItems.clients, allItems.calendar,
+          allItems.office, allItems.clients,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.callCenter, allItems.materials,
+          allItems.reception,
         ];
       case 'manager':
       case 'okk':
         return [
-          allItems.office, allItems.clients, allItems.calendar,
+          allItems.office, allItems.clients,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.callCenter, allItems.materials,
+          allItems.reception,
         ];
       default:
         return [
-          allItems.office, allItems.clients, allItems.calendar,
+          allItems.office, allItems.clients,
           allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception, allItems.callCenter, allItems.materials,
+          allItems.reception,
         ];
     }
   };
@@ -106,6 +156,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('selected_office_id');
     navigate('/auth');
     onClose();
   };
@@ -147,9 +198,19 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
           </button>
         </div>
 
-        <div className="mobile-sidebar-calendar">
-          <MiniCalendar />
-        </div>
+        {user?.role === 'director' && offices.length > 0 && (
+          <div className="sidebar-office-switcher" style={{padding:'8px 12px',borderBottom:'1px solid var(--glass-border)'}}>
+            <label className="office-switcher-label" style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.5px',color:'var(--color-text-muted)',marginBottom:'6px',fontWeight:600}}><FaExchangeAlt /> Офис</label>
+            <select value={selectedOfficeId} onChange={handleOfficeChange} className="office-switcher-select" style={{width:'100%',padding:'6px 8px',border:'1px solid var(--glass-border)',borderRadius:'6px',background:'var(--color-bg)',color:'var(--color-text)',fontSize:'13px',cursor:'pointer'}}>
+              <option value="">Все офисы</option>
+              {offices.map((o) => (
+                <option key={o.id} value={String(o.id)}>{o.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+
 
         <nav className="mobile-sidebar-nav">
           {menuItems.map((item) => (

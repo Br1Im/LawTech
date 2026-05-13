@@ -54,6 +54,11 @@ export const getAuthHeaders = (): Record<string, string> => {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+
+  const activeOfficeId = localStorage.getItem('activeOfficeId');
+  if (activeOfficeId) {
+    headers['X-Office-Id'] = activeOfficeId;
+  }
   
   return headers;
 }; 

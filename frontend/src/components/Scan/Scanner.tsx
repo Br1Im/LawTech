@@ -276,7 +276,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onClose }) => {
       ctx.closePath();
       ctx.fillStyle = 'rgba(212, 175, 55, 0.2)';
       ctx.fill();
-      ctx.strokeStyle = '#d4af37';
+      ctx.strokeStyle = 'var(--color-primary)';
       ctx.lineWidth = 2;
       ctx.stroke();
       
@@ -286,7 +286,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onClose }) => {
         ctx.arc(corner.x, corner.y, 10, 0, 2 * Math.PI);
         ctx.fillStyle = idx === draggingIdx ? 'rgba(212, 175, 55, 0.8)' : 'rgba(212, 175, 55, 0.5)';
         ctx.fill();
-        ctx.strokeStyle = '#d4af37';
+        ctx.strokeStyle = 'var(--color-primary)';
         ctx.lineWidth = 2;
         ctx.stroke();
       });

@@ -5,6 +5,7 @@ export interface AuthUser {
   id: number;
   email: string;
   role?: string;
+  position?: string | null;
   office_id?: number | null;
   officeId?: number | null;
   first_name?: string;
@@ -26,7 +27,10 @@ const getStoredUser = (): AuthUser | null => {
   try {
     const rawUser = localStorage.getItem('user');
     if (rawUser) {
-      return JSON.parse(rawUser) as AuthUser;
+      const parsed = JSON.parse(rawUser) as AuthUser;
+      if (parsed && parsed.role) {
+        return parsed;
+      }
     }
 
     const token = localStorage.getItem('token');

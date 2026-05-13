@@ -40,6 +40,13 @@ const authenticateToken = (req, res, next) => {
     
     console.log('✅ Token verified successfully for user:', user.id);
     req.user = user;
+
+    // Директор может переключать офис через заголовок X-Office-Id
+    const xOfficeId = req.headers['x-office-id'];
+    if (xOfficeId && user.role === 'director') {
+      req.user.office_id = parseInt(xOfficeId, 10) || null;
+    }
+
     next();
   });
 };

@@ -13,7 +13,7 @@ const register = async (req, res) => {
 
         if (!name || !email || !password || !userType) {
             return res.status(400).json({ 
-                error: 'Не все обязательные поля заполнены' 
+                success: false, message: 'Не все обязательные поля заполнены' 
             });
         }
 
@@ -21,16 +21,20 @@ const register = async (req, res) => {
         const [existingUsers] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existingUsers.length > 0) {
             return res.status(409).json({ 
-                error: 'Пользователь с таким email уже существует' 
+                success: false, message: 'Пользователь с таким email уже существует' 
             });
         }
 
         // Хешируем пароль
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Определяем office_id
+        // Для директора (userType === 'office') — НЕ привязываем к офису.
+        // Он создаст офис(ы) на следующем шаге.
+        const isDirector = userType === 'office';
+        const role = isDirector ? 'director' : userType;
+
         let finalOfficeId = null;
-        if (userType === 'office' && officeType === 'existing' && officeId) {
+        if (!isDirector && officeType === 'existing' && officeId) {
             finalOfficeId = officeId;
         }
 
@@ -38,7 +42,7 @@ const register = async (req, res) => {
         const [result] = await db.query(`
             INSERT INTO users (first_name, last_name, email, password, office_id, role, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-        `, [name, '', email, hashedPassword, finalOfficeId, userType]);
+        `, [name, '', email, hashedPassword, finalOfficeId, role]);
 
         const newUserId = result.insertId;
 
@@ -47,7 +51,7 @@ const register = async (req, res) => {
             { 
                 id: newUserId, 
                 email: email,
-                role: userType 
+                role: role
             }, 
             config.JWT_SECRET, 
             { 
@@ -55,14 +59,14 @@ const register = async (req, res) => {
             }
         );
 
-        // Отправляем токен и данные пользователя (без пароля)
         const newUser = {
             id: newUserId,
             first_name: name,
             last_name: '',
             email: email,
-            role: userType,
-            office_id: finalOfficeId
+            role: role,
+            office_id: finalOfficeId,
+            needs_office_setup: isDirector
         };
         
         res.status(201).json({
@@ -74,7 +78,7 @@ const register = async (req, res) => {
     } catch (error) {
         console.error('Ошибка при регистрации:', error);
         res.status(500).json({ 
-            error: 'Внутренняя ошибка сервера' 
+            success: false, message: 'Внутренняя ошибка сервера' 
         });
     }
 };
@@ -82,23 +86,24 @@ const register = async (req, res) => {
 // Обработчик для логина пользователей
 const login = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { login: loginField, email, password } = req.body;
+        const identifier = loginField || email;
 
-        if (!email || !password) {
+        if (!identifier || !password) {
             return res.status(400).json({ 
-                error: 'Отсутствует email или пароль' 
+                success: false, message: 'Отсутствует логин или пароль' 
             });
         }
 
-        // Поиск пользователя в базе данных
+        // Поиск пользователя по логину или email
         const [users] = await db.query(
-            'SELECT id, first_name, last_name, email, password, role, office_id FROM users WHERE email = ?', 
-            [email]
+            'SELECT id, first_name, last_name, email, login, password, role, office_id, must_change_password FROM users WHERE login = ? OR email = ?', 
+            [identifier, identifier]
         );
 
         if (users.length === 0) {
             return res.status(401).json({ 
-                error: 'Неверный email или пароль' 
+                success: false, message: 'Неверный логин или пароль' 
             });
         }
 
@@ -108,7 +113,7 @@ const login = async (req, res) => {
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ 
-                error: 'Неверный email или пароль' 
+                success: false, message: 'Неверный логин или пароль' 
             });
         }
 
@@ -117,6 +122,7 @@ const login = async (req, res) => {
             { 
                 id: user.id, 
                 email: user.email,
+                login: user.login,
                 role: user.role,
                 office_id: user.office_id 
             }, 
@@ -126,8 +132,17 @@ const login = async (req, res) => {
             }
         );
 
-        // Отправляем токен и данные пользователя (без пароля)
         const { password: _, ...userWithoutPassword } = user;
+
+        // Для директора — добавляем список его офисов
+        if (user.role === 'director') {
+            const [offices] = await db.query(
+                'SELECT id, name, address, contact_phone FROM offices WHERE owner_id = ? ORDER BY name',
+                [user.id]
+            );
+            userWithoutPassword.offices = offices;
+            userWithoutPassword.needs_office_setup = offices.length === 0;
+        }
         
         res.json({
             token,
@@ -137,7 +152,7 @@ const login = async (req, res) => {
     } catch (error) {
         console.error('Ошибка при входе в систему:', error);
         res.status(500).json({ 
-            error: 'Внутренняя ошибка сервера' 
+            success: false, message: 'Внутренняя ошибка сервера' 
         });
     }
 };
@@ -147,11 +162,10 @@ const getCurrentUser = async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({
-                error: 'Пользователь не авторизован'
+                success: false, message: 'Пользователь не авторизован'
             });
         }
 
-        // Находим полную информацию о пользователе
         const [users] = await db.query(
             'SELECT id, first_name, last_name, email, role, office_id, created_at FROM users WHERE id = ?', 
             [req.user.id]
@@ -159,17 +173,26 @@ const getCurrentUser = async (req, res) => {
         
         if (users.length === 0) {
             return res.status(404).json({
-                error: 'Пользователь не найден'
+                success: false, message: 'Пользователь не найден'
             });
         }
 
         const user = users[0];
         
-        // Преобразуем office_id в officeId для совместимости с фронтендом
         const userResponse = {
             ...user,
             officeId: user.office_id
         };
+
+        // Для директора — добавляем список его офисов
+        if (user.role === 'director') {
+            const [offices] = await db.query(
+                'SELECT id, name, address, contact_phone FROM offices WHERE owner_id = ? ORDER BY name',
+                [user.id]
+            );
+            userResponse.offices = offices;
+            userResponse.needs_office_setup = offices.length === 0;
+        }
         
         res.json({
             user: userResponse
@@ -178,7 +201,7 @@ const getCurrentUser = async (req, res) => {
     } catch (error) {
         console.error('Ошибка при получении информации о пользователе:', error);
         res.status(500).json({ 
-            error: 'Внутренняя ошибка сервера' 
+            success: false, message: 'Внутренняя ошибка сервера' 
         });
     }
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Typography, Container, Box, Card, CardContent, CircularProgress, Chip } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import { getAuthHeaders } from '../shared/utils/apiUtils';
 
 interface Document {
   id: number;
@@ -30,9 +31,7 @@ const VectorSearch = () => {
       const token = localStorage.getItem('authToken');
       
       const response = await fetch(`/api/legal-documents/search?query=${encodeURIComponent(query)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       });
       
       if (!response.ok) {

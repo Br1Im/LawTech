@@ -1,5 +1,8 @@
 const Contract = require('../models/contract');
-const { ensureUserOffice } = require('../utils/ensureOffice');
+const { ensureUserOffice, checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
+const { REFUND_CONFIRM_ROLES } = require('../constants');
+const TERMINATE_ROLES = ['director', 'manager', 'okk'];
+const socketEmitter = require('../middleware/socketEmitter');
 
 /**
  * Контроллер для работы с договорами
@@ -26,11 +29,25 @@ const contractController = {
         });
       }
 
-      // Проверяем доступ пользователя к офису
-      if (user.office_id && user.office_id != officeId) {
+      const allowed = await checkOfficeAccess(user, officeId);
+      if (!allowed) {
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
+        });
+      }
+
+      const page = parseInt(req.query.page, 10);
+      const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
+
+      if (page > 0) {
+        const result = await Contract.getAllByOffice(officeId, { page, pageSize });
+        return res.json({
+          success: true,
+          data: result.contracts,
+          total: result.total,
+          page,
+          page_size: pageSize
         });
       }
 
@@ -66,8 +83,8 @@ const contractController = {
         });
       }
 
-      // Проверяем доступ
-      if (contract.office_id !== user.office_id) {
+      const allowedView = await checkOfficeAccess(user, contract.office_id);
+      if (!allowedView) {
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
@@ -88,6 +105,25 @@ const contractController = {
   },
 
   /**
+   * Генерация номера договора DDMMYYXX
+   */
+  async generateNumber(req, res) {
+    try {
+      const user = req.user;
+      const { contract_date } = req.query;
+      const officeId = req.query.office_id || user.office_id || (await ensureUserOffice(user));
+      if (!contract_date) {
+        return res.status(400).json({ success: false, message: 'Укажите contract_date' });
+      }
+      const number = await Contract.generateContractNumber(officeId, contract_date);
+      res.json({ success: true, data: { contract_number: number } });
+    } catch (error) {
+      console.error('Error generating contract number:', error);
+      res.status(500).json({ success: false, message: 'Ошибка генерации номера' });
+    }
+  },
+
+  /**
    * Создать новый договор
    */
   async createContract(req, res) {
@@ -95,20 +131,44 @@ const contractController = {
       const user = req.user;
       const contractData = req.body;
 
-      console.log('📝 Creating contract with data:', JSON.stringify(contractData, null, 2));
-      console.log('👤 User office_id:', user.office_id);
+      console.log('Creating contract with data:', JSON.stringify(contractData, null, 2));
+      console.log('User office_id:', user.office_id, 'role:', user.role);
 
       // Если пользователь ещё не привязан к офису — создаём для него
       // персональный офис.
       await ensureUserOffice(user);
 
+      // Для упрощённой формы админа: создаём клиента автоматически по ФИО
+      if (contractData.admin_register && contractData.client_name) {
+        const db = require('../db');
+        const clientName = contractData.client_name.trim();
+        // Ищем существующего клиента
+        const [existing] = await db.query(
+          'SELECT id FROM clients WHERE name = ? AND office_id = ? LIMIT 1',
+          [clientName, user.office_id]
+        );
+        if (existing.length > 0) {
+          contractData.id_client = existing[0].id;
+        } else {
+          const [result] = await db.query(
+            'INSERT INTO clients (name, office_id) VALUES (?, ?)',
+            [clientName, user.office_id]
+          );
+          contractData.id_client = result.insertId;
+        }
+        contractData.registered_by = user.id;
+
+        // Если указан signed_by - обновляем appointment с кто заключил
+        if (contractData.signed_by && contractData.appointment_id) {
+          await db.query(
+            'UPDATE appointments SET consultation_result = ?, contract_signed_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND office_id = ?',
+            ['contract_signed', contractData.signed_by, contractData.appointment_id, user.office_id]
+          );
+        }
+      }
+
       // Валидация
       if (!contractData.id_employee || !contractData.id_client || !contractData.amount) {
-        console.log('❌ Validation failed:', {
-          id_employee: contractData.id_employee,
-          id_client: contractData.id_client,
-          amount: contractData.amount
-        });
         return res.status(400).json({
           success: false,
           message: 'Необходимо указать сотрудника, клиента и сумму',
@@ -121,10 +181,13 @@ const contractController = {
       }
 
       const contract = await Contract.create(contractData);
-      
+
+      // Real-time: уведомить офис о новом договоре
+      socketEmitter.emitContractNew(user.office_id, contract);
+
       res.status(201).json({
         success: true,
-        message: 'Договор создан успешно',
+        message: 'Договор зарегистрирован',
         data: contract
       });
     } catch (error) {
@@ -155,7 +218,8 @@ const contractController = {
         });
       }
 
-      if (existingContract.office_id !== user.office_id) {
+      const allowedUpd = await checkOfficeAccess(user, existingContract.office_id);
+      if (!allowedUpd) {
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
@@ -196,12 +260,17 @@ const contractController = {
         });
       }
 
-      if (contract.office_id !== user.office_id) {
+      const allowedDel = await checkOfficeAccess(user, contract.office_id);
+      if (!allowedDel) {
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
         });
       }
+
+      // Удаляем связанные записи из кассы
+      const db = require('../db');
+      await db.query('DELETE FROM cash_register WHERE contract_id = ?', [id]);
 
       await Contract.delete(id);
       
@@ -215,6 +284,100 @@ const contractController = {
         success: false,
         message: 'Ошибка при удалении договора'
       });
+    }
+  },
+
+  /**
+   * Расторгнуть договор
+   */
+  async terminateContract(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      const { terminated_at, termination_reason, refund_amount, refund_deadline } = req.body;
+
+      if (!TERMINATE_ROLES.includes(user.role)) {
+        return res.status(403).json({ success: false, message: 'Расторгнуть договор может только директор, менеджер или ОКК' });
+      }
+
+      const existingContract = await Contract.getById(id);
+      if (!existingContract) {
+        return res.status(404).json({ success: false, message: 'Договор не найден' });
+      }
+      const allowedTerm = await checkOfficeAccess(user, existingContract.office_id);
+      if (!allowedTerm) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+      }
+      if (!terminated_at) {
+        return res.status(400).json({ success: false, message: 'Укажите дату расторжения' });
+      }
+
+      const contract = await Contract.terminate(id, {
+        terminated_at,
+        termination_reason,
+        refund_amount: refund_amount || 0,
+        refund_deadline,
+      });
+
+      res.json({ success: true, message: 'Договор расторгнут', data: contract });
+    } catch (error) {
+      console.error('Error terminating contract:', error);
+      res.status(500).json({ success: false, message: error.message || 'Ошибка при расторжении договора' });
+    }
+  },
+
+  /**
+   * Подтвердить возврат денег (только директор, менеджер, ОКК)
+   */
+  async confirmRefund(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+
+      if (!REFUND_CONFIRM_ROLES.includes(user.role)) {
+        return res.status(403).json({ success: false, message: 'Только директор, менеджер или ОКК могут подтвердить возврат' });
+      }
+
+      const existingContract = await Contract.getById(id);
+      if (!existingContract) {
+        return res.status(404).json({ success: false, message: 'Договор не найден' });
+      }
+      const allowedRefund = await checkOfficeAccess(user, existingContract.office_id);
+      if (!allowedRefund) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+      }
+
+      const contract = await Contract.confirmRefund(id, user.id);
+
+      res.json({ success: true, message: 'Возврат подтверждён, касса обновлена', data: contract });
+    } catch (error) {
+      console.error('Error confirming refund:', error);
+      res.status(500).json({ success: false, message: error.message || 'Ошибка при подтверждении возврата' });
+    }
+  },
+
+  /**
+   * Получить расторгнутые договоры
+   */
+  async getTerminatedContracts(req, res) {
+    try {
+      const user = req.user;
+      let officeId = req.query.office_id || user.office_id;
+      if (!officeId) {
+        officeId = await ensureUserOffice(user);
+      }
+      if (officeId) {
+        const allowedTermList = await checkOfficeAccess(user, officeId);
+        if (!allowedTermList) {
+          return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+        }
+      }
+
+      const contracts = await Contract.getTerminatedByOffice(officeId);
+      res.json({ success: true, data: contracts });
+    } catch (error) {
+      console.error('Error getting terminated contracts:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при получении расторгнутых договоров' });
     }
   },
 

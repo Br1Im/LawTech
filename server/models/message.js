@@ -1,22 +1,18 @@
 const db = require('../db');
 
-/**
- * Модель для работы с сообщениями чата
- */
 class Message {
-  /**
-   * Получить все сообщения для указанного офиса
-   * @param {string} officeId - ID офиса
-   * @returns {Promise<Array>} - Массив сообщений
-   */
-  static async getByOfficeId(officeId) {
+  static async getByOfficeAndChannel(officeId, channel = 'reception') {
     try {
       const query = `
-        SELECT * FROM messages 
-        WHERE office_id = ? 
-        ORDER BY created_at ASC
+        SELECT m.id, m.office_id, m.channel, m.sender_id, m.content, m.is_read, m.status,
+               m.file_url, m.file_name, m.file_type, m.created_at,
+               u.role AS user_role, u.first_name, u.last_name, u.email AS user_email
+        FROM messages m
+        LEFT JOIN users u ON m.sender_id = u.id
+        WHERE m.office_id = ? AND m.channel = ?
+        ORDER BY m.created_at ASC
       `;
-      const [messages] = await db.query(query, [officeId]);
+      const [messages] = await db.query(query, [officeId, channel]);
       return messages;
     } catch (error) {
       console.error('Error getting messages:', error);
@@ -24,54 +20,42 @@ class Message {
     }
   }
 
-  /**
-   * Создать новое сообщение
-   * @param {Object} message - Объект сообщения
-   * @param {string} message.text - Текст сообщения
-   * @param {string} message.sender - Имя отправителя
-   * @param {string} message.office_id - ID офиса
-   * @param {number} message.user_id - ID пользователя, отправившего сообщение
-   * @returns {Promise<Object>} - Созданное сообщение
-   */
+  static async getByOfficeId(officeId) {
+    return this.getByOfficeAndChannel(officeId, 'reception');
+  }
+
   static async create(message) {
     try {
-      const { text, sender, office_id, user_id } = message;
+      const { content, sender_name, office_id, sender_id, channel = 'reception', file_url = null, file_name = null, file_type = null } = message;
       const query = `
-        INSERT INTO messages (text, sender, office_id, user_id, is_read, created_at) 
-        VALUES (?, ?, ?, ?, 0, NOW())
+        INSERT INTO messages (content, office_id, channel, sender_id, is_read, status, file_url, file_name, file_type, created_at)
+        VALUES (?, ?, ?, ?, 0, 'sent', ?, ?, ?, NOW())
       `;
-      const [result] = await db.query(query, [text, sender, office_id, user_id]);
-      
-      const newMessage = {
+      const [result] = await db.query(query, [content, office_id, channel, sender_id, file_url, file_name, file_type]);
+
+      return {
         id: result.insertId,
-        text,
-        sender,
+        content,
+        sender_name,
         office_id,
-        user_id,
+        channel,
+        sender_id,
         is_read: 0,
+        status: 'sent',
+        file_url,
+        file_name,
+        file_type,
         created_at: new Date()
       };
-      
-      return newMessage;
     } catch (error) {
       console.error('Error creating message:', error);
       throw error;
     }
   }
 
-  /**
-   * Пометить сообщение как прочитанное
-   * @param {number} id - ID сообщения
-   * @returns {Promise<boolean>} - Результат операции
-   */
   static async markAsRead(id) {
     try {
-      const query = `
-        UPDATE messages 
-        SET is_read = 1 
-        WHERE id = ?
-      `;
-      await db.query(query, [id]);
+      await db.query(`UPDATE messages SET is_read = 1, status = 'read' WHERE id = ?`, [id]);
       return true;
     } catch (error) {
       console.error('Error marking message as read:', error);
@@ -79,18 +63,9 @@ class Message {
     }
   }
 
-  /**
-   * Удалить сообщение
-   * @param {number} id - ID сообщения
-   * @returns {Promise<boolean>} - Результат операции
-   */
   static async delete(id) {
     try {
-      const query = `
-        DELETE FROM messages 
-        WHERE id = ?
-      `;
-      await db.query(query, [id]);
+      await db.query(`DELETE FROM messages WHERE id = ?`, [id]);
       return true;
     } catch (error) {
       console.error('Error deleting message:', error);

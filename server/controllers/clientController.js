@@ -1,5 +1,6 @@
 const Client = require('../models/client');
-const { ensureUserOffice } = require('../utils/ensureOffice');
+const { ensureUserOffice, checkOfficeAccess } = require('../utils/ensureOffice');
+const db = require('../db');
 
 /**
  * Контроллер для работы с клиентами
@@ -12,10 +13,10 @@ const clientController = {
     try {
       const user = req.user;
 
-      // Если у пользователя ещё нет офиса (например, admin из сидов), создаём
-      // персональный офис здесь же, чтобы GET возвращал его (пустой) список,
-      // а не 403.
       const officeId = await ensureUserOffice(user);
+      if (!officeId) {
+        return res.json({ success: true, data: [] });
+      }
 
       const clients = await Client.getAllByOffice(officeId);
       
@@ -46,6 +47,13 @@ const clientController = {
           success: false,
           message: 'Клиент не найден'
         });
+      }
+
+      if (client.office_id) {
+        const allowed = await checkOfficeAccess(req.user, client.office_id);
+        if (!allowed) {
+          return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+        }
       }
 
       res.json({
@@ -84,6 +92,9 @@ const clientController = {
         });
       }
 
+      // Привязываем клиента к офису пользователя
+      clientData.office_id = user.office_id;
+
       const client = await Client.create(clientData);
       
       console.log('✅ Client created successfully:', client);
@@ -120,6 +131,13 @@ const clientController = {
         });
       }
 
+      if (existingClient.office_id) {
+        const allowed = await checkOfficeAccess(req.user, existingClient.office_id);
+        if (!allowed) {
+          return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+        }
+      }
+
       const client = await Client.update(id, clientData);
       
       res.json({
@@ -150,6 +168,13 @@ const clientController = {
           success: false,
           message: 'Клиент не найден'
         });
+      }
+
+      if (client.office_id) {
+        const allowed = await checkOfficeAccess(req.user, client.office_id);
+        if (!allowed) {
+          return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+        }
       }
 
       await Client.delete(id);

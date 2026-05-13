@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { FaTrashAlt, FaCircle, FaPaperPlane } from 'react-icons/fa';
 import { MdDone, MdDoneAll, MdUpload } from 'react-icons/md';
 import { notification, Spin, Tooltip, Modal } from 'antd';
@@ -7,31 +7,55 @@ import { useAuth } from '../shared/lib/hooks/useAuth';
 import { officeAPI } from '../shared/api/office';
 import type { Office } from '../shared/api/office';
 import { receptionAPI } from '../shared/api/reception';
-import type { Message } from '../shared/api/reception';
+import type { Message, ChatChannel } from '../shared/api/reception';
 import './Reception.css';
 
-// Расширение интерфейса Message для добавления свойства error
 interface ExtendedMessage extends Message {
   error?: boolean;
+  senderRole?: string;
+  senderFirstName?: string;
+  senderLastName?: string;
 }
 
-// Интервал обновления сообщений в мс (5 секунд)
-const MESSAGES_REFRESH_INTERVAL = 5000;
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Администратор",
+  manager: "Менеджер",
+  okk: "Сотрудник ОКК",
+  cc_manager: "Нач. колл-центра",
+  cc_operator: "Оператор КЦ",
+  director: "Директор",
+  lawyer: "Юрист",
+  expert: "Эксперт",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "#6B7280",
+  manager: "#3b82f6",
+  okk: "#8b5cf6",
+  cc_manager: "#ef4444",
+  cc_operator: "#f97316",
+  director: "#dc2626",
+  lawyer: "#10b981",
+  expert: "#f59e0b",
+};
+
+const MESSAGES_REFRESH_INTERVAL = 4000;
 
 const Reception: React.FC = () => {
   const { user } = useAuth();
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | null>(null);
   const [selectedOfficeName, setSelectedOfficeName] = useState<string>("Не выбран");
+  const isCallCenterRole = user?.role === 'cc_manager' || user?.role === 'cc_operator';
+  const [activeChannel, setActiveChannel] = useState<ChatChannel>(isCallCenterRole ? 'call_center' : 'reception');
   const [messages, setMessages] = useState<ExtendedMessage[]>([]);
   const [newMessage, setNewMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(true);
   const [sendingMessage, setSendingMessage] = useState<boolean>(false);
   const messageContainerRef = useRef<HTMLDivElement>(null);
-  const messageRefreshInterval = useRef<NodeJS.Timeout | null>(null);
-  
-  // Обработка нажатия Enter для отправки сообщения
+  const messageRefreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -39,14 +63,39 @@ const Reception: React.FC = () => {
     }
   };
 
-  // Прокрутка до последнего сообщения при добавлении новых сообщений
   useEffect(() => {
     if (messageContainerRef.current) {
       messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Загрузка списка офисов
+  const fetchMessages = useCallback(async (showLoading = true) => {
+    if (!selectedOfficeId) return;
+    
+    if (showLoading) {
+      setLoadingMessages(true);
+    }
+    
+    try {
+      const data = await receptionAPI.getMessages(selectedOfficeId, activeChannel);
+      const messagesArray = Array.isArray(data) ? data : [];
+      setMessages(messagesArray);
+    } catch (error) {
+      console.error('Ошибка при загрузке сообщений:', error);
+      if (showLoading) {
+        notification.error({ 
+          message: 'Ошибка загрузки данных',
+          description: 'Не удалось загрузить сообщения'
+        });
+      }
+    } finally {
+      if (showLoading) {
+        setLoadingMessages(false);
+      }
+    }
+  }, [selectedOfficeId, activeChannel]);
+
+  // Загрузка офисов
   useEffect(() => {
     const fetchOffices = async () => {
       setLoading(true);
@@ -55,9 +104,20 @@ const Reception: React.FC = () => {
         const data = Array.isArray(response) ? response : (response && typeof response === 'object' && 'data' in response ? (response as { data: Office[] }).data : []);
         
         setOffices(data);
-        if (data.length > 0) {
-          setSelectedOfficeId(data[0].id);
-          setSelectedOfficeName(data[0].title);
+
+        const userOfficeId = user?.office_id || user?.officeId;
+        if (userOfficeId && data.length > 0) {
+          const userOffice = data.find((o: Office) => o.id?.toString() === userOfficeId?.toString());
+          if (userOffice) {
+            setSelectedOfficeId(userOffice.id?.toString());
+            setSelectedOfficeName(userOffice.title || userOffice.name || "");
+          } else {
+            setSelectedOfficeId(data[0].id?.toString());
+            setSelectedOfficeName(data[0].title || data[0].name || "");
+          }
+        } else if (data.length > 0) {
+          setSelectedOfficeId(data[0].id?.toString());
+          setSelectedOfficeName(data[0].title || data[0].name || "");
         }
       } catch (error) {
         console.error('Ошибка при загрузке офисов:', error);
@@ -65,17 +125,6 @@ const Reception: React.FC = () => {
           message: 'Ошибка загрузки данных',
           description: 'Не удалось загрузить список офисов'
         });
-        
-        // Временно используем моковые данные в случае ошибки
-        const mockData = [
-          { id: "1", title: "Кемерово", name: "Кемерово", description: "Кемерово", address: "Кемерово", online: true, lastActivity: "2 мин. назад", employee_count: 5, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-          { id: "2", title: "Красноярск", name: "Красноярск", description: "Красноярск", address: "Красноярск", online: false, lastActivity: "21.05.2023", employee_count: 3, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-          { id: "3", title: "Новокузнецк", name: "Новокузнецк", description: "Новокузнецк", address: "Новокузнецк", online: true, lastActivity: "1 ч. назад", employee_count: 4, revenue: 0, orders: 0, data: [0, 0], contact_phone: null, website: null },
-        ];
-        
-        setOffices(mockData);
-        setSelectedOfficeId(mockData[0].id);
-        setSelectedOfficeName(mockData[0].title);
       } finally {
         setLoading(false);
       }
@@ -83,28 +132,24 @@ const Reception: React.FC = () => {
 
     fetchOffices();
 
-    // Очищаем интервал при размонтировании компонента
     return () => {
       if (messageRefreshInterval.current) {
         clearInterval(messageRefreshInterval.current);
       }
     };
-  }, []);
+  }, [user]);
 
-  // Установка интервала обновления сообщений при выборе офиса
+  // Обновление сообщений при смене офиса или канала
   useEffect(() => {
     if (messageRefreshInterval.current) {
       clearInterval(messageRefreshInterval.current);
     }
 
     if (selectedOfficeId) {
-      fetchMessages();
+      fetchMessages(true);
       
-      // Устанавливаем интервал для периодического обновления сообщений
       messageRefreshInterval.current = setInterval(() => {
-        if (selectedOfficeId && !sendingMessage) {
-          fetchMessages(false);
-        }
+        fetchMessages(false);
       }, MESSAGES_REFRESH_INTERVAL);
     }
 
@@ -113,81 +158,18 @@ const Reception: React.FC = () => {
         clearInterval(messageRefreshInterval.current);
       }
     };
-  }, [selectedOfficeId]);
+  }, [selectedOfficeId, activeChannel, fetchMessages]);
 
-  // Функция для загрузки сообщений
-  const fetchMessages = async (showLoading = true) => {
-    if (!selectedOfficeId) return;
-    
-    if (showLoading) {
-      setLoadingMessages(true);
-    }
-    
-    try {
-      const messages = await receptionAPI.getMessages(selectedOfficeId);
-      setMessages(messages);
-      
-      // Отметить непрочитанные входящие сообщения как прочитанные
-      const unreadMessages = messages.filter(msg => !msg.isMine && !msg.isRead);
-      if (unreadMessages.length > 0) {
-        await Promise.all(unreadMessages.map(msg => receptionAPI.markAsRead(msg.id)));
-      }
-    } catch (error) {
-      console.error('Ошибка при загрузке сообщений:', error);
-      
-      // Если это первая загрузка сообщений и произошла ошибка, показываем уведомление
-      if (showLoading) {
-        notification.error({ 
-          message: 'Ошибка загрузки данных',
-          description: 'Не удалось загрузить сообщения'
-        });
-        
-        // Генерируем моковые сообщения
-        const selectedOffice = offices.find(o => o.id === selectedOfficeId);
-        if (selectedOffice) {
-          const mockMessages: ExtendedMessage[] = [
-            { 
-              id: `${selectedOfficeId}-1`, 
-              text: `Здравствуйте! Это сообщение из офиса "${selectedOffice.title}"`, 
-              sender: "Менеджер", 
-              timestamp: "10:00", 
-              office_id: selectedOfficeId, 
-              isRead: true, 
-              isMine: false,
-              createdAt: new Date().toISOString() 
-            },
-            { 
-              id: `${selectedOfficeId}-2`, 
-              text: "Привет! Как я могу помочь вам сегодня?", 
-              sender: "Вы", 
-              timestamp: "10:05", 
-              office_id: selectedOfficeId, 
-              isRead: true, 
-              isMine: true,
-              createdAt: new Date().toISOString() 
-            }
-          ];
-          setMessages(mockMessages);
-        }
-      }
-    } finally {
-      if (showLoading) {
-        setLoadingMessages(false);
-      }
-    }
-  };
-
-  // Отправка сообщения
   const handleSendMessage = async () => {
     if (newMessage.trim() && selectedOfficeId) {
       setSendingMessage(true);
       
       try {
-        // Создаем предварительное сообщение для немедленного отображения
         const tempMessage: ExtendedMessage = {
           id: `temp-${Date.now()}`,
           text: newMessage,
-          sender: user?.username || "Вы",
+          sender: user?.name || user?.username || "Вы",
+          senderRole: user?.role,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           office_id: selectedOfficeId,
           isRead: false,
@@ -199,15 +181,11 @@ const Reception: React.FC = () => {
         const messageText = newMessage.trim();
         setNewMessage("");
         
-        // Отправляем сообщение на сервер
-        const sentMessage = await receptionAPI.sendMessage(selectedOfficeId, messageText);
+        const sentMessage = await receptionAPI.sendMessage(selectedOfficeId, messageText, activeChannel);
         
-        // Обновляем список сообщений
         setMessages(prevMessages => 
           prevMessages.map(msg => 
-            msg.id === tempMessage.id 
-              ? sentMessage 
-              : msg
+            msg.id === tempMessage.id ? sentMessage : msg
           )
         );
         
@@ -218,7 +196,6 @@ const Reception: React.FC = () => {
           description: 'Не удалось отправить сообщение'
         });
         
-        // Помечаем сообщение как неотправленное
         setMessages(prevMessages => 
           prevMessages.map(msg => 
             msg.id.startsWith('temp-')
@@ -232,7 +209,6 @@ const Reception: React.FC = () => {
     }
   };
 
-  // Удаление сообщения
   const handleDeleteMessage = (messageId: string) => {
     Modal.confirm({
       title: 'Удалить сообщение?',
@@ -242,15 +218,10 @@ const Reception: React.FC = () => {
       cancelText: 'Отмена',
       onOk: async () => {
         try {
-          // Сначала удаляем из UI для мгновенной реакции
           setMessages(prevMessages => prevMessages.filter(msg => msg.id !== messageId));
-          
-          // Затем отправляем запрос на сервер
           await receptionAPI.deleteMessage(messageId);
-          
           notification.success({ 
             message: 'Сообщение удалено',
-            description: 'Сообщение успешно удалено',
             duration: 2
           });
         } catch (error) {
@@ -259,36 +230,51 @@ const Reception: React.FC = () => {
             message: 'Ошибка',
             description: 'Не удалось удалить сообщение'
           });
-          
-          // В случае ошибки восстанавливаем сообщения
           fetchMessages();
         }
       }
     });
   };
 
-  // Переключение между офисами
   const handleOfficeChange = (officeId: string) => {
     if (officeId === selectedOfficeId) return;
-    
     const selectedOffice = offices.find((office) => office.id === officeId);
     setSelectedOfficeId(officeId);
-    setSelectedOfficeName(selectedOffice ? selectedOffice.title : "Не выбран");
+    setSelectedOfficeName(selectedOffice ? (selectedOffice.title || selectedOffice.name || "") : "Не выбран");
     setMessages([]);
   };
 
-  // Загрузка файла
-  const handleFileUpload = () => {
-    // Имитируем загрузку файла
-    notification.info({
-      message: 'Загрузка файла',
-      description: 'Функция загрузки файлов находится в разработке'
-    });
+  const handleChannelChange = (channel: ChatChannel) => {
+    if (channel === activeChannel) return;
+    setActiveChannel(channel);
+    setMessages([]);
+    setLoadingMessages(true);
+  };
+
+  const getRoleLabel = (role?: string) => role ? ROLE_LABELS[role] || role : "";
+  const getRoleColor = (role?: string) => role ? ROLE_COLORS[role] || "#6b7280" : "#6b7280";
+
+  const getChannelParticipants = (channel: ChatChannel) => {
+    if (channel === 'reception') {
+      return (
+        <>
+          <span className="participant-badge" style={{ background: ROLE_COLORS.admin }}>Администратор</span>
+          <span className="participant-badge" style={{ background: ROLE_COLORS.manager }}>Менеджер</span>
+          <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>ОКК</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <span className="participant-badge" style={{ background: ROLE_COLORS.cc_manager }}>Нач. колл-центра</span>
+        <span className="participant-badge" style={{ background: ROLE_COLORS.manager }}>Менеджер</span>
+        <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>ОКК</span>
+      </>
+    );
   };
 
   return (
     <div className="reception-container">
-      
       <div className="chat-container">
         <div className="office-list">
           <h3>Офисы</h3>
@@ -305,7 +291,7 @@ const Reception: React.FC = () => {
                 onClick={() => handleOfficeChange(office.id)}
               >
                 <div className="office-info">
-                  <span className="office-name-label">{office.title}</span>
+                  <span className="office-name-label">{office.title || office.name}</span>
                   {office.lastActivity && (
                     <span className="last-activity">{office.lastActivity}</span>
                   )}
@@ -324,8 +310,36 @@ const Reception: React.FC = () => {
         </div>
 
         <div className="chat-section">
+          {/* Табы каналов чата */}
+          {!isCallCenterRole && (
+          <div className="chat-channel-tabs">
+            <button
+              className={`channel-tab ${activeChannel === 'reception' ? 'active' : ''}`}
+              onClick={() => handleChannelChange('reception')}
+            >
+              <span className="channel-tab-icon" style={{ background: ROLE_COLORS.admin }}></span>
+              Ресепшен
+            </button>
+            <button
+              className={`channel-tab ${activeChannel === 'call_center' ? 'active' : ''}`}
+              onClick={() => handleChannelChange('call_center')}
+            >
+              <span className="channel-tab-icon" style={{ background: ROLE_COLORS.cc_manager }}></span>
+              Колл-центр
+            </button>
+          </div>
+          )}
+
           <div className="chat-header">
-            <h3>Чат: <span className="office-name">{selectedOfficeName}</span></h3>
+            <div className="chat-header-info">
+              <h3>
+                {isCallCenterRole ? 'Чат' : (activeChannel === 'reception' ? 'Чат: Ресепшен' : 'Чат: Колл-центр')}
+                {selectedOfficeName && <span className="office-name"> — {selectedOfficeName}</span>}
+              </h3>
+            </div>
+            <div className="chat-participants">
+              {getChannelParticipants(activeChannel)}
+            </div>
           </div>
           
           <div className="messages-container" ref={messageContainerRef}>
@@ -336,36 +350,47 @@ const Reception: React.FC = () => {
               </div>
             ) : messages.length === 0 ? (
               <div className="empty-messages">
-                <p>Нет доступных сообщений</p>
-                <p className="empty-hint">Отправьте новое сообщение, чтобы начать общение</p>
+                <p>Нет сообщений</p>
+                <p className="empty-hint">Отправьте сообщение, чтобы начать общение</p>
               </div>
             ) : (
-              messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`message ${message.isMine ? 'mine' : ''} ${message.error ? 'error' : ''}`}
-                >
-                  <div className="message-content">
-                    <span className="sender">{message.sender}</span>
-                    <p className="text">{message.text}</p>
-                    <div className="message-footer">
-                      <span className="timestamp">{message.timestamp}</span>
-                      {message.isMine && (
-                        <span className="read-status">
-                          {message.isRead ? <MdDoneAll /> : <MdDone />}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button 
-                    className="delete-btn" 
-                    onClick={() => handleDeleteMessage(message.id)}
-                    disabled={!message.isMine && user?.role !== 'admin'}
+              messages.map((message) => {
+                const extMsg = message as ExtendedMessage;
+                return (
+                  <div 
+                    key={message.id} 
+                    className={`message ${message.isMine ? 'mine' : ''} ${message.error ? 'error' : ''}`}
                   >
-                    <FaTrashAlt />
-                  </button>
-                </div>
-              ))
+                    <div className="message-content">
+                      <div className="sender-info">
+                        <span className="sender">{message.sender}</span>
+                        {extMsg.senderRole && (
+                          <span className="sender-role" style={{ color: getRoleColor(extMsg.senderRole) }}>
+                            {getRoleLabel(extMsg.senderRole)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text">{message.text}</p>
+                      <div className="message-footer">
+                        <span className="timestamp">{message.timestamp}</span>
+                        {message.isMine && (
+                          <span className="read-status">
+                            {message.isRead ? <MdDoneAll /> : <MdDone />}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {message.isMine && (
+                      <button 
+                        className="delete-btn" 
+                        onClick={() => handleDeleteMessage(message.id)}
+                      >
+                        <FaTrashAlt />
+                      </button>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
           
@@ -380,7 +405,7 @@ const Reception: React.FC = () => {
             <div className="chat-actions">
               <Tooltip title="Загрузить файл">
                 <div>
-                  <button className="upload-button" onClick={handleFileUpload}>
+                  <button className="upload-button" onClick={() => notification.info({ message: 'В разработке' })}>
                     <MdUpload />
                   </button>
                 </div>

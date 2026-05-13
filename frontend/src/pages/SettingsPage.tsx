@@ -25,31 +25,33 @@ const SettingsContent = styled(Content)`
 `;
 
 const SettingsContainer = styled.div`
-  max-width: 100%;
+  max-width: 720px;
   width: 100%;
   margin: 0;
   padding: 0 24px;
 `;
 
 const SettingsTitle = styled.h1`
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   color: var(--color-text);
+  letter-spacing: -0.02em;
 `;
 
 const SettingsSection = styled.div`
-  background: var(--color-card-bg);
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: none;
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 20px;
-  font-weight: 500;
-  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
   color: var(--color-text);
 `;
 
@@ -57,7 +59,7 @@ const SettingItem = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--color-border);
   
   &:last-child {
@@ -66,21 +68,15 @@ const SettingItem = styled.div`
 `;
 
 const SettingLabel = styled.div`
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 500;
   color: var(--color-text);
 `;
 
 const SettingDescription = styled.div`
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 4px;
-cursor: pointer;
-  margin-bottom: 24px;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background: var(--color-primary-hover);
-  }
 `;
 
 const SettingsPage: React.FC = () => {
@@ -141,8 +137,7 @@ const SettingsPage: React.FC = () => {
   }, [navigate]);
 
   const handleTabClick = (tab: string) => {
-    // Обработка переключения вкладок в сайдбаре
-    console.log('Tab clicked:', tab);
+    navigate(`/crm?tab=${encodeURIComponent(tab)}`);
   };
 
   return (
@@ -169,21 +164,21 @@ const SettingsPage: React.FC = () => {
               <button
                 onClick={toggleTheme}
                 style={{
-                  background: 'var(--color-accent)',
-                  color: 'var(--color-button-text)',
+                  background: 'var(--color-primary)',
+                  color: '#FFFFFF',
                   border: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   padding: '8px 16px',
                   cursor: 'pointer',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '500',
-                  transition: 'all 0.2s ease'
+                  transition: 'background 0.15s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '0.8';
+                  e.currentTarget.style.background = 'var(--color-accent-hover)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.background = 'var(--color-primary)';
                 }}
               >
                 {isDarkTheme ? 'Темная' : 'Светлая'}

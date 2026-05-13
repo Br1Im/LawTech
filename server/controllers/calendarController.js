@@ -363,38 +363,30 @@ const calendarController = {
     }
   },
 
-  // Получить все события календаря для всех офисов пользователя
+  // Получить все события календаря для текущего активного офиса пользователя
   getAllCalendarEvents: async (req, res) => {
     try {
       const userId = req.user.id;
+      const officeId = req.user.office_id;
 
-      console.log(`🔍 Запрос всех календарных событий для пользователя ${userId}`);
+      console.log(`🔍 Запрос календарных событий для пользователя ${userId}, офис ${officeId}`);
 
-      // Получаем все офисы, к которым принадлежит пользователь
-      const [userOffices] = await db.query(
-        'SELECT office_id FROM users WHERE id = ?',
-        [userId]
-      );
-
-      if (!userOffices.length) {
-        console.log(`❌ У пользователя ${userId} нет связанных офисов`);
+      if (!officeId) {
+        console.log(`❌ У пользователя ${userId} нет активного офиса`);
         return res.json({ success: true, events: [] });
       }
 
-      const officeIds = userOffices.map(uo => uo.office_id);
-      console.log(`🏢 Пользователь ${userId} имеет доступ к офисам: ${officeIds.join(', ')}`);
-
-      // Получаем обычные календарные события для всех офисов
+      // Получаем календарные события только для текущего активного офиса
       const [events] = await db.query(
         `SELECT *, start_date as date FROM calendar_events 
-         WHERE office_id IN (?) 
+         WHERE office_id = ? 
          ORDER BY start_date ASC`,
-        [officeIds]
+        [officeId]
       );
 
       console.log(`📅 Найдено обычных событий: ${events.length}`);
 
-      // Получаем договоры для всех офисов через employees
+      // Получаем договоры только для текущего активного офиса
       const [contracts] = await db.query(
         `SELECT c.id, 
                COALESCE(cl.name, 'Неизвестный клиент') as client_name,
@@ -406,9 +398,9 @@ const calendarController = {
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
-        WHERE e.office_id IN (?) AND c.contract_date IS NOT NULL
+        WHERE e.office_id = ? AND c.contract_date IS NOT NULL
         ORDER BY c.contract_date ASC`,
-        [officeIds]
+        [officeId]
       );
         
       console.log(`📝 Найдено договоров с датами: ${contracts.length}`);
