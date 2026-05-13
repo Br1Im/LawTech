@@ -238,11 +238,14 @@ const initializeVectorSearch = async () => {
   }
 };
 
-// Инициализация Socket.IO
-socketManager.init(server);
+// Инициализация Socket.IO (только в не-тестовом окружении — Socket.IO
+// держит интервалы, которые мешают Jest корректно завершиться)
+if (process.env.NODE_ENV !== 'test') {
+  socketManager.init(server);
+}
 
-// Запуск сервера
-server.listen(PORT, '0.0.0.0', async () => {
+// Запуск сервера — пропускаем при NODE_ENV=test (Supertest сам биндит порт)
+if (process.env.NODE_ENV !== 'test') server.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 LawTech Server running on port ${PORT} (with WebSocket)`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);

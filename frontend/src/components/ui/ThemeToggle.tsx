@@ -31,6 +31,7 @@ const ThemeToggle = () => {
       className="theme-toggle-button" 
       onClick={toggleTheme} 
       title={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
+      aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
     >
       {theme === 'light' ? (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
