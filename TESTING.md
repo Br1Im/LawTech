@@ -15,10 +15,14 @@
 - `__tests__/auth.test.js` — `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`. Проверяется: хеширование пароля в БД, JWT, обработка дубликатов, валидация полей, поведение токенов.
 - `__tests__/clients.test.js` — CRUD `/api/clients`. Проверяется: запись в таблицу `clients`, изоляция по `office_id` (юрист офиса A не видит клиентов офиса B), валидация имени.
 - `__tests__/crm-modules.test.js` — `POST /api/cases`, `POST /api/expenses`, `POST /api/employees`. Каждая запись валидируется чтением из таблицы напрямую (`SELECT * FROM ... WHERE id = ?`).
+- `__tests__/salary.test.js` — `GET/PUT /api/offices/:id/salary-settings` (auto-create defaults + update), `POST/GET/DELETE /api/shifts` (CRUD + unique constraint).
+- `__tests__/acts.test.js` — `POST /api/contracts/:id/acts` (создание акта с валидацией суммы + persist в БД), `GET /api/acts` (изоляция по офису).
+- `__tests__/chat.test.js` — `GET /api/chat/channels` (видимость по роли), `POST/GET /api/offices/:officeId/messages` (отправка → persist → возврат).
+- `__tests__/dashboard.test.js` — `GET /api/office/:officeId/dashboard` (структура fact/plan/lawyers_cash, 403 чужой офис), `PUT/GET /api/office/:officeId/plan`.
 
 По мере мержа PR #7 суда же добавятся: contracts, offices, crm-extra (appointments/applications/cash-register/calendar), security (JWT + X-Office-Id).
 
-Итого (после PR #6+#7): ~48 интеграционных тестов, все ходят в реальный MySQL.
+Итого (после PR #6 + #9): ~39 интеграционных тестов, все ходят в реальный MySQL.
 
 ### Запуск локально
 
