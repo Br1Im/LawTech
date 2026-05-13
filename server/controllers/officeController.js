@@ -2,6 +2,23 @@ const Office = require('../models/office');
 const { formatOfficeResponse } = require('../utils/formatters');
 const db = require('../db');
 
+/**
+ * Проверяет, что текущий пользователь — владелец офиса.
+ * Возвращает true для системной роли 'owner' или если offices.owner_id === user.id.
+ * Используется для гейта операций PUT/DELETE на офисе.
+ */
+async function isOfficeOwner(user, officeId) {
+  if (!user || !user.id || !officeId) return false;
+  const role = String(user.role || '').toLowerCase();
+  if (role === 'owner') return true;
+  const [rows] = await db.query(
+    'SELECT owner_id FROM offices WHERE id = ? LIMIT 1',
+    [officeId]
+  );
+  if (!rows[0]) return false;
+  return Number(rows[0].owner_id) === Number(user.id);
+}
+
 const officeController = {
   /**
    * Получить данные о выручке офисов за указанный период
@@ -219,12 +236,17 @@ const officeController = {
     try {
       const { officeId } = req.params;
       const { name, address, contact_phone, website } = req.body;
-      
+
       const existingOffice = await Office.getById(officeId);
       if (!existingOffice) {
         return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
-      
+
+      const allowed = await isOfficeOwner(req.user, officeId);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещён' });
+      }
+
       if (!name) {
         return res.status(400).json({ success: false, message: 'Название офиса обязательно' });
       }
@@ -247,12 +269,17 @@ const officeController = {
   async deleteOffice(req, res) {
     try {
       const { officeId } = req.params;
-      
+
       const office = await Office.getById(officeId);
       if (!office) {
         return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
-      
+
+      const allowed = await isOfficeOwner(req.user, officeId);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещён' });
+      }
+
       await Office.delete(officeId);
       return res.json({ success: true });
     } catch (error) {
