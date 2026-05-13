@@ -36,7 +36,8 @@ const Applications: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState({ client_name: '', topic: '', lawyer_name: '', comment: '' });
 
-  const { data = [], isFetching: loading, refetch } = useCrmList<Application>('applications');
+  const { data = [], isPending, isFetching, refetch } = useCrmList<Application>('applications');
+  const loading = isFetching;
 
   const createMut = useCrmMutation<typeof form>(
     { resource: 'applications', method: 'post' },
@@ -94,7 +95,7 @@ const Applications: React.FC = () => {
         </Space>
       </ToolRow>
       <TableCard>
-        {loading && data.length === 0 ? (
+        {isPending && data.length === 0 ? (
           <TableSkeleton rows={8} cols={columns.length} withToolbar={false} />
         ) : (
           <Table<Application>
