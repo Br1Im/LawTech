@@ -3,9 +3,37 @@
  */
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+
+// Брутфорс-защита логина: 10 неуспешных попыток на 15 минут с одного IP
+// (успешные ответы не считаются — skipSuccessfulRequests). В тестах NODE_ENV=test
+// поднимаем лимит на потолок, чтобы не мешать integration-тестам.
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
+  },
+});
+
+// Регистрация: 5 аккаунтов в час с одного IP (антиспам).
+const registerRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: process.env.NODE_ENV === 'test' ? 10000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Слишком много регистраций с этого IP. Попробуйте позже.',
+  },
+});
 const config = require('../config');
 const { authenticateToken } = require('../middleware/auth');
 const authController = require('../controllers/auth');
@@ -46,8 +74,8 @@ router.get('/health', (req, res) => {
 });
 
 // Маршруты аутентификации
-router.post('/auth/login', authController.login);
-router.post('/auth/register', authController.register);
+router.post('/auth/login', loginRateLimiter, authController.login);
+router.post('/auth/register', registerRateLimiter, authController.register);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
 router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
