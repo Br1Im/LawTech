@@ -19,10 +19,9 @@
 - `__tests__/acts.test.js` — `POST /api/contracts/:id/acts` (создание акта с валидацией суммы + persist в БД), `GET /api/acts` (изоляция по офису).
 - `__tests__/chat.test.js` — `GET /api/chat/channels` (видимость по роли), `POST/GET /api/offices/:officeId/messages` (отправка → persist → возврат).
 - `__tests__/dashboard.test.js` — `GET /api/office/:officeId/dashboard` (структура fact/plan/lawyers_cash, 403 чужой офис), `PUT/GET /api/office/:officeId/plan`.
+- `__tests__/uploads.test.js` — `POST /api/upload` (text → extract, unsupported ext → 400, no auth → 401), chat-attachments (`/api/offices/:officeId/messages` multipart с file_url/file_type persisted), `POST /api/contracts/:id/documents` (docx → materials row + физический файл на диске + `contracts.docs_status='ready'`, .txt → 4xx, DELETE удаляет файл).
 
-По мере мержа PR #7 суда же добавятся: contracts, offices, crm-extra (appointments/applications/cash-register/calendar), security (JWT + X-Office-Id).
-
-Итого (после PR #6 + #9): ~39 интеграционных тестов, все ходят в реальный MySQL.
+Итого: 73 интеграционных теста, все ходят в реальный MySQL.
 
 ### Запуск локально
 
