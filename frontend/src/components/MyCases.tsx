@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Table, Tag, Button, Modal, Select, Input, DatePicker, message,
-  Drawer, Descriptions, Timeline, Space, Empty, Card, Statistic, Form, Popconfirm
+  Drawer, Descriptions, Timeline, Space, Card, Statistic, Form, Popconfirm
 } from 'antd';
+import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import {
   FileTextOutlined, PlusOutlined, ReloadOutlined,
@@ -281,15 +282,26 @@ const MyCases: React.FC = () => {
         </Card>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={cases}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10, showTotal: (total) => `Всего: ${total}` }}
-        locale={{ emptyText: <Empty description="Нет назначенных дел" /> }}
-        size="middle"
-      />
+      {loading && cases.length === 0 ? (
+        <TableSkeleton rows={6} cols={columns.length} />
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={cases}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10, showTotal: (total) => `Всего: ${total}` }}
+          locale={{
+            emptyText: (
+              <EmptyState
+                title="Нет назначенных дел"
+                description="Новые дела появятся здесь после назначения на вас."
+              />
+            ),
+          }}
+          size="middle"
+        />
+      )}
 
       {/* Drawer — детали дела */}
       <Drawer

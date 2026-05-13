@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Table, Tag, Button, Modal, Select, message, Drawer, Descriptions, List, Typography, Space, Empty, Tabs } from 'antd';
+import { Table, Tag, Button, Modal, Select, message, Drawer, Descriptions, List, Typography, Space, Tabs } from 'antd';
+import { TableSkeleton, EmptyState } from './ui';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
 
@@ -358,14 +359,25 @@ const Cases: React.FC = () => {
   // ---------- Docs cases table ----------
   const renderDocsTab = () => (
     <>
-      <Table
-        rowKey="id"
-        loading={loading}
-        dataSource={rows}
-        columns={columns as any}
-        size="small"
-        locale={{ emptyText: isExpert ? 'Нет назначенных дел' : 'Новых дел нет' }}
-      />
+      {loading && rows.length === 0 ? (
+        <TableSkeleton rows={6} cols={(columns as any).length || 5} />
+      ) : (
+        <Table
+          rowKey="id"
+          loading={loading}
+          dataSource={rows}
+          columns={columns as any}
+          size="small"
+          locale={{
+            emptyText: (
+              <EmptyState
+                title={isExpert ? 'Нет назначенных дел' : 'Новых дел нет'}
+                description={isExpert ? 'Новые дела появятся здесь после назначения.' : 'Неназначенные дела появятся здесь.'}
+              />
+            ),
+          }}
+        />
+      )}
 
       <Modal
         open={!!assignFor}
@@ -508,14 +520,25 @@ const Cases: React.FC = () => {
   // ---------- Representation tab ----------
   const renderRepresentationTab = () => (
     <>
-      <Table
-        rowKey="id"
-        loading={repLoading}
-        dataSource={repRows}
-        columns={repColumns as any}
-        size="small"
-        locale={{ emptyText: 'Нет договоров на представление интересов' }}
-      />
+      {repLoading && repRows.length === 0 ? (
+        <TableSkeleton rows={6} cols={(repColumns as any).length || 5} />
+      ) : (
+        <Table
+          rowKey="id"
+          loading={repLoading}
+          dataSource={repRows}
+          columns={repColumns as any}
+          size="small"
+          locale={{
+            emptyText: (
+              <EmptyState
+                title="Нет договоров на представление"
+                description="Договоры на представление интересов появятся здесь."
+              />
+            ),
+          }}
+        />
+      )}
 
       <Modal
         open={!!assignRepFor}

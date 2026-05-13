@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./Materials.css";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
+import { TableSkeleton } from "./ui";
 
 interface Employee {
   id: number;
@@ -401,7 +402,7 @@ const Materials: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="loading-indicator">Загрузка материалов дел...</div>
+        <TableSkeleton rows={5} cols={4} withToolbar={false} />
       ) : (
         <div className="cases-list">
           {cases.length > 0 ? (

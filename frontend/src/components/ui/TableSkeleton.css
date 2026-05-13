@@ -1,0 +1,104 @@
+/* Shimmering placeholder bars with light/dark theme support. */
+
+.skeleton-table {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.skeleton-table__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 4px;
+}
+
+.skeleton-table__toolbar-search {
+  flex: 1;
+  max-width: 320px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.skeleton-table__toolbar-btn {
+  width: 110px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.skeleton-table__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.skeleton-table__row {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.06));
+}
+
+.skeleton-table__row--head {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-strong, rgba(0, 0, 0, 0.1));
+}
+
+.skeleton-table__cell {
+  height: 14px;
+  width: var(--bar-w, 80%);
+  border-radius: 6px;
+}
+
+.skeleton-table__cell--head {
+  height: 12px;
+  width: 60%;
+  opacity: 0.85;
+}
+
+/* Shimmer keyframes — single source of truth, reused in EmptyState too. */
+.skeleton-shimmer {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    rgba(140, 140, 160, 0.12) 0%,
+    rgba(140, 140, 160, 0.22) 50%,
+    rgba(140, 140, 160, 0.12) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Dark theme — slightly brighter band over a darker base. */
+:root[data-theme='dark'] .skeleton-shimmer,
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.14) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* Respect reduced-motion users. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+  }
+}

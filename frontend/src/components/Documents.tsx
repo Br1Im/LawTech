@@ -5,6 +5,7 @@ import { useNotification } from '../hooks/useNotification';
 import { ToastContainer } from './Toast';
 import './Documents.css';
 import { FiEdit2, FiSearch, FiTrash2 } from 'react-icons/fi';
+import { TableSkeleton, EmptyState } from './ui';
 
 // Функция для перевода статусов на русский язык
 const getStatusText = (status: string) => {
@@ -825,7 +826,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       )}
 
       {!headless && (loading ? (
-        <div className="loading-indicator">Загрузка договоров...</div>
+        <TableSkeleton rows={8} cols={7} withToolbar={false} />
       ) : filteredDocuments.length > 0 ? (
         <div className="documents-table-container">
           <table className="documents-table">
@@ -880,9 +881,10 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
           </table>
         </div>
       ) : (
-        <div className="no-documents">
-          <p>Документы не найдены</p>
-        </div>
+        <EmptyState
+          title="Документы не найдены"
+          description="Новые договоры появятся здесь после создания."
+        />
       ))}
 
       {/* Модальное окно для создания нового договора */}
