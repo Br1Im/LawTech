@@ -1,0 +1,759 @@
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `acts` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `contract_id` int NOT NULL,
+  `act_date` date NOT NULL,
+  `amount` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `type` varchar(20) NOT NULL DEFAULT 'docs',
+  `responsible_id` int DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'draft',
+  `description` text,
+  `created_by` int DEFAULT NULL,
+  `confirmed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_acts_office` (`office_id`),
+  KEY `idx_acts_contract` (`contract_id`),
+  KEY `idx_acts_responsible` (`responsible_id`),
+  KEY `idx_acts_date` (`act_date`),
+  KEY `idx_acts_status` (`status`),
+  KEY `idx_acts_type` (`type`),
+  KEY `fk_acts_user` (`created_by`),
+  CONSTRAINT `fk_acts_contract` FOREIGN KEY (`contract_id`) REFERENCES `contracts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_acts_employee` FOREIGN KEY (`responsible_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_acts_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_acts_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `additional_tz` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `case_id` int NOT NULL,
+  `document_type` varchar(255) DEFAULT NULL,
+  `description` text,
+  `purpose` varchar(500) DEFAULT NULL,
+  `expert_id` int DEFAULT NULL,
+  `manager_id` int DEFAULT NULL,
+  `deadline_days` int DEFAULT NULL,
+  `deadline_date` date DEFAULT NULL,
+  `status` enum('created','with_manager','assigned_to_expert','in_progress','done','closed') NOT NULL DEFAULT 'with_manager',
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_atz_office` (`office_id`),
+  KEY `idx_atz_case` (`case_id`),
+  KEY `idx_atz_expert` (`expert_id`,`status`),
+  CONSTRAINT `additional_tz_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `additional_tz_ibfk_2` FOREIGN KEY (`case_id`) REFERENCES `cases` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `appointments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `lead_id` int DEFAULT NULL,
+  `client_id` int DEFAULT NULL,
+  `client_name` varchar(255) NOT NULL,
+  `client_phone` varchar(50) NOT NULL,
+  `source` varchar(100) DEFAULT NULL,
+  `appointment_date` date NOT NULL,
+  `appointment_time` time NOT NULL,
+  `comment` text,
+  `operator_id` int NOT NULL,
+  `operator_name` varchar(255) DEFAULT NULL,
+  `status` enum('waiting','confirmed','arrived','no_show','cancelled','rescheduled') NOT NULL DEFAULT 'waiting',
+  `consultation_result` enum('contract_signed','not_signed') DEFAULT NULL,
+  `contract_signed_by` int DEFAULT NULL,
+  `manager_comment` text,
+  `assigned_lawyer_id` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_appointments_office` (`office_id`),
+  KEY `idx_appointments_lead` (`lead_id`),
+  KEY `idx_appointments_status` (`status`),
+  KEY `idx_appointments_date` (`appointment_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `arrivals` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `source` varchar(100) DEFAULT 'Оплата по договору',
+  `amount` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `contract_id` int DEFAULT NULL,
+  `client_id` int DEFAULT NULL,
+  `received_on` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_date` (`received_on`),
+  KEY `contract_id` (`contract_id`),
+  KEY `client_id` (`client_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `arrivals_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `arrivals_ibfk_2` FOREIGN KEY (`contract_id`) REFERENCES `contracts` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `arrivals_ibfk_3` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `arrivals_ibfk_4` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `calendar_events` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `start_date` date NOT NULL,
+  `end_date` date DEFAULT NULL,
+  `time` time DEFAULT '10:00:00',
+  `type` varchar(50) DEFAULT 'other',
+  `priority` varchar(20) DEFAULT 'medium',
+  `location` varchar(255) DEFAULT NULL,
+  `participants` text,
+  `office_id` int DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `office_id` (`office_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `calendar_events_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `calendar_events_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=36 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `call_center_calls` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `lead_id` int NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `result` varchar(50) NOT NULL,
+  `comment` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `idx_call_center_calls_lead` (`lead_id`),
+  CONSTRAINT `call_center_calls_ibfk_1` FOREIGN KEY (`lead_id`) REFERENCES `call_center_leads` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `call_center_calls_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `call_center_history` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `lead_id` int NOT NULL,
+  `action` varchar(100) NOT NULL,
+  `user_id` int DEFAULT NULL,
+  `details` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `idx_call_center_history_lead` (`lead_id`),
+  CONSTRAINT `call_center_history_ibfk_1` FOREIGN KEY (`lead_id`) REFERENCES `call_center_leads` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `call_center_history_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=69 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `call_center_leads` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `source` varchar(100) NOT NULL,
+  `external_id` varchar(255) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `description` text,
+  `status` varchar(50) NOT NULL DEFAULT 'NEW',
+  `score` int NOT NULL DEFAULT '0',
+  `temperature` varchar(10) DEFAULT NULL,
+  `assigned_to` int DEFAULT NULL,
+  `duplicate_of_lead_id` int DEFAULT NULL,
+  `first_call_at` datetime DEFAULT NULL,
+  `last_call_at` datetime DEFAULT NULL,
+  `next_call_at` datetime DEFAULT NULL,
+  `metadata` json DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `duplicate_of_lead_id` (`duplicate_of_lead_id`),
+  KEY `idx_call_center_leads_office_status` (`office_id`,`status`),
+  KEY `idx_call_center_leads_assigned_to` (`assigned_to`),
+  KEY `idx_call_center_leads_source_external` (`source`,`external_id`),
+  KEY `idx_call_center_leads_source` (`source`),
+  KEY `idx_call_center_leads_temperature` (`temperature`),
+  KEY `idx_call_center_leads_assigned_status` (`assigned_to`,`status`),
+  KEY `idx_call_center_leads_created_at` (`created_at`),
+  CONSTRAINT `call_center_leads_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `call_center_leads_ibfk_2` FOREIGN KEY (`assigned_to`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `call_center_leads_ibfk_3` FOREIGN KEY (`duplicate_of_lead_id`) REFERENCES `call_center_leads` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=62 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `call_center_operator_status` (
+  `user_id` int NOT NULL,
+  `office_id` int NOT NULL,
+  `is_online` tinyint(1) NOT NULL DEFAULT '0',
+  `current_load` int NOT NULL DEFAULT '0',
+  `last_seen_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_assigned_at` datetime DEFAULT NULL,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  KEY `idx_call_center_operator_status_office` (`office_id`,`is_online`),
+  CONSTRAINT `call_center_operator_status_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `call_center_operator_status_ibfk_2` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `case_actions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `contract_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `action_type` varchar(100) NOT NULL,
+  `description` text,
+  `action_date` date NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_case_actions_contract` (`contract_id`),
+  KEY `idx_case_actions_user` (`user_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cases` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `client_id` int DEFAULT NULL,
+  `employee_id` int DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `case_number` varchar(100) DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `status` enum('new','in_progress','waiting','won','lost','closed') DEFAULT 'new',
+  `priority` enum('low','medium','high','urgent') DEFAULT 'medium',
+  `description` text,
+  `start_date` date DEFAULT NULL,
+  `deadline` date DEFAULT NULL,
+  `closed_at` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `contract_id` int DEFAULT NULL,
+  `manager_id` int DEFAULT NULL,
+  `expert_id` int DEFAULT NULL,
+  `workflow_status` enum('with_manager','assigned_to_expert','in_progress','done','closed') NOT NULL DEFAULT 'with_manager',
+  PRIMARY KEY (`id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_client` (`client_id`),
+  KEY `idx_employee` (`employee_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_cases_workflow` (`office_id`,`workflow_status`),
+  KEY `idx_cases_contract` (`contract_id`),
+  KEY `idx_cases_expert` (`expert_id`,`workflow_status`),
+  CONSTRAINT `cases_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `cases_ibfk_2` FOREIGN KEY (`client_id`) REFERENCES `clients` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `cases_ibfk_3` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `cash_register` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `entry_date` date NOT NULL,
+  `client_name` varchar(500) DEFAULT NULL,
+  `contract_number` varchar(50) DEFAULT NULL,
+  `action` varchar(255) DEFAULT NULL,
+  `lawyer_name` varchar(255) DEFAULT NULL,
+  `employee_id` int DEFAULT NULL,
+  `cash_amount` decimal(15,2) DEFAULT '0.00',
+  `noncash_amount` decimal(15,2) DEFAULT '0.00',
+  `bank_amount` decimal(15,2) DEFAULT '0.00',
+  `expense_amount` decimal(15,2) DEFAULT '0.00',
+  `comment` text,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_cash_office_date` (`office_id`,`entry_date`)
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `clients` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `address` text,
+  `notes` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `office_id` int DEFAULT NULL,
+  `company` varchar(255) DEFAULT NULL,
+  `status` varchar(50) DEFAULT 'active',
+  `first_name` varchar(128) DEFAULT NULL,
+  `last_name` varchar(128) DEFAULT NULL,
+  `middle_name` varchar(128) DEFAULT NULL,
+  `acting_for` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_clients_office` (`office_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contract_assignments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `contract_id` int NOT NULL,
+  `user_id` int NOT NULL,
+  `role` varchar(30) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `assignment_type` enum('auto','manual') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'auto',
+  `status` enum('pending','in_progress','completed') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `assigned_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_contract_user` (`contract_id`,`user_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_contract_id` (`contract_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contract_periods` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `period_start` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_cp_office` (`office_id`,`period_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `contracts` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `id_client` int NOT NULL,
+  `id_employee` int NOT NULL,
+  `contract_type` varchar(20) NOT NULL DEFAULT 'docs',
+  `expert_id` int DEFAULT NULL,
+  `representative_id` int DEFAULT NULL,
+  `docs_status` varchar(20) NOT NULL DEFAULT 'pending',
+  `contract_date` date NOT NULL,
+  `amount` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `paid_amount` decimal(15,2) DEFAULT '0.00',
+  `status` varchar(50) DEFAULT 'active',
+  `title` varchar(255) DEFAULT NULL,
+  `description` text,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `customer_goal` varchar(500) DEFAULT NULL,
+  `situation_description` text,
+  `expert_deadline_days` int DEFAULT NULL,
+  `legal_cost_comp` decimal(15,2) DEFAULT NULL,
+  `moral_comp` decimal(15,2) DEFAULT NULL,
+  `payment_date` date DEFAULT NULL,
+  `office_id` int DEFAULT NULL,
+  `terminated_at` date DEFAULT NULL,
+  `termination_reason` text,
+  `refund_amount` decimal(15,2) DEFAULT NULL,
+  `refund_deadline` date DEFAULT NULL,
+  `refund_confirmed` tinyint(1) DEFAULT '0',
+  `refund_confirmed_by` int DEFAULT NULL,
+  `refund_confirmed_at` timestamp NULL DEFAULT NULL,
+  `contract_number` varchar(20) DEFAULT NULL,
+  `additional_payment_date` date DEFAULT NULL,
+  `additional_payment_amount` decimal(15,2) DEFAULT NULL,
+  `registered_by` int DEFAULT NULL,
+  `signed_by` int DEFAULT NULL,
+  `payment_method` varchar(20) DEFAULT 'cash',
+  `on_behalf_of` varchar(500) DEFAULT NULL,
+  `needs_lawyer_input` tinyint(1) DEFAULT '0',
+  `appointment_id` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `id_employee` (`id_employee`),
+  KEY `idx_contracts_client` (`id_client`),
+  KEY `idx_contracts_date` (`contract_date`),
+  KEY `idx_contracts_type` (`contract_type`),
+  KEY `idx_contracts_expert` (`expert_id`),
+  KEY `idx_contracts_office` (`office_id`),
+  KEY `idx_representative` (`representative_id`),
+  KEY `idx_contracts_terminated` (`status`,`terminated_at`),
+  KEY `idx_contracts_contract_number` (`contract_number`),
+  KEY `idx_contracts_registered_by` (`registered_by`),
+  KEY `idx_contracts_signed_by` (`signed_by`),
+  CONSTRAINT `contracts_ibfk_1` FOREIGN KEY (`id_client`) REFERENCES `clients` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `contracts_ibfk_2` FOREIGN KEY (`id_employee`) REFERENCES `employees` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=44 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `employee_salaries` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `employee_id` int NOT NULL,
+  `base_salary` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `custom_percent` decimal(6,3) DEFAULT NULL,
+  `custom_shift_rate` decimal(12,2) DEFAULT NULL,
+  `custom_per_doc` decimal(12,2) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `employee_id` (`employee_id`),
+  KEY `fk_es_user` (`updated_by`),
+  CONSTRAINT `fk_es_emp` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_es_user` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `employee_stats` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `employee_id` int NOT NULL,
+  `period_type` varchar(20) NOT NULL,
+  `period_value` varchar(50) NOT NULL,
+  `revenue` decimal(15,2) DEFAULT '0.00',
+  `orders` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `employee_period_value_unique` (`employee_id`,`period_type`,`period_value`),
+  KEY `idx_empstats_emp` (`employee_id`),
+  CONSTRAINT `employee_stats_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=137 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `employees` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `middle_name` varchar(100) DEFAULT NULL,
+  `birth_date` date DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `position` varchar(100) DEFAULT NULL,
+  `office_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `passport_series` varchar(10) DEFAULT NULL,
+  `passport_number` varchar(20) DEFAULT NULL,
+  `passport_issued_by` varchar(255) DEFAULT NULL,
+  `passport_issue_date` date DEFAULT NULL,
+  `passport_department_code` varchar(10) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_employees_office` (`office_id`),
+  CONSTRAINT `employees_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=70 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `existing_client_visits` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `client_name` varchar(255) NOT NULL,
+  `employee_id` int DEFAULT NULL,
+  `visited_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_by` int NOT NULL,
+  `comment` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office_visited` (`office_id`,`visited_at`),
+  KEY `idx_employee` (`employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `expenses` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `category` varchar(100) DEFAULT 'Прочее',
+  `amount` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `title` varchar(255) NOT NULL,
+  `description` text,
+  `spent_on` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_date` (`spent_on`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `expenses_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `expenses_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `join_requests` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `office_id` int NOT NULL,
+  `role` varchar(50) DEFAULT 'lawyer',
+  `status` enum('pending','approved','rejected') DEFAULT 'pending',
+  `message` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_status` (`status`),
+  CONSTRAINT `join_requests_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `join_requests_ibfk_2` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `legal_documents` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `content` text NOT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `tags` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `materials` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `case_id` int DEFAULT NULL,
+  `contract_id` int DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `category` varchar(100) DEFAULT 'Документ',
+  `description` text,
+  `file_url` varchar(500) DEFAULT NULL,
+  `mime_type` varchar(100) DEFAULT NULL,
+  `size_bytes` bigint DEFAULT '0',
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_case` (`case_id`),
+  KEY `contract_id` (`contract_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `materials_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `materials_ibfk_2` FOREIGN KEY (`case_id`) REFERENCES `cases` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `materials_ibfk_3` FOREIGN KEY (`contract_id`) REFERENCES `contracts` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `materials_ibfk_4` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `messages` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `channel` varchar(50) DEFAULT 'reception',
+  `sender_id` int NOT NULL,
+  `content` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT '0',
+  `status` enum('sent','delivered','read') NOT NULL DEFAULT 'sent',
+  `file_url` varchar(500) DEFAULT NULL,
+  `file_name` varchar(255) DEFAULT NULL,
+  `file_type` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office` (`office_id`),
+  KEY `idx_sender` (`sender_id`),
+  KEY `idx_messages_channel` (`office_id`,`channel`,`created_at`),
+  KEY `idx_messages_office` (`office_id`),
+  KEY `idx_messages_status` (`office_id`,`channel`,`status`),
+  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `office_plans` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `daily_plan_weekday` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `daily_plan_weekend` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `period_plan_amount` decimal(15,2) NOT NULL DEFAULT '0.00',
+  `period_start` date NOT NULL,
+  `period_end` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_office_plans_office` (`office_id`),
+  KEY `idx_office_plans_period` (`period_start`,`period_end`),
+  CONSTRAINT `fk_office_plans_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `office_salary_settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `lawyer_percent` decimal(6,3) NOT NULL DEFAULT '10.000',
+  `lawyer_bonus_threshold` decimal(14,2) NOT NULL DEFAULT '500000.00',
+  `lawyer_bonus_percent` decimal(6,3) NOT NULL DEFAULT '12.000',
+  `okk_percent` decimal(6,3) NOT NULL DEFAULT '10.000',
+  `okk_bonus_threshold` decimal(14,2) NOT NULL DEFAULT '500000.00',
+  `okk_bonus_percent` decimal(6,3) NOT NULL DEFAULT '12.000',
+  `manager_office_percent` decimal(6,3) NOT NULL DEFAULT '5.000',
+  `representative_percent` decimal(6,3) NOT NULL DEFAULT '20.000',
+  `admin_shift_rate` decimal(12,2) NOT NULL DEFAULT '2000.00',
+  `expert_per_doc_amount` decimal(12,2) NOT NULL DEFAULT '1500.00',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `office_id` (`office_id`),
+  KEY `fk_oss_user` (`updated_by`),
+  CONSTRAINT `fk_oss_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_oss_user` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `office_stats` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `period_type` varchar(20) NOT NULL,
+  `period_value` varchar(50) NOT NULL DEFAULT '',
+  `revenue` decimal(15,2) DEFAULT '0.00',
+  `orders` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `office_period_unique` (`office_id`,`period_type`,`period_value`),
+  KEY `idx_officestats_office` (`office_id`),
+  CONSTRAINT `office_stats_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=137 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `offices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `address` text,
+  `phone` varchar(50) DEFAULT NULL,
+  `contact_phone` varchar(50) DEFAULT NULL,
+  `work_phone` varchar(50) DEFAULT NULL,
+  `work_phone2` varchar(50) DEFAULT NULL,
+  `inn` varchar(20) DEFAULT NULL,
+  `ogrn` varchar(20) DEFAULT NULL,
+  `ip_surname` varchar(100) DEFAULT NULL,
+  `ip_name` varchar(100) DEFAULT NULL,
+  `ip_middle_name` varchar(100) DEFAULT NULL,
+  `owner_id` int DEFAULT NULL,
+  `website` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_offices_owner` (`owner_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `shifts` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `employee_id` int NOT NULL,
+  `shift_date` date NOT NULL,
+  `note` varchar(255) DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_shift` (`employee_id`,`shift_date`),
+  KEY `idx_shift_office_date` (`office_id`,`shift_date`),
+  KEY `fk_shift_user` (`created_by`),
+  CONSTRAINT `fk_shift_emp` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_shift_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_shift_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `middle_name` varchar(100) DEFAULT NULL,
+  `email` varchar(255) NOT NULL,
+  `login` varchar(100) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` varchar(50) NOT NULL DEFAULT 'lawyer',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `must_change_password` tinyint(1) NOT NULL DEFAULT '0',
+  `created_by` int DEFAULT NULL,
+  `office_id` int DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `login` (`login`),
+  KEY `office_id` (`office_id`),
+  KEY `idx_users_role_office` (`role`,`office_id`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=71 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!50003 SET @saved_cs_client      = @@character_set_client */ ;
+/*!50003 SET @saved_cs_results     = @@character_set_results */ ;
+/*!50003 SET @saved_col_connection = @@collation_connection */ ;
+/*!50003 SET character_set_client  = latin1 */ ;
+/*!50003 SET character_set_results = latin1 */ ;
+/*!50003 SET collation_connection  = latin1_swedish_ci */ ;
+/*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
+/*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
+DELIMITER ;;
+CREATE DEFINER=`root`@`localhost` PROCEDURE `add_col_if_absent_018`(
+  IN p_table VARCHAR(64),
+  IN p_column VARCHAR(64),
+  IN p_definition TEXT
+)
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = p_table
+      AND COLUMN_NAME = p_column
+  ) THEN
+    SET @sql = CONCAT('ALTER TABLE `', p_table, '` ADD COLUMN `', p_column, '` ', p_definition);
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+  END IF;
+END ;;
+DELIMITER ;
+/*!50003 SET sql_mode              = @saved_sql_mode */ ;
+/*!50003 SET character_set_client  = @saved_cs_client */ ;
+/*!50003 SET character_set_results = @saved_cs_results */ ;
+/*!50003 SET collation_connection  = @saved_col_connection */ ;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
