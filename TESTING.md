@@ -20,8 +20,9 @@
 - `__tests__/chat.test.js` — `GET /api/chat/channels` (видимость по роли), `POST/GET /api/offices/:officeId/messages` (отправка → persist → возврат).
 - `__tests__/dashboard.test.js` — `GET /api/office/:officeId/dashboard` (структура fact/plan/lawyers_cash, 403 чужой офис), `PUT/GET /api/office/:officeId/plan`.
 - `__tests__/uploads.test.js` — `POST /api/upload` (text → extract, unsupported ext → 400, no auth → 401), chat-attachments (`/api/offices/:officeId/messages` multipart с file_url/file_type persisted), `POST /api/contracts/:id/documents` (docx → materials row + физический файл на диске + `contracts.docs_status='ready'`, .txt → 4xx, DELETE удаляет файл).
+- `__tests__/websocket.test.js` — socket.io: JWT-аутентификация на handshake (валидный → connect, без токена/невалидный → reject); `contract:new` доставляется в `office:N` room после `POST /api/contracts`; cross-office изоляция (B не получает A's events); `chat:message` доставляется после `switch_office` (role-allowlist через `emitToOfficeRoles`); юристы не получают сообщений из `cc_internal` канала.
 
-Итого: 73 интеграционных теста, все ходят в реальный MySQL.
+Итого: 80 интеграционных теста, все ходят в реальный MySQL + полноценный socket.io стек.
 
 ### Запуск локально
 
