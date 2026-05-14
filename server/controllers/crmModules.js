@@ -25,15 +25,31 @@ const cases = {
   async list(req, res) {
     try {
       const officeId = req.params.officeId || req.user.office_id;
+
+      // Опциональная пагинация: ?page=1&page_size=50 (page_size capped at 200)
+      const page = parseInt(req.query.page, 10);
+      const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
+
+      const baseFrom = `
+        FROM cases ca
+        LEFT JOIN clients cl ON cl.id = ca.client_id
+        LEFT JOIN employees e ON e.id = ca.employee_id
+        WHERE ca.office_id = ?
+      `;
+      const select = `SELECT ca.*, cl.name AS client_name, CONCAT(e.first_name, ' ', e.last_name) AS employee_name`;
+
+      if (page > 0) {
+        const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total ${baseFrom}`, [officeId]);
+        const offset = (page - 1) * pageSize;
+        const [rows] = await db.query(
+          `${select} ${baseFrom} ORDER BY ca.created_at DESC LIMIT ? OFFSET ?`,
+          [officeId, pageSize, offset]
+        );
+        return ok(res, rows, { total, page, page_size: pageSize });
+      }
+
       const [rows] = await db.query(
-        `SELECT ca.*,
-                cl.name AS client_name,
-                CONCAT(e.first_name, ' ', e.last_name) AS employee_name
-         FROM cases ca
-         LEFT JOIN clients cl ON cl.id = ca.client_id
-         LEFT JOIN employees e ON e.id = ca.employee_id
-         WHERE ca.office_id = ?
-         ORDER BY ca.created_at DESC`,
+        `${select} ${baseFrom} ORDER BY ca.created_at DESC`,
         [officeId]
       );
       return ok(res, rows);

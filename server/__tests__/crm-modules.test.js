@@ -56,6 +56,36 @@ describe('POST /api/cases', () => {
   });
 });
 
+describe('GET /api/cases pagination', () => {
+  it('returns paginated cases with total when ?page=&page_size=', async () => {
+    const { authHeaders } = await registerDirectorWithOffice(app);
+
+    for (let i = 0; i < 4; i++) {
+      await request(app)
+        .post('/api/cases')
+        .set(authHeaders)
+        .send({ title: `Дело #${i + 1}`, status: 'in_progress' });
+    }
+
+    const page1 = await request(app)
+      .get('/api/cases?page=1&page_size=2')
+      .set(authHeaders);
+    expect(page1.status).toBe(200);
+    expect(page1.body.data).toHaveLength(2);
+    expect(page1.body.total).toBe(4);
+    expect(page1.body.page).toBe(1);
+    expect(page1.body.page_size).toBe(2);
+
+    const page2 = await request(app)
+      .get('/api/cases?page=2&page_size=2')
+      .set(authHeaders);
+    expect(page2.body.data).toHaveLength(2);
+
+    const all = [...page1.body.data, ...page2.body.data];
+    expect(new Set(all.map((r) => r.id)).size).toBe(4);
+  });
+});
+
 describe('POST /api/expenses', () => {
   it('creates an expense and persists it', async () => {
     const { authHeaders, officeId, user } = await registerDirectorWithOffice(app);
