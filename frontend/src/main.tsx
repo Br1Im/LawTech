@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import './responsive.css'
 import App from './App.tsx'
@@ -13,8 +14,24 @@ installTunnelAuthPatch();
 // Настраиваем перехватчик для автоматического выхода при 401
 setupAuthInterceptor();
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Считаем данные свежими 30 сек — за это время повторное открытие вкладки
+      // или возврат к компоненту берёт данные из кэша мгновенно, без HTTP-запроса.
+      staleTime: 30_000,
+      // Не теребить сервер при каждом фокусе окна (Antd Drawer, переключение таба).
+      refetchOnWindowFocus: false,
+      // 1 ретрай — нет смысла долбить упавший endpoint.
+      retry: 1,
+    },
+  },
+})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
   </StrictMode>,
 )
