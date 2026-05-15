@@ -83,6 +83,7 @@ const SettingsPage: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
@@ -126,8 +127,10 @@ const SettingsPage: React.FC = () => {
         // Проверяем валидность токена через API
         const response = await apiClient.get('/auth/me');
         setUser(response.data.user);
+        setIsLoading(false);
       } catch (error) {
         console.error('Ошибка при проверке аутентификации:', error);
+        setIsLoading(false);
         localStorage.removeItem('token');
         navigate('/auth');
       }
@@ -139,6 +142,8 @@ const SettingsPage: React.FC = () => {
   const handleTabClick = (tab: string) => {
     navigate(`/crm?tab=${encodeURIComponent(tab)}`);
   };
+
+  if (isLoading) return null;
 
   return (
     <SettingsLayout>
