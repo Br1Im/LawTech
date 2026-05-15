@@ -594,13 +594,6 @@ const CallCenter: React.FC = () => {
           <button className="cc-btn cc-btn-primary" onClick={handleCreateTestLead} disabled={submitting}>
             + Добавить тестовый лид
           </button>
-          <button
-            className={`cc-btn cc-btn-status ${isOnline ? 'online' : 'offline'}`}
-            onClick={handleOperatorStatusToggle}
-          >
-            <span className={`cc-status-dot ${isOnline ? 'online' : 'offline'}`} />
-            {isOnline ? 'Оператор онлайн' : 'Оператор оффлайн'}
-          </button>
         </div>
       </div>
 

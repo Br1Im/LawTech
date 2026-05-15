@@ -1081,7 +1081,6 @@ const Office = () => {
               <thead>
                 <tr>
                   <th>Оператор</th>
-                  <th className="num">Статус</th>
                   <th className="num">Всего лидов</th>
                   <th className="num">Активных</th>
                   <th className="num">Записано</th>
@@ -1094,11 +1093,6 @@ const Office = () => {
                 {ccOperatorStats.length > 0 ? ccOperatorStats.map(op => (
                   <tr key={op.id}>
                     <td><b>{op.name || op.email}</b></td>
-                    <td className="num">
-                      <span style={{ color: op.is_online ? '#138a5d' : '#b45309', fontWeight: 700 }}>
-                        {op.is_online ? 'online' : 'offline'}
-                      </span>
-                    </td>
                     <td className="num">{op.total_leads}</td>
                     <td className="num">{op.active_leads}</td>
                     <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{op.booked_leads}</td>
@@ -1108,7 +1102,7 @@ const Office = () => {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={8} className="no-data">Нет данных по операторам</td>
+                    <td colSpan={7} className="no-data">Нет данных по операторам</td>
                   </tr>
                 )}
               </tbody>
