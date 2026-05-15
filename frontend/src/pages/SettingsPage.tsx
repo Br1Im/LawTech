@@ -125,7 +125,7 @@ const SettingsPage: React.FC = () => {
       try {
         // Проверяем валидность токена через API
         const response = await apiClient.get('/auth/me');
-        setUser(response.data);
+        setUser(response.data.user);
       } catch (error) {
         console.error('Ошибка при проверке аутентификации:', error);
         localStorage.removeItem('token');
