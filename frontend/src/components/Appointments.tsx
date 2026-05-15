@@ -3,7 +3,7 @@ import {
   CalendarOutlined, PlusOutlined, LeftOutlined, RightOutlined,
   SearchOutlined, CheckCircleOutlined, CloseCircleOutlined,
   ClockCircleOutlined, EllipsisOutlined, UserOutlined,
-  CheckOutlined, PercentageOutlined
+  CheckOutlined, PercentageOutlined, FilterOutlined
 } from '@ant-design/icons';
 import { notification, Modal, Input, DatePicker, TimePicker, Select, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
@@ -107,6 +107,7 @@ const Appointments: React.FC = () => {
   const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null as number | null });
   const [creating, setCreating] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState<Record<string, boolean>>({});
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -176,7 +177,6 @@ const Appointments: React.FC = () => {
   const todayAppts = useMemo(() => appointments.filter(a => toDate(a.appointment_date) === todayStr), [appointments, todayStr]);
   const tomorrowAppts = useMemo(() => appointments.filter(a => toDate(a.appointment_date) === tomorrowStr), [appointments, tomorrowStr]);
 
-  // Stats
   const stats = useMemo(() => {
     const list = todayAppts;
     const total = list.length;
@@ -188,12 +188,10 @@ const Appointments: React.FC = () => {
     return { total, confirmed, arrived, noShow, waiting, conv };
   }, [todayAppts]);
 
-  // Unique filter values
   const uniqueSources = useMemo(() => [...new Set(appointments.map(a => a.source).filter(Boolean) as string[])], [appointments]);
   const uniqueOperators = useMemo(() => [...new Set(appointments.map(a => a.operator_name).filter(Boolean) as string[])], [appointments]);
   const uniqueLawyers = useMemo(() => [...new Set(appointments.map(a => a.lawyer_name).filter(Boolean) as string[])], [appointments]);
 
-  // Apply filters
   const applyFilters = useCallback((list: AppointmentData[]) => {
     let r = list;
     if (filterStatus !== 'all') r = r.filter(a => a.status === filterStatus);
@@ -207,7 +205,6 @@ const Appointments: React.FC = () => {
     return r;
   }, [filterStatus, filterLawyer, filterSource, filterOperator, search]);
 
-  // Upcoming appointments (today, future time, not arrived/no_show)
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const upcoming = useMemo(() => {
@@ -219,7 +216,6 @@ const Appointments: React.FC = () => {
       .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
   }, [todayAppts, nowMinutes]);
 
-  // Main list based on tab
   const mainList = useMemo(() => {
     if (tab === 'today') return applyFilters(todayAppts).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
     if (tab === 'tomorrow') return applyFilters(tomorrowAppts).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
@@ -229,7 +225,6 @@ const Appointments: React.FC = () => {
     });
   }, [tab, todayAppts, tomorrowAppts, appointments, applyFilters]);
 
-  // Archive: yesterday and earlier, grouped by date
   const archiveDates = useMemo(() => {
     const dates = new Map<string, AppointmentData[]>();
     appointments.forEach(a => {
@@ -251,8 +246,6 @@ const Appointments: React.FC = () => {
     const mins = diff % 60;
     return mins > 0 ? `через ${hrs} ч ${mins} мин` : `через ${hrs} ч`;
   };
-
-  const dateTitle = currentDate.format('D MMMM, dddd');
 
   const getRowMenu = (apt: AppointmentData): MenuProps['items'] => {
     const items: MenuProps['items'] = [];
@@ -308,7 +301,6 @@ const Appointments: React.FC = () => {
               <button className="apt-btn apt-btn-noshow" onClick={() => updateStatus(apt.id, 'no_show')}>Не пришел</button>
             </>
           )}
-
         </div>
         <div className="apt-row-menu">
           {menu && menu.length > 0 ? (
@@ -331,20 +323,25 @@ const Appointments: React.FC = () => {
 
   const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
 
+  const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
+
   return (
     <div className="apt-container">
-      {/* Header */}
+      {/* Header: Title + Date Tabs */}
       <div className="apt-header">
-        <div className="apt-header-left">
-          <CalendarOutlined className="apt-header-icon" />
-          <h2 className="apt-title">Записи</h2>
-        </div>
-        <div className="apt-header-center">
-          <button className="apt-nav-btn" onClick={() => setCurrentDate(d => d.subtract(1, 'day'))}><LeftOutlined /></button>
-          <span className="apt-date-label">{dateTitle}</span>
-          <button className="apt-nav-btn" onClick={() => setCurrentDate(d => d.add(1, 'day'))}><RightOutlined /></button>
-        </div>
+        <h2 className="apt-title">Записи</h2>
         <div className="apt-header-right">
+          <div className="apt-date-tabs">
+            <button className={`apt-date-tab ${tab === 'today' ? 'active' : ''}`} onClick={() => setTab('today')}>
+              Сегодня, {dayjs().format('D MMM')} <span className="apt-date-tab-count">{todayAppts.length}</span>
+            </button>
+            <button className={`apt-date-tab ${tab === 'tomorrow' ? 'active' : ''}`} onClick={() => setTab('tomorrow')}>
+              Завтра <span className="apt-date-tab-count">{tomorrowAppts.length}</span>
+            </button>
+            <button className={`apt-date-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
+              Все <span className="apt-date-tab-count">{appointments.length}</span>
+            </button>
+          </div>
           {canManage && (
             <button className="apt-new-btn" onClick={() => setNewModal(true)}>
               <PlusOutlined /> Новая запись
@@ -353,67 +350,79 @@ const Appointments: React.FC = () => {
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="apt-stats-row">
-        <div className="apt-stat-card">
-          <CalendarOutlined className="apt-stat-icon" style={{ color: 'var(--color-primary)' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">Записей сегодня</span>
-            <span className="apt-stat-value">{stats.total}</span>
+      {/* Compact Stats Bar */}
+      <div className="apt-stats-bar">
+        <div className="apt-stat-item">
+          <CalendarOutlined className="apt-stat-item-icon" style={{ color: '#3B82F6' }} />
+          <div className="apt-stat-item-info">
+            <span className="apt-stat-item-label">Записей</span>
+            <span className="apt-stat-item-value">{stats.total}</span>
           </div>
         </div>
-        <div className="apt-stat-card">
-          <CheckCircleOutlined className="apt-stat-icon" style={{ color: '#10B981' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">Подтверждено</span>
-            <span className="apt-stat-value">{stats.confirmed}</span>
+        <div className="apt-stats-divider" />
+        <div className="apt-stat-item">
+          <CheckCircleOutlined className="apt-stat-item-icon" style={{ color: '#10B981' }} />
+          <div className="apt-stat-item-info">
+            <span className="apt-stat-item-label">Подтверждено</span>
+            <span className="apt-stat-item-value">{stats.confirmed}</span>
           </div>
         </div>
-        <div className="apt-stat-card">
-          <UserOutlined className="apt-stat-icon" style={{ color: 'var(--color-primary)' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">Пришли</span>
-            <span className="apt-stat-value">{stats.arrived}</span>
+        <div className="apt-stats-divider" />
+        <div className="apt-stat-item">
+          <UserOutlined className="apt-stat-item-icon" style={{ color: '#0D9488' }} />
+          <div className="apt-stat-item-info">
+            <span className="apt-stat-item-label">Пришли</span>
+            <span className="apt-stat-item-value">{stats.arrived}</span>
           </div>
         </div>
-        <div className="apt-stat-card">
-          <CloseCircleOutlined className="apt-stat-icon" style={{ color: '#EF4444' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">Не пришли</span>
-            <span className="apt-stat-value">{stats.noShow}</span>
+        <div className="apt-stats-divider" />
+        <div className="apt-stat-item">
+          <CloseCircleOutlined className="apt-stat-item-icon" style={{ color: '#EF4444' }} />
+          <div className="apt-stat-item-info">
+            <span className="apt-stat-item-label">Не пришли</span>
+            <span className="apt-stat-item-value">{stats.noShow}</span>
           </div>
         </div>
-        <div className="apt-stat-card">
-          <ClockCircleOutlined className="apt-stat-icon" style={{ color: '#F59E0B' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">В ожидании</span>
-            <span className="apt-stat-value">{stats.waiting}</span>
+        <div className="apt-stats-divider" />
+        <div className="apt-stat-item">
+          <ClockCircleOutlined className="apt-stat-item-icon" style={{ color: '#F59E0B' }} />
+          <div className="apt-stat-item-info">
+            <span className="apt-stat-item-label">В ожидании</span>
+            <span className="apt-stat-item-value">{stats.waiting}</span>
           </div>
         </div>
-        <div className="apt-stat-card">
-          <PercentageOutlined className="apt-stat-icon" style={{ color: '#8B5CF6' }} />
-          <div className="apt-stat-info">
-            <span className="apt-stat-label">Конверсия явки</span>
-            <span className="apt-stat-value">{stats.conv}%</span>
-          </div>
+        <div className="apt-stats-conv">
+          <span className="apt-stats-conv-label">Конверсия явки</span>
+          <span className="apt-stats-conv-value">{stats.conv}%</span>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="apt-filters">
-        <div className="apt-tab-row">
-          <button className={`apt-tab ${tab === 'today' ? 'active' : ''}`} onClick={() => setTab('today')}>
-            Сегодня <span className="apt-tab-count">{todayAppts.length}</span>
-          </button>
-          <button className={`apt-tab ${tab === 'tomorrow' ? 'active' : ''}`} onClick={() => setTab('tomorrow')}>
-            Завтра <span className="apt-tab-count">{tomorrowAppts.length}</span>
-          </button>
-          <button className={`apt-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
-            Все записи <span className="apt-tab-count">{appointments.length}</span>
-          </button>
-        </div>
-        <div className="apt-filter-row">
-          <Select value={filterStatus} onChange={setFilterStatus} style={{ minWidth: 130 }} size="small" popupMatchSelectWidth={false}>
+      {/* Toolbar: Search + Filters toggle */}
+      <div className="apt-toolbar">
+        <Input
+          prefix={<SearchOutlined />}
+          placeholder="Поиск по ФИО, телефону..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="apt-search-input"
+          allowClear
+        />
+        <button
+          className={`apt-filter-toggle ${showFilters || hasActiveFilters ? 'active' : ''}`}
+          onClick={() => setShowFilters(v => !v)}
+        >
+          <FilterOutlined />
+          Фильтры
+          {hasActiveFilters && <span className="apt-filter-dot" />}
+        </button>
+        <div className="apt-toolbar-spacer" />
+        <span className="apt-sort-label">Сортировка: <b>По времени</b></span>
+      </div>
+
+      {/* Collapsible filter panel */}
+      {showFilters && (
+        <div className="apt-filter-panel">
+          <Select value={filterStatus} onChange={setFilterStatus} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Статус: Все</Select.Option>
             <Select.Option value="waiting">Ожидается</Select.Option>
             <Select.Option value="confirmed">Подтверждён</Select.Option>
@@ -422,35 +431,31 @@ const Appointments: React.FC = () => {
             <Select.Option value="rescheduled">Перенесена</Select.Option>
             <Select.Option value="cancelled">Отменено</Select.Option>
           </Select>
-          <Select value={filterLawyer} onChange={setFilterLawyer} style={{ minWidth: 130 }} size="small" popupMatchSelectWidth={false}>
+          <Select value={filterLawyer} onChange={setFilterLawyer} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Юрист: Все</Select.Option>
             {uniqueLawyers.map(l => <Select.Option key={l} value={l}>{l}</Select.Option>)}
           </Select>
-          <Select value={filterSource} onChange={setFilterSource} style={{ minWidth: 130 }} size="small" popupMatchSelectWidth={false}>
+          <Select value={filterSource} onChange={setFilterSource} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Источник: Все</Select.Option>
             {uniqueSources.map(s => <Select.Option key={s} value={s}>{s}</Select.Option>)}
           </Select>
-          <Select value={filterOperator} onChange={setFilterOperator} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
+          <Select value={filterOperator} onChange={setFilterOperator} style={{ minWidth: 150 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Оператор: Все</Select.Option>
             {uniqueOperators.map(o => <Select.Option key={o} value={o}>{o}</Select.Option>)}
           </Select>
-          <Input
-            prefix={<SearchOutlined />}
-            placeholder="Поиск по ФИО, телефону..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ maxWidth: 260 }}
-            size="small"
-            allowClear
-          />
+          {hasActiveFilters && (
+            <button className="apt-filter-reset" onClick={() => { setFilterStatus('all'); setFilterLawyer('all'); setFilterSource('all'); setFilterOperator('all'); }}>
+              Сбросить
+            </button>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Upcoming */}
       {tab === 'today' && upcoming.length > 0 && (
         <div className="apt-section">
           <div className="apt-section-header">
-            <ClockCircleOutlined style={{ color: 'var(--color-primary)' }} />
+            <ClockCircleOutlined style={{ color: '#3B82F6' }} />
             <span className="apt-section-title">Ближайшие записи</span>
           </div>
           <div className="apt-rows">
@@ -461,45 +466,63 @@ const Appointments: React.FC = () => {
 
       {/* Main list */}
       <div className="apt-section">
-        <div className="apt-section-header">
-          <CalendarOutlined style={{ color: 'var(--color-primary)' }} />
-          <span className="apt-section-title">
-            {tab === 'today' ? 'Все записи на сегодня' : tab === 'tomorrow' ? 'Записи на завтра' : 'Все записи'}
-          </span>
-          <span className="apt-section-count">{mainList.length}</span>
-          <div style={{ flex: 1 }} />
-          <span className="apt-sort-label">Сортировка: <b>По времени</b></span>
-        </div>
-        <div className="apt-rows">
-          {mainList.length > 0
-            ? mainList.map(a => renderRow(a))
-            : <div className="apt-empty">Нет записей</div>
-          }
+        <div className="apt-records-card">
+          <div className="apt-records-card-header">
+            <span className="apt-records-card-title">
+              {tab === 'today' ? 'Записи на сегодня' : tab === 'tomorrow' ? 'Записи на завтра' : 'Все записи'}
+            </span>
+            <span className="apt-records-card-count">{mainList.length}</span>
+          </div>
+          <div className="apt-rows">
+            {mainList.length > 0
+              ? mainList.map(a => renderRow(a))
+              : (
+                <div className="apt-empty-state">
+                  <div className="apt-empty-state-icon">
+                    <CalendarOutlined />
+                  </div>
+                  <h3 className="apt-empty-state-title">
+                    {tab === 'today' ? 'Записей на сегодня пока нет' : tab === 'tomorrow' ? 'Записей на завтра пока нет' : 'Записи не найдены'}
+                  </h3>
+                  <p className="apt-empty-state-text">Новые записи появятся здесь автоматически</p>
+                  {canManage && (
+                    <button className="apt-empty-state-btn" onClick={() => setNewModal(true)}>
+                      <PlusOutlined /> Создать запись
+                    </button>
+                  )}
+                </div>
+              )
+            }
+          </div>
         </div>
       </div>
 
       {/* Archive */}
-      {tab === 'today' && archiveDates.map(([date, appts]) => {
-        const d = dayjs(date);
-        const key = date;
-        const isOpen = !!archiveOpen[key];
-        return (
-          <div className="apt-section apt-archive" key={key}>
-            <div className="apt-section-header apt-archive-header" onClick={() => setArchiveOpen(p => ({ ...p, [key]: !p[key] }))}>
-              <CalendarOutlined style={{ color: '#6B7280' }} />
-              <span className="apt-section-title">Архив — {d.format('D MMMM, dddd')}</span>
-              <span className="apt-section-count">{appts.length}</span>
-              <div style={{ flex: 1 }} />
-              <span className={`apt-archive-chevron ${isOpen ? 'open' : ''}`}>▾</span>
-            </div>
-            {isOpen && (
-              <div className="apt-rows">
-                {appts.sort((a, b) => a.appointment_time.localeCompare(b.appointment_time)).map(a => renderRow(a))}
+      {tab === 'today' && archiveDates.length > 0 && (
+        <div className="apt-archive-section">
+          <div className="apt-archive-label">Прошедшие записи</div>
+          {archiveDates.map(([date, appts]) => {
+            const d = dayjs(date);
+            const key = date;
+            const isOpen = !!archiveOpen[key];
+            return (
+              <div key={key} className={`apt-archive-card ${isOpen ? 'open' : ''}`} onClick={() => setArchiveOpen(p => ({ ...p, [key]: !p[key] }))}>
+                <div className="apt-archive-card-header">
+                  <CalendarOutlined className="apt-archive-card-icon" />
+                  <span className="apt-archive-card-date">{d.format('D MMMM, dddd')}</span>
+                  <span className="apt-archive-card-count">{appts.length}</span>
+                  <span className={`apt-archive-chevron ${isOpen ? 'open' : ''}`}>&#8250;</span>
+                </div>
+                {isOpen && (
+                  <div className="apt-rows" onClick={e => e.stopPropagation()}>
+                    {appts.sort((a, b) => a.appointment_time.localeCompare(b.appointment_time)).map(a => renderRow(a))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      )}
 
       {/* New Appointment Modal */}
       <Modal
