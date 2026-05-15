@@ -41,7 +41,7 @@ const STATUS_TRANSITIONS = {
 };
 
 const ACTIVE_STATUSES = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED'];  // BOOKED excluded — lead processed
-const OPERATOR_ROLES = ['manager', 'okk', 'admin', 'director'];
+const OPERATOR_ROLES = ['cc_operator', 'cc_manager'];
 
 const normalizePhone = (value = '') => value.replace(/\D/g, '');
 
@@ -867,6 +867,7 @@ const callCenterController = {
          LEFT JOIN call_center_leads l
            ON l.assigned_to = u.id AND l.office_id = u.office_id
          WHERE u.office_id = ?
+           AND u.role IN ('cc_operator', 'cc_manager')
          GROUP BY u.id, u.first_name, u.last_name, u.role, s.is_online, s.current_load
          ORDER BY COALESCE(s.is_online, 0) DESC, COALESCE(s.current_load, 0) ASC, name ASC`,
         [officeId]
@@ -932,6 +933,7 @@ const callCenterController = {
          LEFT JOIN call_center_operator_status s
            ON s.user_id = u.id AND s.office_id = u.office_id
          WHERE u.office_id = ?
+           AND u.role IN ('cc_operator', 'cc_manager')
          ORDER BY COALESCE(s.is_online, 0) DESC, COALESCE(s.current_load, 0) ASC, u.first_name ASC`,
         [req.user.office_id]
       );
