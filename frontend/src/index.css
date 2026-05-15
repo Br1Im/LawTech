@@ -47,8 +47,8 @@
   --color-info:    #2563EB;
 
   /* Glass — simplified for clean look */
-  --glass-bg:          rgba(255, 255, 255, 0.95);
-  --glass-bg-strong:   rgba(255, 255, 255, 0.98);
+  --glass-bg:          #ffffff;
+  --glass-bg-strong:   #ffffff;
   --glass-border:      #E5E7EB;
   --glass-shadow:      0 1px 3px rgba(0, 0, 0, 0.06);
   --glass-shadow-lg:   0 4px 12px rgba(0, 0, 0, 0.08);
@@ -115,8 +115,8 @@
   --color-error:   #EF4444;
   --color-info:    #3B82F6;
 
-  --glass-bg:        rgba(22, 26, 34, 0.85);
-  --glass-bg-strong: rgba(22, 26, 34, 0.95);
+  --glass-bg:        #161A22;
+  --glass-bg-strong: #161A22;
   --glass-border:    #2A2F3D;
   --glass-shadow:    0 1px 3px rgba(0, 0, 0, 0.4);
   --glass-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -504,6 +504,118 @@ button.premium-btn:active,
   border-color: #2A2F3D !important;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL FIX: Opaque backgrounds for ALL popups/dropdowns/selects
+   Ensures text is always readable — no bleed-through on any theme
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Ant Design Select Dropdown (light) ───────────────── */
+.ant-select-dropdown {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.06) !important;
+  z-index: 1050 !important;
+}
+.ant-select-item {
+  color: #111827 !important;
+}
+.ant-select-item-option-active {
+  background: rgba(30, 64, 175, 0.06) !important;
+}
+.ant-select-item-option-selected {
+  background: rgba(30, 64, 175, 0.10) !important;
+  font-weight: 600;
+}
+
+/* ── Ant Design Dropdown Menu (light) ─────────────────── */
+.ant-dropdown-menu,
+.ant-dropdown .ant-dropdown-menu {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1050 !important;
+}
+.ant-dropdown-menu-item {
+  color: #111827 !important;
+}
+.ant-dropdown-menu-item:hover {
+  background: rgba(30, 64, 175, 0.06) !important;
+}
+
+/* ── Ant Design Popover (light) ───────────────────────── */
+.ant-popover-inner {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+.ant-popover-arrow::before,
+.ant-popover-arrow::after {
+  background: #ffffff !important;
+}
+
+/* ── Ant Design Tooltip (light) ───────────────────────── */
+.ant-tooltip-inner {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+.ant-tooltip-arrow::before {
+  background: #ffffff !important;
+}
+
+/* ── Ant Design DatePicker Panel (light) ──────────────── */
+.ant-picker-dropdown {
+  z-index: 1050 !important;
+}
+.ant-picker-panel-container {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── Ant Design Modal (light) ─────────────────────────── */
+.ant-modal-content {
+  background: #ffffff !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
+}
+.ant-modal-header {
+  background: #ffffff !important;
+}
+
+/* ── Ant Design Drawer (light) ────────────────────────── */
+.ant-drawer-content {
+  background: #ffffff !important;
+}
+
+/* ── Ant Design Message / Notification (light) ────────── */
+.ant-message-notice-content {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1) !important;
+}
+.ant-notification-notice {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+}
+
+/* ── Native HTML select elements ──────────────────────── */
+select {
+  background-color: #ffffff;
+  color: #111827;
+}
+select option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   DARK THEME OVERRIDES (below — existing + hardened)
+   ══════════════════════════════════════════════════════════ */
+
 /* Ant Select */
 [data-theme='dark'] .ant-select-selector {
   background: #1D2230 !important;
@@ -512,7 +624,9 @@ button.premium-btn:active,
 }
 [data-theme='dark'] .ant-select-dropdown {
   background: #161A22 !important;
-  border-color: #2A2F3D !important;
+  border: 1px solid #2A2F3D !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+  z-index: 1050 !important;
 }
 [data-theme='dark'] .ant-select-item {
   color: #E6E8EF !important;
@@ -648,13 +762,26 @@ button.premium-btn:active,
 /* Ant Dropdown */
 [data-theme='dark'] .ant-dropdown-menu {
   background: #161A22 !important;
-  border: 1px solid #2A2F3D;
+  border: 1px solid #2A2F3D !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+  z-index: 1050 !important;
 }
 [data-theme='dark'] .ant-dropdown-menu-item {
   color: #E6E8EF !important;
 }
 [data-theme='dark'] .ant-dropdown-menu-item:hover {
   background: #1D2230 !important;
+}
+
+/* Dark native select */
+[data-theme='dark'] select {
+  background-color: #1D2230;
+  color: #E6E8EF;
+  border-color: #2A2F3D;
+}
+[data-theme='dark'] select option {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
 }
 
 /* Ant Card */

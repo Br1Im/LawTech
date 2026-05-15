@@ -90,11 +90,11 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
             },
             Modal: {
               borderRadiusLG: 8,
-              contentBg: mode === 'dark' ? '#161A22' : undefined,
-              headerBg: mode === 'dark' ? '#161A22' : undefined,
+              contentBg: mode === 'dark' ? '#161A22' : '#ffffff',
+              headerBg: mode === 'dark' ? '#161A22' : '#ffffff',
             },
             Drawer: {
-              colorBgElevated: mode === 'dark' ? '#161A22' : undefined,
+              colorBgElevated: mode === 'dark' ? '#161A22' : '#ffffff',
             },
             Input: {
               controlHeight: 38,
@@ -104,15 +104,15 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
             },
             Select: {
               controlHeight: 38,
-              colorBgContainer: mode === 'dark' ? '#1D2230' : undefined,
-              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
-              optionActiveBg: mode === 'dark' ? 'rgba(124,92,255,0.12)' : undefined,
-              optionSelectedBg: mode === 'dark' ? 'rgba(124,92,255,0.16)' : undefined,
+              colorBgContainer: mode === 'dark' ? '#1D2230' : '#ffffff',
+              colorBgElevated: mode === 'dark' ? '#1D2230' : '#ffffff',
+              optionActiveBg: mode === 'dark' ? 'rgba(124,92,255,0.12)' : 'rgba(30,64,175,0.06)',
+              optionSelectedBg: mode === 'dark' ? 'rgba(124,92,255,0.16)' : 'rgba(30,64,175,0.10)',
             },
             DatePicker: {
               controlHeight: 38,
-              colorBgContainer: mode === 'dark' ? '#1D2230' : undefined,
-              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgContainer: mode === 'dark' ? '#1D2230' : '#ffffff',
+              colorBgElevated: mode === 'dark' ? '#1D2230' : '#ffffff',
             },
             Tabs: {
               inkBarColor: mode === 'dark' ? '#7C5CFF' : undefined,
@@ -124,17 +124,17 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
               borderRadiusSM: 6,
             },
             Dropdown: {
-              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgElevated: mode === 'dark' ? '#1D2230' : '#ffffff',
             },
             Popover: {
-              colorBgElevated: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgElevated: mode === 'dark' ? '#1D2230' : '#ffffff',
             },
             Tooltip: {
-              colorBgSpotlight: mode === 'dark' ? '#1D2230' : undefined,
+              colorBgSpotlight: mode === 'dark' ? '#1D2230' : '#ffffff',
             },
             Menu: {
-              colorBgContainer: mode === 'dark' ? '#161A22' : undefined,
-              itemBg: mode === 'dark' ? '#161A22' : undefined,
+              colorBgContainer: mode === 'dark' ? '#161A22' : '#ffffff',
+              itemBg: mode === 'dark' ? '#161A22' : '#ffffff',
               itemSelectedBg: mode === 'dark' ? 'rgba(124,92,255,0.12)' : undefined,
               itemSelectedColor: mode === 'dark' ? '#7C5CFF' : undefined,
             },
