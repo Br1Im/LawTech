@@ -1,5 +1,5 @@
 const ExcelJS = require('exceljs');
-const db = require('../database/db');
+const db = require('../db');
 
 const STATUS_LABELS = {
   NEW: 'Новый',
