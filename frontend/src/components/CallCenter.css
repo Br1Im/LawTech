@@ -1113,3 +1113,36 @@
 .cc-note-input::placeholder {
   color: #9ca3af;
 }
+
+/* Callback CTA button */
+.cc-btn-callback-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cc-btn-callback-cta:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+/* Note input truncation fix */
+.cc-note-input {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.cc-note-input:focus {
+  white-space: normal;
+  overflow: visible;
+}

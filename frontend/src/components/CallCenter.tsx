@@ -773,11 +773,13 @@ const CallCenter: React.FC = () => {
                           onChange={async (e) => {
                             const newStatus = e.target.value as LeadStatus;
                             if (newStatus === lead.status) return;
+                            const oldStatus = lead.status;
+                            setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                             try {
                               await apiInstance.patch(`/call-center/leads/${lead.id}`, { status: newStatus });
-                              await refreshData();
                             } catch (err: any) {
                               console.error('Failed to update status', err);
+                              setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: oldStatus } : l));
                               alert(err?.response?.data?.message || 'Ошибка при смене статуса');
                             }
                           }}
@@ -793,12 +795,13 @@ const CallCenter: React.FC = () => {
                           className="cc-note-input"
                           defaultValue={lead.operator_note || ''}
                           placeholder="—"
+                          title={lead.operator_note || ''}
                           onBlur={async (e) => {
                             const val = e.target.value.trim();
                             if (val === (lead.operator_note || '')) return;
+                            setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, operator_note: val || null } : l));
                             try {
                               await apiInstance.patch(`/call-center/leads/${lead.id}`, { operator_note: val || null });
-                              await refreshData();
                             } catch (err) {
                               console.error('Failed to save note', err);
                             }
@@ -877,77 +880,8 @@ const CallCenter: React.FC = () => {
               </div>
             </div>
 
-            {/* LEAD INFO */}
-            <div className="cc-drawer-info">
-              <div className="cc-info-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                <span>{selectedLead.phone || '—'}</span>
-              </div>
-              <div className="cc-info-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>Источник: <strong>{SOURCE_LABEL(selectedLead.source)}</strong></span>
-              </div>
-              {selectedLead.description && (
-                <div className="cc-info-row cc-info-description">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                  <span>Вопрос: <strong>{selectedLead.description}</strong></span>
-                </div>
-              )}
-              <div className="cc-info-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                <span>Поступил: <strong>{formatDateTime(selectedLead.created_at)}</strong></span>
-              </div>
-              <div className="cc-info-row">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <span>Оператор: <strong>{selectedLead.assigned_to_name || 'не назначен'}</strong></span>
-              </div>
-            </div>
-
-            {/* QUICK STATUS ACTIONS */}
-            {!isLeadClosed && (
-              <div className="cc-drawer-section">
-                <h4 className="cc-section-title">Быстрые действия</h4>
-                <div className="cc-quick-grid">
-                  <button className="cc-qbtn cc-qbtn-noanswer" disabled={submitting} onClick={() => handleQuickStatus('NO_ANSWER')}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/></svg>
-                    Не дозвонились
-                  </button>
-                  <button className="cc-qbtn cc-qbtn-callback" disabled={submitting} onClick={() => handleQuickStatus('CALL_BACK')}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Перезвонить позже
-                  </button>
-                  <button className="cc-qbtn cc-qbtn-inprogress" disabled={submitting} onClick={() => handleQuickStatus('IN_PROGRESS')}>
-                    В обработке
-                  </button>
-                  <button className="cc-qbtn cc-qbtn-reject" disabled={submitting} onClick={() => handleQuickStatus('REJECTED')}>Отказ</button>
-                  <button className="cc-qbtn cc-qbtn-spam" disabled={submitting} onClick={() => handleQuickStatus('SPAM')}>Спам</button>
-                  <button className="cc-qbtn cc-qbtn-dup" disabled={submitting} onClick={() => handleQuickStatus('DUPLICATE')}>Дубль</button>
-                  <button className="cc-qbtn cc-qbtn-nontarget" disabled={submitting} onClick={() => handleQuickStatus('NON_TARGET')}>Нецелевой</button>
-                </div>
-              </div>
-            )}
-
-            {/* CALLBACK PICKER */}
-            {showCallbackPicker && (
-              <div className="cc-drawer-section cc-callback-section">
-                <h4 className="cc-section-title">Назначить перезвон</h4>
-                <input
-                  type="datetime-local"
-                  className="cc-datetime-input"
-                  value={nextCallAt}
-                  onChange={(e) => setNextCallAt(e.target.value)}
-                />
-                <div className="cc-callback-actions">
-                  <button className="cc-btn cc-btn-primary" onClick={handleScheduleCallback} disabled={submitting || !nextCallAt}>
-                    Назначить
-                  </button>
-                  <button className="cc-link-btn" onClick={() => setShowCallbackPicker(false)}>Отмена</button>
-                </div>
-              </div>
-            )}
-
             {/* BOOKING FORM */}
-            {showBookingForm && !isLeadClosed && (
+            {showBookingForm ? (
               <div className="cc-drawer-section cc-booking-section">
                 <h4 className="cc-section-title">Запись на консультацию</h4>
                 <div className="cc-booking-form">
@@ -977,10 +911,23 @@ const CallCenter: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* BOOK CONSULTATION CTA */}
-            {!isLeadClosed && !showBookingForm && (
+            ) : showCallbackPicker ? (
+              <div className="cc-drawer-section cc-callback-section">
+                <h4 className="cc-section-title">Назначить перезвон</h4>
+                <input
+                  type="datetime-local"
+                  className="cc-datetime-input"
+                  value={nextCallAt}
+                  onChange={(e) => setNextCallAt(e.target.value)}
+                />
+                <div className="cc-callback-actions">
+                  <button className="cc-btn cc-btn-primary" onClick={handleScheduleCallback} disabled={submitting || !nextCallAt}>
+                    Назначить
+                  </button>
+                  <button className="cc-link-btn" onClick={() => setShowCallbackPicker(false)}>Отмена</button>
+                </div>
+              </div>
+            ) : (
               <div className="cc-drawer-cta">
                 <button
                   className="cc-btn cc-btn-consult"
@@ -989,6 +936,14 @@ const CallCenter: React.FC = () => {
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   Записать на консультацию
+                </button>
+                <button
+                  className="cc-btn cc-btn-callback-cta"
+                  onClick={() => handleQuickStatus('CALL_BACK')}
+                  disabled={submitting}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Перезвонить позже
                 </button>
               </div>
             )}
