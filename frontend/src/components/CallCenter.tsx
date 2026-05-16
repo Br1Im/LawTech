@@ -245,6 +245,13 @@ const CallCenter: React.FC = () => {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showCallbackPicker, setShowCallbackPicker] = useState(false);
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportSource, setExportSource] = useState('');
+  const [exportStatus, setExportStatus] = useState('');
+  const [exporting, setExporting] = useState(false);
+
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
 
@@ -541,6 +548,42 @@ const CallCenter: React.FC = () => {
     }
   };
 
+  const handleExport = async () => {
+    if (!exportDateFrom || !exportDateTo) {
+      alert('Укажите период');
+      return;
+    }
+    setExporting(true);
+    try {
+      const params: Record<string, string> = {
+        date_from: exportDateFrom,
+        date_to: exportDateTo
+      };
+      if (exportSource) params.source = exportSource;
+      if (exportStatus) params.status = exportStatus;
+
+      const response = await apiInstance.get('/export/leads-report', {
+        params,
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `leads_report_${exportDateFrom}_${exportDateTo}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setShowExportModal(false);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Ошибка при экспорте отчёта');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const filteredLeads = useMemo(() => {
     let result = leads;
     if (selectedOperatorFilter !== 'ALL') {
@@ -595,6 +638,10 @@ const CallCenter: React.FC = () => {
           </p>
         </div>
         <div className="cc-toolbar-actions">
+          <button className="cc-btn cc-btn-export" onClick={() => setShowExportModal(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Экспорт в Excel
+          </button>
           <button className="cc-btn cc-btn-primary" onClick={handleCreateTestLead} disabled={submitting}>
             + Добавить тестовый лид
           </button>
@@ -950,6 +997,61 @@ const CallCenter: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div className="cc-modal-overlay" onClick={() => setShowExportModal(false)}>
+          <div className="cc-modal" onClick={e => e.stopPropagation()}>
+            <div className="cc-modal-header">
+              <h3>Экспорт лидов в Excel</h3>
+              <button className="cc-drawer-close" onClick={() => setShowExportModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="cc-modal-body">
+              <div className="cc-export-row">
+                <label className="cc-export-label">
+                  <span>Дата начала *</span>
+                  <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} />
+                </label>
+                <label className="cc-export-label">
+                  <span>Дата окончания *</span>
+                  <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} />
+                </label>
+              </div>
+              <div className="cc-export-row">
+                <label className="cc-export-label">
+                  <span>Источник</span>
+                  <select value={exportSource} onChange={e => setExportSource(e.target.value)}>
+                    <option value="">Все источники</option>
+                    {sources.map(s => (
+                      <option key={s.source} value={s.source}>{SOURCE_LABEL(s.source)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="cc-export-label">
+                  <span>Статус</span>
+                  <select value={exportStatus} onChange={e => setExportStatus(e.target.value)}>
+                    <option value="">Все статусы</option>
+                    {ALL_STATUSES.map(s => (
+                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="cc-export-hint">
+                Файл будет содержать два листа: «Лиды» (все данные) и «Статистика» (аналитика по периоду)
+              </p>
+            </div>
+            <div className="cc-modal-footer">
+              <button className="cc-btn cc-btn-primary" onClick={handleExport} disabled={exporting || !exportDateFrom || !exportDateTo}>
+                {exporting ? 'Формирование...' : 'Скачать отчёт'}
+              </button>
+              <button className="cc-link-btn" onClick={() => setShowExportModal(false)}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

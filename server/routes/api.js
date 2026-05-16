@@ -419,4 +419,7 @@ router.use('/', crmModulesRoutes);
 // Case workflow: materials upload, inbox, expert assignment
 router.use('/', caseWorkflowRoutes);
 
+// Export leads report
+const exportController = require("../controllers/exportController");
+router.get("/export/leads-report", authenticateToken, exportController.exportLeadsReport);
 module.exports = router;
