@@ -241,7 +241,7 @@ const CallCenter: React.FC = () => {
   const [showCallbackPicker, setShowCallbackPicker] = useState(false);
 
   const [page, setPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 50;
 
   const fetchDashboard = async () => {
     const response = await apiInstance.get('/call-center/dashboard');
@@ -761,10 +761,25 @@ const CallCenter: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td>
-                        <span className={`cc-status-badge status-${lead.status.toLowerCase()}`}>
-                          {STATUS_SHORT[lead.status]}
-                        </span>
+                      <td onClick={e => e.stopPropagation()}>
+                        <select
+                          className={`cc-status-sel status-${lead.status.toLowerCase()}`}
+                          value={lead.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value as LeadStatus;
+                            if (newStatus === lead.status) return;
+                            try {
+                              await apiInstance.patch(`/call-center/leads/${lead.id}`, { status: newStatus });
+                              await refreshData();
+                            } catch (err) {
+                              console.error('Failed to update status', err);
+                            }
+                          }}
+                        >
+                          {ALL_STATUSES.map(s => (
+                            <option key={s} value={s}>{STATUS_SHORT[s]}</option>
+                          ))}
+                        </select>
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         {isManager ? (
@@ -811,7 +826,7 @@ const CallCenter: React.FC = () => {
                 <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="cc-page-btn">&raquo;</button>
               </div>
               <select className="cc-page-size" value={ITEMS_PER_PAGE}>
-                <option value="10">10 / стр.</option>
+                <option value="50">50 / стр.</option>
               </select>
             </div>
           )}

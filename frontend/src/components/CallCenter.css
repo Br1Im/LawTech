@@ -1051,3 +1051,33 @@
 
 /* Legacy compat — keep .lead-status working if used elsewhere */
 .lead-status { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+
+/* Status inline select */
+.cc-status-sel {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+  min-width: 100px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.cc-status-sel:focus {
+  border-color: #1E40AF;
+}
+.cc-status-sel.status-new         { background: #dbeafe; color: #2563eb; }
+.cc-status-sel.status-in_progress { background: #fef3c7; color: #d97706; }
+.cc-status-sel.status-no_answer   { background: #f1f5f9; color: #64748b; }
+.cc-status-sel.status-call_back   { background: #e0f2fe; color: #0284c7; }
+.cc-status-sel.status-booked      { background: #d1fae5; color: #059669; }
+.cc-status-sel.status-rejected    { background: #fee2e2; color: #dc2626; }
+.cc-status-sel.status-spam        { background: #fce7f3; color: #be185d; }
+.cc-status-sel.status-duplicate   { background: #e5e7eb; color: #6b7280; }
+.cc-status-sel.status-non_target  { background: #fef3c7; color: #92400e; }
