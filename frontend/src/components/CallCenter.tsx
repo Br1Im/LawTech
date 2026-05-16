@@ -3,7 +3,7 @@ import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './CallCenter.css';
 
-type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'CALL_BACK' | 'BOOKED' | 'REJECTED' | 'SPAM' | 'DUPLICATE' | 'NON_TARGET';
+type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'CALL_BACK' | 'INTERESTED' | 'BOOKED' | 'REJECTED' | 'SPAM' | 'DUPLICATE' | 'NON_TARGET' | 'CLOSED';
 
 type Temperature = 'hot' | 'warm' | 'cold' | null;
 
@@ -112,8 +112,8 @@ interface CcEnums {
 }
 
 const ALL_STATUSES: LeadStatus[] = [
-  'NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK',
-  'BOOKED', 'REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET'
+  'NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED',
+  'BOOKED', 'REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'CLOSED'
 ];
 
 const TEMPERATURE_OPTIONS: Exclude<Temperature, null>[] = ['hot', 'warm', 'cold'];
@@ -123,11 +123,13 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
   IN_PROGRESS: 'В обработке',
   NO_ANSWER: 'Не дозвонились',
   CALL_BACK: 'Перезвонить позже',
+  INTERESTED: 'Заинтересован',
   BOOKED: 'Записан на консультацию',
   REJECTED: 'Отказ',
   SPAM: 'Спам',
   DUPLICATE: 'Дубль',
-  NON_TARGET: 'Нецелевой лид'
+  NON_TARGET: 'Нецелевой лид',
+  CLOSED: 'Закрыт'
 };
 
 const STATUS_SHORT: Record<LeadStatus, string> = {
@@ -135,11 +137,13 @@ const STATUS_SHORT: Record<LeadStatus, string> = {
   IN_PROGRESS: 'В работе',
   NO_ANSWER: 'Не дозвон.',
   CALL_BACK: 'Перезвонить',
+  INTERESTED: 'Заинтерес.',
   BOOKED: 'Записан',
   REJECTED: 'Отказ',
   SPAM: 'Спам',
   DUPLICATE: 'Дубль',
-  NON_TARGET: 'Нецелевой'
+  NON_TARGET: 'Нецелевой',
+  CLOSED: 'Закрыт'
 };
 
 const TEMPERATURE_LABELS: Record<Exclude<Temperature, null>, string> = {
@@ -573,8 +577,7 @@ const CallCenter: React.FC = () => {
     return { text: '—', color: '#6b7280' };
   };
 
-  const closedStatuses: LeadStatus[] = ['REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'BOOKED'];
-  const isLeadClosed = selectedLead ? closedStatuses.includes(selectedLead.status) : false;
+  const isLeadClosed = false;
 
   return (
     <div className="call-center-page">
@@ -771,8 +774,9 @@ const CallCenter: React.FC = () => {
                             try {
                               await apiInstance.patch(`/call-center/leads/${lead.id}`, { status: newStatus });
                               await refreshData();
-                            } catch (err) {
+                            } catch (err: any) {
                               console.error('Failed to update status', err);
+                              alert(err?.response?.data?.message || 'Ошибка при смене статуса');
                             }
                           }}
                         >
