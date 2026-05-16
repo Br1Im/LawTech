@@ -597,7 +597,8 @@ const callCenterController = {
         name,
         phone,
         email,
-        description
+        description,
+        operator_note
       } = req.body;
 
       await connection.beginTransaction();
@@ -668,6 +669,11 @@ const callCenterController = {
       if (description !== undefined) {
         updates.push('description = ?');
         params.push(description || null);
+      }
+
+      if (operator_note !== undefined) {
+        updates.push("operator_note = ?");
+        params.push(operator_note || null);
       }
 
       if (updates.length > 0) {

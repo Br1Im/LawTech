@@ -1085,3 +1085,31 @@
 .status-closed      { background: #f3f4f6; color: #374151; }
 .cc-status-sel.status-interested  { background: #fef3c7; color: #b45309; }
 .cc-status-sel.status-closed      { background: #f3f4f6; color: #374151; }
+
+/* Note inline input */
+.cc-td-note {
+  min-width: 120px;
+  max-width: 180px;
+}
+.cc-note-input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  background: transparent;
+  color: #111827;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  outline: none;
+}
+.cc-note-input:hover {
+  border-color: #e5e7eb;
+  background: #fafafa;
+}
+.cc-note-input:focus {
+  border-color: #1E40AF;
+  background: #fff;
+}
+.cc-note-input::placeholder {
+  color: #9ca3af;
+}

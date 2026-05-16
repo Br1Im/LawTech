@@ -27,6 +27,7 @@ interface Lead {
   last_call_at?: string | null;
   next_call_at?: string | null;
   calls_count?: number;
+  operator_note?: string | null;
 }
 
 interface CallLog {
@@ -707,15 +708,16 @@ const CallCenter: React.FC = () => {
                   <th>Источник</th>
                   <th>Темпер.</th>
                   <th>Статус</th>
+                  <th>Пометка</th>
                   <th>Оператор</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={isManager ? 8 : 7} className="cc-td-empty">Загрузка лидов…</td></tr>
+                  <tr><td colSpan={isManager ? 9 : 8} className="cc-td-empty">Загрузка лидов…</td></tr>
                 )}
                 {!loading && filteredLeads.length === 0 && (
-                  <tr><td colSpan={isManager ? 8 : 7} className="cc-td-empty">Лидов нет по выбранным фильтрам</td></tr>
+                  <tr><td colSpan={isManager ? 9 : 8} className="cc-td-empty">Лидов нет по выбранным фильтрам</td></tr>
                 )}
                 {paginatedLeads.map((lead) => {
                   const isSelected = selectedIds.has(lead.id);
@@ -784,6 +786,27 @@ const CallCenter: React.FC = () => {
                             <option key={s} value={s}>{STATUS_SHORT[s]}</option>
                           ))}
                         </select>
+                      </td>
+                      <td className="cc-td-note" onClick={e => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          className="cc-note-input"
+                          defaultValue={lead.operator_note || ''}
+                          placeholder="—"
+                          onBlur={async (e) => {
+                            const val = e.target.value.trim();
+                            if (val === (lead.operator_note || '')) return;
+                            try {
+                              await apiInstance.patch(`/call-center/leads/${lead.id}`, { operator_note: val || null });
+                              await refreshData();
+                            } catch (err) {
+                              console.error('Failed to save note', err);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                          }}
+                        />
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         {isManager ? (

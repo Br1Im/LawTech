@@ -1,0 +1,1 @@
+ALTER TABLE call_center_leads ADD COLUMN IF NOT EXISTS operator_note TEXT DEFAULT NULL;

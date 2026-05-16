@@ -451,19 +451,6 @@ const Appointments: React.FC = () => {
         </div>
       )}
 
-      {/* Upcoming */}
-      {tab === 'today' && upcoming.length > 0 && (
-        <div className="apt-section">
-          <div className="apt-section-header">
-            <ClockCircleOutlined style={{ color: '#3B82F6' }} />
-            <span className="apt-section-title">Ближайшие записи</span>
-          </div>
-          <div className="apt-rows">
-            {upcoming.map(a => renderRow(a, true))}
-          </div>
-        </div>
-      )}
-
       {/* Main list */}
       <div className="apt-section">
         <div className="apt-records-card">
