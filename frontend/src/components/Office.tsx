@@ -339,8 +339,11 @@ const Office = () => {
 
   // Синхронизируем выбранный офис в глобальный контекст, чтобы другие вкладки
   // (Календарь, Расходы и т.д.) знали об этом и не получали null.
+  // Используем ref для предотвращения каскадных ре-рендеров.
+  const lastSyncedOfficeId = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedOffice && (!officeFromContext || String(officeFromContext.id) !== String(selectedOffice.id))) {
+    if (selectedOffice && String(selectedOffice.id) !== lastSyncedOfficeId.current) {
+      lastSyncedOfficeId.current = String(selectedOffice.id);
       try {
         setSelectedOfficeContext({
           id: String(selectedOffice.id),
@@ -355,7 +358,7 @@ const Office = () => {
         console.warn('Failed to sync selectedOffice to context', e);
       }
     }
-  }, [selectedOffice, officeFromContext, setSelectedOfficeContext]);
+  }, [selectedOffice?.id]);
 
   // Загружаем дашборд офиса (план/факт/касса юристов)
   useEffect(() => {
@@ -482,13 +485,14 @@ const Office = () => {
     }
   };
 
-  // Загружаем все договоры (для аналитики юристов)
+  // Загружаем договоры офиса (для аналитики юристов)
   useEffect(() => {
     const fetchContracts = async () => {
+      if (!selectedOffice?.id) return;
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
-        const res = await fetch(buildApiUrl('/contracts'), {
+        const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/contracts`), {
           headers: getAuthHeaders(),
         });
         if (!res.ok) return;
@@ -502,8 +506,9 @@ const Office = () => {
     fetchContracts();
   }, [selectedOffice?.id]);
 
-  // Загружаем статистику консультаций по сотрудникам
+  // Загружаем статистику консультаций по сотрудникам (без polling)
   useEffect(() => {
+    if (!selectedOffice?.id) return;
     const fetchConsultationStats = async () => {
       try {
         const res = await apiInstance.get('/visits/consultation-stats');
@@ -511,8 +516,6 @@ const Office = () => {
       } catch { /* ignore */ }
     };
     fetchConsultationStats();
-    const iv = setInterval(fetchConsultationStats, 15000);
-    return () => clearInterval(iv);
   }, [selectedOffice?.id]);
 
   useEffect(() => {
@@ -548,9 +551,10 @@ const Office = () => {
   }, [period]);
 
   const handleOfficeClick = async (office: Office) => {
-    setSelectedOffice(office);
-    // Переключаем активный офис через API, чтобы все данные (касса, статистика и т.д.)
-    // загружались только для выбранного офиса
+    if (String(office.id) === String(selectedOffice?.id)) return;
+    // Сначала переключаем офис на бэкенде и обновляем токен/localStorage,
+    // только ПОТОМ обновляем selectedOffice — чтобы useEffect-ы использовали
+    // актуальный токен и X-Office-Id.
     const currentActiveId = localStorage.getItem('activeOfficeId');
     if (String(office.id) !== currentActiveId) {
       try {
@@ -563,6 +567,7 @@ const Office = () => {
         console.error('Ошибка при переключении офиса:', e);
       }
     }
+    setSelectedOffice(office);
   };
 
   const handlePeriodChange = (newPeriod: PeriodType) => {
