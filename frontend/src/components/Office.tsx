@@ -1047,7 +1047,7 @@ const Office = () => {
   return (
     <div className="office-content">
       {/* ── HEADER ── */}
-      <div className="office-header animate-fade-in-up">
+      <div className="office-header">
         <h2>Управление офисами</h2>
         {isDirector && canManageOffices && !isOfficeLimit && (
           <button className="office-header-add-btn" onClick={showAddModal}>
@@ -1057,7 +1057,7 @@ const Office = () => {
       </div>
 
       {/* ── OFFICE CARDS ── */}
-      <div className="office-cards-row animate-fade-in-up">
+      <div className="office-cards-row">
         {offices.map(office => (
           <div
             key={office.id}
@@ -1106,7 +1106,7 @@ const Office = () => {
         const planId = dashboard?.plan?.id ? `#${dashboard.plan.id}` : '';
 
         return (
-          <div className="plan-fact-block animate-fade-in-up">
+          <div className="plan-fact-block">
             <div className="plan-fact-header">
               <h4 className="section-title">План / Факт</h4>
               {isDirector && (
@@ -1143,7 +1143,7 @@ const Office = () => {
 
       {/* ── CC: Статистика операторов КЦ ── */}
       {isCcRole && (
-        <div className="lawyers-section animate-fade-in-up">
+        <div className="lawyers-section">
           <div className="table-header">
             <h4 className="section-title">Статистика операторов колл-центра</h4>
           </div>
@@ -1202,7 +1202,7 @@ const Office = () => {
 
       {/* ── КАССА ЮРИСТОВ ── */}
       {selectedOffice && !isCcRole && (
-        <div className="lawyers-section animate-fade-in-up">
+        <div className="lawyers-section">
           <div className="table-header">
             <h4 className="section-title">Касса юристов</h4>
             <div className="lawyers-legend">
