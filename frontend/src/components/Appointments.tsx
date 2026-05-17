@@ -314,7 +314,7 @@ const Appointments: React.FC = () => {
                   onClear={() => assignLawyer(apt.id, null)}
                   placeholder="Назначить"
                   size="small"
-                  style={{ width: '100%', minWidth: 120 }}
+                  style={{ width: '100%' }}
                   popupMatchSelectWidth={false}
                 >
                   {lawyers.map(e => (

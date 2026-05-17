@@ -408,6 +408,36 @@
   text-overflow: ellipsis;
 }
 
+.apt-col-value:has(.ant-select) {
+  overflow: visible;
+  white-space: normal;
+}
+
+.apt-col-value .ant-select {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+.apt-col-value .ant-select .ant-select-selector {
+  padding: 0 8px !important;
+  height: 26px !important;
+  min-height: 26px !important;
+  font-size: 12px !important;
+  border-radius: 6px !important;
+  border-color: #E5E7EB !important;
+}
+
+.apt-col-value .ant-select .ant-select-selection-item,
+.apt-col-value .ant-select .ant-select-selection-placeholder {
+  line-height: 26px !important;
+  font-size: 12px !important;
+}
+
+.apt-col-value .ant-select .ant-select-arrow {
+  font-size: 10px;
+}
+
 .apt-row-status {
   min-width: 90px;
   text-align: center;
