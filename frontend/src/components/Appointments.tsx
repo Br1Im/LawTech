@@ -41,8 +41,9 @@ interface AppointmentData {
 
 interface Employee {
   id: number;
-  first_name: string;
-  last_name: string;
+  name: string;
+  first_name?: string;
+  last_name?: string;
   role: string;
 }
 
@@ -318,7 +319,7 @@ const Appointments: React.FC = () => {
                   popupMatchSelectWidth={false}
                 >
                   {lawyers.map(e => (
-                    <Select.Option key={e.id} value={e.id}>{e.last_name} {e.first_name}</Select.Option>
+                    <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
                   ))}
                 </Select>
               ) : (
@@ -609,7 +610,7 @@ const Appointments: React.FC = () => {
               placeholder="Выберите юриста"
             >
               {lawyers.map(e => (
-                <Select.Option key={e.id} value={e.id}>{e.last_name} {e.first_name}</Select.Option>
+                <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
               ))}
             </Select>
           </div>
