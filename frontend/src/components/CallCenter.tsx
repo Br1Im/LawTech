@@ -863,9 +863,18 @@ const CallCenter: React.FC = () => {
                           <select
                             className="cc-operator-sel"
                             value={lead.assigned_to || ''}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const val = e.target.value ? Number(e.target.value) : null;
-                              apiInstance.put(`/call-center/leads/${lead.id}/assign`, { operator_id: val }).then(() => refreshData());
+                              const oldAssigned = lead.assigned_to;
+                              const oldName = lead.assigned_to_name;
+                              const op = operators.find(o => o.id === val);
+                              setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, assigned_to: val, assigned_to_name: op ? `${op.first_name} ${op.last_name}` : null } : l));
+                              try {
+                                await apiInstance.patch(`/call-center/leads/${lead.id}`, { assigned_to: val });
+                              } catch (err) {
+                                console.error('Failed to assign operator', err);
+                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, assigned_to: oldAssigned, assigned_to_name: oldName } : l));
+                              }
                             }}
                           >
                             <option value="">—</option>

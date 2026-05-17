@@ -93,6 +93,7 @@ const STATUS_CLASS: Record<string, string> = {
 const Appointments: React.FC = () => {
   const { user } = useAuth();
   const canManage = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
+  const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -287,10 +288,12 @@ const Appointments: React.FC = () => {
           <div className="apt-col-label">Записал</div>
           <div className="apt-col-value">{apt.operator_name || '—'}</div>
         </div>
-        <div className="apt-row-col">
-          <div className="apt-col-label">Юрист</div>
-          <div className="apt-col-value">{apt.lawyer_name || '—'}</div>
-        </div>
+        {!isCCRole && (
+          <div className="apt-row-col">
+            <div className="apt-col-label">Юрист</div>
+            <div className="apt-col-value">{apt.lawyer_name || '—'}</div>
+          </div>
+        )}
         <div className="apt-row-status">
           <span className={`apt-badge ${STATUS_CLASS[apt.status] || ''}`}>{STATUS_TEXT[apt.status] || apt.status}</span>
         </div>
@@ -431,10 +434,12 @@ const Appointments: React.FC = () => {
             <Select.Option value="rescheduled">Перенесена</Select.Option>
             <Select.Option value="cancelled">Отменено</Select.Option>
           </Select>
-          <Select value={filterLawyer} onChange={setFilterLawyer} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
-            <Select.Option value="all">Юрист: Все</Select.Option>
-            {uniqueLawyers.map(l => <Select.Option key={l} value={l}>{l}</Select.Option>)}
-          </Select>
+          {!isCCRole && (
+            <Select value={filterLawyer} onChange={setFilterLawyer} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
+              <Select.Option value="all">Юрист: Все</Select.Option>
+              {uniqueLawyers.map(l => <Select.Option key={l} value={l}>{l}</Select.Option>)}
+            </Select>
+          )}
           <Select value={filterSource} onChange={setFilterSource} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Источник: Все</Select.Option>
             {uniqueSources.map(s => <Select.Option key={s} value={s}>{s}</Select.Option>)}
