@@ -455,40 +455,39 @@
 .apt-row-actions {
   display: flex;
   gap: 6px;
-  min-width: 180px;
+  min-width: 80px;
   justify-content: flex-end;
 }
 
-.apt-btn {
-  padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
+.apt-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: opacity 0.15s;
 }
 
-.apt-btn-arrived {
-  border: 1px solid #10B981;
-  background: transparent;
-  color: #10B981;
-}
-
-.apt-btn-arrived:hover {
+.apt-icon-arrived {
   background: #10B981;
   color: #fff;
 }
 
-.apt-btn-noshow {
-  border: 1px solid #EF4444;
-  background: transparent;
-  color: #EF4444;
+.apt-icon-arrived:hover {
+  opacity: 0.8;
 }
 
-.apt-btn-noshow:hover {
+.apt-icon-noshow {
   background: #EF4444;
   color: #fff;
+}
+
+.apt-icon-noshow:hover {
+  opacity: 0.8;
 }
 
 .apt-row-menu {

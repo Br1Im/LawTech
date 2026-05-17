@@ -93,6 +93,8 @@ const STATUS_CLASS: Record<string, string> = {
 const Appointments: React.FC = () => {
   const { user } = useAuth();
   const canManage = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
+  const canAssignLawyer = ['director','manager','okk'].includes(user?.role || '');
+  const isAdmin = ['admin','administrator'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -248,6 +250,8 @@ const Appointments: React.FC = () => {
     return mins > 0 ? `через ${hrs} ч ${mins} мин` : `через ${hrs} ч`;
   };
 
+  const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
+
   const getRowMenu = (apt: AppointmentData): MenuProps['items'] => {
     const items: MenuProps['items'] = [];
     if (apt.status === 'waiting' && canManage) items.push({ key: 'confirm', label: 'Подтвердить', onClick: () => updateStatus(apt.id, 'confirmed') });
@@ -256,6 +260,16 @@ const Appointments: React.FC = () => {
       items.push({ key: 'cancel', label: 'Отменить', danger: true, onClick: () => updateStatus(apt.id, 'cancelled') });
     }
     return items;
+  };
+
+  const assignLawyer = async (appointmentId: number, lawyerId: number | null) => {
+    try {
+      await apiInstance.patch(`/appointments/${appointmentId}/assign-lawyer`, { assigned_lawyer_id: lawyerId });
+      notification.success({ message: 'Юрист назначен' });
+      fetchAppointments();
+    } catch {
+      notification.error({ message: 'Ошибка', description: 'Не удалось назначить юриста' });
+    }
   };
 
   const renderRow = (apt: AppointmentData, showCountdown = false) => {
@@ -291,7 +305,26 @@ const Appointments: React.FC = () => {
         {!isCCRole && (
           <div className="apt-row-col">
             <div className="apt-col-label">Юрист</div>
-            <div className="apt-col-value">{apt.lawyer_name || '—'}</div>
+            <div className="apt-col-value">
+              {canAssignLawyer ? (
+                <Select
+                  value={apt.assigned_lawyer_id || undefined}
+                  onChange={(v: number) => assignLawyer(apt.id, v)}
+                  allowClear
+                  onClear={() => assignLawyer(apt.id, null)}
+                  placeholder="Назначить"
+                  size="small"
+                  style={{ width: '100%', minWidth: 120 }}
+                  popupMatchSelectWidth={false}
+                >
+                  {lawyers.map(e => (
+                    <Select.Option key={e.id} value={e.id}>{e.last_name} {e.first_name}</Select.Option>
+                  ))}
+                </Select>
+              ) : (
+                apt.lawyer_name || '—'
+              )}
+            </div>
           </div>
         )}
         <div className="apt-row-status">
@@ -300,8 +333,20 @@ const Appointments: React.FC = () => {
         <div className="apt-row-actions">
           {canAct && (
             <>
-              <button className="apt-btn apt-btn-arrived" onClick={() => updateStatus(apt.id, 'arrived')}>Пришел</button>
-              <button className="apt-btn apt-btn-noshow" onClick={() => updateStatus(apt.id, 'no_show')}>Не пришел</button>
+              <button
+                className="apt-icon-btn apt-icon-arrived"
+                onClick={() => updateStatus(apt.id, 'arrived')}
+                title="Пришёл"
+              >
+                <CheckOutlined />
+              </button>
+              <button
+                className="apt-icon-btn apt-icon-noshow"
+                onClick={() => updateStatus(apt.id, 'no_show')}
+                title="Не пришёл"
+              >
+                <CloseCircleOutlined />
+              </button>
             </>
           )}
         </div>
@@ -324,7 +369,7 @@ const Appointments: React.FC = () => {
     );
   }
 
-  const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
+  // lawyers is defined earlier, before renderRow
 
   const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
 
