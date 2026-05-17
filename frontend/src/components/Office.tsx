@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import "./OfficeContent.css";
 import "./OfficeAnimated.css";
@@ -92,6 +92,84 @@ const calculatePercentageChange = (current: number, previous: number): { percent
   };
 };
 
+// ─── Выделенная модалка «Добавить офис» ───
+interface AddOfficeModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: any) => Promise<void>;
+  isSubmitting: boolean;
+  isOfficeLimit: boolean;
+}
+const AddOfficeModal = memo(({ open, onClose, onSubmit, isSubmitting, isOfficeLimit }: AddOfficeModalProps) => {
+  const [addForm] = Form.useForm();
+
+  const handleFinish = async (values: any) => {
+    if (isOfficeLimit) {
+      message.warning(`Достигнут лимит офисов (${MAX_OFFICES}). Вы не можете добавить больше офисов.`);
+      onClose();
+      return;
+    }
+    await onSubmit(values);
+    addForm.resetFields();
+  };
+
+  return (
+    <Modal
+      title="Добавление нового офиса"
+      open={open}
+      onCancel={() => { addForm.resetFields(); onClose(); }}
+      footer={[
+        <Button key="back" onClick={() => { addForm.resetFields(); onClose(); }}>
+          Отмена
+        </Button>,
+        <Button
+          key="submit"
+          type="primary"
+          loading={isSubmitting}
+          style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
+          onClick={() => addForm.submit()}
+        >
+          Создать офис
+        </Button>,
+      ]}
+      destroyOnClose
+    >
+      <Form form={addForm} layout="vertical" name="add_office_form" onFinish={handleFinish}>
+        <Form.Item name="officeName" label="Название офиса" rules={[{ required: true, message: 'Пожалуйста, введите название офиса' }]}>
+          <Input placeholder="Введите название офиса" />
+        </Form.Item>
+        <div style={{ border: '1px solid #e8e8e8', padding: '16px', marginBottom: '16px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
+          <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#1890ff' }}>ИП</div>
+          <Form.Item name="ipSurname" label="Фамилия" rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}>
+            <Input placeholder="Введите фамилию" />
+          </Form.Item>
+          <Form.Item name="ipName" label="Имя" rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}>
+            <Input placeholder="Введите имя" />
+          </Form.Item>
+          <Form.Item name="ipMiddleName" label="Отчество">
+            <Input placeholder="Введите отчество" />
+          </Form.Item>
+        </div>
+        <Form.Item name="inn" label="ИНН" rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}>
+          <Input placeholder="Введите ИНН" />
+        </Form.Item>
+        <Form.Item name="ogrn" label="ОГРН" rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}>
+          <Input placeholder="Введите ОГРН" />
+        </Form.Item>
+        <Form.Item name="officeAddress" label="Адрес">
+          <Input placeholder="Введите адрес офиса" />
+        </Form.Item>
+        <Form.Item name="contactPhone" label="Рабочий телефон 1">
+          <Input placeholder="Введите рабочий телефон 1" />
+        </Form.Item>
+        <Form.Item name="work_phone2" label="Рабочий телефон 2">
+          <Input placeholder="Введите рабочий телефон 2" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+});
+
 const Office = () => {
   const { user: authUser } = useAuth();
   const userRole = authUser?.role || '';
@@ -140,7 +218,6 @@ const Office = () => {
   const [planSaving, setPlanSaving] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const [form] = Form.useForm();
-  const [addForm] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [officeRevenueData, setOfficeRevenueData] = useState<{ labels: string[], offices: { id: string, name: string, revenue: number[] }[] }>({
     labels: [],
@@ -821,39 +898,27 @@ const Office = () => {
     }
   };
 
-  // Новые функции для добавления офиса
-  const showAddModal = () => {
+  // Функции для модалки добавления офиса
+  const showAddModal = useCallback(() => {
     if (isOfficeLimit) {
       message.warning(`Достигнут лимит офисов (${MAX_OFFICES}). Вы не можете добавить больше офисов.`);
       return;
     }
-    
-    addForm.resetFields();
     setIsAddModalVisible(true);
-  };
+  }, [isOfficeLimit]);
 
-  const handleAddCancel = () => {
+  const handleAddClose = useCallback(() => {
     setIsAddModalVisible(false);
-  };
+  }, []);
 
-  const handleAddSubmit = async () => {
+  const handleAddSubmit = useCallback(async (values: any) => {
     try {
-      if (isOfficeLimit) {
-        message.warning(`Достигнут лимит офисов (${MAX_OFFICES}). Вы не можете добавить больше офисов.`);
-        setIsAddModalVisible(false);
-        return;
-      }
-      
       setIsSubmitting(true);
-      const values = await addForm.validateFields();
-
-      // Используем ID из auth контекста — не зависим от отдельного запроса /profile
       const currentUserId = authUser?.id;
       if (!currentUserId) {
         throw new Error('Пользователь не авторизован');
       }
 
-      // Создаем офис через API — явно маппим поля формы на поля API
       const response = await fetch(buildApiUrl('/offices'), {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -888,7 +953,6 @@ const Office = () => {
       message.success('Офис успешно создан');
       setIsAddModalVisible(false);
 
-      // Создаем новый офис для добавления в локальный список
       const newOffice: Office = {
         id: newOfficeData.id || Date.now().toString(),
         title: values.officeName,
@@ -901,20 +965,16 @@ const Office = () => {
         employee_count: 0,
         work_phone: values.contactPhone || null,
         work_phone2: values.work_phone2 || null,
-        // Добавляем данные ИП
         ip_surname: values.ipSurname || '',
         ip_name: values.ipName || '',
         ip_middle_name: values.ipMiddleName || '',
-        // Добавляем ИНН и ОГРН
         inn: values.inn || '',
         ogrn: values.ogrn || ''
       };
 
-      // Обновляем список офисов, добавляя новый офис к существующим
       const updatedOffices = [...offices, newOffice];
       setOffices(updatedOffices);
       setSelectedOffice(newOffice);
-
     } catch (error) {
       if (error instanceof Error) {
         message.error(error.message || 'Не удалось создать офис');
@@ -925,7 +985,7 @@ const Office = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [authUser?.id, offices]);
 
   // ===== Аналитика по сотрудникам (консультации) =====
   const roleLabel = (role: string) => {
@@ -946,14 +1006,20 @@ const Office = () => {
     </span>
   );
 
-  // Данные для модалки выбранного сотрудника
-  const selectedConsultationEmployee = selectedLawyerId
-    ? consultationStats.find(cs => String(cs.id) === String(selectedLawyerId)) || null
-    : null;
+  // Данные для модалки выбранного сотрудника (мемоизация)
+  const selectedConsultationEmployee = useMemo(() =>
+    selectedLawyerId
+      ? consultationStats.find(cs => String(cs.id) === String(selectedLawyerId)) || null
+      : null,
+    [selectedLawyerId, consultationStats]
+  );
 
-  // Cash data by employee id
-  const cashById = new Map<number, { today: number; period: number; full_name: string }>();
-  (dashboard?.lawyers_cash || []).forEach(l => cashById.set(l.id, { today: l.today, period: l.period, full_name: l.full_name }));
+  // Cash data by employee id (мемоизация)
+  const cashById = useMemo(() => {
+    const m = new Map<number, { today: number; period: number; full_name: string }>();
+    (dashboard?.lawyers_cash || []).forEach(l => m.set(l.id, { today: l.today, period: l.period, full_name: l.full_name }));
+    return m;
+  }, [dashboard?.lawyers_cash]);
 
   // Если есть ошибка загрузки данных - показываем красивое сообщение
   if (hasError) {
@@ -1316,97 +1382,13 @@ const Office = () => {
         </Form>
       </Modal>
 
-      <Modal
-        title="Добавление нового офиса"
+      <AddOfficeModal
         open={isAddModalVisible}
-        onCancel={handleAddCancel}
-        footer={[
-          <Button key="back" onClick={handleAddCancel}>
-            Отмена
-          </Button>,
-          <Button
-            key="submit"
-            type="primary"
-            loading={isSubmitting}
-            style={{ backgroundColor: 'var(--color-accent)', borderColor: 'var(--color-accent)' }}
-            onClick={() => addForm.submit()}
-          >
-            Создать офис
-          </Button>,
-        ]}
-      >
-        <Form
-          form={addForm}
-          layout="vertical"
-          name="add_office_form"
-          onFinish={handleAddSubmit}
-        >
-          <Form.Item
-            name="officeName"
-            label="Название офиса"
-            rules={[{ required: true, message: 'Пожалуйста, введите название офиса' }]}
-          >
-            <Input placeholder="Введите название офиса" />
-          </Form.Item>
-          
-          <div style={{ border: '1px solid #e8e8e8', padding: '16px', marginBottom: '16px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#1890ff' }}>ИП</div>
-            <Form.Item
-              name="ipSurname"
-              label="Фамилия"
-              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
-            >
-              <Input placeholder="Введите фамилию" />
-            </Form.Item>
-            <Form.Item
-              name="ipName"
-              label="Имя"
-              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
-            >
-              <Input placeholder="Введите имя" />
-            </Form.Item>
-            <Form.Item
-              name="ipMiddleName"
-              label="Отчество"
-            >
-              <Input placeholder="Введите отчество" />
-            </Form.Item>
-          </div>
-          
-          <Form.Item
-            name="inn"
-            label="ИНН"
-            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
-          >
-            <Input placeholder="Введите ИНН" />
-          </Form.Item>
-          <Form.Item
-            name="ogrn"
-            label="ОГРН"
-            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
-          >
-            <Input placeholder="Введите ОГРН" />
-          </Form.Item>
-          <Form.Item
-            name="officeAddress"
-            label="Адрес"
-          >
-            <Input placeholder="Введите адрес офиса" />
-          </Form.Item>
-          <Form.Item
-            name="contactPhone"
-            label="Рабочий телефон 1"
-          >
-            <Input placeholder="Введите рабочий телефон 1" />
-          </Form.Item>
-          <Form.Item
-            name="work_phone2"
-            label="Рабочий телефон 2"
-          >
-            <Input placeholder="Введите рабочий телефон 2" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        onClose={handleAddClose}
+        onSubmit={handleAddSubmit}
+        isSubmitting={isSubmitting}
+        isOfficeLimit={isOfficeLimit}
+      />
       
       <Modal
         title="Информация об офисе"
