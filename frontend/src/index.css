@@ -612,6 +612,43 @@ select option {
   color: #111827 !important;
 }
 
+/* ── Native HTML select (dark theme) ─────────────────── */
+[data-theme='dark'] select {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] select option {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Ant Cascader / TreeSelect ────────────────────────── */
+.ant-cascader-dropdown,
+.ant-tree-select-dropdown {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+  z-index: 1050 !important;
+}
+[data-theme='dark'] .ant-cascader-dropdown,
+[data-theme='dark'] .ant-tree-select-dropdown {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+}
+
+/* ── Ant Dropdown overlay container ──────────────────── */
+.ant-dropdown {
+  z-index: 1050 !important;
+}
+.ant-dropdown .ant-dropdown-menu {
+  background-color: #ffffff !important;
+}
+[data-theme='dark'] .ant-dropdown .ant-dropdown-menu {
+  background-color: #161A22 !important;
+}
+
 /* ══════════════════════════════════════════════════════════
    DARK THEME OVERRIDES (below — existing + hardened)
    ══════════════════════════════════════════════════════════ */

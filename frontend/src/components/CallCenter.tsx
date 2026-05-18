@@ -43,7 +43,7 @@ interface HistoryItem {
   action: string;
   created_at: string;
   user_name?: string | null;
-  details?: string | null;
+  details?: string | Record<string, any> | null;
 }
 
 interface LeadDetails extends Lead {
@@ -117,6 +117,8 @@ const ALL_STATUSES: LeadStatus[] = [
   'BOOKED', 'REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'CLOSED'
 ];
 
+const ARCHIVE_STATUSES: LeadStatus[] = ['REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'CLOSED'];
+
 const TEMPERATURE_OPTIONS: Exclude<Temperature, null>[] = ['hot', 'warm', 'cold'];
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
@@ -136,9 +138,9 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
 const STATUS_SHORT: Record<LeadStatus, string> = {
   NEW: 'Новый',
   IN_PROGRESS: 'В работе',
-  NO_ANSWER: 'Не дозвон.',
+  NO_ANSWER: 'Недозвон',
   CALL_BACK: 'Перезвонить',
-  INTERESTED: 'Заинтерес.',
+  INTERESTED: 'Заинтересован',
   BOOKED: 'Записан',
   REJECTED: 'Отказ',
   SPAM: 'Спам',
@@ -178,18 +180,8 @@ const formatDateTime = (value?: string | null) => {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) + `, ${time}`;
 };
 
-const formatTime = (value?: string | null) => {
-  if (!value) return '';
-  return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-};
-
 const operatorName = (op: Pick<Operator, 'first_name' | 'last_name' | 'email'>) =>
   [op.first_name, op.last_name].filter(Boolean).join(' ') || op.email;
-
-const SOURCE_ICONS: Record<string, string> = {
-  gynet: '🟢', gainnet: '🟢', facebook: '🔵', '2gis': '🟠', avito: '🟣',
-  website: '🌐', telegram: '📱', referral: '👥', ads: '📢'
-};
 
 const SOURCE_LABEL = (source: string) => {
   const known: Record<string, string> = {
@@ -254,6 +246,8 @@ const CallCenter: React.FC = () => {
 
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 50;
+
+  const [activeListTab, setActiveListTab] = useState<'active' | 'archive'>('active');
 
   const fetchDashboard = async () => {
     const response = await apiInstance.get('/call-center/dashboard');
@@ -350,19 +344,6 @@ const CallCenter: React.FC = () => {
   const handleSearchSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     await refreshData();
-  };
-
-  const handleOperatorStatusToggle = async () => {
-    const nextValue = !isOnline;
-    setIsOnline(nextValue);
-    try {
-      await apiInstance.patch('/call-center/operators/me/status', { is_online: nextValue });
-      await fetchOperators();
-      await fetchDashboard();
-    } catch (error) {
-      console.error('Failed to toggle operator status:', error);
-      setIsOnline(!nextValue);
-    }
   };
 
   const handleSaveLead = async () => {
@@ -536,18 +517,6 @@ const CallCenter: React.FC = () => {
     }
   };
 
-  const handleCreateTestLead = async () => {
-    setSubmitting(true);
-    try {
-      await apiInstance.post('/call-center/test-lead');
-      await refreshData();
-    } catch (error) {
-      console.error('Failed to create test lead:', error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleExport = async () => {
     if (!exportDateFrom || !exportDateTo) {
       alert('Укажите период');
@@ -584,8 +553,15 @@ const CallCenter: React.FC = () => {
     }
   };
 
+  /* ──── derived data ──── */
+
   const filteredLeads = useMemo(() => {
     let result = leads;
+    if (activeListTab === 'archive') {
+      result = result.filter(l => ARCHIVE_STATUSES.includes(l.status));
+    } else {
+      result = result.filter(l => !ARCHIVE_STATUSES.includes(l.status));
+    }
     if (selectedOperatorFilter !== 'ALL') {
       result = result.filter(l =>
         selectedOperatorFilter === 'NONE'
@@ -594,130 +570,83 @@ const CallCenter: React.FC = () => {
       );
     }
     return result;
-  }, [leads, selectedOperatorFilter]);
+  }, [leads, selectedOperatorFilter, activeListTab]);
+
+  const activeCount = useMemo(() => leads.filter(l => !ARCHIVE_STATUSES.includes(l.status)).length, [leads]);
+  const archiveCount = useMemo(() => leads.filter(l => ARCHIVE_STATUSES.includes(l.status)).length, [leads]);
 
   const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
   const paginatedLeads = filteredLeads.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
   const totalSelected = selectedIds.size;
   const allSelected = filteredLeads.length > 0 && totalSelected === filteredLeads.length;
 
-  useEffect(() => { setPage(1); }, [selectedStatus, selectedTemperature, selectedSource, selectedOperatorFilter, search]);
+  useEffect(() => { setPage(1); }, [selectedStatus, selectedTemperature, selectedSource, selectedOperatorFilter, search, activeListTab]);
 
-  const statuses = dashboard?.statuses || {};
-  const newCount = statuses['NEW'] || 0;
-  const inProgressCount = statuses['IN_PROGRESS'] || 0;
-  const bookedCount = statuses['BOOKED'] || 0;
-  const totalLeads = dashboard?.sla?.total_leads || 0;
-  const conversionRate = totalLeads > 0 ? Math.round((bookedCount / totalLeads) * 100) : 0;
+  const colCount = isManager ? 8 : 7;
 
-  const getNextAction = (lead: LeadDetails) => {
-    if (lead.status === 'BOOKED') return { text: 'Консультация назначена', color: '#0a8f52' };
-    if (lead.status === 'CALL_BACK' && lead.next_call_at) {
-      return { text: `Перезвонить ${formatDateTime(lead.next_call_at)}`, color: '#1976d2' };
-    }
-    if (lead.status === 'NEW') return { text: 'Позвонить клиенту', color: '#c77700' };
-    if (lead.status === 'NO_ANSWER') return { text: 'Повторный звонок', color: '#5f6b7a' };
-    if (lead.status === 'IN_PROGRESS') return { text: 'Продолжить обработку', color: '#c77700' };
-    return { text: '—', color: '#6b7280' };
-  };
-
-  const isLeadClosed = false;
+  /* ──── render ──── */
 
   return (
     <div className="call-center-page">
-      {/* TOOLBAR */}
+      {/* ── TOOLBAR ── */}
       <div className="cc-toolbar">
-        <div>
-          <h2 className="cc-title">Колл-центр</h2>
-          <p className="cc-subtitle">
-            {isManager
-              ? 'Распределение лидов, контроль операторов, статистика КЦ'
-              : isOperatorOnly
-                ? 'Ваши лиды и звонки'
-                : 'Приём лидов и работа операторов'}
-          </p>
-        </div>
+        <h2 className="cc-title">Колл-центр</h2>
         <div className="cc-toolbar-actions">
           <button className="cc-btn cc-btn-export" onClick={() => setShowExportModal(true)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Экспорт в Excel
           </button>
-          <button className="cc-btn cc-btn-primary" onClick={handleCreateTestLead} disabled={submitting}>
-            + Добавить тестовый лид
-          </button>
         </div>
       </div>
 
+      {/* ── TABS: Active / Archive ── */}
+      <div className="cc-tabs">
+        <button
+          className={`cc-tab ${activeListTab === 'active' ? 'active' : ''}`}
+          onClick={() => { setActiveListTab('active'); setPage(1); }}
+        >
+          Активные лиды&nbsp;<span className="cc-tab-count">{activeCount}</span>
+        </button>
+        <button
+          className={`cc-tab ${activeListTab === 'archive' ? 'active' : ''}`}
+          onClick={() => { setActiveListTab('archive'); setPage(1); }}
+        >
+          Архив лидов&nbsp;<span className="cc-tab-count">{archiveCount}</span>
+        </button>
+      </div>
 
-
-      {/* MAIN LAYOUT: TABLE + DRAWER */}
+      {/* ── MAIN LAYOUT ── */}
       <div className={`cc-main-layout ${selectedLead ? 'drawer-open' : ''}`}>
-        {/* LEFT: LEADS TABLE */}
+        {/* LEFT: table */}
         <div className="cc-table-section">
           {/* FILTERS */}
           <form className="cc-filters" onSubmit={handleSearchSubmit}>
-            <select
-              className="cc-filter-select"
-              value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-            >
+            <select className="cc-filter-select" value={selectedSource} onChange={(e) => setSelectedSource(e.target.value)}>
               <option value="ALL">Все источники</option>
-              {sources.map(s => (
-                <option key={s.source} value={s.source}>{SOURCE_LABEL(s.source)}</option>
-              ))}
+              {sources.map(s => <option key={s.source} value={s.source}>{SOURCE_LABEL(s.source)}</option>)}
             </select>
-            <select
-              className="cc-filter-select"
-              value={selectedTemperature}
-              onChange={(e) => setSelectedTemperature(e.target.value as 'ALL' | Exclude<Temperature, null>)}
-            >
+            <select className="cc-filter-select" value={selectedTemperature} onChange={(e) => setSelectedTemperature(e.target.value as any)}>
               <option value="ALL">Все температуры</option>
-              {TEMPERATURE_OPTIONS.map(t => (
-                <option key={t} value={t}>{TEMPERATURE_LABELS[t]}</option>
-              ))}
+              {TEMPERATURE_OPTIONS.map(t => <option key={t} value={t}>{TEMPERATURE_LABELS[t]}</option>)}
             </select>
-            <select
-              className="cc-filter-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as 'ALL' | LeadStatus)}
-            >
+            <select className="cc-filter-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value as any)}>
               <option value="ALL">Все статусы</option>
-              {ALL_STATUSES.map(s => (
-                <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-              ))}
+              {ALL_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
             </select>
             {isManager && (
-              <select
-                className="cc-filter-select"
-                value={selectedOperatorFilter}
-                onChange={(e) => setSelectedOperatorFilter(e.target.value)}
-              >
+              <select className="cc-filter-select" value={selectedOperatorFilter} onChange={(e) => setSelectedOperatorFilter(e.target.value)}>
                 <option value="ALL">Все операторы</option>
                 <option value="NONE">Не назначен</option>
-                {operators
-                  .filter(op => ['cc_operator', 'cc_manager', 'manager', 'okk'].includes(op.role))
-                  .map(op => (
-                    <option key={op.id} value={op.id}>{operatorName(op)}</option>
-                  ))}
+                {operators.filter(op => ['cc_operator', 'cc_manager'].includes(op.role)).map(op => (
+                  <option key={op.id} value={String(op.id)}>{operatorName(op)}</option>
+                ))}
               </select>
             )}
             <div className="cc-search-wrap">
               <svg className="cc-search-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Поиск по ФИО, телефону…"
-                className="cc-search-input"
-              />
-              {search && (
-                <button type="button" className="cc-search-clear" onClick={() => { setSearch(''); refreshData(); }}>×</button>
-              )}
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по ФИО, телефону…" className="cc-search-input" />
+              {search && <button type="button" className="cc-search-clear" onClick={() => { setSearch(''); refreshData(); }}>×</button>}
             </div>
-            <button type="button" className="cc-btn-reset" onClick={() => {
-              setSelectedSource('ALL'); setSelectedTemperature('ALL');
-              setSelectedStatus('ALL'); setSelectedOperatorFilter('ALL');
-              setSearch('');
-            }}>Сбросить</button>
           </form>
 
           {/* BULK BAR */}
@@ -726,14 +655,9 @@ const CallCenter: React.FC = () => {
               <span>Выбрано: <strong>{totalSelected}</strong></span>
               <select value={bulkOperatorId} onChange={(e) => setBulkOperatorId(e.target.value)}>
                 <option value="">— Снять назначение —</option>
-                {operators
-                  .filter(op => ['cc_operator', 'cc_manager', 'manager', 'okk'].includes(op.role))
-                  .map(op => (
-                    <option key={op.id} value={op.id}>
-                      {operatorName(op)} {op.is_online ? '🟢' : '⚪'} (загр. {op.current_load})
-                      {isCrossOffice && op.office_name ? ` · ${op.office_name}` : ''}
-                    </option>
-                  ))}
+                {operators.filter(op => ['cc_operator', 'cc_manager'].includes(op.role)).map(op => (
+                  <option key={op.id} value={String(op.id)}>{operatorName(op)}</option>
+                ))}
               </select>
               <button type="button" onClick={() => handleBulkAssign(bulkOperatorId)} disabled={submitting}>Назначить</button>
               <button type="button" onClick={() => setSelectedIds(new Set())} className="cc-link-btn">Сбросить</button>
@@ -745,27 +669,19 @@ const CallCenter: React.FC = () => {
             <table className="cc-table">
               <thead>
                 <tr>
-                  {isManager && (
-                    <th className="cc-th-check">
-                      <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-                    </th>
-                  )}
-                  <th>Лид</th>
-                  <th>Описание</th>
-                  <th>Источник</th>
-                  <th>Темпер.</th>
-                  <th>Статус</th>
-                  <th>Пометка</th>
-                  <th>Оператор</th>
+                  {isManager && <th className="cc-th-check"><input type="checkbox" checked={allSelected} onChange={toggleSelectAll} /></th>}
+                  <th>ЛИД</th>
+                  <th>ОПИСАНИЕ</th>
+                  <th>ПОМЕТКИ</th>
+                  <th>СТАТУС</th>
+                  <th>ОПЕРАТОР</th>
+                  <th>ДАТА ПОСТУПЛЕНИЯ</th>
+                  <th className="cc-th-actions"></th>
                 </tr>
               </thead>
               <tbody>
-                {loading && (
-                  <tr><td colSpan={isManager ? 9 : 8} className="cc-td-empty">Загрузка лидов…</td></tr>
-                )}
-                {!loading && filteredLeads.length === 0 && (
-                  <tr><td colSpan={isManager ? 9 : 8} className="cc-td-empty">Лидов нет по выбранным фильтрам</td></tr>
-                )}
+                {loading && <tr><td colSpan={colCount} className="cc-td-empty">Загрузка лидов…</td></tr>}
+                {!loading && filteredLeads.length === 0 && <tr><td colSpan={colCount} className="cc-td-empty">Лидов нет по выбранным фильтрам</td></tr>}
                 {paginatedLeads.map((lead) => {
                   const isSelected = selectedIds.has(lead.id);
                   const isOpen = selectedLead?.id === lead.id;
@@ -784,34 +700,11 @@ const CallCenter: React.FC = () => {
                         <div className="cc-lead-name">{lead.name}</div>
                         <div className="cc-lead-phone">{lead.phone || '—'}</div>
                       </td>
-                      <td className="cc-td-desc">
-                        {lead.description ? (
-                          <span className="cc-lead-desc">{lead.description.length > 120 ? lead.description.slice(0, 120) + '…' : lead.description}</span>
-                        ) : (
-                          <span className="cc-muted">—</span>
-                        )}
+                      <td className="cc-td-clamp">
+                        <span className="cc-text-clamp" title={lead.description || ''}>{lead.description || <span className="cc-muted">—</span>}</span>
                       </td>
-                      <td>
-                        <span className="cc-source-badge">
-                          {SOURCE_ICONS[lead.source.toLowerCase()] && <span className="cc-source-icon">{SOURCE_ICONS[lead.source.toLowerCase()]}</span>}
-                          {SOURCE_LABEL(lead.source)}
-                        </span>
-                      </td>
-                      <td onClick={e => e.stopPropagation()}>
-                        {isManager ? (
-                          <select
-                            className={`cc-temp-sel cc-temp-${lead.temperature || 'none'}`}
-                            value={lead.temperature || ''}
-                            onChange={(e) => handleQuickTemperature(lead.id, (e.target.value || null) as Temperature)}
-                          >
-                            <option value="">—</option>
-                            {TEMPERATURE_OPTIONS.map(t => <option key={t} value={t}>{TEMPERATURE_LABELS[t]}</option>)}
-                          </select>
-                        ) : (
-                          <span className={`cc-temp-badge cc-temp-${lead.temperature || 'none'}`}>
-                            {lead.temperature ? TEMPERATURE_LABELS[lead.temperature] : '—'}
-                          </span>
-                        )}
+                      <td className="cc-td-clamp">
+                        <span className="cc-text-clamp" title={lead.operator_note || ''}>{lead.operator_note || <span className="cc-muted">—</span>}</span>
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         <select
@@ -824,6 +717,7 @@ const CallCenter: React.FC = () => {
                             setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: newStatus } : l));
                             try {
                               await apiInstance.patch(`/call-center/leads/${lead.id}`, { status: newStatus });
+                              await refreshData();
                             } catch (err: any) {
                               console.error('Failed to update status', err);
                               setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status: oldStatus } : l));
@@ -831,64 +725,20 @@ const CallCenter: React.FC = () => {
                             }
                           }}
                         >
-                          {ALL_STATUSES.map(s => (
-                            <option key={s} value={s}>{STATUS_SHORT[s]}</option>
-                          ))}
+                          {ALL_STATUSES.map(s => <option key={s} value={s}>{STATUS_SHORT[s]}</option>)}
                         </select>
                       </td>
-                      <td className="cc-td-note" onClick={e => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          className="cc-note-input"
-                          defaultValue={lead.operator_note || ''}
-                          placeholder="—"
-                          title={lead.operator_note || ''}
-                          onBlur={async (e) => {
-                            const val = e.target.value.trim();
-                            if (val === (lead.operator_note || '')) return;
-                            setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, operator_note: val || null } : l));
-                            try {
-                              await apiInstance.patch(`/call-center/leads/${lead.id}`, { operator_note: val || null });
-                            } catch (err) {
-                              console.error('Failed to save note', err);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                          }}
-                        />
+                      <td>
+                        <span className="cc-operator-name">{lead.assigned_to_name || <span className="cc-muted">—</span>}</span>
                       </td>
-                      <td onClick={e => e.stopPropagation()}>
-                        {isManager ? (
-                          <select
-                            className="cc-operator-sel"
-                            value={lead.assigned_to || ''}
-                            onChange={async (e) => {
-                              const val = e.target.value ? Number(e.target.value) : null;
-                              const oldAssigned = lead.assigned_to;
-                              const oldName = lead.assigned_to_name;
-                              const op = operators.find(o => o.id === val);
-                              setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, assigned_to: val, assigned_to_name: op ? `${op.first_name} ${op.last_name}` : null } : l));
-                              try {
-                                await apiInstance.patch(`/call-center/leads/${lead.id}`, { assigned_to: val });
-                              } catch (err) {
-                                console.error('Failed to assign operator', err);
-                                setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, assigned_to: oldAssigned, assigned_to_name: oldName } : l));
-                              }
-                            }}
-                          >
-                            <option value="">—</option>
-                            {operators
-                              .filter(op => ['cc_operator', 'cc_manager', 'manager', 'okk'].includes(op.role))
-                              .map(op => <option key={op.id} value={op.id}>{operatorName(op)}</option>)}
-                          </select>
-                        ) : (
-                          lead.assigned_to_name ? (
-                            <span>{lead.assigned_to_name}</span>
-                          ) : (
-                            <span className="cc-muted">—</span>
-                          )
-                        )}
+                      <td>
+                        <div className="cc-date-cell">
+                          <span>{new Date(lead.created_at).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                          <span className="cc-date-time">{new Date(lead.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </td>
+                      <td className="cc-td-actions" onClick={e => e.stopPropagation()}>
+                        <button className="cc-row-menu" onClick={() => fetchLeadDetails(lead.id)}>⋯</button>
                       </td>
                     </tr>
                   );
@@ -900,168 +750,228 @@ const CallCenter: React.FC = () => {
           {/* PAGINATION */}
           {totalPages > 1 && (
             <div className="cc-pagination">
-              <span className="cc-page-info">Показано {(page - 1) * ITEMS_PER_PAGE + 1}-{Math.min(page * ITEMS_PER_PAGE, filteredLeads.length)} из {filteredLeads.length} лидов</span>
+              <span className="cc-page-info">Показано {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filteredLeads.length)} из {filteredLeads.length}</span>
               <div className="cc-page-btns">
-                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="cc-page-btn">&laquo;</button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(
-                  Math.max(0, page - 3), Math.min(totalPages, page + 2)
-                ).map(p => (
-                  <button key={p} className={`cc-page-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>
-                ))}
+                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="cc-page-btn">‹</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .slice(Math.max(0, page - 3), Math.min(totalPages, page + 2))
+                  .map(p => (
+                    <button key={p} className={`cc-page-btn ${p === page ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                  ))}
                 {totalPages > page + 2 && <span className="cc-page-ellipsis">…</span>}
-                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="cc-page-btn">&raquo;</button>
+                {totalPages > page + 2 && <button className="cc-page-btn" onClick={() => setPage(totalPages)}>{totalPages}</button>}
+                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="cc-page-btn">›</button>
               </div>
-              <select className="cc-page-size" value={ITEMS_PER_PAGE}>
-                <option value="50">50 / стр.</option>
-              </select>
             </div>
           )}
         </div>
 
-        {/* RIGHT DRAWER */}
+        {/* ── RIGHT DRAWER ── */}
         {selectedLead && (
           <div className="cc-drawer">
             <div className="cc-drawer-header">
-              <button className="cc-drawer-close" onClick={() => { setSelectedLead(null); setShowBookingForm(false); setShowCallbackPicker(false); }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-              <h3 className="cc-drawer-name">{selectedLead.name}</h3>
-              <div className="cc-drawer-badges">
-                <span className={`cc-temp-badge cc-temp-${selectedLead.temperature || 'none'}`}>
-                  {selectedLead.temperature ? TEMPERATURE_LABELS[selectedLead.temperature] : '—'}
-                </span>
-                <span className={`cc-status-badge status-${selectedLead.status.toLowerCase()}`}>
-                  {STATUS_SHORT[selectedLead.status]}
-                </span>
+              <div>
+                <h3 className="cc-drawer-name">{selectedLead.name}</h3>
+                <span className="cc-drawer-phone">{selectedLead.phone || '—'}</span>
               </div>
+              <button className="cc-drawer-close" onClick={() => { setSelectedLead(null); setShowBookingForm(false); setShowCallbackPicker(false); }}>×</button>
             </div>
 
-            {/* DESCRIPTION */}
-            {selectedLead.description && (
-              <div className="cc-drawer-section">
-                <h4 className="cc-section-title">Описание обращения</h4>
-                <p style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>{selectedLead.description}</p>
+            <div className="cc-drawer-body">
+              {/* Meta info */}
+              <div className="cc-drawer-meta">
+                <div className="cc-meta-row">
+                  <span className="cc-meta-label">Источник:</span>
+                  <span className="cc-meta-value">{SOURCE_LABEL(selectedLead.source)}</span>
+                </div>
+                <div className="cc-meta-row">
+                  <span className="cc-meta-label">Температура:</span>
+                  <span className={`cc-meta-value cc-temp-inline cc-temp-${selectedLead.temperature || 'none'}`}>
+                    <span className="cc-temp-dot-icon">●</span> {selectedLead.temperature ? TEMPERATURE_LABELS[selectedLead.temperature] : '—'}
+                  </span>
+                </div>
+                <div className="cc-meta-row">
+                  <span className="cc-meta-label">Оператор:</span>
+                  {isManager ? (
+                    <select
+                      className="cc-meta-operator-select"
+                      value={selectedLead.assigned_to || ''}
+                      onChange={async (e) => {
+                        const val = e.target.value ? Number(e.target.value) : null;
+                        try {
+                          await apiInstance.patch(`/call-center/leads/${selectedLead.id}`, { assigned_to: val });
+                          await Promise.all([fetchLeads(), fetchLeadDetails(selectedLead.id)]);
+                        } catch (err) {
+                          console.error('Failed to assign operator', err);
+                        }
+                      }}
+                    >
+                      <option value="">—</option>
+                      {operators.filter(op => ['cc_operator', 'cc_manager'].includes(op.role)).map(op => (
+                        <option key={op.id} value={String(op.id)}>{operatorName(op)}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="cc-meta-value">{selectedLead.assigned_to_name || '—'}</span>
+                  )}
+                </div>
+                <div className="cc-meta-row">
+                  <span className="cc-meta-label">Дата поступления:</span>
+                  <span className="cc-meta-value">{formatDateTime(selectedLead.created_at)}</span>
+                </div>
               </div>
-            )}
 
-            {/* BOOKING FORM */}
-            {showBookingForm ? (
-              <div className="cc-drawer-section cc-booking-section">
-                <h4 className="cc-section-title">Запись на консультацию</h4>
-                <div className="cc-booking-form">
-                  <label>
-                    <span>ФИО клиента *</span>
-                    <input type="text" value={bookingClientName} onChange={(e) => setBookingClientName(e.target.value)} placeholder="Фамилия Имя Отчество" />
-                  </label>
-                  <div className="cc-booking-row">
-                    <label>
-                      <span>Дата *</span>
-                      <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
-                    </label>
-                    <label>
-                      <span>Время *</span>
-                      <input type="time" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} />
-                    </label>
-                  </div>
-                  <label>
-                    <span>Комментарий</span>
-                    <textarea rows={2} value={bookingComment} onChange={(e) => setBookingComment(e.target.value)} placeholder="Доп. информация" />
-                  </label>
-                  <div className="cc-booking-actions">
-                    <button className="cc-btn cc-btn-book" onClick={handleBookClient} disabled={submitting || !bookingClientName.trim() || !bookingDate || !bookingTime}>
-                      Записать
-                    </button>
-                    <button className="cc-link-btn" onClick={() => setShowBookingForm(false)}>Отмена</button>
-                  </div>
+              {/* Full description */}
+              {selectedLead.description && (
+                <div className="cc-drawer-section">
+                  <h4 className="cc-section-title">Полное описание</h4>
+                  <p className="cc-section-text">{selectedLead.description}</p>
                 </div>
-              </div>
-            ) : showCallbackPicker ? (
-              <div className="cc-drawer-section cc-callback-section">
-                <h4 className="cc-section-title">Назначить перезвон</h4>
+              )}
+
+              {/* Operator notes */}
+              <div className="cc-drawer-section">
+                <div className="cc-section-title-row">
+                  <h4 className="cc-section-title">Пометки оператора</h4>
+                  <svg className="cc-edit-pencil" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </div>
                 <input
-                  type="datetime-local"
-                  className="cc-datetime-input"
-                  value={nextCallAt}
-                  onChange={(e) => setNextCallAt(e.target.value)}
+                  type="text"
+                  className="cc-drawer-note-input"
+                  defaultValue={selectedLead.operator_note || ''}
+                  placeholder="Нет пометки"
+                  key={selectedLead.id + '_note'}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    if (val === (selectedLead.operator_note || '')) return;
+                    try {
+                      await apiInstance.patch(`/call-center/leads/${selectedLead.id}`, { operator_note: val || null });
+                      await fetchLeadDetails(selectedLead.id);
+                    } catch (err) { console.error('Failed to save note', err); }
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 />
-                <div className="cc-callback-actions">
-                  <button className="cc-btn cc-btn-primary" onClick={handleScheduleCallback} disabled={submitting || !nextCallAt}>
-                    Назначить
-                  </button>
-                  <button className="cc-link-btn" onClick={() => setShowCallbackPicker(false)}>Отмена</button>
+              </div>
+
+              {/* History timeline */}
+              {selectedLead.history && selectedLead.history.length > 0 && (
+                <div className="cc-drawer-section">
+                  <h4 className="cc-section-title">История взаимодействий</h4>
+                  <div className="cc-timeline">
+                    {selectedLead.history.map((item) => (
+                      <div key={item.id} className="cc-timeline-item">
+                        <div className={`cc-timeline-dot ${
+                          item.action === 'LEAD_CREATED' ? 'dot-blue' :
+                          item.action === 'ASSIGNED' ? 'dot-red' :
+                          item.action === 'CALL_LOGGED' ? 'dot-orange' :
+                          item.action === 'STATUS_CHANGED' ? 'dot-green' :
+                          'dot-gray'
+                        }`} />
+                        <div className="cc-timeline-content">
+                          <span className="cc-timeline-date">{formatDateTime(item.created_at)}</span>
+                          <span className="cc-timeline-text">
+                            {HISTORY_LABELS[item.action] || item.action}
+                            {item.details ? ` ${typeof item.details === 'object' ? (item.details.comment || item.details.source || '') : item.details}` : ''}
+                            {item.user_name ? ` ${item.user_name}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="cc-drawer-cta">
-                <button
-                  className="cc-btn cc-btn-consult"
-                  onClick={() => handleQuickStatus('BOOKED')}
-                  disabled={submitting}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  Записать на консультацию
-                </button>
-                <button
-                  className="cc-btn cc-btn-callback-cta"
-                  onClick={() => handleQuickStatus('CALL_BACK')}
-                  disabled={submitting}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  Перезвонить позже
-                </button>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Drawer footer: main CTA */}
+            <div className="cc-drawer-footer">
+              <button
+                className="cc-btn cc-btn-consult"
+                onClick={() => handleQuickStatus('BOOKED')}
+                disabled={submitting || selectedLead.status === 'BOOKED'}
+              >
+                Записать на консультацию
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* EXPORT MODAL */}
+      {/* ── BOOKING MODAL ── */}
+      {showBookingForm && selectedLead && (
+        <div className="cc-modal-overlay" onClick={() => setShowBookingForm(false)}>
+          <div className="cc-modal" onClick={e => e.stopPropagation()}>
+            <div className="cc-modal-header">
+              <h3>Запись на консультацию</h3>
+              <button className="cc-modal-close" onClick={() => setShowBookingForm(false)}>×</button>
+            </div>
+            <div className="cc-modal-body">
+              <label className="cc-form-field">
+                <span className="cc-form-label">ФИО клиента *</span>
+                <input type="text" className="cc-form-input" value={bookingClientName} onChange={(e) => setBookingClientName(e.target.value)} placeholder="Фамилия Имя Отчество" />
+              </label>
+              <div className="cc-form-row">
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Дата *</span>
+                  <input type="date" className="cc-form-input" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} />
+                </label>
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Время *</span>
+                  <input type="time" className="cc-form-input" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} />
+                </label>
+              </div>
+              <label className="cc-form-field">
+                <span className="cc-form-label">Комментарий</span>
+                <textarea className="cc-form-textarea" rows={3} value={bookingComment} onChange={(e) => setBookingComment(e.target.value)} placeholder="Дополнительная информация" />
+              </label>
+            </div>
+            <div className="cc-modal-footer">
+              <button className="cc-btn cc-btn-consult" onClick={handleBookClient} disabled={submitting || !bookingClientName.trim() || !bookingDate || !bookingTime}>
+                Записать
+              </button>
+              <button className="cc-link-btn" onClick={() => setShowBookingForm(false)}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── EXPORT MODAL ── */}
       {showExportModal && (
         <div className="cc-modal-overlay" onClick={() => setShowExportModal(false)}>
           <div className="cc-modal" onClick={e => e.stopPropagation()}>
             <div className="cc-modal-header">
               <h3>Экспорт лидов в Excel</h3>
-              <button className="cc-drawer-close" onClick={() => setShowExportModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+              <button className="cc-modal-close" onClick={() => setShowExportModal(false)}>×</button>
             </div>
             <div className="cc-modal-body">
-              <div className="cc-export-row">
-                <label className="cc-export-label">
-                  <span>Дата начала *</span>
-                  <input type="date" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} />
+              <div className="cc-form-row">
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Дата начала *</span>
+                  <input type="date" className="cc-form-input" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} />
                 </label>
-                <label className="cc-export-label">
-                  <span>Дата окончания *</span>
-                  <input type="date" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} />
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Дата окончания *</span>
+                  <input type="date" className="cc-form-input" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} />
                 </label>
               </div>
-              <div className="cc-export-row">
-                <label className="cc-export-label">
-                  <span>Источник</span>
-                  <select value={exportSource} onChange={e => setExportSource(e.target.value)}>
+              <div className="cc-form-row">
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Источник</span>
+                  <select className="cc-form-input" value={exportSource} onChange={e => setExportSource(e.target.value)}>
                     <option value="">Все источники</option>
-                    {sources.map(s => (
-                      <option key={s.source} value={s.source}>{SOURCE_LABEL(s.source)}</option>
-                    ))}
+                    {sources.map(s => <option key={s.source} value={s.source}>{SOURCE_LABEL(s.source)}</option>)}
                   </select>
                 </label>
-                <label className="cc-export-label">
-                  <span>Статус</span>
-                  <select value={exportStatus} onChange={e => setExportStatus(e.target.value)}>
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Статус</span>
+                  <select className="cc-form-input" value={exportStatus} onChange={e => setExportStatus(e.target.value)}>
                     <option value="">Все статусы</option>
-                    {ALL_STATUSES.map(s => (
-                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                    ))}
+                    {ALL_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                   </select>
                 </label>
               </div>
-              <p className="cc-export-hint">
-                Файл будет содержать два листа: «Лиды» (все данные) и «Статистика» (аналитика по периоду)
-              </p>
             </div>
             <div className="cc-modal-footer">
-              <button className="cc-btn cc-btn-primary" onClick={handleExport} disabled={exporting || !exportDateFrom || !exportDateTo}>
+              <button className="cc-btn cc-btn-consult" onClick={handleExport} disabled={exporting || !exportDateFrom || !exportDateTo}>
                 {exporting ? 'Формирование...' : 'Скачать отчёт'}
               </button>
               <button className="cc-link-btn" onClick={() => setShowExportModal(false)}>Отмена</button>

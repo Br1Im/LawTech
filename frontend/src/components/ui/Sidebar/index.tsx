@@ -34,7 +34,7 @@ interface SidebarProps {
     role: string;
     [key: string]: any;
   };
-  hasUnreadChat?: boolean;
+  unreadChatCount?: number;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onTabClick, 
   isMobile,
   user,
-  hasUnreadChat = false
+  unreadChatCount = 0
 }) => {
   const [isDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -131,8 +131,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   // Вкладки для колл-центра
   const ccTabNames = [
+    { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "Колл-центр", key: "14", icon: <BellOutlined /> },
     { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
     { name: "Чат", key: "13", icon: <MessageOutlined /> },
   ];
 
@@ -391,7 +393,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             }}
             items={tabNames.map((tab) => ({
               key: tab.key,
-              icon: tab.name === 'Чат' && hasUnreadChat ? <Badge dot offset={[4, 0]}>{tab.icon}</Badge> : tab.icon,
+              icon: tab.name === 'Чат' && unreadChatCount > 0 ? <Badge count={unreadChatCount} size="small" offset={[6, -2]}>{tab.icon}</Badge> : tab.icon,
               label: tab.name,
               title: tab.name,
               style: styles.menuItem,

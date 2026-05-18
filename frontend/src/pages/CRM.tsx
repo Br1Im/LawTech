@@ -94,7 +94,7 @@ const SRM = () => {
   const [showChangePassword, setShowChangePassword] = useState(() => localStorage.getItem('must_change_password') === 'true');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const unreadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const [notifications, setNotifications] = useState([
@@ -158,7 +158,7 @@ const SRM = () => {
         if (!officeId) return;
         const counts = await receptionAPI.getUnreadCounts(String(officeId));
         const total = Object.values(counts).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
-        setHasUnreadChat(total > 0);
+        setUnreadChatCount(total);
       } catch { /* ignore */ }
     };
     checkUnread();
@@ -169,7 +169,7 @@ const SRM = () => {
   // Reset badge when user is on Chat tab
   useEffect(() => {
     if (activeTab === 'Чат') {
-      setHasUnreadChat(false);
+      setUnreadChatCount(0);
     }
   }, [activeTab]);
 
@@ -318,7 +318,7 @@ const SRM = () => {
           onTabClick={handleTabClick}
           isMobile={isMobile}
           user={user ? { ...user } : undefined}
-          hasUnreadChat={hasUnreadChat}
+          unreadChatCount={unreadChatCount}
         />
         <Content style={styles.content}>
           {activeTab === "Офис" && <Office />}
