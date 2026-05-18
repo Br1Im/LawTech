@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  CalendarOutlined, PlusOutlined, LeftOutlined, RightOutlined,
+  CalendarOutlined, PlusOutlined,
   SearchOutlined, CheckCircleOutlined, CloseCircleOutlined,
   ClockCircleOutlined, EllipsisOutlined, UserOutlined,
-  CheckOutlined, PercentageOutlined, FilterOutlined,
+  CheckOutlined, FilterOutlined,
   EditOutlined, FileTextOutlined, MessageOutlined
 } from '@ant-design/icons';
-import { notification, Modal, Input, DatePicker, TimePicker, Select, Dropdown } from 'antd';
+import { notification, Modal, Input, DatePicker, TimePicker, Select, Dropdown, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
@@ -96,13 +96,14 @@ const Appointments: React.FC = () => {
   const { user } = useAuth();
   const canManage = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
   const canAssignLawyer = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
-  const isAdmin = ['admin','administrator'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
+  const canEditText = isCCRole;
+
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'today' | 'tomorrow' | 'all'>('today');
-  const [currentDate, setCurrentDate] = useState(dayjs());
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [dateMode, setDateMode] = useState<'day' | 'week'>('day');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterLawyer, setFilterLawyer] = useState<string>('all');
@@ -111,9 +112,9 @@ const Appointments: React.FC = () => {
   const [newModal, setNewModal] = useState(false);
   const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null as number | null });
   const [creating, setCreating] = useState(false);
-  const [archiveOpen, setArchiveOpen] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [editingText, setEditingText] = useState<{ id: number; field: 'comment' | 'manager_comment'; value: string } | null>(null);
+  const [editingDateTime, setEditingDateTime] = useState<{ id: number; date: dayjs.Dayjs; time: dayjs.Dayjs } | null>(null);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -180,8 +181,8 @@ const Appointments: React.FC = () => {
   const todayStr = isoDate(new Date());
   const tomorrowStr = isoDate(new Date(Date.now() + 86400000));
 
+  /* Stats always based on today */
   const todayAppts = useMemo(() => appointments.filter(a => toDate(a.appointment_date) === todayStr), [appointments, todayStr]);
-  const tomorrowAppts = useMemo(() => appointments.filter(a => toDate(a.appointment_date) === tomorrowStr), [appointments, tomorrowStr]);
 
   const stats = useMemo(() => {
     const list = todayAppts;
@@ -211,47 +212,22 @@ const Appointments: React.FC = () => {
     return r;
   }, [filterStatus, filterLawyer, filterSource, filterOperator, search]);
 
-  const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const upcoming = useMemo(() => {
-    return todayAppts
-      .filter(a => {
-        const [h, m] = (a.appointment_time || '').split(':').map(Number);
-        return (h * 60 + m) > nowMinutes && !['arrived', 'no_show', 'cancelled'].includes(a.status);
-      })
-      .sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-  }, [todayAppts, nowMinutes]);
-
+  /* Date-filtered list */
   const mainList = useMemo(() => {
-    if (tab === 'today') return applyFilters(todayAppts).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-    if (tab === 'tomorrow') return applyFilters(tomorrowAppts).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-    return applyFilters(appointments).sort((a, b) => {
-      const dc = b.appointment_date.localeCompare(a.appointment_date);
-      return dc !== 0 ? dc : a.appointment_time.localeCompare(b.appointment_time);
-    });
-  }, [tab, todayAppts, tomorrowAppts, appointments, applyFilters]);
-
-  const archiveDates = useMemo(() => {
-    const dates = new Map<string, AppointmentData[]>();
-    appointments.forEach(a => {
-      const d = toDate(a.appointment_date);
-      if (d < todayStr) {
-        if (!dates.has(d)) dates.set(d, []);
-        dates.get(d)!.push(a);
-      }
-    });
-    return [...dates.entries()].sort(([a], [b]) => b.localeCompare(a)).slice(0, 7);
-  }, [appointments, todayStr]);
-
-  const getCountdown = (time: string): string => {
-    const [h, m] = time.split(':').map(Number);
-    const diff = (h * 60 + m) - nowMinutes;
-    if (diff <= 0) return '';
-    if (diff < 60) return `через ${diff} мин`;
-    const hrs = Math.floor(diff / 60);
-    const mins = diff % 60;
-    return mins > 0 ? `через ${hrs} ч ${mins} мин` : `через ${hrs} ч`;
-  };
+    let filtered: AppointmentData[];
+    if (dateMode === 'week') {
+      const weekStart = selectedDate.startOf('week');
+      const weekEnd = selectedDate.endOf('week');
+      filtered = appointments.filter(a => {
+        const d = dayjs(toDate(a.appointment_date));
+        return d.isAfter(weekStart.subtract(1, 'day')) && d.isBefore(weekEnd.add(1, 'day'));
+      });
+    } else {
+      const dateStr = selectedDate.format('YYYY-MM-DD');
+      filtered = appointments.filter(a => toDate(a.appointment_date) === dateStr);
+    }
+    return applyFilters(filtered).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+  }, [selectedDate, dateMode, appointments, applyFilters]);
 
   const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
 
@@ -284,133 +260,171 @@ const Appointments: React.FC = () => {
     }
   };
 
-  const renderRow = (apt: AppointmentData, showCountdown = false) => {
+  const handleSaveDateTime = async () => {
+    if (!editingDateTime) return;
+    const { id, date, time } = editingDateTime;
+    try {
+      await apiInstance.patch(`/appointments/${id}`, {
+        appointment_date: date.format('YYYY-MM-DD'),
+        appointment_time: time.format('HH:mm'),
+      });
+      setAppointments(prev => prev.map(a => a.id === id ? { ...a, appointment_date: date.format('YYYY-MM-DD'), appointment_time: time.format('HH:mm') } : a));
+      notification.success({ message: 'Дата и время обновлены' });
+    } catch {
+      notification.error({ message: 'Ошибка', description: 'Не удалось обновить дату/время' });
+    }
+    setEditingDateTime(null);
+  };
+
+  const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
+
+  const renderCard = (apt: AppointmentData) => {
     const initials = getInitials(apt.client_name);
     const color = getAvatarColor(apt.client_name);
-    const countdown = showCountdown ? getCountdown(apt.appointment_time) : '';
     const canAct = ['waiting', 'confirmed'].includes(apt.status) && canManage;
     const menu = getRowMenu(apt);
+    const dateLabel = dayjs(toDate(apt.appointment_date)).format('D MMM');
+    const timeLabel = formatTime(apt.appointment_time);
 
     return (
-      <div key={apt.id} className="apt-row">
-        <div className="apt-row-time">
-          <span className="apt-time-value">{formatTime(apt.appointment_time)}</span>
-          {countdown && <span className="apt-countdown">{countdown}</span>}
+      <div key={apt.id} className="apt-card">
+        {/* LEFT: time */}
+        <div
+          className="apt-card-time"
+          onClick={() => setEditingDateTime({ id: apt.id, date: dayjs(toDate(apt.appointment_date)), time: dayjs(`2000-01-01 ${apt.appointment_time}`) })}
+          title="Нажмите, чтобы изменить дату/время"
+        >
+          <span className="apt-card-time-value">{timeLabel}</span>
+          <span className="apt-card-time-date">{dateLabel}</span>
         </div>
-        <div className="apt-row-avatar" style={{ background: color }}>{initials}</div>
-        <div className="apt-row-client">
-          <div className="apt-client-name">{apt.client_name}</div>
-          <div className="apt-client-phone">{apt.client_phone || '—'}</div>
-        </div>
-        <div className="apt-row-col apt-col-topic" onClick={e => { e.stopPropagation(); setEditingText({ id: apt.id, field: 'comment', value: apt.comment || '' }); }}>
-          <div className="apt-col-label"><FileTextOutlined style={{ marginRight: 3 }} />Тема</div>
-          {apt.comment ? (
-            <div className="apt-text-preview">
-              <span className="apt-text-preview-content">{apt.comment}</span>
-              <EditOutlined className="apt-text-edit-icon" />
-            </div>
-          ) : (
-            <div className="apt-text-empty">
-              <PlusOutlined style={{ marginRight: 4 }} />Добавить тему
-            </div>
-          )}
-        </div>
-        <div className="apt-row-col apt-col-time-edit" onClick={e => e.stopPropagation()}>
-          <div className="apt-col-label">Дата/Время</div>
-          <input
-            type="date"
-            className="apt-inline-date"
-            defaultValue={toDate(apt.appointment_date)}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val && val !== toDate(apt.appointment_date)) updateAppointmentField(apt.id, 'appointment_date', val);
-            }}
-          />
-          <input
-            type="time"
-            className="apt-inline-time"
-            defaultValue={formatTime(apt.appointment_time)}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val && val !== formatTime(apt.appointment_time)) updateAppointmentField(apt.id, 'appointment_time', val);
-            }}
-          />
-        </div>
-        <div className="apt-row-col apt-col-comment" onClick={e => { e.stopPropagation(); setEditingText({ id: apt.id, field: 'manager_comment', value: apt.manager_comment || '' }); }}>
-          <div className="apt-col-label"><MessageOutlined style={{ marginRight: 3 }} />Комментарий</div>
-          {apt.manager_comment ? (
-            <div className="apt-text-preview">
-              <span className="apt-text-preview-content">{apt.manager_comment}</span>
-              <EditOutlined className="apt-text-edit-icon" />
-            </div>
-          ) : (
-            <div className="apt-text-empty">
-              <PlusOutlined style={{ marginRight: 4 }} />Добавить
-            </div>
-          )}
-        </div>
-        <div className="apt-row-col">
-          <div className="apt-col-label">Источник</div>
-          <div className="apt-col-value">{apt.source || '—'}</div>
-        </div>
-        <div className="apt-row-col">
-          <div className="apt-col-label">Записал</div>
-          <div className="apt-col-value">{apt.operator_name || '—'}</div>
-        </div>
-        {!isCCRole && (
-          <div className="apt-row-col">
-            <div className="apt-col-label">Юрист</div>
-            <div className="apt-col-value">
-              {canAssignLawyer ? (
-                <Select
-                  value={apt.assigned_lawyer_id || undefined}
-                  onChange={(v: number) => assignLawyer(apt.id, v)}
-                  allowClear
-                  onClear={() => assignLawyer(apt.id, null)}
-                  placeholder="Назначить"
-                  size="small"
-                  style={{ width: '100%' }}
-                  popupMatchSelectWidth={false}
-                >
-                  {lawyers.map(e => (
-                    <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
-                  ))}
-                </Select>
-              ) : (
-                apt.lawyer_name || '—'
-              )}
+
+        {/* CENTER: info */}
+        <div className="apt-card-body">
+          <div className="apt-card-row-main">
+            <div className="apt-card-avatar" style={{ background: color }}>{initials}</div>
+            <div className="apt-card-client">
+              <span className="apt-card-client-name">{apt.client_name}</span>
+              <span className="apt-card-client-phone">{apt.client_phone || '—'}</span>
             </div>
           </div>
-        )}
-        <div className="apt-row-status">
+
+          <div className="apt-card-details">
+            {/* Topic */}
+            <div className="apt-card-field">
+              <span className="apt-card-field-label"><FileTextOutlined /> Тема</span>
+              {canEditText ? (
+                <div
+                  className={`apt-card-field-value ${apt.comment ? '' : 'empty'}`}
+                  onClick={() => setEditingText({ id: apt.id, field: 'comment', value: apt.comment || '' })}
+                >
+                  {apt.comment ? (
+                    <Tooltip title={apt.comment} placement="top" overlayStyle={{ maxWidth: 400 }}>
+                      <span className="apt-card-text-clamp">{apt.comment}</span>
+                    </Tooltip>
+                  ) : (
+                    <span className="apt-card-text-add"><PlusOutlined /> Добавить</span>
+                  )}
+                  <EditOutlined className="apt-card-edit-icon" />
+                </div>
+              ) : (
+                <div className="apt-card-field-value readonly">
+                  {apt.comment ? (
+                    <Tooltip title={apt.comment} placement="top" overlayStyle={{ maxWidth: 400 }}>
+                      <span className="apt-card-text-clamp">{apt.comment}</span>
+                    </Tooltip>
+                  ) : <span className="apt-card-text-na">—</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Comment */}
+            <div className="apt-card-field">
+              <span className="apt-card-field-label"><MessageOutlined /> Комментарий</span>
+              {canEditText ? (
+                <div
+                  className={`apt-card-field-value ${apt.manager_comment ? '' : 'empty'}`}
+                  onClick={() => setEditingText({ id: apt.id, field: 'manager_comment', value: apt.manager_comment || '' })}
+                >
+                  {apt.manager_comment ? (
+                    <Tooltip title={apt.manager_comment} placement="top" overlayStyle={{ maxWidth: 400 }}>
+                      <span className="apt-card-text-clamp">{apt.manager_comment}</span>
+                    </Tooltip>
+                  ) : (
+                    <span className="apt-card-text-add"><PlusOutlined /> Добавить</span>
+                  )}
+                  <EditOutlined className="apt-card-edit-icon" />
+                </div>
+              ) : (
+                <div className="apt-card-field-value readonly">
+                  {apt.manager_comment ? (
+                    <Tooltip title={apt.manager_comment} placement="top" overlayStyle={{ maxWidth: 400 }}>
+                      <span className="apt-card-text-clamp">{apt.manager_comment}</span>
+                    </Tooltip>
+                  ) : <span className="apt-card-text-na">—</span>}
+                </div>
+              )}
+            </div>
+
+            {/* Source */}
+            <div className="apt-card-field apt-card-field-small">
+              <span className="apt-card-field-label">Источник</span>
+              <span className="apt-card-field-text">{apt.source || '—'}</span>
+            </div>
+
+            {/* Operator */}
+            <div className="apt-card-field apt-card-field-small">
+              <span className="apt-card-field-label">Записал</span>
+              <span className="apt-card-field-text">{apt.operator_name || '—'}</span>
+            </div>
+
+            {/* Lawyer (only for non-CC roles) */}
+            {!isCCRole && (
+              <div className="apt-card-field apt-card-field-small">
+                <span className="apt-card-field-label">Юрист</span>
+                {canAssignLawyer ? (
+                  <Select
+                    value={apt.assigned_lawyer_id || undefined}
+                    onChange={(v: number) => assignLawyer(apt.id, v)}
+                    allowClear
+                    onClear={() => assignLawyer(apt.id, null)}
+                    placeholder="Назначить"
+                    size="small"
+                    style={{ width: '100%', maxWidth: 160 }}
+                    popupMatchSelectWidth={false}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {lawyers.map(e => (
+                      <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
+                    ))}
+                  </Select>
+                ) : (
+                  <span className="apt-card-field-text">{apt.lawyer_name || '—'}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: status + actions */}
+        <div className="apt-card-right">
           <span className={`apt-badge ${STATUS_CLASS[apt.status] || ''}`}>{STATUS_TEXT[apt.status] || apt.status}</span>
-        </div>
-        <div className="apt-row-actions">
-          {canAct && (
-            <>
-              <button
-                className="apt-icon-btn apt-icon-arrived"
-                onClick={() => updateStatus(apt.id, 'arrived')}
-                title="Пришёл"
-              >
-                <CheckOutlined />
-              </button>
-              <button
-                className="apt-icon-btn apt-icon-noshow"
-                onClick={() => updateStatus(apt.id, 'no_show')}
-                title="Не пришёл"
-              >
-                <CloseCircleOutlined />
-              </button>
-            </>
-          )}
-        </div>
-        <div className="apt-row-menu">
-          {menu && menu.length > 0 ? (
-            <Dropdown menu={{ items: menu }} trigger={['click']}>
-              <button className="apt-dots-btn"><EllipsisOutlined /></button>
-            </Dropdown>
-          ) : <span style={{ width: 32 }} />}
+          <div className="apt-card-actions">
+            {canAct && (
+              <>
+                <button className="apt-icon-btn apt-icon-arrived" onClick={() => updateStatus(apt.id, 'arrived')} title="Пришёл">
+                  <CheckOutlined />
+                </button>
+                <button className="apt-icon-btn apt-icon-noshow" onClick={() => updateStatus(apt.id, 'no_show')} title="Не пришёл">
+                  <CloseCircleOutlined />
+                </button>
+              </>
+            )}
+            {menu && menu.length > 0 ? (
+              <Dropdown menu={{ items: menu }} trigger={['click']}>
+                <button className="apt-dots-btn"><EllipsisOutlined /></button>
+              </Dropdown>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -419,38 +433,63 @@ const Appointments: React.FC = () => {
   if (loading) {
     return (
       <div className="apt-container">
-        <TableSkeleton rows={6} cols={6} withToolbar />
+        <TableSkeleton rows={6} cols={4} withToolbar />
       </div>
     );
   }
 
-  // lawyers is defined earlier, before renderRow
-
-  const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
-
   return (
     <div className="apt-container">
-      {/* Header: Title + Date Tabs */}
+      {/* Header */}
       <div className="apt-header">
         <h2 className="apt-title">Записи</h2>
         <div className="apt-header-right">
-          <div className="apt-date-tabs">
-            <button className={`apt-date-tab ${tab === 'today' ? 'active' : ''}`} onClick={() => setTab('today')}>
-              Сегодня, {dayjs().format('D MMM')} <span className="apt-date-tab-count">{todayAppts.length}</span>
-            </button>
-            <button className={`apt-date-tab ${tab === 'tomorrow' ? 'active' : ''}`} onClick={() => setTab('tomorrow')}>
-              Завтра <span className="apt-date-tab-count">{tomorrowAppts.length}</span>
-            </button>
-            <button className={`apt-date-tab ${tab === 'all' ? 'active' : ''}`} onClick={() => setTab('all')}>
-              Все <span className="apt-date-tab-count">{appointments.length}</span>
-            </button>
-          </div>
           {canManage && (
             <button className="apt-new-btn" onClick={() => setNewModal(true)}>
               <PlusOutlined /> Новая запись
             </button>
           )}
         </div>
+      </div>
+
+      {/* Date selector: quick buttons + date picker */}
+      <div className="apt-date-bar">
+        <div className="apt-quick-btns">
+          <button
+            className={`apt-quick-btn ${dateMode === 'day' && selectedDate.format('YYYY-MM-DD') === todayStr ? 'active' : ''}`}
+            onClick={() => { setSelectedDate(dayjs()); setDateMode('day'); }}
+          >
+            Сегодня
+          </button>
+          <button
+            className={`apt-quick-btn ${dateMode === 'day' && selectedDate.format('YYYY-MM-DD') === tomorrowStr ? 'active' : ''}`}
+            onClick={() => { setSelectedDate(dayjs().add(1, 'day')); setDateMode('day'); }}
+          >
+            Завтра
+          </button>
+          <button
+            className={`apt-quick-btn ${dateMode === 'week' ? 'active' : ''}`}
+            onClick={() => { setSelectedDate(dayjs()); setDateMode('week'); }}
+          >
+            Неделя
+          </button>
+        </div>
+        <div className="apt-date-picker-wrap">
+          <DatePicker
+            value={selectedDate}
+            onChange={d => { if (d) { setSelectedDate(d); setDateMode('day'); } }}
+            format="D MMMM, dd"
+            allowClear={false}
+            suffixIcon={<CalendarOutlined />}
+            className="apt-date-picker"
+          />
+        </div>
+        <span className="apt-date-label">
+          {dateMode === 'week'
+            ? `${selectedDate.startOf('week').format('D MMM')} – ${selectedDate.endOf('week').format('D MMM')}`
+            : selectedDate.format('D MMMM YYYY, dddd')
+          }
+        </span>
       </div>
 
       {/* Compact Stats Bar */}
@@ -500,7 +539,7 @@ const Appointments: React.FC = () => {
         </div>
       </div>
 
-      {/* Toolbar: Search + Filters toggle */}
+      {/* Toolbar */}
       <div className="apt-toolbar">
         <Input
           prefix={<SearchOutlined />}
@@ -518,11 +557,9 @@ const Appointments: React.FC = () => {
           Фильтры
           {hasActiveFilters && <span className="apt-filter-dot" />}
         </button>
-        <div className="apt-toolbar-spacer" />
-        <span className="apt-sort-label">Сортировка: <b>По времени</b></span>
       </div>
 
-      {/* Collapsible filter panel */}
+      {/* Filter panel */}
       {showFilters && (
         <div className="apt-filter-panel">
           <Select value={filterStatus} onChange={setFilterStatus} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
@@ -556,65 +593,25 @@ const Appointments: React.FC = () => {
         </div>
       )}
 
-      {/* Main list */}
-      <div className="apt-section">
-        <div className="apt-records-card">
-          <div className="apt-records-card-header">
-            <span className="apt-records-card-title">
-              {tab === 'today' ? 'Записи на сегодня' : tab === 'tomorrow' ? 'Записи на завтра' : 'Все записи'}
-            </span>
-            <span className="apt-records-card-count">{mainList.length}</span>
+      {/* Cards list */}
+      <div className="apt-cards-list">
+        {mainList.length > 0 ? (
+          mainList.map(a => renderCard(a))
+        ) : (
+          <div className="apt-empty-state">
+            <div className="apt-empty-state-icon"><CalendarOutlined /></div>
+            <h3 className="apt-empty-state-title">
+              {dateMode === 'week' ? 'Записей на эту неделю нет' : `Записей на ${selectedDate.format('D MMMM')} нет`}
+            </h3>
+            <p className="apt-empty-state-text">Выберите другую дату или создайте новую запись</p>
+            {canManage && (
+              <button className="apt-empty-state-btn" onClick={() => setNewModal(true)}>
+                <PlusOutlined /> Создать запись
+              </button>
+            )}
           </div>
-          <div className="apt-rows">
-            {mainList.length > 0
-              ? mainList.map(a => renderRow(a))
-              : (
-                <div className="apt-empty-state">
-                  <div className="apt-empty-state-icon">
-                    <CalendarOutlined />
-                  </div>
-                  <h3 className="apt-empty-state-title">
-                    {tab === 'today' ? 'Записей на сегодня пока нет' : tab === 'tomorrow' ? 'Записей на завтра пока нет' : 'Записи не найдены'}
-                  </h3>
-                  <p className="apt-empty-state-text">Новые записи появятся здесь автоматически</p>
-                  {canManage && (
-                    <button className="apt-empty-state-btn" onClick={() => setNewModal(true)}>
-                      <PlusOutlined /> Создать запись
-                    </button>
-                  )}
-                </div>
-              )
-            }
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Archive */}
-      {tab === 'today' && archiveDates.length > 0 && (
-        <div className="apt-archive-section">
-          <div className="apt-archive-label">Прошедшие записи</div>
-          {archiveDates.map(([date, appts]) => {
-            const d = dayjs(date);
-            const key = date;
-            const isOpen = !!archiveOpen[key];
-            return (
-              <div key={key} className={`apt-archive-card ${isOpen ? 'open' : ''}`} onClick={() => setArchiveOpen(p => ({ ...p, [key]: !p[key] }))}>
-                <div className="apt-archive-card-header">
-                  <CalendarOutlined className="apt-archive-card-icon" />
-                  <span className="apt-archive-card-date">{d.format('D MMMM, dddd')}</span>
-                  <span className="apt-archive-card-count">{appts.length}</span>
-                  <span className={`apt-archive-chevron ${isOpen ? 'open' : ''}`}>&#8250;</span>
-                </div>
-                {isOpen && (
-                  <div className="apt-rows" onClick={e => e.stopPropagation()}>
-                    {appts.sort((a, b) => a.appointment_time.localeCompare(b.appointment_time)).map(a => renderRow(a))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* New Appointment Modal */}
       <Modal
@@ -706,6 +703,42 @@ const Appointments: React.FC = () => {
               style={{ fontSize: 14, lineHeight: '1.6' }}
               autoFocus
             />
+          </div>
+        )}
+      </Modal>
+
+      {/* Date/Time Edit Modal */}
+      <Modal
+        title="Изменить дату и время"
+        open={!!editingDateTime}
+        onCancel={() => setEditingDateTime(null)}
+        onOk={handleSaveDateTime}
+        okText="Сохранить"
+        cancelText="Отмена"
+        destroyOnClose
+        width={400}
+      >
+        {editingDateTime && (
+          <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата</div>
+              <DatePicker
+                value={editingDateTime.date}
+                onChange={d => setEditingDateTime(prev => prev ? { ...prev, date: d || prev.date } : null)}
+                format="DD.MM.YYYY"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Время</div>
+              <TimePicker
+                value={editingDateTime.time}
+                onChange={t => setEditingDateTime(prev => prev ? { ...prev, time: t || prev.time } : null)}
+                format="HH:mm"
+                style={{ width: '100%' }}
+                minuteStep={5}
+              />
+            </div>
           </div>
         )}
       </Modal>
