@@ -113,6 +113,7 @@ const Salary: React.FC = () => {
   const { message } = App.useApp();
   const isDirector = ['director', 'admin', 'owner'].includes(String(user?.role || '').toLowerCase());
   const isManagerOrAbove = ['director', 'admin', 'owner', 'manager'].includes(String(user?.role || '').toLowerCase());
+  const isLawyer = String(user?.role || '').toLowerCase() === 'lawyer';
 
   const [period, setPeriod] = useState<PeriodKey>('month');
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
@@ -360,8 +361,13 @@ const Salary: React.FC = () => {
     },
   ];
 
+  // Юрист видит только свою зарплату
+  const visibleRows = isLawyer && user?.id
+    ? (data?.rows || []).filter(r => r.employee_id === user.id)
+    : (data?.rows || []);
+
   // ФОТ — сумма зарплат всех сотрудников офиса
-  const totalPayroll = (data?.rows || [])
+  const totalPayroll = visibleRows
     .reduce((acc, r) => acc + (Number(r.total) || 0), 0);
 
   return (
@@ -401,26 +407,30 @@ const Salary: React.FC = () => {
           <div className="lbl">Период</div>
           <div className="val">{range[0]} — {range[1]}</div>
         </Stat>
-        <Stat>
-          <div className="lbl">Касса офиса</div>
-          <div className="val">{formatMoney(data?.office_cash)}</div>
-        </Stat>
-        <Stat>
-          <div className="lbl">Расходы офиса</div>
-          <div className="val">{formatMoney(data?.office_expenses)}</div>
-        </Stat>
-        <Stat>
-          <div className="lbl">Прибыль офиса</div>
-          <div className="val">{formatMoney(data?.office_profit)}</div>
-        </Stat>
-        <Stat>
-          <div className="lbl">ФОТ</div>
-          <div className="val">{formatMoney(totalPayroll)}</div>
-        </Stat>
-        <Stat>
-          <div className="lbl">Сотрудников в расчёте</div>
-          <div className="val">{data?.rows?.length || 0}</div>
-        </Stat>
+        {!isLawyer && (
+          <>
+            <Stat>
+              <div className="lbl">Касса офиса</div>
+              <div className="val">{formatMoney(data?.office_cash)}</div>
+            </Stat>
+            <Stat>
+              <div className="lbl">Расходы офиса</div>
+              <div className="val">{formatMoney(data?.office_expenses)}</div>
+            </Stat>
+            <Stat>
+              <div className="lbl">Прибыль офиса</div>
+              <div className="val">{formatMoney(data?.office_profit)}</div>
+            </Stat>
+            <Stat>
+              <div className="lbl">ФОТ</div>
+              <div className="val">{formatMoney(totalPayroll)}</div>
+            </Stat>
+            <Stat>
+              <div className="lbl">Сотрудников в расчёте</div>
+              <div className="val">{data?.rows?.length || 0}</div>
+            </Stat>
+          </>
+        )}
       </StatRow>
 
       <Tabs
@@ -433,7 +443,7 @@ const Salary: React.FC = () => {
                 <Table<SalaryRow>
                   rowKey="employee_id"
                   columns={columns}
-                  dataSource={data?.rows || []}
+                  dataSource={visibleRows}
                   loading={loading}
                   pagination={false}
                   locale={{ emptyText: <Empty description="Нет сотрудников или акт за период" /> }}
@@ -441,7 +451,7 @@ const Salary: React.FC = () => {
               </TableCard>
             ),
           },
-          {
+          ...(!isLawyer ? [{
             key: 'shifts',
             label: 'Смены администраторов',
             children: (
@@ -475,7 +485,7 @@ const Salary: React.FC = () => {
                 </TableCard>
               </Space>
             ),
-          },
+          }] : []),
 
         ]}
       />

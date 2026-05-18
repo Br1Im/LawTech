@@ -214,15 +214,16 @@ app.get('*', (req, res) => {
 
 // Обработка 404 ошибки
 app.use((req, res, next) => {
-  res.status(404).json({ success: false, message: 'Not Found' });
+  res.status(404).json({ error: 'Not Found' });
 });
 
 // Обработка ошибок
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error'
+    error: {
+      message: err.message || 'Internal Server Error'
+    }
   });
 });
 
@@ -238,52 +239,58 @@ const initializeVectorSearch = async () => {
   }
 };
 
-// Инициализация Socket.IO (только в не-тестовом окружении — Socket.IO
-// держит интервалы, которые мешают Jest корректно завершиться)
-if (process.env.NODE_ENV !== 'test') {
-  socketManager.init(server);
-}
+// Инициализация Socket.IO
+socketManager.init(server);
 
-// Запуск сервера — пропускаем при NODE_ENV=test (Supertest сам биндит порт)
-if (process.env.NODE_ENV !== 'test') server.listen(PORT, '0.0.0.0', async () => {
+// Запуск сервера
+server.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 LawTech Server running on port ${PORT} (with WebSocket)`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);
   
-  // Проверка и создание необходимых полей в БД (включает seedDefaultUsers)
+  // Проверка и создание необходимых полей в БД
   await checkAndCreateDatabaseFields();
   
+  // Создаем тестовые аккаунты
+  try {
+    console.log('👤 Создание тестовых аккаунтов...');
+    const { seedDefaultUsers } = require('./scripts/seed_default_users');
+    await seedDefaultUsers();
+    console.log('✅ Тестовые аккаунты созданы успешно');
+  } catch (error) {
+    console.error('❌ Ошибка при создании тестовых аккаунтов:', error);
+  }
+  
   // Инициализируем векторный поиск
+  console.log('Initializing vector search...');
   try {
     await initializeVectorSearch();
+    console.log('Vector search initialized successfully');
   } catch (error) {
     console.error('Error initializing vector search:', error);
+  }
+
+  // Gainnet integration
+  try {
+    const gainnetService = require('./services/gainnetService');
+    await gainnetService.init();
+    console.log('✅ Gainnet integration initialized');
+  } catch (error) {
+    console.error('❌ Gainnet init error:', error);
   }
   
   console.log('✅ Server is ready to accept requests');
 });
 
-// Graceful shutdown — корректно закрываем соединения
-const gracefulShutdown = (signal) => {
-  console.log(`${signal} received, shutting down gracefully`);
-  server.close(async () => {
-    try {
-      const db = require('./db');
-      await db.close();
-      console.log('Database connections closed');
-    } catch (err) {
-      console.error('Error closing DB:', err);
-    }
-    process.exit(0);
-  });
-  // Если за 10 секунд не закрылся — принудительно
-  setTimeout(() => {
-    console.error('Forced shutdown after timeout');
-    process.exit(1);
-  }, 10000);
-};
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
 
 module.exports = app;

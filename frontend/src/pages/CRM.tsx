@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Layout } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
@@ -17,6 +17,8 @@ import Acts from '../components/Acts';
 import Salary from '../components/Salary';
 import Appointments from '../components/Appointments';
 import MyCases from '../components/MyCases';
+import MiniCalendar from '../components/ui/MiniCalendar';
+import { FaCalendarAlt, FaTimes } from 'react-icons/fa';
 import NotificationPanel from '../components/NotificationPanel';
 import OfficeChat from '../components/OfficeChat';
 import CashRegister from '../components/CashRegister';
@@ -27,6 +29,8 @@ import Sidebar from "../components/ui/Sidebar";
 import MobileSidebar from "../components/ui/MobileSidebar";
 import HamburgerButton from "../components/ui/HamburgerButton";
 import ChangePasswordModal from "../components/ChangePasswordModal";
+import { receptionAPI } from '../shared/api/reception';
+import { apiInstance } from '../shared/api/instance';
 
 const { Content } = Layout;
 
@@ -88,7 +92,10 @@ const SRM = () => {
     return document.documentElement.getAttribute('data-theme') === 'dark';
   });
   const [showChangePassword, setShowChangePassword] = useState(() => localStorage.getItem('must_change_password') === 'true');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const unreadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const [notifications, setNotifications] = useState([
     {
@@ -142,6 +149,29 @@ const SRM = () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [isDarkTheme]);
+
+  // Poll unread chat messages for badge
+  useEffect(() => {
+    const checkUnread = async () => {
+      try {
+        const officeId = localStorage.getItem('activeOfficeId') || user?.office_id;
+        if (!officeId) return;
+        const counts = await receptionAPI.getUnreadCounts(String(officeId));
+        const total = Object.values(counts).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+        setHasUnreadChat(total > 0);
+      } catch { /* ignore */ }
+    };
+    checkUnread();
+    unreadPollRef.current = setInterval(checkUnread, 15000);
+    return () => { if (unreadPollRef.current) clearInterval(unreadPollRef.current); };
+  }, [user?.office_id]);
+
+  // Reset badge when user is on Chat tab
+  useEffect(() => {
+    if (activeTab === 'Чат') {
+      setHasUnreadChat(false);
+    }
+  }, [activeTab]);
 
 
 
@@ -288,6 +318,7 @@ const SRM = () => {
           onTabClick={handleTabClick}
           isMobile={isMobile}
           user={user ? { ...user } : undefined}
+          hasUnreadChat={hasUnreadChat}
         />
         <Content style={styles.content}>
           {activeTab === "Офис" && <Office />}

@@ -3,41 +3,9 @@
  */
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// В тестах (NODE_ENV=test для Jest или NODE_ENV=e2e для Playwright) лимиты
-// поднимаем на потолок — иначе интеграционные/E2E тесты, которые регистрируют
-// сотни директоров подряд из одного IP, упрутся в 429.
-const isTestEnv = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'e2e';
-
-// Брутфорс-защита логина: 10 неуспешных попыток на 15 минут с одного IP
-// (успешные ответы не считаются — skipSuccessfulRequests).
-const loginRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: isTestEnv ? 100000 : 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  message: {
-    success: false,
-    message: 'Слишком много попыток входа. Попробуйте через 15 минут.',
-  },
-});
-
-// Регистрация: 5 аккаунтов в час с одного IP (антиспам).
-const registerRateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: isTestEnv ? 100000 : 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Слишком много регистраций с этого IP. Попробуйте позже.',
-  },
-});
 const config = require('../config');
 const { authenticateToken } = require('../middleware/auth');
 const authController = require('../controllers/auth');
@@ -51,8 +19,6 @@ const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
 const callCenterRoutes = require('./callCenter');
-const caseWorkflowRoutes = require('./caseWorkflow');
-const crmModulesRoutes = require('./crmModules');
 const employeeManagement = require('../controllers/employeeManagementController');
 // const joinRequestController = require('../controllers/joinRequestController');
 
@@ -78,11 +44,16 @@ router.get('/health', (req, res) => {
 });
 
 // Маршруты аутентификации
-router.post('/auth/login', loginRateLimiter, authController.login);
-router.post('/auth/register', registerRateLimiter, authController.register);
+router.post('/auth/login', authController.login);
+router.post('/auth/register', authController.register);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
 router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
+
+// Gainnet webhook — no auth required (verified by webhook key inside handler)
+const gainnetService = require('../services/gainnetService');
+router.post('/gainnet/webhook', gainnetService.handleWebhook);
+
 router.use('/call-center', callCenterRoutes.router);
 
 // Маршруты для записей (appointments) — доступны всем авторизованным
@@ -91,6 +62,7 @@ router.get('/appointments', authenticateToken, callCenterController.getAppointme
 router.post('/appointments', authenticateToken, callCenterController.createDirectAppointment);
 router.patch('/appointments/:id/status', authenticateToken, callCenterController.updateAppointmentStatus);
 router.patch('/appointments/:id/consultation-result', authenticateToken, callCenterController.setConsultationResult);
+router.patch('/appointments/:id', authenticateToken, callCenterController.updateAppointment);
 
 // Маршруты для Приходов (visits)
 router.get('/visits/primary', authenticateToken, callCenterController.getPrimaryVisits);
@@ -254,24 +226,6 @@ router.get('/employees', authenticateToken, async (req, res) => {
     const db = require('../db');
     const officeId = req.query.office_id || req.user.office_id;
     if (!officeId) return res.json({ success: true, data: [] });
-
-    const page = parseInt(req.query.page, 10);
-    const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
-
-    if (page > 0) {
-      const [[{ total }]] = await db.query(
-        'SELECT COUNT(*) AS total FROM employees e WHERE e.office_id = ?', [officeId]
-      );
-      const offset = (page - 1) * pageSize;
-      const [rows] = await db.query(
-        `SELECT e.*, u.role AS user_role
-         FROM employees e LEFT JOIN users u ON u.email = e.email
-         WHERE e.office_id = ? ORDER BY e.last_name, e.first_name LIMIT ? OFFSET ?`,
-        [officeId, pageSize, offset]
-      );
-      return res.json({ success: true, data: rows, total, page, page_size: pageSize });
-    }
-
     const [rows] = await db.query(
       `SELECT e.*, u.role AS user_role
        FROM employees e
@@ -413,13 +367,4 @@ router.get('/legal-documents/:id/similar', authenticateToken, legalDocumentsCont
 // Маршруты для работы с договорами (contracts) - используем новый контроллер через contractRoutes
 // Старые маршруты удалены, используются новые из ./contracts.js
 
-// CRM modules: cases, expenses, arrivals, materials CRUD
-router.use('/', crmModulesRoutes);
-
-// Case workflow: materials upload, inbox, expert assignment
-router.use('/', caseWorkflowRoutes);
-
-// Export leads report
-const exportController = require("../controllers/exportController");
-router.get("/export/leads-report", authenticateToken, exportController.exportLeadsReport);
 module.exports = router;

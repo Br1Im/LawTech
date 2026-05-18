@@ -516,9 +516,9 @@
   color: #5A5E72;
   background: rgba(255,255,255,0.02);
 }
-[data-theme="dark"] .exp-no-data { color: #363C4E; }
+[data-theme="dark"] .exp-no-data { color: #5A5E72; }
 [data-theme="dark"] .exp-no-details { color: #5A5E72; }
-[data-theme="dark"] .exp-amount-zero { color: #363C4E; }
+[data-theme="dark"] .exp-amount-zero { color: #5A5E72; }
 [data-theme="dark"] .exp-btn-cancel { background: #1D2230; color: #8B8FA3; }
 [data-theme="dark"] .exp-btn-cancel:hover { background: #2A2F3D; }
 [data-theme="dark"] .exp-table-wrapper { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }

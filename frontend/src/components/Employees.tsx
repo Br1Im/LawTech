@@ -6,7 +6,6 @@ import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
-import { TableSkeleton, EmptyState } from "./ui";
 import "./EmployeesPolish.css";
 
 interface StaffMember {
@@ -68,14 +67,21 @@ const formatPhone = (raw: string): string => {
 };
 
 const copyToClipboard = (text: string) => {
-  navigator.clipboard.writeText(text).catch(() => {
+  const fallback = () => {
     const ta = document.createElement('textarea');
     ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
     document.body.appendChild(ta);
     ta.select();
-    document.execCommand('copy');
+    try { document.execCommand('copy'); } catch (_) { /* ignore */ }
     document.body.removeChild(ta);
-  });
+  };
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(text).catch(fallback);
+  } else {
+    fallback();
+  }
 };
 
 // ===== Карточка сотрудника =====
@@ -597,7 +603,7 @@ const Employees = () => {
       </div>
 
       {loading ? (
-        <TableSkeleton rows={4} cols={3} withToolbar={false} />
+        <div className="no-employees"><p>Загрузка…</p></div>
       ) : filteredEmployees.length > 0 ? (
         <div className="employees-grid">
           {filteredEmployees.map((emp) => (
@@ -607,10 +613,7 @@ const Employees = () => {
           ))}
         </div>
       ) : (
-        <EmptyState
-          title="Сотрудники не найдены"
-          description="Попробуйте изменить фильтры или добавить нового сотрудника."
-        />
+        <div className="no-employees"><p>Сотрудники не найдены</p></div>
       )}
 
       {selectedEmployee && (

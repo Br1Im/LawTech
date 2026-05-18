@@ -288,14 +288,28 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ user }) => {
   }, [user, isOwner]);
   
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(inviteLink)
-      .then(() => {
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
-      })
-      .catch(err => {
-        console.error('Не удалось скопировать ссылку: ', err);
-      });
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = inviteLink;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) { /* ignore */ }
+      document.body.removeChild(ta);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    };
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(inviteLink)
+        .then(() => {
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+        })
+        .catch(fallback);
+    } else {
+      fallback();
+    }
   };
   
   // Получаем отфильтрованных сотрудников

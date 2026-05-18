@@ -3,7 +3,8 @@ import {
   CalendarOutlined, PlusOutlined, LeftOutlined, RightOutlined,
   SearchOutlined, CheckCircleOutlined, CloseCircleOutlined,
   ClockCircleOutlined, EllipsisOutlined, UserOutlined,
-  CheckOutlined, PercentageOutlined, FilterOutlined
+  CheckOutlined, PercentageOutlined, FilterOutlined,
+  EditOutlined, FileTextOutlined, MessageOutlined
 } from '@ant-design/icons';
 import { notification, Modal, Input, DatePicker, TimePicker, Select, Dropdown } from 'antd';
 import type { MenuProps } from 'antd';
@@ -94,7 +95,7 @@ const STATUS_CLASS: Record<string, string> = {
 const Appointments: React.FC = () => {
   const { user } = useAuth();
   const canManage = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
-  const canAssignLawyer = ['director','manager','okk'].includes(user?.role || '');
+  const canAssignLawyer = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
   const isAdmin = ['admin','administrator'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
@@ -112,6 +113,7 @@ const Appointments: React.FC = () => {
   const [creating, setCreating] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
+  const [editingText, setEditingText] = useState<{ id: number; field: 'comment' | 'manager_comment'; value: string } | null>(null);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -263,6 +265,15 @@ const Appointments: React.FC = () => {
     return items;
   };
 
+  const updateAppointmentField = async (appointmentId: number, field: string, value: string | null) => {
+    try {
+      await apiInstance.patch(`/appointments/${appointmentId}`, { [field]: value });
+      setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, [field]: value } : a));
+    } catch {
+      notification.error({ message: 'Ошибка', description: 'Не удалось обновить запись' });
+    }
+  };
+
   const assignLawyer = async (appointmentId: number, lawyerId: number | null) => {
     try {
       await apiInstance.patch(`/appointments/${appointmentId}/assign-lawyer`, { assigned_lawyer_id: lawyerId });
@@ -291,9 +302,52 @@ const Appointments: React.FC = () => {
           <div className="apt-client-name">{apt.client_name}</div>
           <div className="apt-client-phone">{apt.client_phone || '—'}</div>
         </div>
-        <div className="apt-row-col">
-          <div className="apt-col-label">Тема</div>
-          <div className="apt-col-value">{apt.comment || '—'}</div>
+        <div className="apt-row-col apt-col-topic" onClick={e => { e.stopPropagation(); setEditingText({ id: apt.id, field: 'comment', value: apt.comment || '' }); }}>
+          <div className="apt-col-label"><FileTextOutlined style={{ marginRight: 3 }} />Тема</div>
+          {apt.comment ? (
+            <div className="apt-text-preview">
+              <span className="apt-text-preview-content">{apt.comment}</span>
+              <EditOutlined className="apt-text-edit-icon" />
+            </div>
+          ) : (
+            <div className="apt-text-empty">
+              <PlusOutlined style={{ marginRight: 4 }} />Добавить тему
+            </div>
+          )}
+        </div>
+        <div className="apt-row-col apt-col-time-edit" onClick={e => e.stopPropagation()}>
+          <div className="apt-col-label">Дата/Время</div>
+          <input
+            type="date"
+            className="apt-inline-date"
+            defaultValue={toDate(apt.appointment_date)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val && val !== toDate(apt.appointment_date)) updateAppointmentField(apt.id, 'appointment_date', val);
+            }}
+          />
+          <input
+            type="time"
+            className="apt-inline-time"
+            defaultValue={formatTime(apt.appointment_time)}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val && val !== formatTime(apt.appointment_time)) updateAppointmentField(apt.id, 'appointment_time', val);
+            }}
+          />
+        </div>
+        <div className="apt-row-col apt-col-comment" onClick={e => { e.stopPropagation(); setEditingText({ id: apt.id, field: 'manager_comment', value: apt.manager_comment || '' }); }}>
+          <div className="apt-col-label"><MessageOutlined style={{ marginRight: 3 }} />Комментарий</div>
+          {apt.manager_comment ? (
+            <div className="apt-text-preview">
+              <span className="apt-text-preview-content">{apt.manager_comment}</span>
+              <EditOutlined className="apt-text-edit-icon" />
+            </div>
+          ) : (
+            <div className="apt-text-empty">
+              <PlusOutlined style={{ marginRight: 4 }} />Добавить
+            </div>
+          )}
         </div>
         <div className="apt-row-col">
           <div className="apt-col-label">Источник</div>
@@ -594,7 +648,7 @@ const Appointments: React.FC = () => {
           </div>
           <div>
             <div style={{ marginBottom: 4, fontWeight: 500 }}>Тема</div>
-            <Input value={newForm.comment} onChange={e => setNewForm(f => ({ ...f, comment: e.target.value }))} placeholder="Тема консультации" />
+            <Input.TextArea value={newForm.comment} onChange={e => setNewForm(f => ({ ...f, comment: e.target.value }))} placeholder="Тема консультации" rows={3} autoSize={{ minRows: 2, maxRows: 6 }} />
           </div>
           <div>
             <div style={{ marginBottom: 4, fontWeight: 500 }}>Источник</div>
@@ -615,6 +669,45 @@ const Appointments: React.FC = () => {
             </Select>
           </div>
         </div>
+      </Modal>
+
+      {/* Text Edit Modal */}
+      <Modal
+        title={editingText?.field === 'comment' ? 'Тема консультации' : 'Комментарий'}
+        open={!!editingText}
+        onCancel={() => {
+          if (editingText) {
+            const original = appointments.find(a => a.id === editingText.id);
+            const originalVal = original ? (editingText.field === 'comment' ? original.comment : original.manager_comment) || '' : '';
+            if (editingText.value.trim() !== originalVal.trim()) {
+              updateAppointmentField(editingText.id, editingText.field, editingText.value.trim() || null);
+            }
+          }
+          setEditingText(null);
+        }}
+        onOk={() => {
+          if (editingText) {
+            updateAppointmentField(editingText.id, editingText.field, editingText.value.trim() || null);
+          }
+          setEditingText(null);
+        }}
+        okText="Сохранить"
+        cancelText="Отмена"
+        destroyOnClose
+        width={560}
+      >
+        {editingText && (
+          <div style={{ marginTop: 12 }}>
+            <Input.TextArea
+              value={editingText.value}
+              onChange={e => setEditingText(prev => prev ? { ...prev, value: e.target.value } : null)}
+              placeholder={editingText.field === 'comment' ? 'Введите тему консультации...' : 'Введите комментарий...'}
+              autoSize={{ minRows: 4, maxRows: 12 }}
+              style={{ fontSize: 14, lineHeight: '1.6' }}
+              autoFocus
+            />
+          </div>
+        )}
       </Modal>
     </div>
   );

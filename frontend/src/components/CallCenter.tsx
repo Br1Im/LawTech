@@ -786,7 +786,7 @@ const CallCenter: React.FC = () => {
                       </td>
                       <td className="cc-td-desc">
                         {lead.description ? (
-                          <span className="cc-lead-desc">{lead.description.length > 60 ? lead.description.slice(0, 60) + '…' : lead.description}</span>
+                          <span className="cc-lead-desc">{lead.description.length > 120 ? lead.description.slice(0, 120) + '…' : lead.description}</span>
                         ) : (
                           <span className="cc-muted">—</span>
                         )}
@@ -935,6 +935,14 @@ const CallCenter: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* DESCRIPTION */}
+            {selectedLead.description && (
+              <div className="cc-drawer-section">
+                <h4 className="cc-section-title">Описание обращения</h4>
+                <p style={{ whiteSpace: 'pre-wrap', margin: 0, fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>{selectedLead.description}</p>
+              </div>
+            )}
 
             {/* BOOKING FORM */}
             {showBookingForm ? (

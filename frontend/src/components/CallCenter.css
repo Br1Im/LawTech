@@ -394,13 +394,15 @@
 
 /* Description column */
 .cc-td-desc {
-  max-width: 220px;
+  max-width: 400px;
 }
 .cc-td-desc .cc-lead-desc {
   font-style: normal;
   font-size: 13px;
   color: var(--color-text-secondary, #6b7280);
   line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Status badges */

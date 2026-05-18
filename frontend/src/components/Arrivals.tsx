@@ -159,7 +159,7 @@ const fmtDT = (d: string) => {
 const Arrivals: React.FC = () => {
   const { user } = useAuth();
   const { message } = App.useApp();
-  const canSetResult = ['admin', 'administrator'].includes(user?.role || '');
+  const canSetResult = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
 
   const [tab, setTab] = useState('primary');
@@ -453,7 +453,6 @@ const Arrivals: React.FC = () => {
         appointmentData={registerAppointment ? {
           id: registerAppointment.id,
           client_name: registerAppointment.client_name,
-          client_phone: registerAppointment.client_phone,
           assigned_lawyer_id: registerAppointment.assigned_lawyer_id,
         } : null}
       />

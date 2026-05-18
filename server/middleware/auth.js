@@ -17,12 +17,7 @@ const authenticateToken = (req, res, next) => {
     token = xAuthToken;
   }
 
-  console.log(`🔐 Auth check for ${req.method} ${req.url}`);
-  console.log(`📋 Auth header: ${authHeader ? 'present' : 'missing'}`);
-  console.log(`🎫 Token: ${token ? 'present' : 'missing'}`);
-
   if (!token) {
-    console.log('❌ No token provided');
     return res.status(401).json({
       success: false,
       message: 'Токен доступа не предоставлен'
@@ -31,14 +26,11 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, config.JWT_SECRET, (err, user) => {
     if (err) {
-      console.log('❌ Token verification failed:', err.message);
       return res.status(403).json({
         success: false,
         message: 'Недействительный токен'
       });
     }
-    
-    console.log('✅ Token verified successfully for user:', user.id);
     req.user = user;
 
     // Директор может переключать офис через заголовок X-Office-Id

@@ -318,7 +318,7 @@
 [data-theme="dark"] .plan-fact-label { color: #5A5E72; }
 [data-theme="dark"] .plan-fact-label .plan-day-kind { color: #5A5E72; }
 [data-theme="dark"] .plan-fact-value .fact { color: #E6E8EF; }
-[data-theme="dark"] .plan-fact-value .sep { color: #363C4E; }
+[data-theme="dark"] .plan-fact-value .sep { color: #5A5E72; }
 [data-theme="dark"] .plan-fact-value .plan { color: #5A5E72; }
 
 /* ── Additional dark theme overrides ── */

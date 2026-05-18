@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Layout, Menu } from "antd";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { Layout, Menu, Badge } from "antd";
 import {
   ApartmentOutlined,
   FileTextOutlined,
@@ -17,6 +17,8 @@ import {
   AuditOutlined,
   SolutionOutlined,
   FormOutlined,
+  MessageOutlined,
+  FallOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -32,6 +34,7 @@ interface SidebarProps {
     role: string;
     [key: string]: any;
   };
+  hasUnreadChat?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -40,7 +43,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeTab, 
   onTabClick, 
   isMobile,
-  user 
+  user,
+  hasUnreadChat = false
 }) => {
   const [isDarkTheme] = useState<boolean>(
     () => document.documentElement.getAttribute('data-theme') === 'dark'
@@ -91,6 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для экспертов
@@ -98,6 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
     { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Календарь", key: "11", icon: <CalendarOutlined /> },
   ];
 
   // Фильтрация пунктов меню для администраторов
@@ -107,23 +113,42 @@ const Sidebar: React.FC<SidebarProps> = ({
     { name: "Касса", key: "12", icon: <BankOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
     { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
+  ];
+
+  // Полный набор вкладок для директора/менеджера/ОКК
+  const allTabNames = [
+    { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
+    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Акты", key: "3", icon: <AuditOutlined /> },
+    { name: "Зарплата", key: "7", icon: <DollarOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
+    { name: "Приходы", key: "4", icon: <DollarOutlined /> },
+    { name: "Расходы", key: "5", icon: <FallOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
+  ];
+
+  // Вкладки для колл-центра
+  const ccTabNames = [
+    { name: "Колл-центр", key: "14", icon: <BellOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {
-    console.log('🔍 Определение вкладок для роли:', role);
     switch (role) {
       case 'lawyer':
-        console.log('👨‍💼 Роль юриста - показываем ограниченные вкладки');
         return lawyerTabNames;
       case 'expert':
-        console.log('🔬 Роль эксперта - показываем экспертные вкладки');
         return expertTabNames;
       case 'admin':
-        console.log('👑 Роль администратора - показываем админские вкладки');
         return adminTabNames;
+      case 'cc_manager':
+      case 'cc_operator':
+        return ccTabNames;
       default:
-        console.log('❓ Неизвестная роль или роль не определена - показываем вкладки юриста по умолчанию');
-        return lawyerTabNames; // Изменено с allTabNames на lawyerTabNames
+        return allTabNames;
     }
   };
 
@@ -366,7 +391,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             }}
             items={tabNames.map((tab) => ({
               key: tab.key,
-              icon: tab.icon,
+              icon: tab.name === 'Чат' && hasUnreadChat ? <Badge dot offset={[4, 0]}>{tab.icon}</Badge> : tab.icon,
               label: tab.name,
               title: tab.name,
               style: styles.menuItem,

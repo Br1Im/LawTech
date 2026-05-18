@@ -212,11 +212,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
           </div>
         </Space>
 
-        <Input
-          placeholder="Тема договора"
-          value={form.title}
-          onChange={(e) => set('title', e.target.value)}
-        />
+        {/* Тема договора скрыта для администратора — дополняет сотрудник, заключивший договор */}
 
         <div>
           <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Предмет договора</div>

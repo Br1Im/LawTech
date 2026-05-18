@@ -121,3 +121,7 @@
 [data-theme='dark'] .office-card.selected {
   box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
+
+/* ── Dark theme text fixes ── */
+[data-theme="dark"] .expand-button:hover { color: #E6E8EF; background: #2A2F3D; }
+[data-theme="dark"] .modal-close-icon:hover { color: #E6E8EF; }

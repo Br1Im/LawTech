@@ -155,6 +155,7 @@ const Clients: React.FC<ClientsProps> = () => {
   const { user } = useAuth();
   const canAssignRep = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
+  const isLawyer = user?.role === 'lawyer';
   const [data, setData] = useState<CrmClient[]>([]);
   const [contracts, setContracts] = useState<CrmContract[]>([]);
   const [loading, setLoading] = useState(false);
@@ -331,14 +332,17 @@ const Clients: React.FC<ClientsProps> = () => {
     return contracts
       .filter((c) => {
         const t = (c.contract_type || 'docs').toString();
-        return t === dealType;
+        if (t !== dealType) return false;
+        // Юрист видит только свои договоры
+        if (isLawyer && user?.id && c.id_employee !== user.id) return false;
+        return true;
       })
       .map((c) => ({
         contract: c,
         client: c.id_client ? (clientsById.get(c.id_client) || null) : null,
         key: `c-${c.id}`,
       }));
-  }, [contracts, clientsById, dealType]);
+  }, [contracts, clientsById, dealType, isLawyer, user]);
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -517,7 +521,8 @@ const Clients: React.FC<ClientsProps> = () => {
   const openDetail = (contract: CrmContract, client: CrmClient | null) => {
     setDetailContract(contract);
     setDetailClient(client);
-    setDetailTab(contract.needs_lawyer_input && !isAdmin ? 'supplement' : 'info');
+    const isOwner = user?.id && (contract.id_employee === user.id || contract.signed_by === user.id);
+    setDetailTab(contract.needs_lawyer_input && !isAdmin && isOwner ? 'supplement' : 'info');
     setDetailOpen(true);
     setDocsList([]);
     setContractMaterials([]);
@@ -535,7 +540,7 @@ const Clients: React.FC<ClientsProps> = () => {
     reloadDocs(contract.id);
     loadContractMaterials(contract.id);
     loadContractActs(contract.id);
-    if (contract.needs_lawyer_input && !isAdmin) loadExperts();
+    if (contract.needs_lawyer_input && !isAdmin && isOwner) loadExperts();
   };
 
   const closeDetail = () => {
@@ -628,6 +633,8 @@ const Clients: React.FC<ClientsProps> = () => {
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         if (!r.contract.needs_lawyer_input) return null;
+        // Администратор не видит функцию "Дополнить" — только сотрудник, заключивший договор
+        if (isAdmin) return null;
         return (
           <Tag color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0, cursor: 'pointer' }}>
             Дополнить
@@ -711,6 +718,8 @@ const Clients: React.FC<ClientsProps> = () => {
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         if (!r.contract.needs_lawyer_input) return null;
+        // Администратор не видит функцию "Дополнить"
+        if (isAdmin) return null;
         return (
           <Tag color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0, cursor: 'pointer' }}>
             Дополнить
@@ -1357,7 +1366,9 @@ const Clients: React.FC<ClientsProps> = () => {
     const tabs: { key: string; label: string; children: React.ReactNode }[] = [
       { key: 'info', label: 'Информация', children: renderInfoTab() },
     ];
-    if (detailContract?.needs_lawyer_input && !isAdmin) {
+    // Дополнить данные — только сотрудник, заключивший договор (не админ)
+    const isContractOwner = user?.id && (detailContract?.id_employee === user.id || detailContract?.signed_by === user.id);
+    if (detailContract?.needs_lawyer_input && !isAdmin && isContractOwner) {
       tabs.push({ key: 'supplement', label: '⚠ Дополнить данные', children: renderSupplementTab() });
     }
     if (!isAdmin) {

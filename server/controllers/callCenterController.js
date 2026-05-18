@@ -1272,6 +1272,9 @@ const callCenterController = {
       );
       const operatorName = userRows[0]?.full_name || 'Оператор';
 
+      // Тема: если не указана вручную, берём описание из лида
+      const appointmentComment = comment || lead.description || null;
+
       // Создаём запись (appointment)
       const [appointmentResult] = await connection.query(
         `INSERT INTO appointments (office_id, lead_id, client_name, client_phone, source, appointment_date, appointment_time, comment, operator_id, operator_name, status)
@@ -1284,7 +1287,7 @@ const callCenterController = {
           lead.source || null,
           appointment_date,
           appointment_time,
-          comment || null,
+          appointmentComment,
           req.user.id,
           operatorName
         ]
@@ -1457,6 +1460,56 @@ const callCenterController = {
     } catch (error) {
       console.error('Error updating appointment status:', error);
       res.status(500).json({ success: false, message: 'Ошибка при обновлении статуса' });
+    }
+  },
+
+  // --- Обновление полей записи (тема, время, комментарий) ---
+  async updateAppointment(req, res) {
+    if (!await ensureOfficeAccess(req, res)) return;
+
+    try {
+      const { id } = req.params;
+      const { comment, manager_comment, appointment_date, appointment_time } = req.body;
+
+      const updates = [];
+      const params = [];
+
+      if (comment !== undefined) {
+        updates.push('comment = ?');
+        params.push(comment || null);
+      }
+      if (manager_comment !== undefined) {
+        updates.push('manager_comment = ?');
+        params.push(manager_comment || null);
+      }
+      if (appointment_date) {
+        updates.push('appointment_date = ?');
+        params.push(appointment_date);
+      }
+      if (appointment_time) {
+        updates.push('appointment_time = ?');
+        params.push(appointment_time);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ success: false, message: 'Нет данных для обновления' });
+      }
+
+      params.push(id, req.user.office_id);
+
+      const [result] = await db.query(
+        `UPDATE appointments SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND office_id = ?`,
+        params
+      );
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, message: 'Запись не найдена' });
+      }
+
+      res.json({ success: true, message: 'Запись обновлена' });
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при обновлении записи' });
     }
   },
 

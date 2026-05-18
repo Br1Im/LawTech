@@ -18,6 +18,7 @@ import {
   AuditOutlined,
   SolutionOutlined,
   FormOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 
@@ -71,12 +72,14 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
   const allTabNames = [
     { name: "Офис", key: "1", icon: <ApartmentOutlined /> },
-    { name: "AI инструменты", key: "10", icon: <RobotOutlined /> },
+    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Акты", key: "3", icon: <AuditOutlined /> },
+    { name: "Зарплата", key: "7", icon: <DollarOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
     { name: "Сотрудники", key: "2", icon: <TeamOutlined /> },
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
     { name: "Расходы", key: "5", icon: <FallOutlined /> },
-    { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
   ];
 
   // Фильтрация пунктов меню для юристов
@@ -100,6 +103,13 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
     { name: "Касса", key: "12", icon: <BankOutlined /> },
     { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
     { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
+  ];
+
+  const ccTabNames = [
+    { name: "Колл-центр", key: "14", icon: <BellOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Чат", key: "13", icon: <MessageOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {
@@ -110,6 +120,9 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
         return expertTabNames;
       case 'admin':
         return adminTabNames;
+      case 'cc_manager':
+      case 'cc_operator':
+        return ccTabNames;
       default:
         return allTabNames;
     }

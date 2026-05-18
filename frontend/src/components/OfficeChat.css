@@ -716,3 +716,26 @@
 [data-theme="dark"] .tg-msg-time { color: #5A5E72; }
 [data-theme="dark"] .tg-msg-author { color: #7C5CFF; }
 [data-theme="dark"] .tg-date-divider span { background: #161A22; color: #5A5E72; }
+
+/* ── Additional dark theme text fixes ── */
+[data-theme="dark"] .tg-sidebar-section-header { color: #E6E8EF; }
+[data-theme="dark"] .tg-channel-name { color: #E6E8EF; }
+[data-theme="dark"] .tg-header-title { color: #E6E8EF; }
+[data-theme="dark"] .tg-icon-btn:hover { background: #2A2F3D; color: #E6E8EF; }
+[data-theme="dark"] .tg-participants-header { color: #E6E8EF; }
+[data-theme="dark"] .tg-participants-close:hover { background: #2A2F3D; color: #E6E8EF; }
+[data-theme="dark"] .tg-participant-name { color: #E6E8EF; }
+[data-theme="dark"] .tg-search-close:hover { color: #E6E8EF; }
+[data-theme="dark"] .tg-msg.other .tg-bubble { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
+[data-theme="dark"] .tg-textarea { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
+[data-theme="dark"] .tg-textarea:focus { border-color: #7C5CFF; }
+[data-theme="dark"] .tg-sidebar-icon-btn { color: #8B8FA3; }
+[data-theme="dark"] .tg-sidebar-icon-btn:hover { background: #2A2F3D; color: #E6E8EF; }
+[data-theme="dark"] .tg-channel-meta { color: #5A5E72; }
+[data-theme="dark"] .tg-channel-last-msg { color: #5A5E72; }
+[data-theme="dark"] .tg-participant-role { color: #5A5E72; }
+[data-theme="dark"] .tg-search-input { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
+[data-theme="dark"] .tg-search-input:focus { border-color: #7C5CFF; }
+[data-theme="dark"] .tg-search-result-sender { color: #7C5CFF; }
+[data-theme="dark"] .tg-msg.other .tg-msg-file { background: rgba(124,92,255,0.1); color: #7C5CFF; }
+[data-theme="dark"] .tg-send-btn { background: #7C5CFF; }
