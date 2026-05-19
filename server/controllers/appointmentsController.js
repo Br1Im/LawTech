@@ -86,7 +86,7 @@ const appointmentsController = {
         });
       }
 
-      const validStatuses = ['waiting', 'arrived', 'no_show', 'cancelled'];
+      const validStatuses = ['waiting', 'confirmed', 'arrived', 'no_show', 'cancelled', 'rescheduled'];
       if (status && !validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,

@@ -281,7 +281,7 @@ const Appointments: React.FC = () => {
   const renderCard = (apt: AppointmentData) => {
     const initials = getInitials(apt.client_name);
     const color = getAvatarColor(apt.client_name);
-    const canAct = ['waiting', 'confirmed'].includes(apt.status) && canManage;
+    const canAct = canManage && !['arrived', 'no_show', 'cancelled'].includes(apt.status);
     const menu = getRowMenu(apt);
     const dateLabel = dayjs(toDate(apt.appointment_date)).format('D MMM');
     const timeLabel = formatTime(apt.appointment_time);

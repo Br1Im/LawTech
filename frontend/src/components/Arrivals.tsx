@@ -3,7 +3,7 @@ import styled from '@emotion/styled';
 import { Table, Select, Button, Space, App, Input, Tabs } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import AdminContractRegister from './AdminContractRegister';
@@ -159,8 +159,8 @@ const fmtDT = (d: string) => {
 const Arrivals: React.FC = () => {
   const { user } = useAuth();
   const { message } = App.useApp();
-  const canSetResult = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
+  const canSetResult = ['director', 'manager', 'okk'].includes(user?.role || '') || isAdmin;
 
   const [tab, setTab] = useState('primary');
   const [primaryVisits, setPrimaryVisits] = useState<PrimaryVisit[]>([]);
@@ -248,36 +248,39 @@ const Arrivals: React.FC = () => {
         ),
     },
     {
-      title: 'Результат консультации', key: 'result', width: 240,
+      title: 'Результат консультации', key: 'result', width: 180,
+      align: 'center' as const,
       render: (_: unknown, row: PrimaryVisit) => {
         if (canSetResult) {
           return (
-            <Space size={6}>
-              <Badge
-                bg={row.consultation_result === 'contract_signed' ? '#F0FDF4' : 'transparent'}
-                border="#059669"
-                color="#059669"
-                style={{ opacity: row.consultation_result === 'not_signed' ? 0.4 : 1 }}
+            <Space size={12}>
+              <CheckCircleFilled
+                style={{
+                  fontSize: 24,
+                  color: row.consultation_result === 'contract_signed' ? '#059669' : '#D1D5DB',
+                  cursor: 'pointer',
+                  transition: 'color 0.2s, transform 0.15s',
+                }}
                 onClick={() => handleSetResult(row.id, 'contract_signed')}
-              >
-                Заключён
-              </Badge>
-              <Badge
-                bg={row.consultation_result === 'not_signed' ? '#FEF2F2' : 'transparent'}
-                border="#DC2626"
-                color="#DC2626"
-                style={{ opacity: row.consultation_result === 'contract_signed' ? 0.4 : 1 }}
+                title="Договор заключён"
+              />
+              <CloseCircleFilled
+                style={{
+                  fontSize: 24,
+                  color: row.consultation_result === 'not_signed' ? '#DC2626' : '#D1D5DB',
+                  cursor: 'pointer',
+                  transition: 'color 0.2s, transform 0.15s',
+                }}
                 onClick={() => handleSetResult(row.id, 'not_signed')}
-              >
-                Не заключён
-              </Badge>
+                title="Договор не заключён"
+              />
             </Space>
           );
         }
         if (row.consultation_result === 'contract_signed')
-          return <BadgeStatic bg="#F0FDF4" border="#059669" color="#059669">Заключён</BadgeStatic>;
+          return <CheckCircleFilled style={{ fontSize: 22, color: '#059669' }} title="Заключён" />;
         if (row.consultation_result === 'not_signed')
-          return <BadgeStatic bg="#FEF2F2" border="#DC2626" color="#DC2626">Не заключён</BadgeStatic>;
+          return <CloseCircleFilled style={{ fontSize: 22, color: '#DC2626' }} title="Не заключён" />;
         return <span style={{ color: 'var(--color-muted)' }}>Ожидает</span>;
       },
     },

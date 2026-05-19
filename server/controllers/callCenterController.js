@@ -1070,12 +1070,13 @@ const callCenterController = {
            u.office_id, o.name AS office_name,
            COALESCE(s.is_online, 0) AS is_online,
            COUNT(DISTINCT l.id) AS total_leads,
-           SUM(CASE WHEN l.status = 'BOOKED' THEN 1 ELSE 0 END) AS booked_leads,
+           COUNT(DISTINCT a.id) AS arrived_leads,
            SUM(CASE WHEN l.status = 'REJECTED' THEN 1 ELSE 0 END) AS brak_leads,
            SUM(CASE WHEN l.status IN ('NEW','IN_PROGRESS','NO_ANSWER','CALL_BACK','INTERESTED') THEN 1 ELSE 0 END) AS active_leads
          FROM users u
          LEFT JOIN call_center_operator_status s ON s.user_id = u.id AND s.office_id = u.office_id
          LEFT JOIN call_center_leads l ON l.assigned_to = u.id AND l.office_id = u.office_id
+         LEFT JOIN appointments a ON a.operator_id = u.id AND a.office_id = u.office_id AND a.status = 'arrived'
          LEFT JOIN offices o ON o.id = u.office_id
          WHERE u.office_id = ? AND u.role IN ('cc_manager', 'cc_operator')
          GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.office_id, o.name, s.is_online
@@ -1564,7 +1565,7 @@ const callCenterController = {
   async setConsultationResult(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
 
-    const canSetResult = ['admin', 'administrator'].includes(req.user.role);
+    const canSetResult = ['admin', 'administrator', 'director', 'manager', 'okk'].includes(req.user.role);
     if (!canSetResult) {
       return res.status(403).json({ success: false, message: 'Нет прав для установки результата' });
     }

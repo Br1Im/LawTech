@@ -588,19 +588,13 @@ const Clients: React.FC<ClientsProps> = () => {
     {
       title: 'Юрист',
       key: 'lawyer',
-      render: (_, r) => (
-        <span>{shortName(r.contract.lawyer_full_name || r.contract.employee_name)}</span>
-      ),
-    },
-    ...(isAdmin ? [{
-      title: 'Кто заключил',
-      key: 'signed_by',
-      render: (_: unknown, r: ContractRow) => {
-        const name = r.contract.signed_by_name;
-        if (!name) return <span style={{ color: 'var(--color-muted)' }}>—</span>;
+      render: (_, r) => {
+        const name = isAdmin
+          ? (r.contract.signed_by_name || r.contract.lawyer_full_name || r.contract.employee_name)
+          : (r.contract.lawyer_full_name || r.contract.employee_name);
         return <span>{shortName(name)}</span>;
       },
-    }] : []),
+    },
     ...(!isAdmin ? [{
       title: 'Эксперт',
       key: 'expert',
