@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ru';
+import { DatePicker } from 'antd';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './CallCenter.css';
+
+dayjs.locale('ru');
 
 type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'CALL_BACK' | 'INTERESTED' | 'BOOKED' | 'REJECTED' | 'SPAM' | 'DUPLICATE' | 'NON_TARGET' | 'CLOSED';
 
@@ -211,6 +216,8 @@ const CallCenter: React.FC = () => {
   const [enums, setEnums] = useState<CcEnums | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadDetails | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [calOpen, setCalOpen] = useState(false);
 
   const [selectedSource, setSelectedSource] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<'ALL' | LeadStatus>('ALL');
@@ -555,9 +562,16 @@ const CallCenter: React.FC = () => {
   };
 
   /* ──── derived data ──── */
+  const todayStr = dayjs().format('YYYY-MM-DD');
+  const selectedDateStr = selectedDate.format('YYYY-MM-DD');
 
   const filteredLeads = useMemo(() => {
     let result = leads;
+    // filter by selected date
+    result = result.filter(l => {
+      if (!l.created_at) return false;
+      return l.created_at.slice(0, 10) === selectedDateStr;
+    });
     if (activeListTab === 'archive') {
       result = result.filter(l => ARCHIVE_STATUSES.includes(l.status));
     } else {
@@ -571,10 +585,11 @@ const CallCenter: React.FC = () => {
       );
     }
     return result;
-  }, [leads, selectedOperatorFilter, activeListTab]);
+  }, [leads, selectedOperatorFilter, activeListTab, selectedDateStr]);
 
-  const activeCount = useMemo(() => leads.filter(l => !ARCHIVE_STATUSES.includes(l.status)).length, [leads]);
-  const archiveCount = useMemo(() => leads.filter(l => ARCHIVE_STATUSES.includes(l.status)).length, [leads]);
+  const dateLeads = useMemo(() => leads.filter(l => l.created_at && l.created_at.slice(0, 10) === selectedDateStr), [leads, selectedDateStr]);
+  const activeCount = useMemo(() => dateLeads.filter(l => !ARCHIVE_STATUSES.includes(l.status)).length, [dateLeads]);
+  const archiveCount = useMemo(() => dateLeads.filter(l => ARCHIVE_STATUSES.includes(l.status)).length, [dateLeads]);
 
   const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
   const paginatedLeads = filteredLeads.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
@@ -597,6 +612,32 @@ const CallCenter: React.FC = () => {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Экспорт в Excel
           </button>
+        </div>
+      </div>
+
+      {/* ── DATE NAVIGATION ── */}
+      <div className="cc-date-nav">
+        <button className="cc-date-arrow" onClick={() => { setSelectedDate(d => d.subtract(1, 'day')); setPage(1); }} title="Предыдущий день">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span className="cc-date-current" onClick={() => { setSelectedDate(dayjs()); setPage(1); }} title="Вернуться к сегодня">
+          {selectedDateStr === todayStr ? `Сегодня, ${selectedDate.format('D MMM')}` : selectedDate.format('D MMMM, dd')}
+        </span>
+        <button className="cc-date-arrow" onClick={() => { setSelectedDate(d => d.add(1, 'day')); setPage(1); }} title="Следующий день">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button className="cc-date-cal-btn" onClick={() => setCalOpen(v => !v)} title="Выбрать дату">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </button>
+          <DatePicker
+            value={selectedDate}
+            onChange={d => { if (d) { setSelectedDate(d); setCalOpen(false); setPage(1); } }}
+            open={calOpen}
+            onOpenChange={setCalOpen}
+            allowClear={false}
+            style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
+          />
         </div>
       </div>
 

@@ -27,6 +27,68 @@
   align-items: center;
 }
 
+/* ── Date Navigation ── */
+.cc-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px 0;
+}
+.cc-date-arrow {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6B7280;
+  font-size: 12px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.cc-date-arrow:hover {
+  border-color: #3B82F6;
+  color: #3B82F6;
+  background: #EFF6FF;
+}
+.cc-date-current {
+  padding: 5px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.cc-date-current:hover {
+  background: #F3F4F6;
+}
+.cc-date-cal-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3B82F6;
+  font-size: 14px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.cc-date-cal-btn:hover {
+  background: #EFF6FF;
+  border-color: #3B82F6;
+}
+
 /* ── Tabs ── */
 .cc-tabs {
   display: flex;
@@ -795,6 +857,31 @@
 }
 [data-theme="dark"] .cc-title {
   color: #f9fafb;
+}
+[data-theme="dark"] .cc-date-arrow {
+  background: #374151;
+  border-color: #4b5563;
+  color: #9ca3af;
+}
+[data-theme="dark"] .cc-date-arrow:hover {
+  background: #1e3a5f;
+  border-color: #60a5fa;
+  color: #60a5fa;
+}
+[data-theme="dark"] .cc-date-current {
+  color: #f9fafb;
+}
+[data-theme="dark"] .cc-date-current:hover {
+  background: #374151;
+}
+[data-theme="dark"] .cc-date-cal-btn {
+  background: #374151;
+  border-color: #4b5563;
+  color: #60a5fa;
+}
+[data-theme="dark"] .cc-date-cal-btn:hover {
+  background: #1e3a5f;
+  border-color: #60a5fa;
 }
 [data-theme="dark"] .cc-tab {
   color: #9ca3af;
