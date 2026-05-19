@@ -231,15 +231,7 @@ const Appointments: React.FC = () => {
 
   const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
 
-  const getRowMenu = (apt: AppointmentData): MenuProps['items'] => {
-    const items: MenuProps['items'] = [];
-    if (apt.status === 'waiting' && canManage) items.push({ key: 'confirm', label: 'Подтвердить', onClick: () => updateStatus(apt.id, 'confirmed') });
-    if (['waiting', 'confirmed'].includes(apt.status) && canManage) {
-      items.push({ key: 'reschedule', label: 'Перенести', onClick: () => updateStatus(apt.id, 'rescheduled') });
-      items.push({ key: 'cancel', label: 'Отменить', danger: true, onClick: () => updateStatus(apt.id, 'cancelled') });
-    }
-    return items;
-  };
+
 
   const updateAppointmentField = async (appointmentId: number, field: string, value: string | null) => {
     try {
@@ -278,11 +270,23 @@ const Appointments: React.FC = () => {
 
   const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
 
+  const statusMenuItems = (apt: AppointmentData): MenuProps['items'] => {
+    const allStatuses: { key: AppointmentStatus; label: string }[] = [
+      { key: 'waiting', label: 'Ожидается' },
+      { key: 'confirmed', label: 'Подтверждён' },
+      { key: 'arrived', label: 'Пришёл' },
+      { key: 'no_show', label: 'Не пришёл' },
+      { key: 'rescheduled', label: 'Перенесена' },
+      { key: 'cancelled', label: 'Отменена' },
+    ];
+    return allStatuses
+      .filter(s => s.key !== apt.status)
+      .map(s => ({ key: s.key, label: s.label, onClick: () => updateStatus(apt.id, s.key) }));
+  };
+
   const renderCard = (apt: AppointmentData) => {
     const initials = getInitials(apt.client_name);
     const color = getAvatarColor(apt.client_name);
-    const canAct = canManage && !['arrived', 'no_show', 'cancelled'].includes(apt.status);
-    const menu = getRowMenu(apt);
     const dateLabel = dayjs(toDate(apt.appointment_date)).format('D MMM');
     const timeLabel = formatTime(apt.appointment_time);
 
@@ -405,26 +409,17 @@ const Appointments: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT: status + actions */}
+        {/* RIGHT: status */}
         <div className="apt-card-right">
-          <span className={`apt-badge ${STATUS_CLASS[apt.status] || ''}`}>{STATUS_TEXT[apt.status] || apt.status}</span>
-          <div className="apt-card-actions">
-            {canAct && (
-              <>
-                <button className="apt-icon-btn apt-icon-arrived" onClick={() => updateStatus(apt.id, 'arrived')} title="Пришёл">
-                  <CheckOutlined />
-                </button>
-                <button className="apt-icon-btn apt-icon-noshow" onClick={() => updateStatus(apt.id, 'no_show')} title="Не пришёл">
-                  <CloseCircleOutlined />
-                </button>
-              </>
-            )}
-            {menu && menu.length > 0 ? (
-              <Dropdown menu={{ items: menu }} trigger={['click']}>
-                <button className="apt-dots-btn"><EllipsisOutlined /></button>
-              </Dropdown>
-            ) : null}
-          </div>
+          {canManage ? (
+            <Dropdown menu={{ items: statusMenuItems(apt) }} trigger={['click']} placement="bottomRight">
+              <span className={`apt-badge apt-badge-clickable ${STATUS_CLASS[apt.status] || ''}`} title="Нажмите, чтобы сменить статус">
+                {STATUS_TEXT[apt.status] || apt.status}
+              </span>
+            </Dropdown>
+          ) : (
+            <span className={`apt-badge ${STATUS_CLASS[apt.status] || ''}`}>{STATUS_TEXT[apt.status] || apt.status}</span>
+          )}
         </div>
       </div>
     );
