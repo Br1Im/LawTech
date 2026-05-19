@@ -118,9 +118,9 @@ const Appointments: React.FC = () => {
   const [editingDateTime, setEditingDateTime] = useState<{ id: number; date: dayjs.Dayjs; time: dayjs.Dayjs } | null>(null);
   const [calOpen, setCalOpen] = useState(false);
 
-  const fetchAppointments = useCallback(async () => {
+  const fetchAppointments = useCallback(async (initial = false) => {
     try {
-      setLoading(true);
+      if (initial) setLoading(true);
       const res = await apiInstance.get('/appointments');
       const data = res.data;
       setAppointments(data.success && Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : []);
@@ -128,7 +128,7 @@ const Appointments: React.FC = () => {
       notification.error({ message: 'Ошибка', description: 'Не удалось загрузить записи' });
       setAppointments([]);
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
     }
   }, []);
 
@@ -140,9 +140,9 @@ const Appointments: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchAppointments();
+    fetchAppointments(true);
     fetchEmployees();
-    const iv = setInterval(fetchAppointments, 15000);
+    const iv = setInterval(() => fetchAppointments(), 15000);
     return () => clearInterval(iv);
   }, [fetchAppointments, fetchEmployees]);
 

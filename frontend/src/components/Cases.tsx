@@ -111,8 +111,9 @@ const Cases: React.FC = () => {
   const authHeaders = () => getAuthHeaders();
 
   // ---------- Load cases (docs) ----------
+  const casesInitRef = React.useRef(true);
   const load = useCallback(async () => {
-    setLoading(true);
+    if (casesInitRef.current) setLoading(true);
     try {
       const endpoint = isExpert ? '/cases/my-assigned' : '/cases/inbox';
       const res = await fetch(buildApiUrl(endpoint), { headers: authHeaders() });
@@ -122,7 +123,7 @@ const Cases: React.FC = () => {
       console.warn(e);
       message.error('Не удалось загрузить дела');
     } finally {
-      setLoading(false);
+      if (casesInitRef.current) { setLoading(false); casesInitRef.current = false; }
     }
   }, [isExpert]);
 

@@ -126,8 +126,9 @@ const Acts: React.FC = () => {
     description: string;
   }>({ contract_id: undefined, amount: undefined, act_date: dayjs(), responsible_id: undefined, description: '' });
 
+  const actsInitRef = React.useRef(true);
   const load = useCallback(async () => {
-    setLoading(true);
+    if (actsInitRef.current) setLoading(true);
     try {
       const filters: ActsFilters = {};
       if (filterDate?.[0]) filters.date_from = filterDate[0].format('YYYY-MM-DD');
@@ -141,7 +142,7 @@ const Acts: React.FC = () => {
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Не удалось загрузить акты');
     } finally {
-      setLoading(false);
+      if (actsInitRef.current) { setLoading(false); actsInitRef.current = false; }
     }
   }, [filterDate, filterType, filterStatus, filterResp, searchText, message]);
 

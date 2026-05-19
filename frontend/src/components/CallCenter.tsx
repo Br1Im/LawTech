@@ -321,8 +321,9 @@ const CallCenter: React.FC = () => {
     setOperatorComment('');
   }, []);
 
+  const initialRef = React.useRef(true);
   const refreshData = async () => {
-    setLoading(true);
+    if (initialRef.current) setLoading(true);
     try {
       await Promise.all([
         fetchDashboard(),
@@ -332,7 +333,7 @@ const CallCenter: React.FC = () => {
         fetchOperatorStats()
       ]);
     } finally {
-      setLoading(false);
+      if (initialRef.current) { setLoading(false); initialRef.current = false; }
     }
   };
 

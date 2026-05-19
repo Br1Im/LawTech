@@ -121,7 +121,6 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
       return;
     }
     
-    setLoading(true);
     setError(null);
 
     let url = '';
@@ -133,7 +132,6 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
     } else {
       console.log('❌ No office selected, skipping fetch');
       setEvents([]);
-      setLoading(false);
       return;
     }
 
@@ -167,7 +165,7 @@ const CalendarComponent: React.FC<CalendarProps> = ({ onOpenContract }) => {
       console.error('❌ Error fetching events:', error);
       setError(error.message);
     } finally {
-      setLoading(false);
+      /* loading handled by callers */
     }
   };
 

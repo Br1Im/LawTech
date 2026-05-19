@@ -183,10 +183,11 @@ const Arrivals: React.FC = () => {
   const fetchStats = useCallback(async () => { try { const r = await apiInstance.get('/visits/stats'); setStats(r.data?.data || null); } catch {} }, []);
   const fetchEmployees = useCallback(async () => { try { const r = await apiInstance.get('/visits/employees'); setEmployees(r.data?.data || []); } catch {} }, []);
 
+  const initialLoadRef = React.useRef(true);
   const reload = useCallback(async () => {
-    setLoading(true);
+    if (initialLoadRef.current) setLoading(true);
     await Promise.all([fetchPrimary(), fetchExisting(), fetchStats(), fetchEmployees()]);
-    setLoading(false);
+    if (initialLoadRef.current) { setLoading(false); initialLoadRef.current = false; }
   }, [fetchPrimary, fetchExisting, fetchStats, fetchEmployees]);
 
   useEffect(() => {

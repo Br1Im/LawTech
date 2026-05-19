@@ -218,8 +218,9 @@ const Clients: React.FC<ClientsProps> = () => {
   const canConfirmRefund = ['director', 'manager', 'okk'].includes(user?.role || '');
   const canTerminate = ['director', 'manager', 'okk'].includes(user?.role || '');
 
+  const clientsInitRef = React.useRef(true);
   const load = useCallback(async () => {
-    setLoading(true);
+    if (clientsInitRef.current) setLoading(true);
     try {
       const [list, contractsList] = await Promise.all([
         clientsApi.list(),
@@ -231,7 +232,7 @@ const Clients: React.FC<ClientsProps> = () => {
       console.error(e);
       message.error(e?.response?.data?.message || 'Не удалось загрузить клиентов');
     } finally {
-      setLoading(false);
+      if (clientsInitRef.current) { setLoading(false); clientsInitRef.current = false; }
     }
   }, [message]);
 

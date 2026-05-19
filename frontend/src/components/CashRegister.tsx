@@ -84,8 +84,9 @@ const CashRegister: React.FC = () => {
     comment: '',
   });
 
+  const cashInitRef = React.useRef(true);
   const load = useCallback(async () => {
-    setLoading(true);
+    if (cashInitRef.current) setLoading(true);
     try {
       const data = await cashRegisterApi.list({
         date_from: dateRange[0].format('YYYY-MM-DD'),
@@ -95,7 +96,7 @@ const CashRegister: React.FC = () => {
     } catch {
       message.error('Ошибка загрузки кассы');
     } finally {
-      setLoading(false);
+      if (cashInitRef.current) { setLoading(false); cashInitRef.current = false; }
     }
   }, [message, dateRange]);
 
