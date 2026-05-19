@@ -485,10 +485,10 @@ const Office = () => {
     role: string;
     is_online: boolean;
     total_leads: number;
-    booked_leads: number;
+    arrived_leads: number;
     brak_leads: number;
     active_leads: number;
-    booking_rate: number;
+    arrival_rate: number;
     brak_rate: number;
   }
   const [ccOperatorStats, setCcOperatorStats] = useState<CcOperatorStat[]>([]);
@@ -1166,8 +1166,8 @@ const Office = () => {
                     <td><b>{op.name || op.email}</b></td>
                     <td className="num">{op.total_leads}</td>
                     <td className="num">{op.active_leads}</td>
-                    <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{op.booked_leads}</td>
-                    <td className="num">{op.booking_rate}%</td>
+                    <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{op.arrived_leads}</td>
+                    <td className="num">{op.arrival_rate}%</td>
                     <td className="num" style={{ color: '#c0392b' }}>{op.brak_leads}</td>
                     <td className="num">{op.brak_rate}%</td>
                   </tr>
@@ -1184,10 +1184,10 @@ const Office = () => {
                     <td></td>
                     <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.total_leads, 0)}</b></td>
                     <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.active_leads, 0)}</b></td>
-                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.booked_leads, 0)}</b></td>
+                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.arrived_leads, 0)}</b></td>
                     <td className="num"><b>{(() => {
                       const total = ccOperatorStats.reduce((s, o) => s + o.total_leads, 0);
-                      const booked = ccOperatorStats.reduce((s, o) => s + o.booked_leads, 0);
+                      const booked = ccOperatorStats.reduce((s, o) => s + o.arrived_leads, 0);
                       return total > 0 ? Math.round(booked / total * 100) : 0;
                     })()}%</b></td>
                     <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.brak_leads, 0)}</b></td>
@@ -1403,6 +1403,7 @@ const Office = () => {
             <div className="office-info-header">
               <h3>{selectedOffice.title}</h3>
               <div className="office-info-actions">
+                {isDirector && (
                 <Button 
                   type="primary" 
                   icon={<FaEdit />} 
@@ -1413,6 +1414,7 @@ const Office = () => {
                 >
                   Редактировать
                 </Button>
+                )}
               </div>
             </div>
             
