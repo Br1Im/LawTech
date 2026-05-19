@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   CalendarOutlined, PlusOutlined,
-  SearchOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  ClockCircleOutlined, EllipsisOutlined, UserOutlined,
-  CheckOutlined, FilterOutlined,
-  EditOutlined, FileTextOutlined, MessageOutlined
+  SearchOutlined, FilterOutlined,
+  EditOutlined, FileTextOutlined, MessageOutlined,
+  LeftOutlined, RightOutlined
 } from '@ant-design/icons';
 import { notification, Modal, Input, DatePicker, TimePicker, Select, Dropdown, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
@@ -103,7 +102,7 @@ const Appointments: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [dateMode, setDateMode] = useState<'day' | 'week'>('day');
+
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterLawyer, setFilterLawyer] = useState<string>('all');
@@ -115,6 +114,7 @@ const Appointments: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [editingText, setEditingText] = useState<{ id: number; field: 'comment' | 'manager_comment'; value: string } | null>(null);
   const [editingDateTime, setEditingDateTime] = useState<{ id: number; date: dayjs.Dayjs; time: dayjs.Dayjs } | null>(null);
+  const [calOpen, setCalOpen] = useState(false);
 
   const fetchAppointments = useCallback(async () => {
     try {
@@ -179,21 +179,6 @@ const Appointments: React.FC = () => {
   };
 
   const todayStr = isoDate(new Date());
-  const tomorrowStr = isoDate(new Date(Date.now() + 86400000));
-
-  /* Stats always based on today */
-  const todayAppts = useMemo(() => appointments.filter(a => toDate(a.appointment_date) === todayStr), [appointments, todayStr]);
-
-  const stats = useMemo(() => {
-    const list = todayAppts;
-    const total = list.length;
-    const confirmed = list.filter(a => a.status === 'confirmed').length;
-    const arrived = list.filter(a => a.status === 'arrived').length;
-    const noShow = list.filter(a => a.status === 'no_show').length;
-    const waiting = list.filter(a => a.status === 'waiting').length;
-    const conv = total > 0 ? Math.round(arrived / total * 100) : 0;
-    return { total, confirmed, arrived, noShow, waiting, conv };
-  }, [todayAppts]);
 
   const uniqueSources = useMemo(() => [...new Set(appointments.map(a => a.source).filter(Boolean) as string[])], [appointments]);
   const uniqueOperators = useMemo(() => [...new Set(appointments.map(a => a.operator_name).filter(Boolean) as string[])], [appointments]);
@@ -214,20 +199,10 @@ const Appointments: React.FC = () => {
 
   /* Date-filtered list */
   const mainList = useMemo(() => {
-    let filtered: AppointmentData[];
-    if (dateMode === 'week') {
-      const weekStart = selectedDate.startOf('week');
-      const weekEnd = selectedDate.endOf('week');
-      filtered = appointments.filter(a => {
-        const d = dayjs(toDate(a.appointment_date));
-        return d.isAfter(weekStart.subtract(1, 'day')) && d.isBefore(weekEnd.add(1, 'day'));
-      });
-    } else {
-      const dateStr = selectedDate.format('YYYY-MM-DD');
-      filtered = appointments.filter(a => toDate(a.appointment_date) === dateStr);
-    }
+    const dateStr = selectedDate.format('YYYY-MM-DD');
+    const filtered = appointments.filter(a => toDate(a.appointment_date) === dateStr);
     return applyFilters(filtered).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-  }, [selectedDate, dateMode, appointments, applyFilters]);
+  }, [selectedDate, appointments, applyFilters]);
 
   const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
 
@@ -447,90 +422,29 @@ const Appointments: React.FC = () => {
         </div>
       </div>
 
-      {/* Date selector: quick buttons + date picker */}
-      <div className="apt-date-bar">
-        <div className="apt-quick-btns">
-          <button
-            className={`apt-quick-btn ${dateMode === 'day' && selectedDate.format('YYYY-MM-DD') === todayStr ? 'active' : ''}`}
-            onClick={() => { setSelectedDate(dayjs()); setDateMode('day'); }}
-          >
-            Сегодня
+      {/* Date navigation: ← date → + calendar */}
+      <div className="apt-date-nav">
+        <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.subtract(1, 'day'))} title="Предыдущий день">
+          <LeftOutlined />
+        </button>
+        <span className="apt-date-current" onClick={() => setSelectedDate(dayjs())} title="Вернуться к сегодня">
+          {selectedDate.format('YYYY-MM-DD') === todayStr ? `Сегодня, ${selectedDate.format('D MMM')}` : selectedDate.format('D MMMM, dd')}
+        </span>
+        <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.add(1, 'day'))} title="Следующий день">
+          <RightOutlined />
+        </button>
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button className="apt-cal-btn" onClick={() => setCalOpen(v => !v)} title="Выбрать дату">
+            <CalendarOutlined />
           </button>
-          <button
-            className={`apt-quick-btn ${dateMode === 'day' && selectedDate.format('YYYY-MM-DD') === tomorrowStr ? 'active' : ''}`}
-            onClick={() => { setSelectedDate(dayjs().add(1, 'day')); setDateMode('day'); }}
-          >
-            Завтра
-          </button>
-          <button
-            className={`apt-quick-btn ${dateMode === 'week' ? 'active' : ''}`}
-            onClick={() => { setSelectedDate(dayjs()); setDateMode('week'); }}
-          >
-            Неделя
-          </button>
-        </div>
-        <div className="apt-date-picker-wrap">
           <DatePicker
             value={selectedDate}
-            onChange={d => { if (d) { setSelectedDate(d); setDateMode('day'); } }}
-            format="D MMMM, dd"
+            onChange={d => { if (d) { setSelectedDate(d); setCalOpen(false); } }}
+            open={calOpen}
+            onOpenChange={setCalOpen}
             allowClear={false}
-            suffixIcon={<CalendarOutlined />}
-            className="apt-date-picker"
+            style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
           />
-        </div>
-        <span className="apt-date-label">
-          {dateMode === 'week'
-            ? `${selectedDate.startOf('week').format('D MMM')} – ${selectedDate.endOf('week').format('D MMM')}`
-            : selectedDate.format('D MMMM YYYY, dddd')
-          }
-        </span>
-      </div>
-
-      {/* Compact Stats Bar */}
-      <div className="apt-stats-bar">
-        <div className="apt-stat-item">
-          <CalendarOutlined className="apt-stat-item-icon" style={{ color: '#3B82F6' }} />
-          <div className="apt-stat-item-info">
-            <span className="apt-stat-item-label">Записей</span>
-            <span className="apt-stat-item-value">{stats.total}</span>
-          </div>
-        </div>
-        <div className="apt-stats-divider" />
-        <div className="apt-stat-item">
-          <CheckCircleOutlined className="apt-stat-item-icon" style={{ color: '#10B981' }} />
-          <div className="apt-stat-item-info">
-            <span className="apt-stat-item-label">Подтверждено</span>
-            <span className="apt-stat-item-value">{stats.confirmed}</span>
-          </div>
-        </div>
-        <div className="apt-stats-divider" />
-        <div className="apt-stat-item">
-          <UserOutlined className="apt-stat-item-icon" style={{ color: '#0D9488' }} />
-          <div className="apt-stat-item-info">
-            <span className="apt-stat-item-label">Пришли</span>
-            <span className="apt-stat-item-value">{stats.arrived}</span>
-          </div>
-        </div>
-        <div className="apt-stats-divider" />
-        <div className="apt-stat-item">
-          <CloseCircleOutlined className="apt-stat-item-icon" style={{ color: '#EF4444' }} />
-          <div className="apt-stat-item-info">
-            <span className="apt-stat-item-label">Не пришли</span>
-            <span className="apt-stat-item-value">{stats.noShow}</span>
-          </div>
-        </div>
-        <div className="apt-stats-divider" />
-        <div className="apt-stat-item">
-          <ClockCircleOutlined className="apt-stat-item-icon" style={{ color: '#F59E0B' }} />
-          <div className="apt-stat-item-info">
-            <span className="apt-stat-item-label">В ожидании</span>
-            <span className="apt-stat-item-value">{stats.waiting}</span>
-          </div>
-        </div>
-        <div className="apt-stats-conv">
-          <span className="apt-stats-conv-label">Конверсия явки</span>
-          <span className="apt-stats-conv-value">{stats.conv}%</span>
         </div>
       </div>
 
@@ -596,7 +510,7 @@ const Appointments: React.FC = () => {
           <div className="apt-empty-state">
             <div className="apt-empty-state-icon"><CalendarOutlined /></div>
             <h3 className="apt-empty-state-title">
-              {dateMode === 'week' ? 'Записей на эту неделю нет' : `Записей на ${selectedDate.format('D MMMM')} нет`}
+              {`Записей на ${selectedDate.format('D MMMM')} нет`}
             </h3>
             <p className="apt-empty-state-text">Выберите другую дату или создайте новую запись</p>
             {canManage && (
