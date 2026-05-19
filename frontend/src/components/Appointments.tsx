@@ -93,7 +93,9 @@ const STATUS_CLASS: Record<string, string> = {
 
 const Appointments: React.FC = () => {
   const { user } = useAuth();
-  const canManage = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
+  const isAdmin = ['admin','administrator'].includes(user?.role || '');
+  const canManage = ['admin','administrator','director','manager','okk','cc_manager','cc_operator'].includes(user?.role || '');
+  const canChangeStatus = isAdmin;
   const canAssignLawyer = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const canEditText = isCCRole;
@@ -386,7 +388,7 @@ const Appointments: React.FC = () => {
 
         {/* RIGHT: status */}
         <div className="apt-card-right">
-          {canManage ? (
+          {canChangeStatus ? (
             <Dropdown menu={{ items: statusMenuItems(apt) }} trigger={['click']} placement="bottomRight">
               <span className={`apt-badge apt-badge-clickable ${STATUS_CLASS[apt.status] || ''}`} title="Нажмите, чтобы сменить статус">
                 {STATUS_TEXT[apt.status] || apt.status}
