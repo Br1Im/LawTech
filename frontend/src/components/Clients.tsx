@@ -1868,8 +1868,8 @@ const Clients: React.FC<ClientsProps> = () => {
     );
   };
 
-  // Build drawer tabs
-  const drawerTabs = useMemo(() => {
+  // Build drawer tabs (no memo — fresh on every render to avoid stale state bugs)
+  const buildDrawerTabs = () => {
     const tabs: { key: string; label: string; children: React.ReactNode }[] = [
       { key: 'info', label: 'Информация', children: renderInfoTab() },
     ];
@@ -1888,7 +1888,7 @@ const Clients: React.FC<ClientsProps> = () => {
       tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторгнуть договор', children: renderTerminateTab() });
     }
     return tabs;
-  }, [detailContract, detailClient, isDocsType, isAdmin, contractMaterials, contractMaterialsLoading, docsList, docsLoading, uploading, materialUploading, contractActs, contractActsLoading, terminateForm, terminating, canConfirmRefund, canTerminate, supplementForm, supplementSaving, experts, selectedDocTypes, docTypesSaving, docTypesChanged, customDocs, newCustomDoc, circumstances, cardExpertId, cardDataChanged, cardSaving, cardTitle, experts]);
+  };
 
   return (
     <Page>
@@ -2173,7 +2173,7 @@ const Clients: React.FC<ClientsProps> = () => {
         <Tabs
           activeKey={detailTab}
           onChange={setDetailTab}
-          items={drawerTabs}
+          items={buildDrawerTabs()}
           size="middle"
         />
       </Drawer>
