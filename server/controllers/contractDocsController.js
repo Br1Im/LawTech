@@ -90,7 +90,7 @@ async function fetchContractAndAssertAccess(contractId, user) {
 
 async function recomputeDocsStatus(contractId) {
   const [[{ cnt }]] = await db.query(
-    'SELECT COUNT(*) AS cnt FROM materials WHERE contract_id = ?',
+    'SELECT COUNT(*) AS cnt FROM materials WHERE contract_id = ? AND category = \'Документ эксперта\'',
     [contractId]
   );
   const status = cnt > 0 ? 'ready' : 'pending';
@@ -104,7 +104,7 @@ const list = async (req, res) => {
     const [rows] = await db.query(
       `SELECT id, contract_id, name, file_url, mime_type, size_bytes, created_at, created_by
          FROM materials
-        WHERE contract_id = ?
+        WHERE contract_id = ? AND category = 'Документ эксперта'
         ORDER BY created_at DESC`,
       [req.params.id]
     );
@@ -126,7 +126,7 @@ const create = async (req, res) => {
     const [r] = await db.query(
       `INSERT INTO materials
          (office_id, contract_id, name, category, file_url, mime_type, size_bytes, created_by)
-       VALUES (?, ?, ?, 'Документ', ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, 'Документ эксперта', ?, ?, ?, ?)`,
       [
         officeId,
         contract.id,

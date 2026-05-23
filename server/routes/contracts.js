@@ -86,6 +86,38 @@ router.patch('/:id/card-data', async (req, res) => {
       params
     );
 
+    // Авто-снятие needs_lawyer_input если ТЗ заполнено
+    try {
+      const [rows] = await db.query(
+        'SELECT contract_type, customer_goal, circumstances, document_types, custom_documents FROM contracts WHERE id = ?',
+        [contractId]
+      );
+      const c = rows && rows[0];
+      if (c) {
+        const isCourtRep = (c.contract_type || 'docs') === 'court_rep';
+        const hasCircum = c.circumstances && String(c.circumstances).trim().length > 0;
+        let isFilled = false;
+        if (isCourtRep) {
+          isFilled = hasCircum;
+        } else {
+          const hasGoal = c.customer_goal && String(c.customer_goal).trim().length > 0;
+          const hasDocs = (() => {
+            try {
+              const dt = typeof c.document_types === 'string' ? JSON.parse(c.document_types) : c.document_types;
+              const cd = typeof c.custom_documents === 'string' ? JSON.parse(c.custom_documents) : c.custom_documents;
+              return (Array.isArray(dt) && dt.length > 0) || (Array.isArray(cd) && cd.length > 0);
+            } catch { return false; }
+          })();
+          isFilled = hasGoal && hasCircum && hasDocs;
+        }
+        if (isFilled) {
+          await db.query('UPDATE contracts SET needs_lawyer_input = 0 WHERE id = ?', [contractId]);
+        }
+      }
+    } catch (e) {
+      console.error('needs_lawyer_input auto-clear failed:', e.message);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating card data:', error);

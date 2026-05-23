@@ -226,7 +226,7 @@ const materials = {
       let sql = `SELECT m.*, ca.title AS case_title
          FROM materials m
          LEFT JOIN cases ca ON ca.id = m.case_id
-         WHERE m.office_id = ?`;
+         WHERE m.office_id = ? AND (m.category IS NULL OR m.category <> 'Документ эксперта')`;
       const params = [officeId];
       if (contract_id) {
         sql += ' AND m.contract_id = ?';

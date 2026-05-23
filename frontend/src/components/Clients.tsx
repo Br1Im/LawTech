@@ -1065,137 +1065,141 @@ const Clients: React.FC<ClientsProps> = () => {
 
         {canEditCard && (
           <>
+            {isDocsType && (
+              <>
             {/* ── Типы документов ── */}
-            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Типы документов</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {DOCUMENT_TYPE_OPTIONS.map(type => {
-                  const active = selectedDocTypes.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => toggleDocType(type)}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: 6,
-                        border: active ? '2px solid #1677ff' : '1px solid var(--color-border)',
-                        background: active ? '#e6f4ff' : 'var(--color-bg-elevated)',
-                        color: active ? '#1677ff' : 'var(--color-text)',
-                        cursor: 'pointer',
-                        fontWeight: active ? 600 : 400,
-                        fontSize: 13,
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {active && '\u2713 '}{type}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Типы документов</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {DOCUMENT_TYPE_OPTIONS.map(type => {
+                      const active = selectedDocTypes.includes(type);
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => toggleDocType(type)}
+                          style={{
+                            padding: '6px 14px',
+                            borderRadius: 6,
+                            border: active ? '2px solid #1677ff' : '1px solid var(--color-border)',
+                            background: active ? '#e6f4ff' : 'var(--color-bg-elevated)',
+                            color: active ? '#1677ff' : 'var(--color-text)',
+                            cursor: 'pointer',
+                            fontWeight: active ? 600 : 400,
+                            fontSize: 13,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {active && '\u2713 '}{type}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* ── Дополнительные документы (ручной ввод до 20) ── */}
-            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>
-                Дополнительные документы ({customDocs.length}/20)
-              </div>
-              {customDocs.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                  {customDocs.map((doc, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'var(--color-bg-elevated)', borderRadius: 6, border: '1px solid var(--color-border)' }}>
-                      <span style={{ flex: 1, fontSize: 13 }}>{idx + 1}. {doc}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomDocs(prev => prev.filter((_, i) => i !== idx));
-                          setCardDataChanged(true);
-                        }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
-                      >
-                        ✕
-                      </button>
+                {/* ── Дополнительные документы (ручной ввод до 20) ── */}
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>
+                    Дополнительные документы ({customDocs.length}/20)
+                  </div>
+                  {customDocs.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {customDocs.map((doc, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'var(--color-bg-elevated)', borderRadius: 6, border: '1px solid var(--color-border)' }}>
+                          <span style={{ flex: 1, fontSize: 13 }}>{idx + 1}. {doc}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomDocs(prev => prev.filter((_, i) => i !== idx));
+                              setCardDataChanged(true);
+                            }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
+                  <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4 }}>{customDocs.length}/{CUSTOM_DOCS_LIMIT}</div>
+                {customDocs.length < CUSTOM_DOCS_LIMIT && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Input
+                        value={newCustomDoc}
+                        onChange={(e) => setNewCustomDoc(e.target.value)}
+                        placeholder="Название документа"
+                        size="small"
+                        onPressEnter={() => {
+                          const v = newCustomDoc.trim();
+                          if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
+                            setCustomDocs(prev => [...prev, v]);
+                            setNewCustomDoc('');
+                            setCardDataChanged(true);
+                          }
+                        }}
+                      />
+                      <Button
+                        size="small"
+                        type="dashed"
+                        onClick={() => {
+                          const v = newCustomDoc.trim();
+                          if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
+                            setCustomDocs(prev => [...prev, v]);
+                            setNewCustomDoc('');
+                            setCardDataChanged(true);
+                          }
+                        }}
+                      >
+                        Добавить
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4 }}>{customDocs.length}/{CUSTOM_DOCS_LIMIT}</div>
-            {customDocs.length < CUSTOM_DOCS_LIMIT && (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Input
-                    value={newCustomDoc}
-                    onChange={(e) => setNewCustomDoc(e.target.value)}
-                    placeholder="Название документа"
-                    size="small"
-                    onPressEnter={() => {
-                      const v = newCustomDoc.trim();
-                      if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
-                        setCustomDocs(prev => [...prev, v]);
-                        setNewCustomDoc('');
-                        setCardDataChanged(true);
-                      }
-                    }}
-                  />
-                  <Button
-                    size="small"
-                    type="dashed"
-                    onClick={() => {
-                      const v = newCustomDoc.trim();
-                      if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
-                        setCustomDocs(prev => [...prev, v]);
-                        setNewCustomDoc('');
-                        setCardDataChanged(true);
-                      }
-                    }}
-                  >
-                    Добавить
-                  </Button>
-                </div>
-              )}
-            </div>
 
-            {/* ── Цель и возмещения ── */}
-            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Цель заказчика</div>
-                <Input
-                  value={cardCustomerGoal}
-                  onChange={(e) => { setCardCustomerGoal(e.target.value); setCardDataChanged(true); }}
-                  placeholder="Например: добиться возврата денежных средств"
-                  maxLength={500}
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение юридических расходов, ₽</div>
-                  <InputNumber
-                    min={0}
-                    step={100}
-                    value={cardLegalCostComp === '' ? null : Number(cardLegalCostComp)}
-                    onChange={(v) => { setCardLegalCostComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
-                    placeholder="0"
-                    style={{ width: '100%' }}
-                    formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
-                    parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
-                  />
+                {/* ── Цель и возмещения ── */}
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Цель заказчика</div>
+                    <Input
+                      value={cardCustomerGoal}
+                      onChange={(e) => { setCardCustomerGoal(e.target.value); setCardDataChanged(true); }}
+                      placeholder="Например: добиться возврата денежных средств"
+                      maxLength={500}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение юридических расходов, ₽</div>
+                      <InputNumber
+                        min={0}
+                        step={100}
+                        value={cardLegalCostComp === '' ? null : Number(cardLegalCostComp)}
+                        onChange={(v) => { setCardLegalCostComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
+                        placeholder="0"
+                        style={{ width: '100%' }}
+                        formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
+                        parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
+                      />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение морального ущерба, ₽</div>
+                      <InputNumber
+                        min={0}
+                        step={100}
+                        value={cardMoralComp === '' ? null : Number(cardMoralComp)}
+                        onChange={(v) => { setCardMoralComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
+                        placeholder="0"
+                        style={{ width: '100%' }}
+                        formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
+                        parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение морального ущерба, ₽</div>
-                  <InputNumber
-                    min={0}
-                    step={100}
-                    value={cardMoralComp === '' ? null : Number(cardMoralComp)}
-                    onChange={(v) => { setCardMoralComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
-                    placeholder="0"
-                    style={{ width: '100%' }}
-                    formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
-                    parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* ── Обстоятельства ── */}
+              </>
+            )}
+                        {/* ── Обстоятельства ── */}
             <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
               <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Обстоятельства</div>
               <Input.TextArea
