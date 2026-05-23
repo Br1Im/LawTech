@@ -411,7 +411,7 @@ const MyCases: React.FC = () => {
                 <HistoryOutlined style={{ marginRight: 6 }} />
                 Процессуальные действия
               </h3>
-              {(isRepresentative || isSupervisor) && (
+              {isRepresentative && (
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
@@ -442,7 +442,7 @@ const MyCases: React.FC = () => {
                           <span style={{ color: '#999', fontSize: 12 }}>
                             <CalendarOutlined /> {a.action_date}
                           </span>
-                          {(a.user_id === user?.id || isSupervisor) && (
+                          {a.user_id === user?.id && (
                             <Popconfirm
                               title="Удалить действие?"
                               onConfirm={() => handleDeleteAction(a.id)}

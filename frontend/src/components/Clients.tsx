@@ -615,7 +615,8 @@ const Clients: React.FC<ClientsProps> = () => {
     setNewCustomDoc('');
     setCardDataChanged(false);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
-    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isOwner || isAssignedLawyer;
+    const isAssignedEmployee = user?.id != null && (contract as any).id_employee === user.id;
+    const canEditCard = isOwner || isAssignedLawyer || isAssignedEmployee;
     if (canEditCard) loadExperts();
   };
 
@@ -995,7 +996,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
-    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isContractOwner || isAssignedLawyer;
+    const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
+    const canEditCard = isContractOwner || isAssignedLawyer || isAssignedEmployee;
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
     const hasChanges = docTypesChanged || cardDataChanged;
 

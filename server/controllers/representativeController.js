@@ -173,12 +173,13 @@ const representativeController = {
         return bad(res, 404, 'Дело не найдено');
       }
 
-      // Представитель может добавлять действия только к своим делам
+      // Добавлять процессуальные действия может только назначенный представитель
       const role = (user.role || '').toLowerCase();
-      if (role === 'representative') {
-        if (contracts[0].representative_id !== user.id) {
-          return bad(res, 403, 'Нет доступа к этому делу');
-        }
+      if (role !== 'representative') {
+        return bad(res, 403, 'Только представитель может добавлять процессуальные действия');
+      }
+      if (contracts[0].representative_id !== user.id) {
+        return bad(res, 403, 'Нет доступа к этому делу');
       }
 
       const [result] = await db.query(`
@@ -211,10 +212,9 @@ const representativeController = {
         return bad(res, 404, 'Действие не найдено');
       }
 
-      // Только автор или руководство может удалять
-      const role = (user.role || '').toLowerCase();
-      if (actions[0].user_id !== user.id && !SUPERVISOR_ROLES.includes(role)) {
-        return bad(res, 403, 'Нет прав на удаление');
+      // Удалять может только автор записи (руководство — только наблюдает)
+      if (actions[0].user_id !== user.id) {
+        return bad(res, 403, 'Удалить запись может только её автор');
       }
 
       await db.query('DELETE FROM case_actions WHERE id = ?', [actionId]);
