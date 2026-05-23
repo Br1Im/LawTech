@@ -613,7 +613,8 @@ const Clients: React.FC<ClientsProps> = () => {
     setCardTitle(contract.title || '');
     setNewCustomDoc('');
     setCardDataChanged(false);
-    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isOwner;
+    const isAssignedLawyer = user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
+    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isOwner || isAssignedLawyer;
     if (canEditCard) loadExperts();
   };
 
@@ -992,7 +993,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const cl = detailClient;
     const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
-    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isContractOwner;
+    const isAssignedLawyer = user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
+    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isContractOwner || isAssignedLawyer;
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
     const hasChanges = docTypesChanged || cardDataChanged;
 
@@ -1300,22 +1302,70 @@ const Clients: React.FC<ClientsProps> = () => {
 
   const renderTzTab = () => {
     if (!detailContract) return null;
-    const c = detailContract;
-    const hasData = c.customer_goal || c.situation_description || (typeof c.expert_deadline_days === 'number' && c.expert_deadline_days > 0);
+    const c = detailContract as any;
+    const dtParsed = (() => {
+      try { const v = typeof c.document_types === 'string' ? JSON.parse(c.document_types) : c.document_types; return Array.isArray(v) ? v : []; } catch { return []; }
+    })();
+    const cdParsed = (() => {
+      try { const v = typeof c.custom_documents === 'string' ? JSON.parse(c.custom_documents) : c.custom_documents; return Array.isArray(v) ? v : []; } catch { return []; }
+    })();
+    const hasData = !!(
+      c.customer_goal || c.situation_description || c.circumstances ||
+      (typeof c.expert_deadline_days === 'number' && c.expert_deadline_days > 0) ||
+      c.legal_cost_comp || c.moral_comp ||
+      dtParsed.length > 0 || cdParsed.length > 0 || c.expert_id
+    );
 
     if (!hasData) {
       return <Empty description="Техническое задание ещё не заполнено" />;
     }
 
+    const expertObj = experts.find((e) => e.id === c.expert_id);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
+        {dtParsed.length > 0 && (
+          <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Документы к подготовке</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {dtParsed.map((t: string) => <Tag key={t} color="blue">{t}</Tag>)}
+            </div>
+          </div>
+        )}
+        {cdParsed.length > 0 && (
+          <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Дополнительные документы</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {cdParsed.map((d: string, i: number) => <Tag key={i}>{d}</Tag>)}
+            </div>
+          </div>
+        )}
+        <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 220 }}>
           {c.customer_goal && (
             <Descriptions.Item label="Цель заказчика">{c.customer_goal}</Descriptions.Item>
+          )}
+          {c.circumstances && (
+            <Descriptions.Item label="Обстоятельства">
+              <div style={{ whiteSpace: 'pre-wrap' }}>{c.circumstances}</div>
+            </Descriptions.Item>
           )}
           {c.situation_description && (
             <Descriptions.Item label="Описание ситуации">
               <div style={{ whiteSpace: 'pre-wrap' }}>{c.situation_description}</div>
+            </Descriptions.Item>
+          )}
+          {c.legal_cost_comp != null && c.legal_cost_comp !== '' && (
+            <Descriptions.Item label="Возмещение юр. расходов">
+              {Number(c.legal_cost_comp).toLocaleString('ru-RU')} ₽
+            </Descriptions.Item>
+          )}
+          {c.moral_comp != null && c.moral_comp !== '' && (
+            <Descriptions.Item label="Возмещение морального ущерба">
+              {Number(c.moral_comp).toLocaleString('ru-RU')} ₽
+            </Descriptions.Item>
+          )}
+          {expertObj && (
+            <Descriptions.Item label="Эксперт">
+              {expertObj.last_name} {expertObj.first_name}
             </Descriptions.Item>
           )}
           {typeof c.expert_deadline_days === 'number' && c.expert_deadline_days > 0 && (
@@ -1483,6 +1533,11 @@ const Clients: React.FC<ClientsProps> = () => {
       if (supplementForm.expert_deadline_days) payload.expert_deadline_days = supplementForm.expert_deadline_days;
       if (supplementForm.legal_cost_comp) payload.legal_cost_comp = supplementForm.legal_cost_comp;
       if (supplementForm.moral_comp) payload.moral_comp = supplementForm.moral_comp;
+      if (docTypesChanged) payload.document_types = selectedDocTypes;
+      if (cardDataChanged) {
+        payload.custom_documents = customDocs;
+        if (circumstances !== '') payload.circumstances = circumstances;
+      }
 
       await contractsApi.supplement(detailContract.id, payload);
       message.success('Данные дополнены');
@@ -1575,6 +1630,66 @@ const Clients: React.FC<ClientsProps> = () => {
                 value={supplementForm.moral_comp}
                 onChange={(e) => setSupplementForm((f) => ({ ...f, moral_comp: e.target.value }))}
                 placeholder="Сумма или пометка"
+              />
+            </div>
+            <div>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Документы к подготовке</div>
+              <Checkbox.Group
+                value={selectedDocTypes}
+                onChange={(vals) => { setSelectedDocTypes(vals as string[]); setDocTypesChanged(true); }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+              >
+                {DOCUMENT_TYPE_OPTIONS.map((t) => (
+                  <Checkbox key={t} value={t}>{t}</Checkbox>
+                ))}
+              </Checkbox.Group>
+            </div>
+            <div>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Дополнительные документы (до {CUSTOM_DOCS_LIMIT})</div>
+              {customDocs.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {customDocs.map((d, i) => (
+                    <Tag key={i} closable onClose={() => {
+                      setCustomDocs((prev) => prev.filter((_, idx) => idx !== i));
+                      setCardDataChanged(true);
+                    }}>{d}</Tag>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>{customDocs.length}/{CUSTOM_DOCS_LIMIT}</div>
+              {customDocs.length < CUSTOM_DOCS_LIMIT && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    placeholder="Название документа"
+                    value={newCustomDoc}
+                    onChange={(e) => setNewCustomDoc(e.target.value)}
+                    onPressEnter={() => {
+                      const v = newCustomDoc.trim();
+                      if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
+                        setCustomDocs((prev) => [...prev, v]);
+                        setNewCustomDoc('');
+                        setCardDataChanged(true);
+                      }
+                    }}
+                  />
+                  <Button onClick={() => {
+                    const v = newCustomDoc.trim();
+                    if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
+                      setCustomDocs((prev) => [...prev, v]);
+                      setNewCustomDoc('');
+                      setCardDataChanged(true);
+                    }
+                  }}>Добавить</Button>
+                </div>
+              )}
+            </div>
+            <div>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Обстоятельства</div>
+              <Input.TextArea
+                value={circumstances}
+                onChange={(e) => { setCircumstances(e.target.value); setCardDataChanged(true); }}
+                rows={6}
+                placeholder="Опишите ситуацию клиента подробно"
               />
             </div>
           </>
