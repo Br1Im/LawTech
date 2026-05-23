@@ -37,7 +37,7 @@ router.post('/', contractController.createContract);
 router.patch('/:id/card-data', async (req, res) => {
   try {
     const contractId = req.params.id;
-    const { document_types, custom_documents, circumstances, expert_id, title } = req.body;
+    const { document_types, custom_documents, circumstances, expert_id, title, customer_goal, legal_cost_comp, moral_comp } = req.body;
     const db = require('../db');
 
     const sets = [];
@@ -62,6 +62,18 @@ router.patch('/:id/card-data', async (req, res) => {
     if (title !== undefined) {
       sets.push('title = ?');
       params.push(title);
+    }
+    if (customer_goal !== undefined) {
+      sets.push('customer_goal = ?');
+      params.push(customer_goal || null);
+    }
+    if (legal_cost_comp !== undefined) {
+      sets.push('legal_cost_comp = ?');
+      params.push(legal_cost_comp === null || legal_cost_comp === '' ? null : Number(legal_cost_comp));
+    }
+    if (moral_comp !== undefined) {
+      sets.push('moral_comp = ?');
+      params.push(moral_comp === null || moral_comp === '' ? null : Number(moral_comp));
     }
 
     if (sets.length === 0) {

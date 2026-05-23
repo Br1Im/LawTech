@@ -194,13 +194,12 @@ const Clients: React.FC<ClientsProps> = () => {
   // Document types for the contract info tab
   const DOCUMENT_TYPE_OPTIONS = [
     'Претензия',
-    'Жалоба в прокуратуру',
-    'Жалоба в роспотребнадзор',
+    'Жалоба в Прокуратуру',
+    'Жалоба в Роспотребнадзор',
     'Жалоба в Трудовую Инспекцию',
     'Исковое заявление',
-    'Аппеляционная жалоба',
-    'Кассационная жалоба',
   ];
+  const CUSTOM_DOCS_LIMIT = 15;
   const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([]);
   const [docTypesSaving, setDocTypesSaving] = useState(false);
   const [docTypesChanged, setDocTypesChanged] = useState(false);
@@ -210,6 +209,9 @@ const Clients: React.FC<ClientsProps> = () => {
   const [cardExpertId, setCardExpertId] = useState<number | null>(null);
   const [cardDataChanged, setCardDataChanged] = useState(false);
   const [cardTitle, setCardTitle] = useState('');
+  const [cardCustomerGoal, setCardCustomerGoal] = useState('');
+  const [cardLegalCostComp, setCardLegalCostComp] = useState<string>('');
+  const [cardMoralComp, setCardMoralComp] = useState<string>('');
   const [cardSaving, setCardSaving] = useState(false);
 
   // Expert documents (inside detail drawer)
@@ -596,6 +598,17 @@ const Clients: React.FC<ClientsProps> = () => {
       setCustomDocs(Array.isArray(parsed) ? parsed : []);
     } catch { setCustomDocs([]); }
     setCircumstances((contract as any).circumstances || '');
+    setCardCustomerGoal((contract as any).customer_goal || '');
+    setCardLegalCostComp(
+      (contract as any).legal_cost_comp != null && (contract as any).legal_cost_comp !== ''
+        ? String((contract as any).legal_cost_comp)
+        : ''
+    );
+    setCardMoralComp(
+      (contract as any).moral_comp != null && (contract as any).moral_comp !== ''
+        ? String((contract as any).moral_comp)
+        : ''
+    );
     setCardExpertId(contract.expert_id || null);
     setCardTitle(contract.title || '');
     setNewCustomDoc('');
@@ -955,6 +968,9 @@ const Clients: React.FC<ClientsProps> = () => {
         circumstances: circumstances,
         expert_id: cardExpertId,
         title: cardTitle,
+        customer_goal: cardCustomerGoal,
+        legal_cost_comp: cardLegalCostComp === '' ? null : Number(cardLegalCostComp),
+        moral_comp: cardMoralComp === '' ? null : Number(cardMoralComp),
       });
       message.success('Данные сохранены');
       setDocTypesChanged(false);
@@ -1101,7 +1117,8 @@ const Clients: React.FC<ClientsProps> = () => {
                   ))}
                 </div>
               )}
-              {customDocs.length < 20 && (
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', marginTop: 4 }}>{customDocs.length}/{CUSTOM_DOCS_LIMIT}</div>
+            {customDocs.length < CUSTOM_DOCS_LIMIT && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Input
                     value={newCustomDoc}
@@ -1110,7 +1127,7 @@ const Clients: React.FC<ClientsProps> = () => {
                     size="small"
                     onPressEnter={() => {
                       const v = newCustomDoc.trim();
-                      if (v && customDocs.length < 20) {
+                      if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
                         setCustomDocs(prev => [...prev, v]);
                         setNewCustomDoc('');
                         setCardDataChanged(true);
@@ -1122,7 +1139,7 @@ const Clients: React.FC<ClientsProps> = () => {
                     type="dashed"
                     onClick={() => {
                       const v = newCustomDoc.trim();
-                      if (v && customDocs.length < 20) {
+                      if (v && customDocs.length < CUSTOM_DOCS_LIMIT) {
                         setCustomDocs(prev => [...prev, v]);
                         setNewCustomDoc('');
                         setCardDataChanged(true);
@@ -1135,14 +1152,51 @@ const Clients: React.FC<ClientsProps> = () => {
               )}
             </div>
 
+            {/* ── Цель и возмещения ── */}
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Цель заказчика</div>
+                <Input
+                  value={cardCustomerGoal}
+                  onChange={(e) => { setCardCustomerGoal(e.target.value); setCardDataChanged(true); }}
+                  placeholder="Например: добиться возврата денежных средств"
+                  maxLength={500}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение юридических расходов, ₽</div>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={cardLegalCostComp}
+                    onChange={(e) => { setCardLegalCostComp(e.target.value); setCardDataChanged(true); }}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение морального ущерба, ₽</div>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={cardMoralComp}
+                    onChange={(e) => { setCardMoralComp(e.target.value); setCardDataChanged(true); }}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* ── Обстоятельства ── */}
             <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
               <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Обстоятельства</div>
               <Input.TextArea
                 value={circumstances}
                 onChange={(e) => { setCircumstances(e.target.value); setCardDataChanged(true); }}
-                rows={4}
-                placeholder="Опишите обстоятельства / ситуацию клиента"
+                rows={8}
+                placeholder="Подробно опишите ситуацию клиента: что произошло, когда, чем закончилось, какие документы есть на руках"
                 style={{ fontSize: 13 }}
               />
             </div>
@@ -1167,6 +1221,17 @@ const Clients: React.FC<ClientsProps> = () => {
                   setCircumstances((detailContract as any)?.circumstances || '');
                   setCardExpertId(detailContract?.expert_id || null);
                   setCardTitle(detailContract?.title || '');
+                  setCardCustomerGoal((detailContract as any)?.customer_goal || '');
+                  setCardLegalCostComp(
+                    (detailContract as any)?.legal_cost_comp != null && (detailContract as any)?.legal_cost_comp !== ''
+                      ? String((detailContract as any).legal_cost_comp)
+                      : ''
+                  );
+                  setCardMoralComp(
+                    (detailContract as any)?.moral_comp != null && (detailContract as any)?.moral_comp !== ''
+                      ? String((detailContract as any).moral_comp)
+                      : ''
+                  );
                   setDocTypesChanged(false);
                   setCardDataChanged(false);
                 }}>
@@ -1193,6 +1258,32 @@ const Clients: React.FC<ClientsProps> = () => {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {customDocs.map((d, i) => <Tag key={i}>{d}</Tag>)}
                 </div>
+              </div>
+            )}
+            {(cardCustomerGoal || cardLegalCostComp || cardMoralComp) && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {cardCustomerGoal && (
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 14 }}>Цель заказчика</div>
+                    <div style={{ fontSize: 13 }}>{cardCustomerGoal}</div>
+                  </div>
+                )}
+                {(cardLegalCostComp || cardMoralComp) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    {cardLegalCostComp && (
+                      <div>
+                        <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Юр. расходы</div>
+                        <div style={{ fontSize: 13 }}>{Number(cardLegalCostComp).toLocaleString('ru-RU')} ₽</div>
+                      </div>
+                    )}
+                    {cardMoralComp && (
+                      <div>
+                        <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Моральный ущерб</div>
+                        <div style={{ fontSize: 13 }}>{Number(cardMoralComp).toLocaleString('ru-RU')} ₽</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {circumstances && (
