@@ -1534,7 +1534,7 @@ function useInView<T extends HTMLElement>(opts?: IntersectionObserverInit) {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [opts]);
   return { ref, inView };
 }
 

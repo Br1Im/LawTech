@@ -130,7 +130,7 @@ const StaffDetailModal = ({
         })
         .catch(() => setChangeableRoles([]));
     }
-  }, [showRoleChange]);
+  }, [showRoleChange, staff.role, changeableRoles.length]);
 
   const handleChangeRole = async () => {
     if (!selectedNewRole || selectedNewRole === staff.role) return;
@@ -516,6 +516,7 @@ const Employees = () => {
     } catch { /* ignore */ }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchEmployees(); fetchAllowedRoles(); }, [isAuthenticated, user, showInactive]);
 
   const roleOptions = useMemo(() => {

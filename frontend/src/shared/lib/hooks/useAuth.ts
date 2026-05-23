@@ -95,7 +95,7 @@ export const useAuth = (): UseAuthResult => {
     }
 
     setLoading(false);
-  }, [token]);
+  }, [token, user]);
 
   return {
     user,

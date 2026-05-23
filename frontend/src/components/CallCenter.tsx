@@ -364,6 +364,7 @@ const CallCenter: React.FC = () => {
   useEffect(() => { fetchEnums(); }, []);
   useEffect(() => {
     refreshData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStatus, selectedTemperature, selectedSource, sort]);
 
   const handleSearchSubmit = async (event: React.FormEvent) => {

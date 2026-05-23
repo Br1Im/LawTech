@@ -93,6 +93,7 @@ export const JoinRequestsWidget: React.FC<JoinRequestsWidgetProps> = ({
     const intervalId = setInterval(fetchRequests, 60000);
     
     return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [officeId]);
   
   const handleApprove = async (requestId: number, role: string) => {

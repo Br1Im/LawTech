@@ -244,7 +244,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
     };
 
     fetchDocuments();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, contractId]);
 
   // Справочник тем (только эти темы допустимы)
   const TOPICS = [

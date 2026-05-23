@@ -72,6 +72,7 @@ const Scanner: React.FC<ScannerProps> = ({ onScanComplete, onClose }) => {
 
     // Не удаляем скрипт при размонтировании компонента,
     // чтобы избежать повторной загрузки и ошибок с регистрацией 'IntVector'
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imgElement, ctx, overlayCanvas]);
 
   // Функция для загрузки изображения

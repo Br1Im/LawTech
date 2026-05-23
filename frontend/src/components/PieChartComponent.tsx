@@ -55,6 +55,7 @@ const PieChartComponent: React.FC<PieChartProps> = ({ title, data }) => {
 
     // Очищаем обработчик при размонтировании компонента
     return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Функция создания графика (выносим для переиспользования)
@@ -198,6 +199,7 @@ const PieChartComponent: React.FC<PieChartProps> = ({ title, data }) => {
         chartInstance.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, data]);
 
   return (
