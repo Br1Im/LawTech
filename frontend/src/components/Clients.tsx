@@ -17,6 +17,7 @@ import {
   Upload,
   Popconfirm,
   Drawer,
+  Timeline,
   Tabs,
   Descriptions,
   Spin,
@@ -217,6 +218,7 @@ const Clients: React.FC<ClientsProps> = () => {
 
   // Expert documents (inside detail drawer)
   const [docsList, setDocsList] = useState<ContractDocument[]>([]);
+  const [caseActions, setCaseActions] = useState<Array<{ id: number; action_type: string; description: string | null; action_date: string; created_at: string; user_name: string | null; }>>([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -426,6 +428,14 @@ const Clients: React.FC<ClientsProps> = () => {
   };
 
   // ===== Expert documents =====
+  const loadCaseActions = useCallback(async (contractId: number) => {
+    try {
+      const res = await fetch(buildApiUrl(`/representative/cases/${contractId}/actions`), { headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` } });
+      const json = await res.json();
+      setCaseActions(Array.isArray(json?.data) ? json.data : []);
+    } catch { setCaseActions([]); }
+  }, []);
+
   const reloadDocs = useCallback(async (contractId: number) => {
     setDocsLoading(true);
     try {
@@ -570,6 +580,7 @@ const Clients: React.FC<ClientsProps> = () => {
     setDetailTab(contract.needs_lawyer_input && !isAdmin && isOwner ? 'supplement' : 'info');
     setDetailOpen(true);
     setDocsList([]);
+    setCaseActions([]);
     setContractMaterials([]);
     setContractActs([]);
     setTerminateForm({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
@@ -583,6 +594,8 @@ const Clients: React.FC<ClientsProps> = () => {
       moral_comp: '',
     });
     reloadDocs(contract.id);
+    if ((contract.contract_type || 'docs') === 'court_rep') loadCaseActions(contract.id);
+    else setCaseActions([]);
     loadContractMaterials(contract.id);
     loadContractActs(contract.id);
     // Initialize doc types
@@ -1878,6 +1891,28 @@ const Clients: React.FC<ClientsProps> = () => {
     );
   };
 
+  const renderCaseActionsTab = () => {
+    if (!detailContract) return null;
+    if (caseActions.length === 0) {
+      return <Empty description="Представитель ещё не зафиксировал процессуальных действий" />;
+    }
+    return (
+      <Timeline mode="left" items={caseActions.map(a => ({
+        color: 'blue',
+        label: dayjs(a.action_date).format('DD.MM.YYYY'),
+        children: (
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>{a.action_type}</div>
+            {a.description && <div style={{ color: 'var(--color-muted)', fontSize: 13, marginBottom: 4 }}>{a.description}</div>}
+            <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
+              {a.user_name || 'Представитель'} · добавлено {dayjs(a.created_at).format('DD.MM.YYYY HH:mm')}
+            </div>
+          </div>
+        ),
+      }))} />
+    );
+  };
+
   // Build drawer tabs (no memo — fresh on every render to avoid stale state bugs)
   const buildDrawerTabs = () => {
     const tabs: { key: string; label: string; children: React.ReactNode }[] = [
@@ -1895,6 +1930,9 @@ const Clients: React.FC<ClientsProps> = () => {
       tabs.push({ key: 'docs', label: `Документы эксперта (${docsList.length})`, children: renderDocsTab() });
     }
     if (!isAdmin && (detailContract?.status === 'terminated' || canTerminate)) {
+      if ((detailContract?.contract_type || 'docs') === 'court_rep') {
+        tabs.push({ key: 'case-actions', label: `Процессуальные действия (${caseActions.length})`, children: renderCaseActionsTab() });
+      }
       tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторгнуть договор', children: renderTerminateTab() });
     }
     return tabs;
