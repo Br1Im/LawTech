@@ -904,455 +904,284 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
               <button className="modal-close-btn" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={createNewDocument} className="document-form">
-              {/* ФИО клиента — раздельно */}
-              <div className="form-group">
-                <label htmlFor="clientLastName">Фамилия *</label>
-                <input
-                  type="text"
-                  id="clientLastName"
-                  name="clientLastName"
-                  value={newDocument.clientLastName}
-                  onChange={handleInputChange}
-                  placeholder="Введите фамилию"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="clientFirstName">Имя *</label>
-                <input
-                  type="text"
-                  id="clientFirstName"
-                  name="clientFirstName"
-                  value={newDocument.clientFirstName}
-                  onChange={handleInputChange}
-                  placeholder="Введите имя"
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="clientMiddleName">Отчество</label>
-                <input
-                  type="text"
-                  id="clientMiddleName"
-                  name="clientMiddleName"
-                  value={newDocument.clientMiddleName}
-                  onChange={handleInputChange}
-                  placeholder="Введите отчество (при наличии)"
-                />
-              </div>
-
-              {/* В чьих интересах действует клиент (опционально) */}
-              <div className="form-group">
-                <label htmlFor="actingFor">В чьих интересах действует клиент</label>
-                <input
-                  type="text"
-                  id="actingFor"
-                  name="actingFor"
-                  value={newDocument.actingFor}
-                  onChange={handleInputChange}
-                  placeholder="Например: в интересах несовершеннолетнего / подопечного (необязательно)"
-                />
-              </div>
-
-              {/* В интересах ФИО (устаревшее — оставим как представитель) */}
-              <div className="form-group">
-                <label htmlFor="representativeName">ФИО представителя</label>
-                <input
-                  type="text"
-                  id="representativeName"
-                  name="representativeName"
-                  value={newDocument.representativeName}
-                  onChange={handleInputChange}
-                  placeholder="Если действует представитель (необязательно)"
-                />
-              </div>
-              
-              {/* Номер телефона клиента — только российский формат */}
-              <div className="form-group">
-                <label htmlFor="clientPhone">Номер телефона *</label>
-                <input
-                  type="tel"
-                  id="clientPhone"
-                  name="clientPhone"
-                  value={newDocument.clientPhone}
-                  onChange={handlePhoneChange}
-                  placeholder="+7 (___) ___-__-__"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  maxLength={18}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="contractDate">Дата заключения *</label>
-                <input
-                  type="date"
-                  id="contractDate"
-                  name="contractDate"
-                  value={newDocument.contractDate}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              {/* Тема договора (свободный ввод) */}
-              <div className="form-group">
-                <label htmlFor="contractTopic">Тема договора *</label>
-                <input
-                  id="contractTopic"
-                  type="text"
-                  className="form-input"
-                  value={contractTopic}
-                  onChange={(e) => setContractTopic(e.target.value)}
-                  placeholder="Например: Возмещение ущерба по ДТП"
-                  list="contract-topic-suggestions"
-                  required
-                />
-                <datalist id="contract-topic-suggestions">
-                  {TOPICS.map(topic => (
-                    <option key={topic} value={topic} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Предмет договора */}
-              <div className="form-group">
-                <label>Предмет договора *</label>
-                <div className="subject-type-selector">
-                  <div className="radio-group">
-                    <label className="radio-label">
-                      <input
-                        type="radio"
-                        name="subjectType"
-                        value="documents"
-                        checked={newDocument.subjectType === 'documents'}
-                        onChange={handleInputChange}
-                      />
-                      <span className="radio-custom"></span>
-                      <span className="radio-text">Документы</span>
-                    </label>
-                    <label className="radio-label">
-                      <input
-                        type="radio"
-                        name="subjectType"
-                        value="representation"
-                        checked={newDocument.subjectType === 'representation'}
-                        onChange={handleInputChange}
-                      />
-                      <span className="radio-custom"></span>
-                      <span className="radio-text">Представление интересов</span>
-                    </label>
+              {/* ── Клиент ── */}
+              <div className="form-section">
+                <div className="form-section-title">Клиент</div>
+                <div className="form-grid cols-3">
+                  <div className="form-group">
+                    <label htmlFor="clientLastName">Фамилия *</label>
+                    <input type="text" id="clientLastName" name="clientLastName"
+                      value={newDocument.clientLastName} onChange={handleInputChange}
+                      placeholder="Иванов" required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="clientFirstName">Имя *</label>
+                    <input type="text" id="clientFirstName" name="clientFirstName"
+                      value={newDocument.clientFirstName} onChange={handleInputChange}
+                      placeholder="Иван" required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="clientMiddleName">Отчество</label>
+                    <input type="text" id="clientMiddleName" name="clientMiddleName"
+                      value={newDocument.clientMiddleName} onChange={handleInputChange}
+                      placeholder="Иванович" />
                   </div>
                 </div>
-                
-                {/* Множественный выбор документов */}
-                {newDocument.subjectType === 'documents' && (
-                  <div className="document-types-selection">
-                    <label>Выберите типы документов:</label>
-                    <div className="checkbox-group">
-                      {documentTypeOptions.map(type => (
-                        <label key={type} className="checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={newDocument.documentTypes.includes(type)}
-                            onChange={(e) => handleDocumentTypeChange(type, e.target.checked)}
-                          />
-                          <span className="checkbox-custom"></span>
-                          {type}
-                        </label>
-                      ))}
-                    </div>
-                    <div className="custom-type-row">
-                      <input
-                        type="text"
-                        value={newDocType}
-                        onChange={(e) => setNewDocType(e.target.value)}
-                        placeholder="Добавить свой вариант"
-                        className="form-input"
-                      />
-                      <button type="button" className="custom-type-add-btn" onClick={addCustomDocumentType}>
-                        Добавить
-                      </button>
-                    </div>
+                <div className="form-grid cols-2">
+                  <div className="form-group">
+                    <label htmlFor="clientPhone">Номер телефона *</label>
+                    <input type="tel" id="clientPhone" name="clientPhone"
+                      value={newDocument.clientPhone} onChange={handlePhoneChange}
+                      placeholder="+7 (___) ___-__-__" inputMode="tel"
+                      autoComplete="tel" maxLength={18} required />
                   </div>
-                )}
-                
-                {/* Произвольный ввод для представления интересов */}
-                {newDocument.subjectType === 'representation' && (
-                  <div className="custom-subject-input">
-                    <input
-                      type="text"
-                      name="customSubject"
-                      value={newDocument.customSubject}
-                      onChange={handleInputChange}
-                      placeholder="Опишите предмет представления интересов"
-                      required
-                    />
+                  <div className="form-group">
+                    <label htmlFor="contractDate">Дата заключения *</label>
+                    <input type="date" id="contractDate" name="contractDate"
+                      value={newDocument.contractDate} onChange={handleInputChange} required />
                   </div>
-                )}
+                </div>
+                <div className="form-grid cols-2">
+                  <div className="form-group">
+                    <label htmlFor="actingFor">В чьих интересах действует</label>
+                    <input type="text" id="actingFor" name="actingFor"
+                      value={newDocument.actingFor} onChange={handleInputChange}
+                      placeholder="Например: в интересах несовершеннолетнего" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="representativeName">ФИО представителя</label>
+                    <input type="text" id="representativeName" name="representativeName"
+                      value={newDocument.representativeName} onChange={handleInputChange}
+                      placeholder="Если действует представитель" />
+                  </div>
+                </div>
+              </div>
 
-                {/* Эксперт — для договоров «Подготовка документов» */}
+              {/* ── Тема и предмет ── */}
+              <div className="form-section">
+                <div className="form-section-title">Договор</div>
+                <div className="form-group">
+                  <label htmlFor="contractTopic">Тема договора *</label>
+                  <input id="contractTopic" type="text" className="form-input"
+                    value={contractTopic} onChange={(e) => setContractTopic(e.target.value)}
+                    placeholder="Например: Возмещение ущерба по ДТП"
+                    list="contract-topic-suggestions" required />
+                  <datalist id="contract-topic-suggestions">
+                    {TOPICS.map(topic => (<option key={topic} value={topic} />))}
+                  </datalist>
+                </div>
+
+                <div className="form-group">
+                  <label>Предмет договора *</label>
+                  <div className="subject-type-selector">
+                    <div className="radio-group">
+                      <label className="radio-label">
+                        <input type="radio" name="subjectType" value="documents"
+                          checked={newDocument.subjectType === 'documents'} onChange={handleInputChange} />
+                        <span className="radio-custom"></span>
+                        <span className="radio-text">Документы</span>
+                      </label>
+                      <label className="radio-label">
+                        <input type="radio" name="subjectType" value="representation"
+                          checked={newDocument.subjectType === 'representation'} onChange={handleInputChange} />
+                        <span className="radio-custom"></span>
+                        <span className="radio-text">Представление интересов</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {newDocument.subjectType === 'documents' && (
+                    <div className="document-types-selection" style={{ marginTop: 10 }}>
+                      <label>Выберите типы документов:</label>
+                      <div className="checkbox-group">
+                        {documentTypeOptions.map(type => (
+                          <label key={type} className="checkbox-label">
+                            <input type="checkbox"
+                              checked={newDocument.documentTypes.includes(type)}
+                              onChange={(e) => handleDocumentTypeChange(type, e.target.checked)} />
+                            <span className="checkbox-custom"></span>
+                            {type}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="custom-type-row" style={{ marginTop: 8 }}>
+                        <input type="text" value={newDocType}
+                          onChange={(e) => setNewDocType(e.target.value)}
+                          placeholder="Добавить свой вариант" className="form-input" />
+                        <button type="button" className="custom-type-add-btn" onClick={addCustomDocumentType}>
+                          Добавить
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {newDocument.subjectType === 'representation' && (
+                    <div className="custom-subject-input" style={{ marginTop: 10 }}>
+                      <input type="text" name="customSubject"
+                        value={newDocument.customSubject} onChange={handleInputChange}
+                        placeholder="Опишите предмет представления интересов" required />
+                    </div>
+                  )}
+                </div>
+
                 {newDocument.subjectType === 'documents' && (
-                  <div className="custom-subject-input" style={{ marginTop: 8 }}>
-                    <label htmlFor="expertId" style={{ display: 'block', marginBottom: 4 }}>
-                      Эксперт (готовит документы)
-                    </label>
-                    <select
-                      id="expertId"
-                      name="expertId"
+                  <div className="form-group">
+                    <label htmlFor="expertId">Эксперт (готовит документы)</label>
+                    <select id="expertId" name="expertId"
                       value={newDocument.expertId}
                       onChange={(e) => setNewDocument(prev => ({ ...prev, expertId: e.target.value }))}
-                      className="form-input"
-                    >
+                      className="form-input">
                       <option value="">— Не назначен —</option>
-                      {experts.map(exp => (
-                        <option key={exp.id} value={exp.id}>{exp.name}</option>
-                      ))}
+                      {experts.map(exp => (<option key={exp.id} value={exp.id}>{exp.name}</option>))}
                     </select>
                   </div>
                 )}
+              </div>
 
-                {/* ТЗ для эксперта — обязательно для «Подготовки документов» */}
-                {newDocument.subjectType === 'documents' && (
-                  <div
-                    className="tz-block"
-                    style={{
-                      marginTop: 12,
-                      padding: 12,
-                      border: '1px solid var(--color-border, #e5e7eb)',
-                      borderRadius: 8,
-                      background: 'rgba(30,64,175,0.02)',
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                      Техническое задание <span style={{ color: 'var(--color-muted, #888)', fontWeight: 400 }}>
-                        (обязательно для документов)
-                      </span>
-                    </div>
-
+              {/* ── Техзадание (только для документов) ── */}
+              {newDocument.subjectType === 'documents' && (
+                <div className="form-section">
+                  <div className="form-section-title">Техническое задание</div>
+                  <div className="form-grid cols-2">
                     <div className="form-group">
                       <label htmlFor="customerGoal">Цель заказчика *</label>
-                      <input
-                        type="text"
-                        id="customerGoal"
-                        name="customerGoal"
-                        maxLength={500}
-                        value={newDocument.customerGoal}
-                        onChange={handleInputChange}
-                        placeholder="Коротко: что клиент хочет получить в итоге"
-                        required
-                      />
+                      <input type="text" id="customerGoal" name="customerGoal" maxLength={500}
+                        value={newDocument.customerGoal} onChange={handleInputChange}
+                        placeholder="Что клиент хочет получить" required />
                     </div>
-
                     <div className="form-group">
-                      <label htmlFor="situationDescription">Описание ситуации *</label>
-                      <textarea
-                        id="situationDescription"
-                        name="situationDescription"
-                        value={newDocument.situationDescription}
-                        onChange={handleInputChange}
-                        rows={4}
-                        placeholder="Кратко изложите ситуацию клиента, факты, стороны, суммы"
-                        required
-                      />
+                      <label htmlFor="expertDeadlineDays">Дедлайн эксперту, дней *</label>
+                      <input type="number" id="expertDeadlineDays" name="expertDeadlineDays"
+                        min="1" step="1" value={newDocument.expertDeadlineDays}
+                        onChange={handleInputChange} placeholder="7" required />
                     </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="situationDescription">Описание ситуации *</label>
+                    <textarea id="situationDescription" name="situationDescription"
+                      value={newDocument.situationDescription} onChange={handleInputChange}
+                      rows={3} placeholder="Факты, стороны, суммы" required />
+                  </div>
+                </div>
+              )}
 
+              {/* ── Финансы ── */}
+              <div className="form-section">
+                <div className="form-section-title">Финансы</div>
+                <div className="form-grid cols-3">
+                  <div className="form-group">
+                    <label htmlFor="contractCost">Стоимость договора *</label>
+                    <input type="number" id="contractCost" name="contractCost"
+                      value={newDocument.contractCost} onChange={handleInputChange}
+                      placeholder="0" min="0" step="0.01" required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="legalCostComp">Возмещение юр. ₽</label>
+                    <input type="number" id="legalCostComp" name="legalCostComp"
+                      value={newDocument.legalCostComp} onChange={handleInputChange}
+                      placeholder="0" min="0" step="0.01" />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="moralComp">Моральная компенсация ₽</label>
+                    <input type="number" id="moralComp" name="moralComp"
+                      value={newDocument.moralComp} onChange={handleInputChange}
+                      placeholder="0" min="0" step="0.01" />
+                  </div>
+                </div>
+                <div className="form-grid cols-2">
+                  <div className="form-group">
+                    <label htmlFor="paymentDate">Дата внесения *</label>
+                    <input type="date" id="paymentDate" name="paymentDate"
+                      value={newDocument.paymentDate} onChange={handleInputChange} required />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="paidAmount">Сумма внесения *</label>
+                    <input type="number" id="paidAmount" name="paidAmount"
+                      value={newDocument.paidAmount} onChange={handleInputChange}
+                      placeholder="0" min="0" step="0.01" required />
+                  </div>
+                </div>
+                {parseFloat(newDocument.remainingAmount) > 0 && (
+                  <div className="form-grid cols-2">
                     <div className="form-group">
-                      <label htmlFor="expertDeadlineDays">Дедлайн для эксперта (дней) *</label>
-                      <input
-                        type="number"
-                        id="expertDeadlineDays"
-                        name="expertDeadlineDays"
-                        min="1"
-                        step="1"
-                        value={newDocument.expertDeadlineDays}
-                        onChange={handleInputChange}
-                        placeholder="Например: 7"
-                        required
-                      />
+                      <label>Остаток к доплате</label>
+                      <div className="remaining-amount">
+                        {parseFloat(newDocument.remainingAmount).toLocaleString('ru-RU')} ₽
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="remainingPaymentDate">Дата внесения остатка *</label>
+                      <input type="date" id="remainingPaymentDate" name="remainingPaymentDate"
+                        value={newDocument.remainingPaymentDate} onChange={handleInputChange} required />
                     </div>
                   </div>
                 )}
-              </div>
-              
-              {/* Финансовый блок */}
-              <div
-                className="finance-block"
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  border: '1px solid var(--color-border, #e5e7eb)',
-                  borderRadius: 8,
-                  background: 'rgba(100, 116, 139, 0.04)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Финансы по договору</div>
-
-                <div className="form-group">
-                  <label htmlFor="contractCost">Стоимость договора *</label>
-                  <input
-                    type="number"
-                    id="contractCost"
-                    name="contractCost"
-                    value={newDocument.contractCost}
-                    onChange={handleInputChange}
-                    placeholder="Введите стоимость в рублях"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group half-width">
-                    <label htmlFor="legalCostComp">Возмещение юр. расходов, ₽</label>
-                    <input
-                      type="number"
-                      id="legalCostComp"
-                      name="legalCostComp"
-                      value={newDocument.legalCostComp}
-                      onChange={handleInputChange}
-                      placeholder="Планируемая сумма"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                  <div className="form-group half-width">
-                    <label htmlFor="moralComp">Моральная компенсация, ₽</label>
-                    <input
-                      type="number"
-                      id="moralComp"
-                      name="moralComp"
-                      value={newDocument.moralComp}
-                      onChange={handleInputChange}
-                      placeholder="Планируемая сумма"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
                 <div style={{ fontSize: 12, color: 'var(--color-muted, #777)' }}>
-                  Эти суммы — справочная пометка эксперту. В статистику офиса не идут.
+                  Возмещения — справочная пометка эксперту, в статистику офиса не идут.
                 </div>
               </div>
-              
-              {/* Дата и сумма внесения */}
-              <div className="form-row">
-                <div className="form-group half-width">
-                  <label htmlFor="paymentDate">Дата внесения *</label>
-                  <input
-                    type="date"
-                    id="paymentDate"
-                    name="paymentDate"
-                    value={newDocument.paymentDate}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group half-width">
-                  <label htmlFor="paidAmount">Сумма внесения *</label>
-                  <input
-                    type="number"
-                    id="paidAmount"
-                    name="paidAmount"
-                    value={newDocument.paidAmount}
-                    onChange={handleInputChange}
-                    placeholder="Введите сумму"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-              </div>
-              
-              {/* Остаток */}
-               {parseFloat(newDocument.remainingAmount) > 0 && (
-                 <div className="form-group">
-                   <label>Остаток к доплате</label>
-                   <div className="remaining-amount">
-                     {parseFloat(newDocument.remainingAmount).toLocaleString('ru-RU')} ₽
-                   </div>
-                   <div className="form-group" style={{marginTop: '15px'}}>
-                     <label htmlFor="remainingPaymentDate">Дата внесения остатка *</label>
-                     <input
-                       type="date"
-                       id="remainingPaymentDate"
-                       name="remainingPaymentDate"
-                       value={newDocument.remainingPaymentDate}
-                       onChange={handleInputChange}
-                       required
-                     />
-                   </div>
-                 </div>
-               )}
-              
-              {/* Материалы дела — файлы любых форматов, загружаются сразу */}
-              <div className="form-group">
-                <label>Материалы дела (фото, сканы, файлы любых форматов)</label>
-                <input
-                  type="file"
-                  multiple
-                  onChange={async (ev) => {
-                    const files = Array.from(ev.target.files || []);
-                    if (files.length === 0) return;
-                    const tok = localStorage.getItem('token');
-                    if (!tok) { showWarning('Требуется авторизация'); return; }
-                    setUploadingFiles(true);
-                    try {
-                      for (const f of files) {
-                        const fd = new FormData();
-                        fd.append('file', f);
-                        fd.append('category', 'Приложение к договору');
-                        const resp = await fetch(buildApiUrl('/materials/upload'), {
-                          method: 'POST',
-                          headers: (() => { const h = getAuthHeaders(); delete (h as any)['Content-Type']; return h; })(),
-                          body: fd,
-                        });
-                        if (resp.ok) {
-                          const j = await resp.json();
-                          if (j?.data?.id) {
-                            setUploadedMaterialIds((prev) => [...prev, Number(j.data.id)]);
-                            setNewDocument((prev) => ({ ...prev, materials: [...prev.materials, f] }));
+
+              {/* ── Материалы ── */}
+              <div className="form-section">
+                <div className="form-section-title">Материалы дела</div>
+                <div className="form-group">
+                  <input type="file" multiple
+                    onChange={async (ev) => {
+                      const files = Array.from(ev.target.files || []);
+                      if (files.length === 0) return;
+                      const tok = localStorage.getItem('token');
+                      if (!tok) { showWarning('Требуется авторизация'); return; }
+                      setUploadingFiles(true);
+                      try {
+                        for (const f of files) {
+                          const fd = new FormData();
+                          fd.append('file', f);
+                          fd.append('category', 'Приложение к договору');
+                          const resp = await fetch(buildApiUrl('/materials/upload'), {
+                            method: 'POST',
+                            headers: (() => { const h = getAuthHeaders(); delete (h as any)['Content-Type']; return h; })(),
+                            body: fd,
+                          });
+                          if (resp.ok) {
+                            const j = await resp.json();
+                            if (j?.data?.id) {
+                              setUploadedMaterialIds((prev) => [...prev, Number(j.data.id)]);
+                              setNewDocument((prev) => ({ ...prev, materials: [...prev.materials, f] }));
+                            }
                           }
                         }
-                      }
-                    } catch (err) {
-                      console.warn('upload err', err);
-                    } finally {
-                      setUploadingFiles(false);
-                      ev.target.value = '';
-                    }
-                  }}
-                  className="file-input"
-                />
-                {uploadingFiles && (
+                      } catch (err) { console.warn('upload err', err); }
+                      finally { setUploadingFiles(false); ev.target.value = ''; }
+                    }}
+                    className="file-input" />
+                  {uploadingFiles && (
+                    <div style={{ fontSize: 12, color: 'var(--color-muted, #777)', marginTop: 6 }}>
+                      Загружаем файлы...
+                    </div>
+                  )}
+                  {newDocument.materials.length > 0 && (
+                    <div className="uploaded-files" style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                        Загружено ({newDocument.materials.length}):
+                      </div>
+                      <div className="files-list">
+                        {newDocument.materials.map((file, index) => (
+                          <div key={index} className="file-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span className="file-name">{file.name}</span>
+                            <span style={{ color: 'var(--color-muted,#888)', fontSize: 12 }}>
+                              ({Math.round((file.size || 0) / 1024)} КБ)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div style={{ fontSize: 12, color: 'var(--color-muted, #777)', marginTop: 6 }}>
-                    Загружаем файлы...
+                    Файлы автоматически привяжутся к делу клиента после создания договора.
                   </div>
-                )}
-                {newDocument.materials.length > 0 && (
-                  <div className="uploaded-files" style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
-                      Загружено ({newDocument.materials.length}):
-                    </div>
-                    <div className="files-list">
-                      {newDocument.materials.map((file, index) => (
-                        <div key={index} className="file-item" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <span className="file-name">{file.name}</span>
-                          <span style={{ color: 'var(--color-muted,#888)', fontSize: 12 }}>
-                            ({Math.round((file.size || 0) / 1024)} КБ)
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div style={{ fontSize: 12, color: 'var(--color-muted, #777)', marginTop: 6 }}>
-                  Файлы автоматически будут привязаны к делу клиента после создания договора.
                 </div>
               </div>
-              
+
               <div className="form-actions">
                 <button type="button" className="cancel-btn" onClick={closeModal}>Отмена</button>
                 <button type="submit" className="submit-btn">Создать договор</button>

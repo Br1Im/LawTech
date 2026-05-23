@@ -699,7 +699,7 @@
 
 /* Стили для улучшенного модального окна создания договора */
 .contract-modal {
-  max-width: 700px !important;
+  max-width: 920px !important;
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -2513,4 +2513,56 @@ button.confirm-delete svg {
   background-color: #e8e8e8 !important;
   transform: translateY(-2px) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+
+/* === contract-modal compact grid === */
+.contract-modal .form-grid {
+  display: grid;
+  gap: 12px 14px;
+  margin-bottom: 14px;
+}
+.contract-modal .form-grid.cols-2 { grid-template-columns: 1fr 1fr; }
+.contract-modal .form-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.contract-modal .form-grid.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.contract-modal .form-grid .span-2 { grid-column: span 2; }
+.contract-modal .form-grid .span-full { grid-column: 1 / -1; }
+
+.contract-modal .form-group { margin-bottom: 12px; }
+.contract-modal .form-group label { font-size: 13px; margin-bottom: 4px; display: block; }
+.contract-modal .form-group input,
+.contract-modal .form-group select,
+.contract-modal .form-group textarea {
+  padding: 8px 10px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+.contract-modal .form-section {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.6);
+}
+.contract-modal .form-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--color-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.contract-modal .radio-group { display: flex; gap: 14px; flex-wrap: wrap; }
+.contract-modal .document-types-selection .checkbox-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+@media (max-width: 720px) {
+  .contract-modal .form-grid.cols-2,
+  .contract-modal .form-grid.cols-3,
+  .contract-modal .form-grid.cols-4 { grid-template-columns: 1fr; }
+  .contract-modal .form-grid .span-2,
+  .contract-modal .form-grid .span-full { grid-column: 1 / -1; }
+  .contract-modal .document-types-selection .checkbox-group { grid-template-columns: 1fr; }
 }
