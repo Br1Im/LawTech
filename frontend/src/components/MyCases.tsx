@@ -74,6 +74,7 @@ const MyCases: React.FC = () => {
   const [actions, setActions] = useState<CaseAction[]>([]);
   const [actionsLoading, setActionsLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   // Add action modal
   const [addActionOpen, setAddActionOpen] = useState(false);
@@ -200,7 +201,7 @@ const MyCases: React.FC = () => {
       ),
       ellipsis: true,
     },
-    {
+    ...(isRepresentative ? [] : [{
       title: 'Финансы',
       key: 'money',
       render: (_: unknown, r: CourtCase) => {
@@ -221,7 +222,7 @@ const MyCases: React.FC = () => {
         );
       },
       width: 180,
-    },
+    } as ColumnsType<CourtCase>[number]]),
     {
       title: 'Сотрудник',
       dataIndex: 'employee_name',
@@ -253,6 +254,28 @@ const MyCases: React.FC = () => {
     },
   ];
 
+  // === Search filter (ФИО, дата, номер договора) ===
+  const filteredCases = (() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cases;
+    const qDigits = q.replace(/\D/g, '');
+    return cases.filter(c => {
+      const name = (c.client_name || '').toLowerCase();
+      const phone = (c.client_phone || '').replace(/\D/g, '');
+      const id = String(c.id).padStart(8, '0');
+      const fullNum = ('дог-' + id);
+      const title = (c.title || '').toLowerCase();
+      const dateRu = c.contract_date ? dayjs(c.contract_date).format('DD.MM.YYYY') : '';
+      const dateIso = c.contract_date || '';
+      if (name.includes(q)) return true;
+      if (title.includes(q)) return true;
+      if (qDigits && (id.includes(qDigits) || phone.includes(qDigits))) return true;
+      if (fullNum.includes(q)) return true;
+      if (dateRu.includes(q) || dateIso.includes(q)) return true;
+      return false;
+    });
+  })();
+
   const stats = {
     total: cases.length,
     active: cases.filter(c => c.status === 'active').length,
@@ -261,11 +284,15 @@ const MyCases: React.FC = () => {
 
   return (
     <div style={{ padding: '0 4px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>
-          <FileTextOutlined style={{ marginRight: 8 }} />
-          {isRepresentative ? 'Мои дела' : 'Дела представителей'}
-        </h2>
+      <div style={{ marginBottom: 12 }}>
+        <Input.Search
+          placeholder="Поиск: ФИО клиента, тема, номер договора (ДОГ-...), телефон, дата"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          allowClear
+          size="middle"
+          style={{ maxWidth: 640 }}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
@@ -285,7 +312,7 @@ const MyCases: React.FC = () => {
       ) : (
         <Table
           columns={columns}
-          dataSource={cases}
+          dataSource={filteredCases}
           rowKey="id"
           loading={loading}
           onRow={(record) => ({
@@ -314,53 +341,68 @@ const MyCases: React.FC = () => {
       >
         {selectedCase && (
           <>
-            <Descriptions bordered size="small" column={1} style={{ marginBottom: 20 }}>
-              <Descriptions.Item label={<><UserOutlined /> ФИО клиента</>}>
-                {selectedCase.client_name || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label={<><PhoneOutlined /> Телефон</>}>
-                {selectedCase.client_phone || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Номер договора">
-                ДОГ-{String(selectedCase.id).padStart(8, '0')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Тема договора">
-                {selectedCase.title || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label={<><DollarOutlined /> Общая сумма</>}>
-                {selectedCase.amount ? `${Number(selectedCase.amount).toLocaleString('ru-RU')} ₽` : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Внесено">
-                {selectedCase.paid_amount ? `${Number(selectedCase.paid_amount).toLocaleString('ru-RU')} ₽` : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Остаток к оплате">
-                {selectedCase.amount && selectedCase.paid_amount
-                  ? `${(Number(selectedCase.amount) - Number(selectedCase.paid_amount)).toLocaleString('ru-RU')} ₽`
-                  : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Дата следующего платежа">
-                {selectedCase.additional_payment_date
-                  ? dayjs(selectedCase.additional_payment_date).format('DD.MM.YYYY')
-                  : '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Сотрудник (заключил договор)">
-                {selectedCase.employee_name?.trim() || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Цель обращения">
-                {selectedCase.customer_goal || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Описание ситуации">
-                {selectedCase.situation_description || selectedCase.description || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Дата договора">
-                {selectedCase.contract_date || '—'}
-              </Descriptions.Item>
-              <Descriptions.Item label="Статус">
-                <Tag color={STATUS_COLORS[selectedCase.status] || 'default'}>
-                  {selectedCase.status === 'active' ? 'Активно' : selectedCase.status}
-                </Tag>
-              </Descriptions.Item>
-            </Descriptions>
+            {/* Компактная двух-колоночная шапка */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '8px 16px',
+              padding: '14px 16px',
+              border: '1px solid var(--color-border)',
+              borderRadius: 8,
+              marginBottom: 16,
+              background: 'var(--color-bg-alt, #fafafa)',
+              fontSize: 13,
+              lineHeight: 1.4,
+            }}>
+              {(() => {
+                const c = selectedCase;
+                const fmtPhone = (raw?: string | null) => {
+                  if (!raw) return '—';
+                  const d = String(raw).replace(/\D/g, '');
+                  if (d.length === 11) {
+                    return `+7 (${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7,9)}-${d.slice(9,11)}`;
+                  }
+                  return raw;
+                };
+                const fmtDate = (raw?: string | null) => raw ? dayjs(raw).format('DD.MM.YYYY') : '—';
+                const fmtMoney = (raw?: string | number | null) => raw ? `${Number(raw).toLocaleString('ru-RU')} ₽` : '—';
+                const left = Number(c.amount || 0) - Number(c.paid_amount || 0);
+                const rows: [string, React.ReactNode][] = [
+                  ['Клиент', <span style={{ fontWeight: 500 }}>{c.client_name || '—'}</span>],
+                  ['Телефон', <span style={{ fontFamily: 'inherit' }}>{fmtPhone(c.client_phone)}</span>],
+                  ['Номер договора', <span style={{ fontVariantNumeric: 'tabular-nums' }}>ДОГ-{String(c.id).padStart(8, '0')}</span>],
+                  ['Дата договора', fmtDate(c.contract_date)],
+                  ['Тема', <span style={{ fontWeight: 500 }}>{c.title || '—'}</span>],
+                  ['Статус', <Tag color={STATUS_COLORS[c.status] || 'default'} style={{ margin: 0 }}>{
+                    c.status === 'active' ? 'Активно' :
+                    c.status === 'completed' ? 'Завершено' :
+                    c.status === 'cancelled' ? 'Отменено' :
+                    c.status === 'registered' ? 'Зарегистрирован' :
+                    c.status === 'pending' ? 'Ожидание' :
+                    c.status === 'draft' ? 'Черновик' :
+                    c.status
+                  }</Tag>],
+                  ['Сумма', fmtMoney(c.amount)],
+                  ['Внесено', fmtMoney(c.paid_amount)],
+                  ['Остаток', left > 0 ? <span style={{ color: '#d97706', fontWeight: 500 }}>{fmtMoney(left)}</span> : '—'],
+                  ['Следующий платёж', fmtDate(c.additional_payment_date)],
+                  ['Сотрудник', c.employee_name?.trim() || '—'],
+                  ['Цель обращения', c.customer_goal || '—'],
+                ];
+                return rows.map(([label, value]) => (
+                  <div key={label} style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+                    <span style={{ color: 'var(--color-muted, #888)', minWidth: 110, flexShrink: 0 }}>{label}:</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+                  </div>
+                ));
+              })()}
+              {selectedCase.situation_description || selectedCase.description ? (
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, paddingTop: 6, borderTop: '1px solid var(--color-border)' }}>
+                  <span style={{ color: 'var(--color-muted, #888)', minWidth: 110, flexShrink: 0 }}>Описание:</span>
+                  <span style={{ whiteSpace: 'pre-wrap' }}>{selectedCase.situation_description || selectedCase.description}</span>
+                </div>
+              ) : null}
+            </div>
 
             {/* Процессуальные действия */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
