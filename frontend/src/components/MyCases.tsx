@@ -483,7 +483,12 @@ const MyCases: React.FC = () => {
             label="Тип действия"
             rules={[{ required: true, message: 'Укажите тип действия' }]}
           >
-            <Input placeholder="Например: Подал документы, Проведено заседание..." />
+            <TextArea
+              rows={4}
+              placeholder="Например: Подал документы, Проведено заседание, Подал ходатайство о ..."
+              maxLength={1000}
+              showCount
+            />
           </Form.Item>
           <Form.Item
             name="action_date"
@@ -491,9 +496,6 @@ const MyCases: React.FC = () => {
             rules={[{ required: true, message: 'Укажите дату' }]}
           >
             <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
-          </Form.Item>
-          <Form.Item name="description" label="Комментарий">
-            <TextArea rows={3} placeholder="Описание действия..." />
           </Form.Item>
         </Form>
       </Modal>
