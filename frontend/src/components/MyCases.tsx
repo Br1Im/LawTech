@@ -177,85 +177,79 @@ const MyCases: React.FC = () => {
 
   const columns: ColumnsType<CourtCase> = [
     {
-      title: 'ФИО клиента',
-      dataIndex: 'client_name',
-      key: 'client_name',
-      render: (name: string) => name || '—',
-      width: 160,
+      title: 'Клиент',
+      key: 'client',
+      render: (_: unknown, r: CourtCase) => (
+        <div style={{ lineHeight: 1.25 }}>
+          <div style={{ fontWeight: 500 }}>{r.client_name || '—'}</div>
+          <div style={{ fontSize: 12, color: 'var(--color-muted, #888)' }}>{r.client_phone || ''}</div>
+        </div>
+      ),
+      width: 220,
     },
     {
-      title: 'Номер договора',
-      dataIndex: 'id',
-      key: 'contract_number',
-      render: (id: number) => `ДОГ-${String(id).padStart(8, '0')}`,
-      width: 150,
-    },
-    {
-      title: 'Телефон',
-      dataIndex: 'client_phone',
-      key: 'client_phone',
-      render: (phone: string) => phone || '—',
-      width: 140,
-    },
-    {
-      title: 'Тема договора',
-      key: 'topic',
-      render: (_: unknown, record: CourtCase) => record.title || record.customer_goal || '—',
+      title: 'Договор',
+      key: 'contract',
+      render: (_: unknown, r: CourtCase) => (
+        <div style={{ lineHeight: 1.25 }}>
+          <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12, color: 'var(--color-muted, #888)' }}>
+            ДОГ-{String(r.id).padStart(8, '0')}
+          </div>
+          <div style={{ fontWeight: 500 }}>{r.title || r.customer_goal || '—'}</div>
+        </div>
+      ),
       ellipsis: true,
+    },
+    {
+      title: 'Финансы',
+      key: 'money',
+      render: (_: unknown, r: CourtCase) => {
+        const a = Number(r.amount || 0);
+        const p = Number(r.paid_amount || 0);
+        const left = Math.max(0, a - p);
+        const fmt = (n: number) => n.toLocaleString('ru-RU');
+        return (
+          <div style={{ lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+            <div><span style={{ color: 'var(--color-muted, #888)' }}>Сумма:</span> {fmt(a)} ₽</div>
+            <div><span style={{ color: 'var(--color-muted, #888)' }}>Внесено:</span> {fmt(p)} ₽</div>
+            {left > 0 && (
+              <div style={{ color: '#d97706' }}>
+                Остаток: {fmt(left)} ₽
+              </div>
+            )}
+          </div>
+        );
+      },
       width: 180,
-    },
-    {
-      title: 'Общая сумма',
-      dataIndex: 'amount',
-      key: 'amount',
-      render: (val: string) => val ? `${Number(val).toLocaleString('ru-RU')} ₽` : '—',
-      width: 130,
-    },
-    {
-      title: 'Внесено',
-      dataIndex: 'paid_amount',
-      key: 'paid_amount',
-      render: (val: string) => val ? `${Number(val).toLocaleString('ru-RU')} ₽` : '—',
-      width: 130,
     },
     {
       title: 'Сотрудник',
       dataIndex: 'employee_name',
       key: 'employee_name',
-      render: (name: string) => name?.trim() || '—',
-      width: 160,
+      render: (name: string) => <span style={{ fontSize: 13 }}>{name?.trim() || '—'}</span>,
+      width: 140,
+      responsive: ['lg'],
     },
     {
       title: 'Статус',
-      dataIndex: 'status',
       key: 'status',
-      render: (status: string) => (
-        <Tag color={STATUS_COLORS[status] || 'default'}>
-          {status === 'active' ? 'Активно' : status === 'completed' ? 'Завершено' : status === 'cancelled' ? 'Отменено' : status === 'registered' ? 'Зарегистрирован' : status === 'pending' ? 'Ожидание' : status === 'draft' ? 'Черновик' : status}
-        </Tag>
+      render: (_: unknown, r: CourtCase) => (
+        <Space direction="vertical" size={2} style={{ alignItems: 'flex-start' }}>
+          <Tag color={STATUS_COLORS[r.status] || 'default'} style={{ margin: 0 }}>
+            {r.status === 'active' ? 'Активно'
+              : r.status === 'completed' ? 'Завершено'
+              : r.status === 'cancelled' ? 'Отменено'
+              : r.status === 'registered' ? 'Зарегистрирован'
+              : r.status === 'pending' ? 'Ожидание'
+              : r.status === 'draft' ? 'Черновик'
+              : r.status}
+          </Tag>
+          <Tag icon={<HistoryOutlined />} color={r.actions_count > 0 ? 'blue' : 'default'} style={{ margin: 0, fontSize: 11 }}>
+            {r.actions_count} действ.
+          </Tag>
+        </Space>
       ),
-      width: 120,
-    },
-    {
-      title: 'Действия',
-      dataIndex: 'actions_count',
-      key: 'actions_count',
-      render: (count: number) => (
-        <Tag icon={<HistoryOutlined />} color={count > 0 ? 'blue' : 'default'}>
-          {count}
-        </Tag>
-      ),
-      width: 100,
-    },
-    {
-      title: '',
-      key: 'open',
-      render: (_: unknown, record: CourtCase) => (
-        <Button type="primary" size="small" onClick={() => openCase(record)}>
-          Открыть
-        </Button>
-      ),
-      width: 100,
+      width: 130,
     },
   ];
 
@@ -290,11 +284,14 @@ const MyCases: React.FC = () => {
         <TableSkeleton rows={6} cols={columns.length} />
       ) : (
         <Table
-          scroll={{ x: 1200 }}
           columns={columns}
           dataSource={cases}
           rowKey="id"
           loading={loading}
+          onRow={(record) => ({
+            onClick: () => openCase(record),
+            style: { cursor: 'pointer' },
+          })}
           pagination={{ pageSize: 10, showTotal: (total) => `Всего: ${total}` }}
           locale={{
             emptyText: (
