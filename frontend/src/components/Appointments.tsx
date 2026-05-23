@@ -14,6 +14,7 @@ import { useAuth } from '../shared/lib/hooks/useAuth';
 import { TableSkeleton } from './ui';
 import './Appointments.css';
 
+import { formatRussianPhone } from "../shared/lib/phone";
 dayjs.locale('ru');
 
 type AppointmentStatus = 'waiting' | 'confirmed' | 'arrived' | 'no_show' | 'cancelled' | 'rescheduled';
@@ -557,7 +558,7 @@ const Appointments: React.FC = () => {
           </div>
           <div>
             <div style={{ marginBottom: 4, fontWeight: 500 }}>Телефон</div>
-            <Input value={newForm.client_phone} onChange={e => setNewForm(f => ({ ...f, client_phone: e.target.value }))} placeholder="+7 999 123-45-67" />
+            <Input value={newForm.client_phone} onChange={e => setNewForm(f => ({ ...f, client_phone: formatRussianPhone(e.target.value) }))} placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>

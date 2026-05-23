@@ -14,6 +14,7 @@ import { officeAPI } from "../shared/api/office";
 import { useAuth } from "../shared/lib/hooks/useAuth";
 import { apiInstance } from '../shared/api/instance';
 
+import { formatRussianPhone } from "../shared/lib/phone";
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
 
@@ -1346,14 +1347,16 @@ const Office = () => {
           <Form.Item
             name="contactPhone"
             label="Рабочий телефон 1"
+            normalize={(v) => formatRussianPhone(v || "")}
           >
-            <Input placeholder="Введите рабочий телефон 1" />
+            <Input placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
           </Form.Item>
           <Form.Item
             name="work_phone2"
             label="Рабочий телефон 2"
+            normalize={(v) => formatRussianPhone(v || "")}
           >
-            <Input placeholder="Введите рабочий телефон 2" />
+            <Input placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
           </Form.Item>
         </Form>
       </Modal>

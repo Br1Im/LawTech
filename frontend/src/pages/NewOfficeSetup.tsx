@@ -4,6 +4,7 @@ import styled from '@emotion/styled';
 import { Loader2, Plus, Building2, ArrowRight } from 'lucide-react';
 import apiClient from '../shared/api/apiClient';
 
+import { formatRussianPhone } from "../shared/lib/phone";
 interface OfficeForm {
   name: string;
   address: string;
@@ -293,11 +294,13 @@ const NewOfficeSetup: React.FC = () => {
             <FormGroup>
               <Label>Телефон</Label>
               <Input
-                type="text"
+                type="tel"
                 name="contact_phone"
                 value={form.contact_phone}
-                onChange={handleInputChange}
-                placeholder="+7 (999) 123-45-67"
+                onChange={(e) => { (e.target as HTMLInputElement).value = formatRussianPhone((e.target as HTMLInputElement).value); handleInputChange(e); }}
+                placeholder="+7 (___) ___-__-__"
+                maxLength={18}
+                inputMode="tel"
               />
             </FormGroup>
             <FormGroup>

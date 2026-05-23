@@ -197,7 +197,6 @@ const CashRegister: React.FC = () => {
           />
         </Space>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={() => load()}>Обновить</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>Добавить</Button>
         </Space>
       </ToolRow>

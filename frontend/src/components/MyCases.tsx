@@ -272,7 +272,6 @@ const MyCases: React.FC = () => {
           <FileTextOutlined style={{ marginRight: 8 }} />
           {isRepresentative ? 'Мои дела' : 'Дела представителей'}
         </h2>
-        <Button icon={<ReloadOutlined />} onClick={fetchCases}>Обновить</Button>
       </div>
 
       <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>

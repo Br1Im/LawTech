@@ -359,8 +359,7 @@ const Arrivals: React.FC = () => {
           { key: 'primary', label: `Первичные (${primaryVisits.length})` },
           { key: 'existing', label: `Действующие клиенты (${existingVisits.length})` },
         ]}
-        tabBarExtraContent={<Button icon={<ReloadOutlined />} size="small" onClick={reload} loading={loading}>Обновить</Button>}
-      />
+        />
 
       {/* ─── Primary ─── */}
       {tab === 'primary' && (

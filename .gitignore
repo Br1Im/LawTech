@@ -111,4 +111,9 @@ archive/
 
 # Scripts output
 *.sh.log
-*.tar.gz
+*.tar.gz# backup-\u0444\u0430\u0439\u043b\u044b auto_deploy
+*.bak
+*.bak.*
+*.bak-*
+frontend/dist-aibuz/
+!frontend/src/shared/lib/

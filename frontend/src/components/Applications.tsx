@@ -90,7 +90,6 @@ const Applications: React.FC = () => {
           <span style={{ fontWeight: 700, fontSize: 16 }}>Заявления</span>
         </Space>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={load}>Обновить</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>Добавить</Button>
         </Space>
       </ToolRow>

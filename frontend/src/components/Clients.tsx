@@ -1710,53 +1710,9 @@ const Clients: React.FC<ClientsProps> = () => {
           </div>
         </Space>
         <Space>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => load()}
-          >
-            Обновить
-          </Button>
           {!isAdmin && view === 'contracts' && <Documents headless />}
         </Space>
       </ToolRow>
-
-      {/* Статистика кассы */}
-      {view === 'contracts' && (
-        <div style={{
-          display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
-          padding: '10px 16px', background: 'var(--color-bg-elevated)',
-          borderRadius: 8, border: '1px solid var(--color-border)', margin: '0 0 8px',
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)', marginRight: 4 }}>Касса за</div>
-          <DatePicker
-            value={cashStatsDate}
-            onChange={(d) => { if (d) setCashStatsDate(d); }}
-            format="DD.MM.YYYY"
-            style={{ width: 130 }}
-            size="small"
-          />
-          {cashStats && (
-            <>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: '#F0FDF4', color: '#059669', fontSize: 13, fontWeight: 500 }}>
-                Наличные: {new Intl.NumberFormat('ru-RU').format(Number(cashStats.total_cash || 0))} ₽
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'var(--color-primary-light)', color: 'var(--color-primary)', fontSize: 13, fontWeight: 500 }}>
-                Безнал: {new Intl.NumberFormat('ru-RU').format(Number(cashStats.total_noncash || 0))} ₽
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: '#F5F3FF', color: '#7C3AED', fontSize: 13, fontWeight: 500 }}>
-                Р/С: {new Intl.NumberFormat('ru-RU').format(Number(cashStats.total_bank || 0))} ₽
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', fontSize: 13, fontWeight: 500 }}>
-                Расходы: {new Intl.NumberFormat('ru-RU').format(Number(cashStats.total_expense || 0))} ₽
-              </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6, background: 'var(--color-bg-alt)', color: 'var(--color-text)', fontSize: 13, fontWeight: 600 }}>
-                Итого: {new Intl.NumberFormat('ru-RU').format(Number(cashStats.net_total || 0))} ₽
-              </span>
-            </>
-          )}
-        </div>
-      )}
-
       {view === 'contracts' && (
         <>
           <ToolRow>
@@ -1998,18 +1954,7 @@ const Clients: React.FC<ClientsProps> = () => {
 
       {/* Detail drawer */}
       <Drawer
-        title={
-          detailContract ? (
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>
-                {contractNumber(detailContract.id, detailContract.contract_number)}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--color-muted)', fontWeight: 400 }}>
-                {detailClient?.name || detailContract.client_name || '—'}
-              </div>
-            </div>
-          ) : 'Карточка договора'
-        }
+        title="Карточка договора"
         open={detailOpen}
         onClose={closeDetail}
         width={Math.min(720, window.innerWidth - 40)}

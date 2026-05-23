@@ -343,7 +343,6 @@ const Acts: React.FC = () => {
           />
         </Space>
         <Space>
-          <Button icon={<ReloadOutlined />} onClick={load}>Обновить</Button>
           <Button type="primary" icon={<FileDoneOutlined />} onClick={openCreate}>Новый акт</Button>
         </Space>
       </ToolRow>

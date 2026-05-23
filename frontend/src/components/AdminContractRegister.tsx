@@ -5,6 +5,7 @@ import {
 } from 'antd';
 import { contractsApi, employeesApi, type CrmEmployee } from '../shared/api/crm';
 
+import { formatRussianPhone } from "../shared/lib/phone";
 interface AppointmentInfo {
   id: number;
   client_name: string;
@@ -187,9 +188,11 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         </Space.Compact>
 
         <Input
-          placeholder="Телефон клиента"
+          placeholder="+7 (___) ___-__-__"
           value={form.clientPhone}
-          onChange={(e) => set('clientPhone', e.target.value)}
+          onChange={(e) => set('clientPhone', formatRussianPhone(e.target.value))}
+          maxLength={18}
+          inputMode="tel"
         />
 
         <Input

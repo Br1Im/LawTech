@@ -4,6 +4,7 @@ import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
 import { TableSkeleton } from "./ui";
 
+import { formatRussianPhone } from "../shared/lib/phone";
 interface Employee {
   id: number;
   name: string;
@@ -457,11 +458,13 @@ const Materials: React.FC = () => {
                 required
               />
               <input
-                type="text"
+                type="tel"
                 name="phone_number"
                 value={newCase.phone_number}
-                onChange={handleInputChange}
-                placeholder="Номер телефона"
+                onChange={(e) => { e.target.value = formatRussianPhone(e.target.value); handleInputChange(e); }}
+                placeholder="+7 (___) ___-__-__"
+                maxLength={18}
+                inputMode="tel"
                 required
               />
               <textarea
