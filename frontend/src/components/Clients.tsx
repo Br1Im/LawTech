@@ -166,6 +166,7 @@ const Clients: React.FC<ClientsProps> = () => {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [dealType, setDealType] = useState<DealType>('docs');
+  useEffect(() => { if (user?.role === 'expert' && dealType !== 'docs') setDealType('docs'); }, [user?.role, dealType]);
   const [view, setView] = useState<ClientsView>('contracts');
 
   // Date filter (как в Записях)
@@ -613,7 +614,7 @@ const Clients: React.FC<ClientsProps> = () => {
     setCardTitle(contract.title || '');
     setNewCustomDoc('');
     setCardDataChanged(false);
-    const isAssignedLawyer = user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
+    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
     const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isOwner || isAssignedLawyer;
     if (canEditCard) loadExperts();
   };
@@ -993,7 +994,7 @@ const Clients: React.FC<ClientsProps> = () => {
     const cl = detailClient;
     const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
-    const isAssignedLawyer = user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
+    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
     const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isContractOwner || isAssignedLawyer;
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
     const hasChanges = docTypesChanged || cardDataChanged;
@@ -1386,19 +1387,22 @@ const Clients: React.FC<ClientsProps> = () => {
 
   const renderMaterialsTab = () => {
     if (!detailContract) return null;
+    const isExpert = user?.role === 'expert';
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Upload.Dragger
-          multiple
-          showUploadList={false}
-          beforeUpload={handleUploadMaterial}
-          disabled={materialUploading}
-        >
-          <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-          <p className="ant-upload-text">Перетащите файл или нажмите для загрузки</p>
-          <p className="ant-upload-hint">Любые типы файлов — документы, фотографии, сканы</p>
-        </Upload.Dragger>
+        {!isExpert && (
+          <Upload.Dragger
+            multiple
+            showUploadList={false}
+            beforeUpload={handleUploadMaterial}
+            disabled={materialUploading}
+          >
+            <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+            <p className="ant-upload-text">Перетащите файл или нажмите для загрузки</p>
+            <p className="ant-upload-hint">Любые типы файлов — документы, фотографии, сканы</p>
+          </Upload.Dragger>
+        )}
 
         {materialUploading && (
           <div style={{ textAlign: 'center', padding: 8 }}>
@@ -1932,10 +1936,10 @@ const Clients: React.FC<ClientsProps> = () => {
           <ToolRow>
             <Space size={12} wrap>
               <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)' }}>
-                {[
+                {([
                   { label: 'Подготовка документов', value: 'docs' as DealType },
                   { label: 'Представительство в суде', value: 'court_rep' as DealType },
-                ].map((tab) => (
+                ].filter(t => user?.role !== 'expert' || t.value === 'docs')).map((tab) => (
                   <button
                     key={tab.value}
                     onClick={() => setDealType(tab.value)}
