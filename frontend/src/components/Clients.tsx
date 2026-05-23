@@ -1168,24 +1168,28 @@ const Clients: React.FC<ClientsProps> = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение юридических расходов, ₽</div>
-                  <Input
-                    type="number"
+                  <InputNumber
                     min={0}
-                    step="0.01"
-                    value={cardLegalCostComp}
-                    onChange={(e) => { setCardLegalCostComp(e.target.value); setCardDataChanged(true); }}
+                    step={100}
+                    value={cardLegalCostComp === '' ? null : Number(cardLegalCostComp)}
+                    onChange={(v) => { setCardLegalCostComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
                     placeholder="0"
+                    style={{ width: '100%' }}
+                    formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
+                    parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
                   />
                 </div>
                 <div>
                   <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Возмещение морального ущерба, ₽</div>
-                  <Input
-                    type="number"
+                  <InputNumber
                     min={0}
-                    step="0.01"
-                    value={cardMoralComp}
-                    onChange={(e) => { setCardMoralComp(e.target.value); setCardDataChanged(true); }}
+                    step={100}
+                    value={cardMoralComp === '' ? null : Number(cardMoralComp)}
+                    onChange={(v) => { setCardMoralComp(v == null ? '' : String(v)); setCardDataChanged(true); }}
                     placeholder="0"
+                    style={{ width: '100%' }}
+                    formatter={(v) => v == null || v === '' ? '' : Number(v).toLocaleString('ru-RU')}
+                    parser={(v) => (v || '').replace(/[^0-9.]/g, '')}
                   />
                 </div>
               </div>
