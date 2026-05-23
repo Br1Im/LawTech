@@ -139,12 +139,32 @@ const Appointments: React.FC = () => {
     } catch { /* ignore */ }
   }, []);
 
+  const [operators, setOperators] = useState<Employee[]>([]);
+  const fetchOperators = useCallback(async () => {
+    if (!isCCRole) return;
+    try {
+      const res = await apiInstance.get('/staff');
+      const list = (res.data?.employees || []) as Array<{ id: number; first_name?: string; last_name?: string; role: string }>;
+      const ops = list
+        .filter(u => ['cc_manager', 'cc_operator'].includes(u.role))
+        .map(u => ({
+          id: u.id,
+          name: `${u.last_name || ''} ${u.first_name || ''}`.trim() || `Оператор #${u.id}`,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          role: u.role,
+        }));
+      setOperators(ops);
+    } catch { /* ignore */ }
+  }, [isCCRole]);
+
   useEffect(() => {
     fetchAppointments(true);
     fetchEmployees();
+    fetchOperators();
     const iv = setInterval(() => fetchAppointments(), 15000);
     return () => clearInterval(iv);
-  }, [fetchAppointments, fetchEmployees]);
+  }, [fetchAppointments, fetchEmployees, fetchOperators]);
 
   const updateStatus = async (id: number, status: AppointmentStatus) => {
     try {
@@ -515,11 +535,6 @@ const Appointments: React.FC = () => {
               {`Записей на ${selectedDate.format('D MMMM')} нет`}
             </h3>
             <p className="apt-empty-state-text">Выберите другую дату или создайте новую запись</p>
-            {canManage && (
-              <button className="apt-empty-state-btn" onClick={() => setNewModal(true)}>
-                <PlusOutlined /> Создать запись
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -563,15 +578,15 @@ const Appointments: React.FC = () => {
             <Input value={newForm.source} onChange={e => setNewForm(f => ({ ...f, source: e.target.value }))} placeholder="Правовед, Gainet и т.д." />
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontWeight: 500 }}>Юрист</div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>{isCCRole ? 'Оператор' : 'Юрист'}</div>
             <Select
               value={newForm.assigned_lawyer_id}
               onChange={v => setNewForm(f => ({ ...f, assigned_lawyer_id: v }))}
               style={{ width: '100%' }}
               allowClear
-              placeholder="Выберите юриста"
+              placeholder={isCCRole ? 'Выберите оператора' : 'Выберите юриста'}
             >
-              {lawyers.map(e => (
+              {(isCCRole ? operators : lawyers).map(e => (
                 <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
               ))}
             </Select>

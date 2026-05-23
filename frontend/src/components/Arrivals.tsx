@@ -457,6 +457,8 @@ const Arrivals: React.FC = () => {
         appointmentData={registerAppointment ? {
           id: registerAppointment.id,
           client_name: registerAppointment.client_name,
+          client_phone: registerAppointment.client_phone,
+          comment: registerAppointment.comment,
           assigned_lawyer_id: registerAppointment.assigned_lawyer_id,
         } : null}
       />

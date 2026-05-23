@@ -91,6 +91,7 @@ const contractAssignmentController = {
       if (expert_deadline_days !== undefined) { sets.push('expert_deadline_days = ?'); params.push(expert_deadline_days); }
       if (legal_cost_comp !== undefined) { sets.push('legal_cost_comp = ?'); params.push(legal_cost_comp); }
       if (moral_comp !== undefined) { sets.push('moral_comp = ?'); params.push(moral_comp); }
+      if (req.body.document_types !== undefined) { sets.push('document_types = ?'); params.push(JSON.stringify(req.body.document_types)); }
 
       // Снимаем флаг needs_lawyer_input
       sets.push('needs_lawyer_input = 0');

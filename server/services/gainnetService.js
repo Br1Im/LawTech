@@ -196,17 +196,17 @@ async function _upsertLead(officeId, gainnetLead) {
       [leadId, JSON.stringify({ source: 'gainnet', gainnet_id: gainnetLead.id })]
     );
 
-    // Auto-assign
-    const assignedTo = await _assignLead(connection, leadId, officeId);
+    // Лиды из Gainnet НЕ назначаются автоматически —
+    // начальник КЦ распределяет их вручную.
 
     await connection.commit();
 
-    // Realtime notification
+    // Realtime notification (начальник КЦ увидит новый лид)
     try {
       socketEmitter.emitLeadNew(officeId, { id: leadId, client_name: name, source: 'gainnet' });
     } catch (_) { /* socket not critical */ }
 
-    return { duplicate: false, id: leadId, assignedTo };
+    return { duplicate: false, id: leadId, assignedTo: null };
   } catch (err) {
     await connection.rollback();
     throw err;

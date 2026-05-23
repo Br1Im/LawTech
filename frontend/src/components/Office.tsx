@@ -135,35 +135,11 @@ const AddOfficeModal = memo(({ open, onClose, onSubmit, isSubmitting, isOfficeLi
       destroyOnClose
     >
       <Form form={addForm} layout="vertical" name="add_office_form" onFinish={handleFinish}>
-        <Form.Item name="officeName" label="Название офиса" rules={[{ required: true, message: 'Пожалуйста, введите название офиса' }]}>
-          <Input placeholder="Введите название офиса" />
+        <Form.Item name="officeName" label="Название компании" rules={[{ required: true, message: 'Пожалуйста, введите название компании' }]}>
+          <Input placeholder="Введите название компании" />
         </Form.Item>
-        <div style={{ border: '1px solid #e8e8e8', padding: '16px', marginBottom: '16px', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
-          <div style={{ marginBottom: '12px', fontWeight: 'bold', color: '#1890ff' }}>ИП</div>
-          <Form.Item name="ipSurname" label="Фамилия" rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}>
-            <Input placeholder="Введите фамилию" />
-          </Form.Item>
-          <Form.Item name="ipName" label="Имя" rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}>
-            <Input placeholder="Введите имя" />
-          </Form.Item>
-          <Form.Item name="ipMiddleName" label="Отчество">
-            <Input placeholder="Введите отчество" />
-          </Form.Item>
-        </div>
-        <Form.Item name="inn" label="ИНН" rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}>
-          <Input placeholder="Введите ИНН" />
-        </Form.Item>
-        <Form.Item name="ogrn" label="ОГРН" rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}>
-          <Input placeholder="Введите ОГРН" />
-        </Form.Item>
-        <Form.Item name="officeAddress" label="Адрес">
-          <Input placeholder="Введите адрес офиса" />
-        </Form.Item>
-        <Form.Item name="contactPhone" label="Рабочий телефон 1">
-          <Input placeholder="Введите рабочий телефон 1" />
-        </Form.Item>
-        <Form.Item name="work_phone2" label="Рабочий телефон 2">
-          <Input placeholder="Введите рабочий телефон 2" />
+        <Form.Item name="officeAddress" label="Адрес" rules={[{ required: true, message: 'Пожалуйста, введите адрес' }]}>
+          <Input placeholder="Введите адрес" />
         </Form.Item>
       </Form>
     </Modal>
@@ -174,7 +150,7 @@ const Office = () => {
   const { user: authUser } = useAuth();
   const userRole = authUser?.role || '';
   // Менеджер привязан к офису директором — не может создавать/добавлять офисы
-  const canManageOffices = !['manager'].includes(userRole);
+  const canManageOffices = userRole === 'director';
 
   const [offices, setOffices] = useState<Office[]>([]);
   const { selectedOffice: officeFromContext, setSelectedOffice: setSelectedOfficeContext } = useOffice();

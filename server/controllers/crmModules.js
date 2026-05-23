@@ -109,12 +109,12 @@ const expenses = {
   async create(req, res) {
     try {
       const officeId = await assertOffice(req.user);
-      const { category, amount, title, description, spent_on } = req.body;
+      const { category, amount, title, description, spent_on, expense_type } = req.body;
       if (!title || amount == null || !spent_on) return bad(res, 400, 'Нужно: title, amount, spent_on');
       const [r] = await db.query(
-        `INSERT INTO expenses (office_id, category, amount, title, description, spent_on, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [officeId, category || 'Прочее', amount, title, description || null, spent_on, req.user.id]
+        `INSERT INTO expenses (office_id, category, amount, expense_type, is_auto, title, description, spent_on, created_by)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+        [officeId, category || 'Прочее', amount, expense_type || 'Разовый', title, description || null, spent_on, req.user.id]
       );
       const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [r.insertId]);
       return ok(res, row);
@@ -123,7 +123,7 @@ const expenses = {
   async update(req, res) {
     try {
       const { id } = req.params;
-      const fields = ['category','amount','title','description','spent_on'];
+      const fields = ['category','amount','title','description','spent_on','expense_type'];
       const updates = fields.filter(f => req.body[f] !== undefined);
       if (updates.length === 0) return bad(res, 400, 'Нет полей для обновления');
       const setSql = updates.map(f => `${f} = ?`).join(', ');

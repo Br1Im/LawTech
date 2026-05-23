@@ -1058,3 +1058,169 @@
     max-width: 140px;
   }
 }
+
+
+/* ── Operator Stats Table ── */
+.cc-main-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e5e7eb;
+}
+.cc-main-tab {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cc-main-tab:hover {
+  color: #374151;
+}
+.cc-main-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
+}
+
+.cc-stats-section {
+  padding: 0;
+}
+.cc-stats-period-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cc-stats-period-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.cc-stats-table th {
+  text-align: center;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  white-space: nowrap;
+}
+.cc-stats-table th:first-child {
+  text-align: left;
+}
+.cc-stats-table td {
+  text-align: center;
+  padding: 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+}
+.cc-stats-table td:first-child {
+  text-align: left;
+}
+
+.cc-stats-operator-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.cc-stats-online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cc-stats-online-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.4);
+}
+.cc-stats-online-dot.offline {
+  background: #d1d5db;
+}
+
+.cc-stats-pct {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cc-stats-pct.pct-green {
+  color: #15803d;
+  background: #dcfce7;
+}
+.cc-stats-pct.pct-yellow {
+  color: #a16207;
+  background: #fef9c3;
+}
+.cc-stats-pct.pct-red {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.cc-stats-total-row {
+  background: #f9fafb;
+}
+.cc-stats-total-row td {
+  border-top: 2px solid #e5e7eb;
+  border-bottom: none;
+  font-weight: 600;
+}
+
+/* Dark theme */
+[data-theme="dark"] .cc-main-tabs {
+  border-bottom-color: #374151;
+}
+[data-theme="dark"] .cc-main-tab {
+  color: #9ca3af;
+}
+[data-theme="dark"] .cc-main-tab:hover {
+  color: #d1d5db;
+}
+[data-theme="dark"] .cc-main-tab.active {
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
+}
+[data-theme="dark"] .cc-stats-period-label {
+  color: #9ca3af;
+}
+[data-theme="dark"] .cc-stats-table th {
+  background: #1f2937;
+  color: #9ca3af;
+  border-bottom-color: #374151;
+}
+[data-theme="dark"] .cc-stats-table td {
+  border-bottom-color: #1f2937;
+}
+[data-theme="dark"] .cc-stats-online-dot.offline {
+  background: #4b5563;
+}
+[data-theme="dark"] .cc-stats-pct.pct-green {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.15);
+}
+[data-theme="dark"] .cc-stats-pct.pct-yellow {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.15);
+}
+[data-theme="dark"] .cc-stats-pct.pct-red {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.15);
+}
+[data-theme="dark"] .cc-stats-total-row {
+  background: #1f2937;
+}
+[data-theme="dark"] .cc-stats-total-row td {
+  border-top-color: #374151;
+}

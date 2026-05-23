@@ -9,6 +9,7 @@ interface AppointmentInfo {
   id: number;
   client_name: string;
   client_phone?: string;
+  comment?: string | null;
   assigned_lawyer_id?: number | null;
 }
 
@@ -27,6 +28,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
     lastName: '',
     firstName: '',
     middleName: '',
+    clientPhone: '',
     onBehalfOf: '',
     contractDate: dayjs(),
     contractNumber: '',
@@ -80,11 +82,16 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         firstName = parts[1] || '';
         middleName = parts.slice(2).join(' ') || '';
       }
+      const presetPhone = appointmentData?.client_phone || '';
+      const presetTitle = (appointmentData?.comment || '').trim();
+      const presetSigner = appointmentData?.assigned_lawyer_id ?? null;
 
       setForm({
-        lastName, firstName, middleName, onBehalfOf: '',
-        contractDate: today, contractNumber: '', title: '',
-        contractType: 'docs', signedById: null, amount: null, paidAmount: null,
+        lastName, firstName, middleName,
+        clientPhone: presetPhone,
+        onBehalfOf: '',
+        contractDate: today, contractNumber: '', title: presetTitle,
+        contractType: 'docs', signedById: presetSigner, amount: null, paidAmount: null,
         paymentMethod: 'cash', additionalPaymentDate: null, additionalPaymentAmount: null,
       });
       generateNumber(today);
@@ -111,6 +118,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
       await contractsApi.create({
         admin_register: true,
         client_name: clientName,
+        client_phone: form.clientPhone.trim() || undefined,
         id_employee: form.signedById,
         signed_by: form.signedById || undefined,
         contract_date: form.contractDate.format('YYYY-MM-DD'),
@@ -177,6 +185,12 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
             style={{ width: '30%' }}
           />
         </Space.Compact>
+
+        <Input
+          placeholder="Телефон клиента"
+          value={form.clientPhone}
+          onChange={(e) => set('clientPhone', e.target.value)}
+        />
 
         <Input
           placeholder="В чьих интересах (необязательно)"

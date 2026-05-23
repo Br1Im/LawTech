@@ -4,6 +4,8 @@ import { BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Office from "../components/Office";
+import LawyerDashboard from "../components/LawyerDashboard";
+import { LawyerClients, LawyerActs, LawyerSalary } from "../components/LawyerPages";
 import AITools from '../components/AITools/AITools';
 import Employees from '../components/Employees';
 import Documents from '../components/Documents';
@@ -43,7 +45,7 @@ const SRM = () => {
   const getDefaultTabByRole = (role?: string): string => {
     switch (role) {
       case 'expert':
-        return 'Сотрудники';
+        return 'Клиенты';
       case 'lawyer':
         return 'Офис';
       case 'representative':
@@ -321,7 +323,7 @@ const SRM = () => {
           unreadChatCount={unreadChatCount}
         />
         <Content style={styles.content}>
-          {activeTab === "Офис" && <Office />}
+          {activeTab === "Офис" && (user?.role === "lawyer" ? <LawyerDashboard /> : <Office />)}
           {activeTab === "AI инструменты" && <AITools />}
           {activeTab === "Сотрудники" && <Employees />}
           {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
@@ -329,9 +331,9 @@ const SRM = () => {
           {activeTab === "Расходы" && <Expenses />}
           {activeTab === "Колл-центр" && <CallCenter />}
           {activeTab === "Материалы" && <Materials />}
-          {activeTab === "Клиенты" && <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />}
-          {activeTab === "Акты" && <Acts />}
-          {activeTab === "Зарплата" && <Salary />}
+          {activeTab === "Клиенты" && (user?.role === "lawyer" ? <LawyerClients /> : <Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />)}
+          {activeTab === "Акты" && (user?.role === "lawyer" ? <LawyerActs /> : <Acts />)}
+          {activeTab === "Зарплата" && (user?.role === "lawyer" ? <LawyerSalary /> : <Salary />)}
           {activeTab === "Записи" && <Appointments />}
           {activeTab === "Мои дела" && <MyCases />}
           {activeTab === "Чат" && <OfficeChat />}

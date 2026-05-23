@@ -23,18 +23,19 @@
 .employees-v2 .add-employee-btn:hover { background: #1E3A8A; transform: none; box-shadow: none; }
 
 .employees-v2 .filters-v2 {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+  width: 100%;
   background: #FFFFFF;
   border: 1px solid #E5E7EB;
-  border-radius: 8px; padding: 10px 14px;
-  margin-bottom: 18px; box-shadow: none;
+  border-radius: 8px; padding: 6px 10px;
+  margin-bottom: 14px; box-shadow: none;
 }
 .employees-v2 .filter-icon { color: #6B7280; display: inline-flex; }
 .employees-v2 .filter-text { color: #6B7280; font-weight: 500; font-size: 14px; }
 .employees-v2 .filters-v2 select,
 .employees-v2 .filters-v2 input {
   border: 1px solid #E5E7EB; background: #fff;
-  border-radius: 8px; padding: 7px 10px; font-size: 14px; outline: none;
+  border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none;
   transition: border-color 0.15s ease;
 }
 .employees-v2 .filters-v2 select:focus,
@@ -42,29 +43,46 @@
   border-color: #1E40AF;
   box-shadow: 0 0 0 2px rgba(30,64,175,0.08);
 }
-.employees-v2 .search-filter { flex: 1 1 240px; display: flex; }
+.employees-v2 .role-filter { flex: 0 0 auto; }
+.employees-v2 .role-filter select { min-width: 140px; }
+.employees-v2 .search-filter { flex: 1 1 auto; display: flex; min-width: 0; }
 .employees-v2 .search-filter input { width: 100%; }
-.employees-v2 .reset-filter {
+.employees-v2 .inactive-toggle {
   display: inline-flex; align-items: center; gap: 6px;
+  flex: 0 0 auto; font-size: 13px; color: #6B7280; cursor: pointer; white-space: nowrap;
+  padding: 0 4px;
+}
+.employees-v2 .inactive-toggle input[type="checkbox"] { width: auto; padding: 0; margin: 0; cursor: pointer; }
+.employees-v2 .reset-filter {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto;
   background: transparent; color: #6B7280;
   border: 1px solid #E5E7EB; border-radius: 6px;
-  padding: 7px 12px; font-weight: 500; cursor: pointer;
+  padding: 6px 10px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap;
   transition: background 0.15s ease;
 }
 .employees-v2 .reset-filter:hover { background: #F3F4F6; color: #111827; }
 
+@media (max-width: 720px) {
+  .employees-v2 .filters-v2 { flex-wrap: wrap; }
+  .employees-v2 .search-filter { flex: 1 1 100%; order: 1; }
+  .employees-v2 .role-filter { order: 2; }
+  .employees-v2 .inactive-toggle { order: 3; }
+  .employees-v2 .reset-filter { order: 4; margin-left: auto; }
+}
+
 .employees-v2 .employees-grid {
-  display: flex; flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
 }
 
 .employees-v2 .employee-grid-item { cursor: pointer; }
 
 .employees-v2 .employee-card-v2 {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
   background: #FFFFFF;
   border: 1px solid #E5E7EB;
-  border-radius: 12px; padding: 14px 16px;
+  border-radius: 10px; padding: 8px 12px;
   box-shadow: none;
   transition: border-color 0.15s ease;
 }
@@ -75,10 +93,10 @@
 }
 
 .employees-v2 .emp-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: #E5E7EB;
   display: inline-flex; align-items: center; justify-content: center;
-  color: #374151; font-weight: 600; font-size: 14px; flex-shrink: 0;
+  color: #374151; font-weight: 600; font-size: 12px; flex-shrink: 0;
   box-shadow: none;
 }
 .employees-v2 .emp-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
@@ -86,16 +104,17 @@
 
 .employees-v2 .emp-body { flex: 1; min-width: 0; }
 .employees-v2 .emp-name {
-  font-size: 14px; font-weight: 600; color: #111827;
+  font-size: 13px; font-weight: 600; color: #111827;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.25;
 }
 .employees-v2 .emp-position {
-  font-size: 12px; color: #6B7280; font-weight: 400;
-  margin-top: 2px;
+  font-size: 11px; color: #6B7280; font-weight: 400;
+  margin-top: 1px; line-height: 1.25;
 }
 .employees-v2 .emp-meta {
-  display: flex; flex-direction: column; gap: 3px;
-  margin-top: 6px; font-size: 13px; color: #6B7280;
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 2px; font-size: 11px; color: #6B7280;
 }
 .employees-v2 .emp-meta span {
   display: inline-flex; align-items: center; gap: 6px;
@@ -413,3 +432,41 @@
 }
 
 [data-theme="dark"] .no-employees { color: #5A5E72; }
+
+/* ===== Edit form inside Detail modal ===== */
+.emp-modal-section .emp-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.emp-modal-section .emp-edit-field {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px;
+}
+.emp-modal-section .emp-edit-field-full { grid-column: 1 / -1; }
+.emp-modal-section .emp-edit-field > span {
+  color: #6B7280; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.emp-modal-section .emp-edit-field input {
+  border: 1px solid #E5E7EB;
+  border-radius: 6px; padding: 8px 12px; font-size: 14px;
+  background: #fff; color: #111827; outline: none; width: 100%;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+.emp-modal-section .emp-edit-field input:focus {
+  border-color: #1E40AF;
+  box-shadow: 0 0 0 2px rgba(30,64,175,0.08);
+}
+
+[data-theme="dark"] .emp-modal-section .emp-edit-field > span { color: #8B8FA3; }
+[data-theme="dark"] .emp-modal-section .emp-edit-field input {
+  background: #0F1116;
+  border-color: #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme="dark"] .emp-modal-section .emp-edit-field input:focus {
+  border-color: #7C5CFF;
+  box-shadow: 0 0 0 2px rgba(124,92,255,0.15);
+}

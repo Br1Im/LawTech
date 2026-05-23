@@ -33,6 +33,54 @@ router.post('/:id/confirm-refund', contractController.confirmRefund);
 // Создать новый договор
 router.post('/', contractController.createContract);
 
+// Обновить данные карточки клиента (документы, обстоятельства, эксперт, тема)
+router.patch('/:id/card-data', async (req, res) => {
+  try {
+    const contractId = req.params.id;
+    const { document_types, custom_documents, circumstances, expert_id, title } = req.body;
+    const db = require('../db');
+
+    const sets = [];
+    const params = [];
+
+    if (document_types !== undefined) {
+      sets.push('document_types = ?');
+      params.push(JSON.stringify(document_types));
+    }
+    if (custom_documents !== undefined) {
+      sets.push('custom_documents = ?');
+      params.push(JSON.stringify(custom_documents));
+    }
+    if (circumstances !== undefined) {
+      sets.push('circumstances = ?');
+      params.push(circumstances);
+    }
+    if (expert_id !== undefined) {
+      sets.push('expert_id = ?');
+      params.push(expert_id ? Number(expert_id) : null);
+    }
+    if (title !== undefined) {
+      sets.push('title = ?');
+      params.push(title);
+    }
+
+    if (sets.length === 0) {
+      return res.status(400).json({ message: 'Нет данных для обновления' });
+    }
+
+    params.push(contractId);
+    await db.query(
+      `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,
+      params
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating card data:', error);
+    res.status(500).json({ message: 'Ошибка при сохранении данных карточки' });
+  }
+});
+
 // Обновить договор
 router.put('/:id', contractController.updateContract);
 

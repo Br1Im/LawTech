@@ -76,6 +76,9 @@ const AuthPage = () => {
       }
       const data = await response.json();
       localStorage.setItem('token', data.token);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }
@@ -119,6 +122,9 @@ const AuthPage = () => {
       }
       const data = await response.json();
       localStorage.setItem('token', data.token);
+      if (data.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
       }

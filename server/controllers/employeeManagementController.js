@@ -71,8 +71,8 @@ const createEmployee = async (req, res) => {
     const creator = req.user;
     const { first_name, last_name, middle_name, phone, role, office_id } = req.body;
 
-    if (!first_name || !last_name || !phone || !role) {
-      return res.status(400).json({ success: false, message: 'Обязательные поля: ФИО, телефон, роль' });
+    if (!first_name || !last_name || !role) {
+      return res.status(400).json({ success: false, message: 'Обязательные поля: Фамилия, Имя, должность' });
     }
 
     // Проверяем иерархию
@@ -94,7 +94,7 @@ const createEmployee = async (req, res) => {
     const [result] = await db.query(`
       INSERT INTO users (first_name, last_name, middle_name, email, login, phone, password, role, office_id, is_active, must_change_password, created_by, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, NOW(), NOW())
-    `, [first_name, last_name, middle_name || '', `${login}@staff.local`, login, phone, hashedPassword, role, employeeOfficeId, creator.id]);
+    `, [first_name, last_name, middle_name || '', `${login}@staff.local`, login, phone || null, hashedPassword, role, employeeOfficeId, creator.id]);
 
     res.status(201).json({
       message: 'Сотрудник создан',

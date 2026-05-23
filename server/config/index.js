@@ -9,6 +9,13 @@ const config = {
   // JWT секрет
   JWT_SECRET: process.env.JWT_SECRET || 'law-tech-secret-key',
   
+  // Время жизни JWT токена
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+
+  // Refresh-токен (длинный, для автоматического обновления access-токена)
+  REFRESH_SECRET: process.env.REFRESH_SECRET || (process.env.JWT_SECRET ? process.env.JWT_SECRET + '_refresh' : 'law-tech-refresh-key'),
+  REFRESH_EXPIRES_IN: process.env.REFRESH_EXPIRES_IN || '30d',
+  
   // OCR API ключ
   OCR_API_KEY: process.env.OCR_API_KEY || 'K89514712488957',
   

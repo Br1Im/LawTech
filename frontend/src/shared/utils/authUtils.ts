@@ -40,6 +40,7 @@ export const logout = (): void => {
   
   // Удаляем другие данные пользователя
   localStorage.removeItem('user');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('office_id');
   
   // Перенаправляем на страницу авторизации

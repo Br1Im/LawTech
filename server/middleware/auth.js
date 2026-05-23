@@ -26,9 +26,12 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, config.JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({
+      // Distinguish expired vs truly invalid for debugging
+      const isExpired = err.name === 'TokenExpiredError';
+      return res.status(401).json({
         success: false,
-        message: 'Недействительный токен'
+        message: isExpired ? 'Токен истёк' : 'Недействительный токен',
+        code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID'
       });
     }
     req.user = user;

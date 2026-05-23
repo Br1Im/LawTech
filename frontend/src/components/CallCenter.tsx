@@ -99,10 +99,16 @@ interface OperatorStats {
   is_online: boolean;
   total_leads: number;
   booked_leads: number;
+  arrived_leads: number;
   brak_leads: number;
-  active_leads: number;
   booking_rate: number;
+  arrival_rate: number;
   brak_rate: number;
+}
+
+interface StatsPeriod {
+  from: string;
+  to: string;
 }
 
 interface OfficeOption {
@@ -202,6 +208,7 @@ const MANAGER_ROLES = ['cc_manager', 'admin', 'director'];
 const CallCenter: React.FC = () => {
   const { user } = useAuth();
   const isManager = useMemo(() => MANAGER_ROLES.includes(user?.role || ''), [user?.role]);
+  const showStatsTab = useMemo(() => isManager && user?.role !== 'cc_manager', [isManager, user?.role]);
   const isOperatorOnly = user?.role === 'cc_operator';
   const isCrossOffice = useMemo(
     () => user?.role === 'cc_manager' || user?.role === 'cc_operator',
@@ -212,6 +219,8 @@ const CallCenter: React.FC = () => {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [operatorStats, setOperatorStats] = useState<OperatorStats[]>([]);
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<'leads' | 'stats'>('leads');
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [enums, setEnums] = useState<CcEnums | null>(null);
   const [selectedLead, setSelectedLead] = useState<LeadDetails | null>(null);
@@ -283,11 +292,19 @@ const CallCenter: React.FC = () => {
     }
   };
 
-  const fetchOperatorStats = async () => {
+  const fetchOperatorStats = async (dateFrom?: string, dateTo?: string) => {
     if (!isManager) return;
     try {
-      const response = await apiInstance.get('/call-center/stats/operators');
+      const params: Record<string, string> = {};
+      if (dateFrom && dateTo) {
+        params.date_from = dateFrom;
+        params.date_to = dateTo;
+      }
+      const response = await apiInstance.get('/call-center/stats/operators', { params });
       setOperatorStats(response.data.data as OperatorStats[]);
+      if (response.data.period) {
+        setStatsPeriod(response.data.period as StatsPeriod);
+      }
     } catch (error) {
       console.error('Failed to fetch operator stats:', error);
     }
@@ -657,8 +674,26 @@ const CallCenter: React.FC = () => {
         </button>
       </div>
 
+      {/* ── MAIN TABS: Leads / Stats ── */}
+      {showStatsTab && (
+        <div className="cc-main-tabs">
+          <button
+            className={`cc-main-tab ${activeMainTab === 'leads' ? 'active' : ''}`}
+            onClick={() => setActiveMainTab('leads')}
+          >
+            Лиды
+          </button>
+          <button
+            className={`cc-main-tab ${activeMainTab === 'stats' ? 'active' : ''}`}
+            onClick={() => { setActiveMainTab('stats'); fetchOperatorStats(); }}
+          >
+            Статистика операторов
+          </button>
+        </div>
+      )}
+
       {/* ── MAIN LAYOUT ── */}
-      <div className={`cc-main-layout ${selectedLead ? 'drawer-open' : ''}`}>
+      {(!isManager || activeMainTab === 'leads') && <div className={`cc-main-layout ${selectedLead ? 'drawer-open' : ''}`}>
         {/* LEFT: table */}
         <div className="cc-table-section">
           {/* FILTERS */}
@@ -936,7 +971,102 @@ const CallCenter: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
+      </div>}
+
+      {/* ── OPERATOR STATS TABLE ── */}
+      {showStatsTab && activeMainTab === 'stats' && (
+        <div className="cc-stats-section">
+          <div className="cc-stats-period-info">
+            {statsPeriod && (
+              <span className="cc-stats-period-label">
+                Период: {new Date(statsPeriod.from).toLocaleDateString('ru-RU')} — {new Date(statsPeriod.to).toLocaleDateString('ru-RU')}
+              </span>
+            )}
+          </div>
+          <div className="cc-table-wrap">
+            <table className="cc-table cc-stats-table">
+              <thead>
+                <tr>
+                  <th>Оператор</th>
+                  <th>Все лиды</th>
+                  <th>Записано</th>
+                  <th>Пришли</th>
+                  <th>% записи</th>
+                  <th>% прихода</th>
+                  <th>% брака</th>
+                </tr>
+              </thead>
+              <tbody>
+                {operatorStats.map((op) => (
+                  <tr key={op.id}>
+                    <td>
+                      <div className="cc-stats-operator-name">
+                        <span className={`cc-stats-online-dot ${op.is_online ? 'online' : 'offline'}`} />
+                        {op.name}
+                      </div>
+                    </td>
+                    <td><strong>{op.total_leads}</strong></td>
+                    <td>{op.booked_leads}</td>
+                    <td>{op.arrived_leads}</td>
+                    <td>
+                      <span className={`cc-stats-pct ${op.booking_rate >= 50 ? 'pct-green' : op.booking_rate >= 25 ? 'pct-yellow' : 'pct-red'}`}>
+                        {op.booking_rate}%
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`cc-stats-pct ${op.arrival_rate >= 70 ? 'pct-green' : op.arrival_rate >= 40 ? 'pct-yellow' : 'pct-red'}`}>
+                        {op.arrival_rate}%
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`cc-stats-pct ${op.brak_rate <= 15 ? 'pct-green' : op.brak_rate <= 30 ? 'pct-yellow' : 'pct-red'}`}>
+                        {op.brak_rate}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {operatorStats.length === 0 && (
+                  <tr><td colSpan={7} className="cc-td-empty">Нет данных по операторам</td></tr>
+                )}
+              </tbody>
+              {operatorStats.length > 0 && (
+                <tfoot>
+                  <tr className="cc-stats-total-row">
+                    <td><strong>ИТОГО</strong></td>
+                    <td><strong>{operatorStats.reduce((s, o) => s + o.total_leads, 0)}</strong></td>
+                    <td><strong>{operatorStats.reduce((s, o) => s + o.booked_leads, 0)}</strong></td>
+                    <td><strong>{operatorStats.reduce((s, o) => s + o.arrived_leads, 0)}</strong></td>
+                    <td>
+                      {(() => {
+                        const tl = operatorStats.reduce((s, o) => s + o.total_leads, 0);
+                        const bl = operatorStats.reduce((s, o) => s + o.booked_leads, 0);
+                        const pct = tl > 0 ? Math.round(bl / tl * 100) : 0;
+                        return <span className={`cc-stats-pct ${pct >= 50 ? 'pct-green' : pct >= 25 ? 'pct-yellow' : 'pct-red'}`}><strong>{pct}%</strong></span>;
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const bl = operatorStats.reduce((s, o) => s + o.booked_leads, 0);
+                        const al = operatorStats.reduce((s, o) => s + o.arrived_leads, 0);
+                        const pct = bl > 0 ? Math.round(al / bl * 100) : 0;
+                        return <span className={`cc-stats-pct ${pct >= 70 ? 'pct-green' : pct >= 40 ? 'pct-yellow' : 'pct-red'}`}><strong>{pct}%</strong></span>;
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const tl = operatorStats.reduce((s, o) => s + o.total_leads, 0);
+                        const brk = operatorStats.reduce((s, o) => s + o.brak_leads, 0);
+                        const pct = tl > 0 ? Math.round(brk / tl * 100) : 0;
+                        return <span className={`cc-stats-pct ${pct <= 15 ? 'pct-green' : pct <= 30 ? 'pct-yellow' : 'pct-red'}`}><strong>{pct}%</strong></span>;
+                      })()}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── BOOKING MODAL ── */}
       {showBookingForm && selectedLead && (

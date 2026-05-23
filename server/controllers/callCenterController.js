@@ -1064,38 +1064,113 @@ const callCenterController = {
     if (!await ensureOfficeAccess(req, res)) return;
 
     try {
-      const [rows] = await db.query(
-        `SELECT
-           u.id, CONCAT(u.first_name, ' ', u.last_name) AS name, u.email, u.role,
-           u.office_id, o.name AS office_name,
-           COALESCE(s.is_online, 0) AS is_online,
-           COUNT(DISTINCT l.id) AS total_leads,
-           COUNT(DISTINCT a.id) AS arrived_leads,
-           SUM(CASE WHEN l.status = 'REJECTED' THEN 1 ELSE 0 END) AS brak_leads,
-           SUM(CASE WHEN l.status IN ('NEW','IN_PROGRESS','NO_ANSWER','CALL_BACK','INTERESTED') THEN 1 ELSE 0 END) AS active_leads
+      const { date_from, date_to } = req.query;
+
+      // Default to current office plan period if no dates provided
+      let periodFrom, periodTo;
+      if (date_from && date_to) {
+        periodFrom = date_from;
+        periodTo = date_to;
+      } else {
+        // Try to get the current office plan period
+        const [planRows] = await db.query(
+          `SELECT period_start, period_end FROM office_plans
+           WHERE office_id = ? ORDER BY created_at DESC LIMIT 1`,
+          [req.user.office_id]
+        );
+        if (planRows.length > 0 && planRows[0].period_start && planRows[0].period_end) {
+          const ps = planRows[0].period_start;
+          const pe = planRows[0].period_end;
+          periodFrom = (ps instanceof Date ? ps : new Date(ps)).toISOString().slice(0, 10);
+          periodTo = (pe instanceof Date ? pe : new Date(pe)).toISOString().slice(0, 10);
+        } else {
+          // Fallback: current month
+          const now = new Date();
+          periodFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+          periodTo = now.toISOString().slice(0, 10);
+        }
+      }
+
+      const officeId = req.user.office_id;
+
+      // Get operators
+      const [operators] = await db.query(
+        `SELECT u.id, CONCAT(u.first_name, ' ', u.last_name) AS name, u.email, u.role,
+                u.office_id, o.name AS office_name,
+                COALESCE(s.is_online, 0) AS is_online
          FROM users u
          LEFT JOIN call_center_operator_status s ON s.user_id = u.id AND s.office_id = u.office_id
-         LEFT JOIN call_center_leads l ON l.assigned_to = u.id AND l.office_id = u.office_id
-         LEFT JOIN appointments a ON a.operator_id = u.id AND a.office_id = u.office_id AND a.status = 'arrived'
          LEFT JOIN offices o ON o.id = u.office_id
-         WHERE u.office_id = ? AND u.role IN ('cc_manager', 'cc_operator')
-         GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.office_id, o.name, s.is_online
-         ORDER BY total_leads DESC`,
-        [req.user.office_id]
+         WHERE u.office_id = ? AND u.role IN ('cc_manager', 'cc_operator') AND u.is_active = 1
+         ORDER BY u.last_name, u.first_name`,
+        [officeId]
       );
+
+      const stats = [];
+      for (const op of operators) {
+        // 1. All leads assigned to this operator in the period
+        const [totalRow] = await db.query(
+          `SELECT COUNT(*) AS cnt FROM call_center_leads
+           WHERE assigned_to = ? AND office_id = ?
+             AND DATE(created_at) BETWEEN ? AND ?`,
+          [op.id, officeId, periodFrom, periodTo]
+        );
+        const totalLeads = Number(totalRow[0].cnt);
+
+        // 2. Booked leads (status = BOOKED)
+        const [bookedRow] = await db.query(
+          `SELECT COUNT(*) AS cnt FROM call_center_leads
+           WHERE assigned_to = ? AND office_id = ? AND status = 'BOOKED'
+             AND DATE(created_at) BETWEEN ? AND ?`,
+          [op.id, officeId, periodFrom, periodTo]
+        );
+        const bookedLeads = Number(bookedRow[0].cnt);
+
+        // 3. Arrived — clients who actually came to consultation
+        const [arrivedRow] = await db.query(
+          `SELECT COUNT(*) AS cnt FROM appointments
+           WHERE operator_id = ? AND office_id = ? AND status = 'arrived'
+             AND appointment_date BETWEEN ? AND ?`,
+          [op.id, officeId, periodFrom, periodTo]
+        );
+        const arrivedLeads = Number(arrivedRow[0].cnt);
+
+        // 4. Brak leads (REJECTED, SPAM, DUPLICATE, NON_TARGET, NO_ANSWER, CLOSED)
+        const [brakRow] = await db.query(
+          `SELECT COUNT(*) AS cnt FROM call_center_leads
+           WHERE assigned_to = ? AND office_id = ?
+             AND status IN ('REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'NO_ANSWER', 'CLOSED')
+             AND DATE(created_at) BETWEEN ? AND ?`,
+          [op.id, officeId, periodFrom, periodTo]
+        );
+        const brakLeads = Number(brakRow[0].cnt);
+
+        const bookingRate = totalLeads > 0 ? Math.round(bookedLeads / totalLeads * 100) : 0;
+        const arrivalRate = bookedLeads > 0 ? Math.round(arrivedLeads / bookedLeads * 100) : 0;
+        const brakRate = totalLeads > 0 ? Math.round(brakLeads / totalLeads * 100) : 0;
+
+        stats.push({
+          id: op.id,
+          name: op.name,
+          email: op.email,
+          role: op.role,
+          office_id: op.office_id,
+          office_name: op.office_name,
+          is_online: Number(op.is_online) === 1,
+          total_leads: totalLeads,
+          booked_leads: bookedLeads,
+          arrived_leads: arrivedLeads,
+          brak_leads: brakLeads,
+          booking_rate: bookingRate,
+          arrival_rate: arrivalRate,
+          brak_rate: brakRate
+        });
+      }
 
       res.json({
         success: true,
-        data: rows.map(r => ({
-          ...r,
-          is_online: Number(r.is_online) === 1,
-          total_leads: Number(r.total_leads),
-          booked_leads: Number(r.booked_leads),
-          brak_leads: Number(r.brak_leads),
-          active_leads: Number(r.active_leads),
-          booking_rate: Number(r.total_leads) > 0 ? Math.round(Number(r.booked_leads) / Number(r.total_leads) * 100) : 0,
-          brak_rate: Number(r.total_leads) > 0 ? Math.round(Number(r.brak_leads) / Number(r.total_leads) * 100) : 0
-        }))
+        data: stats,
+        period: { from: periodFrom, to: periodTo }
       });
     } catch (error) {
       console.error('Error getting operator stats:', error);

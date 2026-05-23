@@ -6,6 +6,19 @@ const bcrypt = require('bcryptjs');
 const config = require('../config');
 const db = require('../db');
 
+/**
+ * Генерирует пару access + refresh токенов
+ */
+function generateTokens(payload) {
+  const accessToken = jwt.sign(payload, config.JWT_SECRET, {
+    expiresIn: config.JWT_EXPIRES_IN,   // 7d
+  });
+  const refreshToken = jwt.sign(payload, config.REFRESH_SECRET, {
+    expiresIn: config.REFRESH_EXPIRES_IN, // 30d
+  });
+  return { accessToken, refreshToken };
+}
+
 // Обработчик для регистрации новых пользователей
 const register = async (req, res) => {
     try {
@@ -46,18 +59,10 @@ const register = async (req, res) => {
 
         const newUserId = result.insertId;
 
-        // Создаем JWT токен для автоматической авторизации
-        const token = jwt.sign(
-            { 
-                id: newUserId, 
-                email: email,
-                role: role
-            }, 
-            config.JWT_SECRET, 
-            { 
-                expiresIn: '24h' 
-            }
-        );
+        // Генерируем пару токенов
+        const { accessToken, refreshToken } = generateTokens({
+            id: newUserId, email, role
+        });
 
         const newUser = {
             id: newUserId,
@@ -68,10 +73,11 @@ const register = async (req, res) => {
             office_id: finalOfficeId,
             needs_office_setup: isDirector
         };
-        
+
         res.status(201).json({
             message: 'Пользователь успешно зарегистрирован',
-            token,
+            token: accessToken,
+            refreshToken,
             user: newUser
         });
 
@@ -117,20 +123,11 @@ const login = async (req, res) => {
             });
         }
 
-        // Создаем JWT токен (срок действия 24 часа)
-        const token = jwt.sign(
-            { 
-                id: user.id, 
-                email: user.email,
-                login: user.login,
-                role: user.role,
-                office_id: user.office_id 
-            }, 
-            config.JWT_SECRET, 
-            { 
-                expiresIn: '24h' 
-            }
-        );
+        // Генерируем пару токенов
+        const { accessToken, refreshToken } = generateTokens({
+            id: user.id, email: user.email, login: user.login,
+            role: user.role, office_id: user.office_id
+        });
 
         const { password: _, ...userWithoutPassword } = user;
 
@@ -143,9 +140,10 @@ const login = async (req, res) => {
             userWithoutPassword.offices = offices;
             userWithoutPassword.needs_office_setup = offices.length === 0;
         }
-        
+
         res.json({
-            token,
+            token: accessToken,
+            refreshToken,
             user: userWithoutPassword
         });
 
@@ -153,6 +151,63 @@ const login = async (req, res) => {
         console.error('Ошибка при входе в систему:', error);
         res.status(500).json({ 
             success: false, message: 'Внутренняя ошибка сервера' 
+        });
+    }
+};
+
+// Обновление access-токена по refresh-токену
+const refresh = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+
+        if (!refreshToken) {
+            return res.status(400).json({
+                success: false, message: 'Refresh-токен не предоставлен'
+            });
+        }
+
+        // Верифицируем refresh-токен
+        let payload;
+        try {
+            payload = jwt.verify(refreshToken, config.REFRESH_SECRET);
+        } catch (err) {
+            const isExpired = err.name === 'TokenExpiredError';
+            return res.status(401).json({
+                success: false,
+                message: isExpired ? 'Refresh-токен истёк, войдите снова' : 'Невалидный refresh-токен',
+                code: isExpired ? 'REFRESH_EXPIRED' : 'REFRESH_INVALID'
+            });
+        }
+
+        // Проверяем, что пользователь ещё существует в БД
+        const [users] = await db.query(
+            'SELECT id, email, login, role, office_id FROM users WHERE id = ?',
+            [payload.id]
+        );
+
+        if (users.length === 0) {
+            return res.status(401).json({
+                success: false, message: 'Пользователь не найден', code: 'USER_NOT_FOUND'
+            });
+        }
+
+        const user = users[0];
+
+        // Генерируем новую пару токенов (rolling refresh)
+        const tokens = generateTokens({
+            id: user.id, email: user.email, login: user.login,
+            role: user.role, office_id: user.office_id
+        });
+
+        res.json({
+            token: tokens.accessToken,
+            refreshToken: tokens.refreshToken
+        });
+
+    } catch (error) {
+        console.error('Ошибка при обновлении токена:', error);
+        res.status(500).json({
+            success: false, message: 'Внутренняя ошибка сервера'
         });
     }
 };
@@ -170,7 +225,7 @@ const getCurrentUser = async (req, res) => {
             'SELECT id, first_name, last_name, email, role, office_id, created_at FROM users WHERE id = ?', 
             [req.user.id]
         );
-        
+
         if (users.length === 0) {
             return res.status(404).json({
                 success: false, message: 'Пользователь не найден'
@@ -178,7 +233,7 @@ const getCurrentUser = async (req, res) => {
         }
 
         const user = users[0];
-        
+
         const userResponse = {
             ...user,
             officeId: user.office_id
@@ -193,7 +248,7 @@ const getCurrentUser = async (req, res) => {
             userResponse.offices = offices;
             userResponse.needs_office_setup = offices.length === 0;
         }
-        
+
         res.json({
             user: userResponse
         });
@@ -209,5 +264,6 @@ const getCurrentUser = async (req, res) => {
 module.exports = {
     login,
     register,
+    refresh,
     getCurrentUser
 };

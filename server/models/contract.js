@@ -284,6 +284,7 @@ class Contract {
       if (docs_status !== undefined)   { sets.push('docs_status = ?');   params.push(docs_status); }
       if (title !== undefined)         { sets.push('title = ?');         params.push(title); }
       if (description !== undefined)   { sets.push('description = ?');   params.push(description); }
+      if (contractData.document_types !== undefined) { sets.push('document_types = ?'); params.push(JSON.stringify(contractData.document_types)); }
       params.push(id);
       await connection.query(
         `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,

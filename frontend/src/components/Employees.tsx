@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { FaUser, FaUserPlus, FaUserShield, FaEnvelope, FaPhone, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt } from "react-icons/fa";
-import { MdFilterList, MdReplay, MdClose } from "react-icons/md";
+import { FaUser, FaUserPlus, FaUserShield, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt } from "react-icons/fa";
+import { MdReplay, MdClose } from "react-icons/md";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
 import "./Lawyers.css";
@@ -51,21 +51,6 @@ const getFullName = (s: StaffMember): string => {
   return [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
 };
 
-const formatPhone = (raw: string): string => {
-  let digits = raw.replace(/\D/g, '');
-  if (digits.startsWith('8')) digits = '7' + digits.slice(1);
-  if (!digits) return '';
-  if (!digits.startsWith('7')) digits = '7' + digits;
-  digits = digits.slice(0, 11);
-  const rest = digits.slice(1);
-  let out = '+7';
-  if (rest.length > 0) out += ' (' + rest.slice(0, 3);
-  if (rest.length >= 3) out += ') ' + rest.slice(3, 6);
-  if (rest.length >= 6) out += '-' + rest.slice(6, 8);
-  if (rest.length >= 8) out += '-' + rest.slice(8, 10);
-  return out;
-};
-
 const copyToClipboard = (text: string) => {
   const fallback = () => {
     const ta = document.createElement('textarea');
@@ -97,10 +82,11 @@ const StaffCard = ({ staff }: { staff: StaffMember }) => {
       <div className="emp-body">
         <div className="emp-name">{name}{inactive && <span className="inactive-badge"> (неактив.)</span>}</div>
         <div className="emp-position">{roleLabel}</div>
-        <div className="emp-meta">
-          {staff.phone && <span><FaPhone /> {staff.phone}</span>}
-          {staff.login && <span><FaUser /> {staff.login}</span>}
-        </div>
+        {staff.login && (
+          <div className="emp-meta">
+            <span><FaUser /> {staff.login}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -119,7 +105,7 @@ const StaffDetailModal = ({
   onUpdated: () => void;
 }) => {
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ first_name: staff.first_name, last_name: staff.last_name, middle_name: staff.middle_name || '', phone: staff.phone || '' });
+  const [editForm, setEditForm] = useState({ first_name: staff.first_name, last_name: staff.last_name, middle_name: staff.middle_name || '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -239,15 +225,12 @@ const StaffDetailModal = ({
           {!editing ? (
             <>
               <p><b>Логин:</b> {staff.login || '—'}</p>
-              <p><b>Телефон:</b> {staff.phone || '—'}</p>
-              <p><b>Email:</b> {staff.email || '—'}</p>
             </>
           ) : (
-            <div className="form-grid">
-              <label><span>Фамилия</span><input value={editForm.last_name} onChange={(e) => setEditForm(p => ({ ...p, last_name: e.target.value }))} /></label>
-              <label><span>Имя</span><input value={editForm.first_name} onChange={(e) => setEditForm(p => ({ ...p, first_name: e.target.value }))} /></label>
-              <label><span>Отчество</span><input value={editForm.middle_name} onChange={(e) => setEditForm(p => ({ ...p, middle_name: e.target.value }))} /></label>
-              <label><span>Телефон</span><input value={editForm.phone} onChange={(e) => setEditForm(p => ({ ...p, phone: formatPhone(e.target.value) }))} /></label>
+            <div className="emp-edit-grid">
+              <label className="emp-edit-field"><span>Фамилия</span><input value={editForm.last_name} onChange={(e) => setEditForm(p => ({ ...p, last_name: e.target.value }))} placeholder="Иванов" /></label>
+              <label className="emp-edit-field"><span>Имя</span><input value={editForm.first_name} onChange={(e) => setEditForm(p => ({ ...p, first_name: e.target.value }))} placeholder="Иван" /></label>
+              <label className="emp-edit-field emp-edit-field-full"><span>Отчество</span><input value={editForm.middle_name} onChange={(e) => setEditForm(p => ({ ...p, middle_name: e.target.value }))} placeholder="Иванович" /></label>
             </div>
           )}
         </div>
@@ -376,7 +359,6 @@ const CreateStaffModal = ({
     last_name: '',
     first_name: '',
     middle_name: '',
-    phone: '',
     role: allowedRoles[0]?.value || '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -389,9 +371,6 @@ const CreateStaffModal = ({
     e.preventDefault();
     setError(null);
     if (!form.last_name.trim() || !form.first_name.trim()) { setError('Фамилия и Имя обязательны'); return; }
-    if (!form.phone.trim()) { setError('Телефон обязателен'); return; }
-    const digits = form.phone.replace(/\D/g, '');
-    if (digits.length !== 11) { setError('Телефон: 11 цифр'); return; }
     if (!form.role) { setError('Выберите роль'); return; }
 
     setSubmitting(true);
@@ -403,7 +382,6 @@ const CreateStaffModal = ({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           middle_name: form.middle_name.trim() || undefined,
-          phone: form.phone.trim(),
           role: form.role,
         }),
       });
@@ -460,7 +438,7 @@ const CreateStaffModal = ({
 
         <form className="add-employee-form" onSubmit={handleSubmit}>
           <fieldset>
-            <legend><FaUser /> ФИО и роль</legend>
+            <legend><FaUser /> ФИО и должность</legend>
             <div className="form-grid">
               <label>
                 <span>Фамилия *</span>
@@ -475,22 +453,12 @@ const CreateStaffModal = ({
                 <input value={form.middle_name} onChange={(e) => update('middle_name', e.target.value)} placeholder="Иванович" />
               </label>
               <label>
-                <span>Роль *</span>
+                <span>Должность *</span>
                 <select value={form.role} onChange={(e) => update('role', e.target.value)}>
                   {allowedRoles.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend><FaPhone /> Контакт</legend>
-            <div className="form-grid">
-              <label>
-                <span>Телефон *</span>
-                <input value={form.phone} onChange={(e) => update('phone', formatPhone(e.target.value))} placeholder="+7 (___) ___-__-__" />
               </label>
             </div>
           </fieldset>
@@ -560,7 +528,7 @@ const Employees = () => {
     return employees.filter(e => {
       const matchRole = selectedRole === 'all' || e.role === selectedRole;
       const name = getFullName(e).toLowerCase();
-      const matchSearch = !q || name.includes(q) || (e.login || '').toLowerCase().includes(q) || (e.phone || '').includes(q);
+      const matchSearch = !q || name.includes(q) || (e.login || '').toLowerCase().includes(q);
       return matchRole && matchSearch;
     });
   }, [employees, selectedRole, search]);
@@ -581,8 +549,6 @@ const Employees = () => {
       </div>
 
       <div className="filters filters-v2">
-        <div className="filter-icon"><MdFilterList size={22} /></div>
-        <div className="filter-text">Фильтр</div>
         <div className="role-filter">
           <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
             {roleOptions.map((r) => (
@@ -591,14 +557,14 @@ const Employees = () => {
           </select>
         </div>
         <div className="search-filter">
-          <input type="text" placeholder="Поиск по ФИО, логину, телефону…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input type="text" placeholder="Поиск по ФИО, логину…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <label className="inactive-toggle">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
-          <span>Показать неактивных</span>
+          <span>Неактивные</span>
         </label>
         <button className="reset-filter" onClick={() => { setSelectedRole('all'); setSearch(''); }}>
-          <MdReplay size={18} /><span>Сбросить</span>
+          <MdReplay size={16} /><span>Сбросить</span>
         </button>
       </div>
 

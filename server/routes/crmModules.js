@@ -38,6 +38,29 @@ router.post('/materials', c.materials.create);
 router.put('/materials/:id', c.materials.update);
 router.delete('/materials/:id', c.materials.remove);
 
+// Material download with proper headers
+router.get('/materials/:id/download', async (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+  const db = require('../db');
+  const config = require('../config');
+  try {
+    const [[row]] = await db.query('SELECT * FROM materials WHERE id = ?', [req.params.id]);
+    if (!row) return res.status(404).json({ success: false, message: 'Материал не найден' });
+    if (!row.file_url) return res.status(410).json({ success: false, message: 'У материала нет файла' });
+    const rel = row.file_url.replace(/^\/uploads\//, '').replace(/^\/+/, '');
+    const filePath = path.join(config.paths.uploads, rel);
+    if (!fs.existsSync(filePath)) return res.status(410).json({ success: false, message: 'Файл удалён с диска' });
+    const mimeType = row.mime_type || 'application/octet-stream';
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', 'attachment; filename*=UTF-8' + "'" + "'" + encodeURIComponent(row.name || path.basename(filePath)));
+    return fs.createReadStream(filePath).pipe(res);
+  } catch (e) {
+    console.error('material download err', e);
+    return res.status(500).json({ success: false, message: 'Ошибка скачивания' });
+  }
+});
+
 // EMPLOYEES
 router.get('/office/:officeId/employees', c.employees.list);
 router.get('/employees', c.employees.list);

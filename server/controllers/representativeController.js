@@ -68,7 +68,7 @@ const representativeController = {
           DATE_FORMAT(c.start_date, '%Y-%m-%d') AS start_date,
           DATE_FORMAT(c.end_date, '%Y-%m-%d') AS end_date,
           c.created_at,
-          CONCAT(cl.last_name, ' ', cl.first_name, ' ', COALESCE(cl.middle_name, '')) AS client_name,
+          COALESCE(cl.name, TRIM(CONCAT_WS(' ', cl.last_name, cl.first_name, cl.middle_name)), 'Неизвестный клиент') AS client_name,
           cl.phone AS client_phone,
           cl.email AS client_email,
           CONCAT(emp.first_name, ' ', emp.last_name) AS employee_name,
@@ -98,7 +98,7 @@ const representativeController = {
       const [rows] = await db.query(`
         SELECT
           c.*,
-          CONCAT(cl.last_name, ' ', cl.first_name, ' ', COALESCE(cl.middle_name, '')) AS client_name,
+          COALESCE(cl.name, TRIM(CONCAT_WS(' ', cl.last_name, cl.first_name, cl.middle_name)), 'Неизвестный клиент') AS client_name,
           cl.phone AS client_phone,
           cl.email AS client_email,
           CONCAT(emp.first_name, ' ', emp.last_name) AS employee_name,

@@ -175,6 +175,9 @@ export interface CrmContract {
   additional_payment_date?: string | null;
   additional_payment_amount?: number | string | null;
   registered_by?: number | null;
+  document_types?: string[] | string | null;
+  custom_documents?: string[] | string | null;
+  circumstances?: string | null;
   signed_by?: number | null;
   signed_by_name?: string | null;
   payment_method?: 'cash' | 'noncash' | 'bank' | null;

@@ -19,6 +19,8 @@ const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
 const callCenterRoutes = require('./callCenter');
+const crmModulesRoutes = require('./crmModules');
+const caseWorkflowRoutes = require('./caseWorkflow');
 const employeeManagement = require('../controllers/employeeManagementController');
 // const joinRequestController = require('../controllers/joinRequestController');
 
@@ -46,6 +48,7 @@ router.get('/health', (req, res) => {
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
 router.post('/auth/register', authController.register);
+router.post('/auth/refresh', authController.refresh);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
 router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
@@ -55,6 +58,9 @@ const gainnetService = require('../services/gainnetService');
 router.post('/gainnet/webhook', gainnetService.handleWebhook);
 
 router.use('/call-center', callCenterRoutes.router);
+// CRM модули: materials, cases, expenses, arrivals, employees
+router.use(crmModulesRoutes);
+router.use(caseWorkflowRoutes);
 
 // Маршруты для записей (appointments) — доступны всем авторизованным
 const callCenterController = require('../controllers/callCenterController');
@@ -194,15 +200,9 @@ router.delete('/messages/:messageId', authenticateToken, chatController.deleteMe
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);
 router.post('/documents', authenticateToken, legalDocumentsController.createDocument);
 
-// Роуты для материалов офиса
-router.get('/office/:officeId/materials', authenticateToken, (req, res) => {
-  res.json({ materials: [] });
-});
+// Материалы офиса — через crmModules
 
-// Роуты для дел офиса (cases)
-router.get('/office/:officeId/cases', authenticateToken, (req, res) => {
-  res.json([]);
-});
+// Дела офиса — через crmModules
 
 // Роуты для клиентов офиса - используем новый контроллер
 const clientController = require('../controllers/clientController');

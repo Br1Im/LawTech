@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import dayjs from 'dayjs';
+import 'dayjs/locale/ru';
+dayjs.locale('ru');
 import {
   Table,
   Input,
@@ -42,6 +44,9 @@ import {
   DollarOutlined,
   ExclamationCircleOutlined,
   FileDoneOutlined,
+  LeftOutlined,
+  RightOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import {
   clientsApi,
@@ -163,6 +168,12 @@ const Clients: React.FC<ClientsProps> = () => {
   const [dealType, setDealType] = useState<DealType>('docs');
   const [view, setView] = useState<ClientsView>('contracts');
 
+  // Date filter (как в Записях)
+  const [dateFilterEnabled, setDateFilterEnabled] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs>(dayjs());
+  const [calOpen, setCalOpen] = useState(false);
+  const todayStr = dayjs().format('YYYY-MM-DD');
+
 
   // Cash statistics
   const [cashStats, setCashStats] = useState<CashStats | null>(null);
@@ -179,6 +190,27 @@ const Clients: React.FC<ClientsProps> = () => {
   const [detailContract, setDetailContract] = useState<CrmContract | null>(null);
   const [detailClient, setDetailClient] = useState<CrmClient | null>(null);
   const [detailTab, setDetailTab] = useState('info');
+
+  // Document types for the contract info tab
+  const DOCUMENT_TYPE_OPTIONS = [
+    'Претензия',
+    'Жалоба в прокуратуру',
+    'Жалоба в роспотребнадзор',
+    'Жалоба в Трудовую Инспекцию',
+    'Исковое заявление',
+    'Аппеляционная жалоба',
+    'Кассационная жалоба',
+  ];
+  const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([]);
+  const [docTypesSaving, setDocTypesSaving] = useState(false);
+  const [docTypesChanged, setDocTypesChanged] = useState(false);
+  const [customDocs, setCustomDocs] = useState<string[]>([]);
+  const [newCustomDoc, setNewCustomDoc] = useState('');
+  const [circumstances, setCircumstances] = useState('');
+  const [cardExpertId, setCardExpertId] = useState<number | null>(null);
+  const [cardDataChanged, setCardDataChanged] = useState(false);
+  const [cardTitle, setCardTitle] = useState('');
+  const [cardSaving, setCardSaving] = useState(false);
 
   // Expert documents (inside detail drawer)
   const [docsList, setDocsList] = useState<ContractDocument[]>([]);
@@ -330,12 +362,18 @@ const Clients: React.FC<ClientsProps> = () => {
   }, [data]);
 
   const rows = useMemo<ContractRow[]>(() => {
+    const selDateStr = selectedDate.format('YYYY-MM-DD');
     return contracts
       .filter((c) => {
         const t = (c.contract_type || 'docs').toString();
         if (t !== dealType) return false;
         // Юрист видит только свои договоры
         if (isLawyer && user?.id && c.id_employee !== user.id) return false;
+        // Фильтр по дате (если включён)
+        if (dateFilterEnabled) {
+          const cd = (c.contract_date || '').toString().slice(0, 10);
+          if (cd !== selDateStr) return false;
+        }
         return true;
       })
       .map((c) => ({
@@ -343,7 +381,7 @@ const Clients: React.FC<ClientsProps> = () => {
         client: c.id_client ? (clientsById.get(c.id_client) || null) : null,
         key: `c-${c.id}`,
       }));
-  }, [contracts, clientsById, dealType, isLawyer, user]);
+  }, [contracts, clientsById, dealType, isLawyer, user, dateFilterEnabled, selectedDate]);
 
   const filtered = useMemo(() => {
     const q = searchText.trim().toLowerCase();
@@ -454,7 +492,10 @@ const Clients: React.FC<ClientsProps> = () => {
     setContractMaterialsLoading(true);
     try {
       const list = await materialsApi.list({ contract_id: contractId });
-      setContractMaterials(Array.isArray(list) ? list : []);
+      const filtered = (Array.isArray(list) ? list : []).filter(
+        m => !(m.file_url || '').includes('contract-docs')
+      );
+      setContractMaterials(filtered);
     } catch (e: any) {
       console.error(e);
       message.error('Не удалось загрузить материалы');
@@ -522,7 +563,7 @@ const Clients: React.FC<ClientsProps> = () => {
   const openDetail = (contract: CrmContract, client: CrmClient | null) => {
     setDetailContract(contract);
     setDetailClient(client);
-    const isOwner = user?.id && (contract.id_employee === user.id || contract.signed_by === user.id);
+    const isOwner = !!(user?.id && contract.registered_by === user.id);
     setDetailTab(contract.needs_lawyer_input && !isAdmin && isOwner ? 'supplement' : 'info');
     setDetailOpen(true);
     setDocsList([]);
@@ -541,7 +582,26 @@ const Clients: React.FC<ClientsProps> = () => {
     reloadDocs(contract.id);
     loadContractMaterials(contract.id);
     loadContractActs(contract.id);
-    if (contract.needs_lawyer_input && !isAdmin && isOwner) loadExperts();
+    // Initialize doc types
+    const dtRaw = (contract as any).document_types;
+    try {
+      const parsed = typeof dtRaw === 'string' ? JSON.parse(dtRaw) : dtRaw;
+      setSelectedDocTypes(Array.isArray(parsed) ? parsed : []);
+    } catch { setSelectedDocTypes([]); }
+    setDocTypesChanged(false);
+    // Initialize custom documents
+    const cdRaw = (contract as any).custom_documents;
+    try {
+      const parsed = typeof cdRaw === 'string' ? JSON.parse(cdRaw) : cdRaw;
+      setCustomDocs(Array.isArray(parsed) ? parsed : []);
+    } catch { setCustomDocs([]); }
+    setCircumstances((contract as any).circumstances || '');
+    setCardExpertId(contract.expert_id || null);
+    setCardTitle(contract.title || '');
+    setNewCustomDoc('');
+    setCardDataChanged(false);
+    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isOwner;
+    if (canEditCard) loadExperts();
   };
 
   const closeDetail = () => {
@@ -876,6 +936,37 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   };
 
+  // ===== Document types handlers =====
+  const toggleDocType = (type: string) => {
+    setSelectedDocTypes(prev => {
+      const next = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
+      setDocTypesChanged(true);
+      return next;
+    });
+  };
+
+  const saveCardData = async () => {
+    if (!detailContract) return;
+    setCardSaving(true);
+    try {
+      await apiInstance.patch(`/contracts/${detailContract.id}/card-data`, {
+        document_types: selectedDocTypes,
+        custom_documents: customDocs,
+        circumstances: circumstances,
+        expert_id: cardExpertId,
+        title: cardTitle,
+      });
+      message.success('Данные сохранены');
+      setDocTypesChanged(false);
+      setCardDataChanged(false);
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Ошибка при сохранении');
+    } finally {
+      setCardSaving(false);
+    }
+  };
+
   // ===== Render helper: Detail drawer tab contents =====
   const isDocsType = (detailContract?.contract_type || 'docs') === 'docs';
 
@@ -884,15 +975,28 @@ const Clients: React.FC<ClientsProps> = () => {
     const c = detailContract;
     const cl = detailClient;
     const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
+    const isContractOwner = !!(user?.id && c.registered_by === user.id);
+    const canEditCard = ['director', 'manager', 'okk'].includes(user?.role || '') || isContractOwner;
+    const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const hasChanges = docTypesChanged || cardDataChanged;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
           <Descriptions.Item label="ФИО клиента">{cl?.name || c.client_name || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Телефон">{cl?.phone || c.client_phone || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Email">{cl?.email || c.client_email || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Номер договора">{contractNumber(c.id, c.contract_number)}</Descriptions.Item>
-          <Descriptions.Item label="Тема">{extractTopic(c)}</Descriptions.Item>
+          <Descriptions.Item label="Тема">
+            {canEditCard ? (
+              <Input
+                value={cardTitle}
+                onChange={(e) => { setCardTitle(e.target.value); setCardDataChanged(true); }}
+                placeholder="Тема договора"
+                size="small"
+                style={{ width: '100%' }}
+              />
+            ) : (
+              extractTopic(c)
+            )}
+          </Descriptions.Item>
           <Descriptions.Item label="Тип договора">
             <Tag color={isDocsType ? 'blue' : 'purple'}>
               {isDocsType ? 'Подготовка документов' : 'Представительство в суде'}
@@ -915,7 +1019,23 @@ const Clients: React.FC<ClientsProps> = () => {
           <Descriptions.Item label="Юрист">{shortName(c.lawyer_full_name || c.employee_name)}</Descriptions.Item>
           {isDocsType && (
             <Descriptions.Item label="Эксперт">
-              {c.expert_full_name ? shortName(c.expert_full_name) : <Tag color="default">не назначен</Tag>}
+              {canAssignExpert ? (
+                <Select
+                  value={cardExpertId}
+                  onChange={(v) => { setCardExpertId(v); setCardDataChanged(true); }}
+                  placeholder="Выберите эксперта"
+                  allowClear
+                  size="small"
+                  style={{ width: '100%', minWidth: 180 }}
+                  options={experts.map((e) => ({
+                    value: e.id,
+                    label: `${e.last_name || ''} ${e.first_name || ''}`.trim(),
+                  }))}
+                  notFoundContent="Нет экспертов"
+                />
+              ) : (
+                c.expert_full_name ? shortName(c.expert_full_name) : <Tag color="default">не назначен</Tag>
+              )}
             </Descriptions.Item>
           )}
           <Descriptions.Item label="Статус документов">
@@ -924,6 +1044,165 @@ const Clients: React.FC<ClientsProps> = () => {
               : <span style={{ padding: '2px 10px', borderRadius: 999, background: '#FFF7ED', color: '#D97706', fontSize: 12, fontWeight: 500 }}>Ожидание</span>}
           </Descriptions.Item>
         </Descriptions>
+
+        {canEditCard && (
+          <>
+            {/* ── Типы документов ── */}
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Типы документов</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {DOCUMENT_TYPE_OPTIONS.map(type => {
+                  const active = selectedDocTypes.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggleDocType(type)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: 6,
+                        border: active ? '2px solid #1677ff' : '1px solid var(--color-border)',
+                        background: active ? '#e6f4ff' : 'var(--color-bg-elevated)',
+                        color: active ? '#1677ff' : 'var(--color-text)',
+                        cursor: 'pointer',
+                        fontWeight: active ? 600 : 400,
+                        fontSize: 13,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {active && '\u2713 '}{type}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── Дополнительные документы (ручной ввод до 20) ── */}
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>
+                Дополнительные документы ({customDocs.length}/20)
+              </div>
+              {customDocs.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                  {customDocs.map((doc, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'var(--color-bg-elevated)', borderRadius: 6, border: '1px solid var(--color-border)' }}>
+                      <span style={{ flex: 1, fontSize: 13 }}>{idx + 1}. {doc}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomDocs(prev => prev.filter((_, i) => i !== idx));
+                          setCardDataChanged(true);
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e74c3c', fontSize: 16, padding: '0 4px', lineHeight: 1 }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {customDocs.length < 20 && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    value={newCustomDoc}
+                    onChange={(e) => setNewCustomDoc(e.target.value)}
+                    placeholder="Название документа"
+                    size="small"
+                    onPressEnter={() => {
+                      const v = newCustomDoc.trim();
+                      if (v && customDocs.length < 20) {
+                        setCustomDocs(prev => [...prev, v]);
+                        setNewCustomDoc('');
+                        setCardDataChanged(true);
+                      }
+                    }}
+                  />
+                  <Button
+                    size="small"
+                    type="dashed"
+                    onClick={() => {
+                      const v = newCustomDoc.trim();
+                      if (v && customDocs.length < 20) {
+                        setCustomDocs(prev => [...prev, v]);
+                        setNewCustomDoc('');
+                        setCardDataChanged(true);
+                      }
+                    }}
+                  >
+                    Добавить
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Обстоятельства ── */}
+            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Обстоятельства</div>
+              <Input.TextArea
+                value={circumstances}
+                onChange={(e) => { setCircumstances(e.target.value); setCardDataChanged(true); }}
+                rows={4}
+                placeholder="Опишите обстоятельства / ситуацию клиента"
+                style={{ fontSize: 13 }}
+              />
+            </div>
+
+            {/* ── Кнопки сохранения ── */}
+            {hasChanges && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button type="primary" loading={cardSaving} onClick={saveCardData}>
+                  Сохранить все изменения
+                </Button>
+                <Button onClick={() => {
+                  const dtRaw = (detailContract as any)?.document_types;
+                  const cdRaw = (detailContract as any)?.custom_documents;
+                  try {
+                    const parsed = typeof dtRaw === 'string' ? JSON.parse(dtRaw) : dtRaw;
+                    setSelectedDocTypes(Array.isArray(parsed) ? parsed : []);
+                  } catch { setSelectedDocTypes([]); }
+                  try {
+                    const parsed = typeof cdRaw === 'string' ? JSON.parse(cdRaw) : cdRaw;
+                    setCustomDocs(Array.isArray(parsed) ? parsed : []);
+                  } catch { setCustomDocs([]); }
+                  setCircumstances((detailContract as any)?.circumstances || '');
+                  setCardExpertId(detailContract?.expert_id || null);
+                  setCardTitle(detailContract?.title || '');
+                  setDocTypesChanged(false);
+                  setCardDataChanged(false);
+                }}>
+                  Отмена
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {!canEditCard && (
+          <>
+            {selectedDocTypes.length > 0 && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Типы документов</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {selectedDocTypes.map(t => <Tag key={t} color="blue">{t}</Tag>)}
+                </div>
+              </div>
+            )}
+            {customDocs.length > 0 && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Дополнительные документы</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {customDocs.map((d, i) => <Tag key={i}>{d}</Tag>)}
+                </div>
+              </div>
+            )}
+            {circumstances && (
+              <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Обстоятельства</div>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{circumstances}</div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   };
@@ -991,10 +1270,33 @@ const Clients: React.FC<ClientsProps> = () => {
                     type="primary"
                     size="small"
                     icon={<FolderOpenOutlined />}
-                    href={m.file_url}
-                    target="_blank"
+                    onClick={() => {
+                      const token = localStorage.getItem('token');
+                      fetch(buildApiUrl('/materials/' + m.id + '/download'), {
+                        headers: { Authorization: 'Bearer ' + token }
+                      })
+                        .then(r => {
+                          if (!r.ok) throw new Error('Ошибка скачивания');
+                          const cd = r.headers.get('content-disposition');
+                          let fname = m.name || 'file';
+                          if (cd) {
+                            const match = cd.match(/filename\*=UTF-8''(.+)/);
+                            if (match) fname = decodeURIComponent(match[1]);
+                          }
+                          return r.blob().then(blob => ({ blob, fname }));
+                        })
+                        .then(({ blob, fname }) => {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = fname;
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        })
+                        .catch(() => message.error('Ошибка при скачивании файла'));
+                    }}
                   >
-                    Открыть
+                    Скачать
                   </Button>
                 ) : null,
                 <Popconfirm
@@ -1362,7 +1664,7 @@ const Clients: React.FC<ClientsProps> = () => {
       { key: 'info', label: 'Информация', children: renderInfoTab() },
     ];
     // Дополнить данные — только сотрудник, заключивший договор (не админ)
-    const isContractOwner = user?.id && (detailContract?.id_employee === user.id || detailContract?.signed_by === user.id);
+    const isContractOwner = !!(user?.id && detailContract?.registered_by === user.id);
     if (detailContract?.needs_lawyer_input && !isAdmin && isContractOwner) {
       tabs.push({ key: 'supplement', label: '⚠ Дополнить данные', children: renderSupplementTab() });
     }
@@ -1376,7 +1678,7 @@ const Clients: React.FC<ClientsProps> = () => {
       tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторгнуть договор', children: renderTerminateTab() });
     }
     return tabs;
-  }, [detailContract, detailClient, isDocsType, isAdmin, contractMaterials, contractMaterialsLoading, docsList, docsLoading, uploading, materialUploading, contractActs, contractActsLoading, terminateForm, terminating, canConfirmRefund, canTerminate, supplementForm, supplementSaving, experts]);
+  }, [detailContract, detailClient, isDocsType, isAdmin, contractMaterials, contractMaterialsLoading, docsList, docsLoading, uploading, materialUploading, contractActs, contractActsLoading, terminateForm, terminating, canConfirmRefund, canTerminate, supplementForm, supplementSaving, experts, selectedDocTypes, docTypesSaving, docTypesChanged, customDocs, newCustomDoc, circumstances, cardExpertId, cardDataChanged, cardSaving, cardTitle, experts]);
 
   return (
     <Page>
@@ -1482,6 +1784,81 @@ const Clients: React.FC<ClientsProps> = () => {
                     {tab.label}
                   </button>
                 ))}
+              </div>
+              <div className="clients-date-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.subtract(1, 'day')); }}
+                  title="Предыдущий день"
+                  style={{
+                    width: 30, height: 30, borderRadius: 8,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-elevated)',
+                    cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-text-secondary)', fontSize: 12,
+                    flexShrink: 0,
+                  }}
+                ><LeftOutlined /></button>
+                <span
+                  onClick={() => {
+                    if (dateFilterEnabled && selectedDate.format('YYYY-MM-DD') === todayStr) {
+                      setDateFilterEnabled(false);
+                    } else {
+                      setDateFilterEnabled(true);
+                      setSelectedDate(dayjs());
+                    }
+                  }}
+                  title={dateFilterEnabled ? 'Нажмите, чтобы вернуться к «сегодня» или выключить фильтр' : 'Включить фильтр по дате'}
+                  style={{
+                    padding: '5px 14px', fontSize: 14, fontWeight: 600,
+                    color: 'var(--color-text)',
+                    cursor: 'pointer', borderRadius: 8,
+                    whiteSpace: 'nowrap', userSelect: 'none',
+                    background: dateFilterEnabled ? 'var(--color-bg-alt)' : 'transparent',
+                  }}
+                >
+                  {!dateFilterEnabled
+                    ? 'Все даты'
+                    : selectedDate.format('YYYY-MM-DD') === todayStr
+                      ? `Сегодня, ${selectedDate.format('D MMM')}`
+                      : selectedDate.format('D MMMM, dd')}
+                </span>
+                <button
+                  onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.add(1, 'day')); }}
+                  title="Следующий день"
+                  style={{
+                    width: 30, height: 30, borderRadius: 8,
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-bg-elevated)',
+                    cursor: 'pointer', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-text-secondary)', fontSize: 12,
+                    flexShrink: 0,
+                  }}
+                ><RightOutlined /></button>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    onClick={() => setCalOpen((v) => !v)}
+                    title="Выбрать дату"
+                    style={{
+                      width: 30, height: 30, borderRadius: 8,
+                      border: '1px solid var(--color-border)',
+                      background: 'var(--color-bg-elevated)',
+                      cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      color: '#3B82F6', fontSize: 14,
+                      flexShrink: 0, marginLeft: 4,
+                    }}
+                  ><CalendarOutlined /></button>
+                  <DatePicker
+                    value={selectedDate}
+                    onChange={(d) => { if (d) { setDateFilterEnabled(true); setSelectedDate(d); setCalOpen(false); } }}
+                    open={calOpen}
+                    onOpenChange={setCalOpen}
+                    allowClear={false}
+                    style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
+                  />
+                </div>
               </div>
               <Input
                 allowClear

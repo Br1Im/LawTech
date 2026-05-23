@@ -60,6 +60,7 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'blue',
   cancelled: 'red',
   draft: 'default',
+  registered: 'cyan',
 };
 
 const MyCases: React.FC = () => {
@@ -180,6 +181,7 @@ const MyCases: React.FC = () => {
       dataIndex: 'client_name',
       key: 'client_name',
       render: (name: string) => name || '—',
+      width: 160,
     },
     {
       title: 'Номер договора',
@@ -193,12 +195,14 @@ const MyCases: React.FC = () => {
       dataIndex: 'client_phone',
       key: 'client_phone',
       render: (phone: string) => phone || '—',
+      width: 140,
     },
     {
       title: 'Тема договора',
       key: 'topic',
       render: (_: unknown, record: CourtCase) => record.title || record.customer_goal || '—',
       ellipsis: true,
+      width: 180,
     },
     {
       title: 'Общая сумма',
@@ -219,6 +223,7 @@ const MyCases: React.FC = () => {
       dataIndex: 'employee_name',
       key: 'employee_name',
       render: (name: string) => name?.trim() || '—',
+      width: 160,
     },
     {
       title: 'Статус',
@@ -226,7 +231,7 @@ const MyCases: React.FC = () => {
       key: 'status',
       render: (status: string) => (
         <Tag color={STATUS_COLORS[status] || 'default'}>
-          {status === 'active' ? 'Активно' : status === 'completed' ? 'Завершено' : status === 'cancelled' ? 'Отменено' : status}
+          {status === 'active' ? 'Активно' : status === 'completed' ? 'Завершено' : status === 'cancelled' ? 'Отменено' : status === 'registered' ? 'Зарегистрирован' : status === 'pending' ? 'Ожидание' : status === 'draft' ? 'Черновик' : status}
         </Tag>
       ),
       width: 120,
@@ -286,6 +291,7 @@ const MyCases: React.FC = () => {
         <TableSkeleton rows={6} cols={columns.length} />
       ) : (
         <Table
+          scroll={{ x: 1200 }}
           columns={columns}
           dataSource={cases}
           rowKey="id"

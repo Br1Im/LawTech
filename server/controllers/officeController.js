@@ -200,6 +200,11 @@ const officeController = {
   async createOffice(req, res) {
     try {
       const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 } = req.body;
+      const userRole = (req.user?.role || "").toLowerCase();
+      if (userRole !== "director") {
+        return res.status(403).json({ success: false, message: "Доступ запрещён" });
+      }
+
       
       if (!name) {
         return res.status(400).json({ success: false, message: 'Название офиса обязательно' });

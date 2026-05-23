@@ -3,6 +3,7 @@ const { ensureUserOffice, checkOfficeAccess, getUserOfficeIds } = require('../ut
 const { REFUND_CONFIRM_ROLES } = require('../constants');
 const TERMINATE_ROLES = ['director', 'manager', 'okk'];
 const socketEmitter = require('../middleware/socketEmitter');
+const { createAutoExpense } = require('./expensesController');
 
 /**
  * Контроллер для работы с договорами
@@ -142,21 +143,50 @@ const contractController = {
       if (contractData.admin_register && contractData.client_name) {
         const db = require('../db');
         const clientName = contractData.client_name.trim();
+        const clientPhone = (contractData.client_phone || '').toString().trim() || null;
+
+        // Если есть appointment_id и из него можно подтянуть телефон/тему — берём оттуда как fallback
+        let apptPhone = null;
+        let apptComment = null;
+        if (contractData.appointment_id) {
+          const [apptRows] = await db.query(
+            'SELECT client_phone, comment FROM appointments WHERE id = ? AND office_id = ? LIMIT 1',
+            [contractData.appointment_id, user.office_id]
+          );
+          if (apptRows.length > 0) {
+            apptPhone = apptRows[0].client_phone || null;
+            apptComment = apptRows[0].comment || null;
+          }
+        }
+        const finalPhone = clientPhone || apptPhone || null;
+
         // Ищем существующего клиента
         const [existing] = await db.query(
-          'SELECT id FROM clients WHERE name = ? AND office_id = ? LIMIT 1',
+          'SELECT id, phone FROM clients WHERE name = ? AND office_id = ? LIMIT 1',
           [clientName, user.office_id]
         );
         if (existing.length > 0) {
           contractData.id_client = existing[0].id;
+          // Если у клиента нет телефона, а у нас есть — допишем
+          if (!existing[0].phone && finalPhone) {
+            await db.query(
+              'UPDATE clients SET phone = ? WHERE id = ?',
+              [finalPhone, existing[0].id]
+            );
+          }
         } else {
           const [result] = await db.query(
-            'INSERT INTO clients (name, office_id) VALUES (?, ?)',
-            [clientName, user.office_id]
+            'INSERT INTO clients (name, phone, office_id) VALUES (?, ?, ?)',
+            [clientName, finalPhone, user.office_id]
           );
           contractData.id_client = result.insertId;
         }
         contractData.registered_by = user.id;
+
+        // Если title не задан, подставляем тему консультации из appointment
+        if ((!contractData.title || !contractData.title.trim()) && apptComment) {
+          contractData.title = apptComment;
+        }
 
         // Если указан signed_by - обновляем appointment с кто заключил
         if (contractData.signed_by && contractData.appointment_id) {
@@ -348,6 +378,22 @@ const contractController = {
       }
 
       const contract = await Contract.confirmRefund(id, user.id);
+
+      // Автоматически создаем расход «Возвраты»
+      const refundAmt = parseFloat(contract.refund_amount || existingContract.refund_amount || 0);
+      if (refundAmt > 0) {
+        createAutoExpense({
+          office_id: existingContract.office_id,
+          category: 'Возвраты',
+          title: 'Возврат: ' + (existingContract.client_name || 'Клиент') + ' (Договор ' + (existingContract.contract_number || id) + ')',
+          amount: refundAmt,
+          description: 'Автоматический расход при подтверждении возврата',
+          spent_on: new Date().toISOString().slice(0, 10),
+          source_type: 'refund',
+          source_id: Number(id),
+          created_by: user.id,
+        }).catch(err => console.error('Auto expense for refund failed:', err));
+      }
 
       res.json({ success: true, message: 'Возврат подтверждён, касса обновлена', data: contract });
     } catch (error) {

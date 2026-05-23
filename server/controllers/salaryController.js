@@ -18,6 +18,7 @@
  */
 const db = require('../db');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
+const { createAutoExpense } = require('./expensesController');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -605,6 +606,33 @@ const calculate = async (req, res) => {
 
     // Сортируем по итоговой ЗП по убыванию.
     results.sort((a, b) => b.total - a.total);
+
+    // Авто-расход «Зарплаты» — создаем/обновляем при расчете
+    const totalSalaries = results.reduce((s, r) => s + Number(r.total || 0), 0);
+    if (totalSalaries > 0 && dateFrom) {
+      const salaryDate = dateFrom;
+      // source_id = officeId * 1000000 + YYYYMM (уникален для офис+месяц)
+      const dt = new Date(dateFrom);
+      const sourceId = officeId * 1000000 + dt.getFullYear() * 100 + (dt.getMonth() + 1);
+      const empNames = results.filter(r => r.total > 0).map(r => r.full_name).slice(0, 5).join(', ');
+      const titleStr = 'Зарплаты за ' + dt.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+
+      // Upsert: delete old + create new
+      try {
+        await db.query('DELETE FROM expenses WHERE source_type = ? AND source_id = ? AND office_id = ?', ['salary', sourceId, officeId]);
+        await createAutoExpense({
+          office_id: officeId,
+          category: 'Зарплаты',
+          title: titleStr,
+          amount: totalSalaries,
+          description: empNames ? ('Сотрудники: ' + empNames + (results.filter(r => r.total > 0).length > 5 ? '...' : '')) : null,
+          spent_on: salaryDate,
+          source_type: 'salary',
+          source_id: sourceId,
+          created_by: req.user ? req.user.id : null,
+        });
+      } catch (salErr) { console.error('Salary auto-expense error:', salErr.message); }
+    }
 
     return ok(res, {
       office_id: officeId,
