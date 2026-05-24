@@ -52,8 +52,13 @@ const contractController = {
         });
       }
 
-      const contracts = await Contract.getAllByOffice(officeId);
-      
+      let contracts = await Contract.getAllByOffice(officeId);
+
+      // ACL: expert работает только с docs контрактами
+      if (user.role === 'expert') {
+        contracts = (contracts || []).filter(c => (c.contract_type || 'docs') === 'docs');
+      }
+
       res.json({
         success: true,
         data: contracts
