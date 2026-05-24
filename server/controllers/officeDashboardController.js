@@ -19,14 +19,39 @@ function isoDay(d) {
   return d.toISOString().slice(0, 10);
 }
 
-function resolvePeriod(req) {
-  const period = (req.query.period || 'day').toString().toLowerCase();
+async function resolvePeriod(req) {
+  const period = (req.query.period || 'plan').toString().toLowerCase();
   const today = new Date();
   const todayIso = isoDay(today);
   if (period === 'custom') {
     const from = (req.query.from || todayIso).toString().slice(0, 10);
     const to = (req.query.to || todayIso).toString().slice(0, 10);
     return { from, to, today: todayIso, label: 'custom' };
+  }
+  if (period === 'plan') {
+    // Use active office plan period
+    const officeId = Number(req.params.officeId);
+    if (officeId) {
+      try {
+        const [rows] = await db.query(
+          `SELECT DATE_FORMAT(period_start, '%Y-%m-%d') AS period_start,
+                  DATE_FORMAT(period_end, '%Y-%m-%d') AS period_end
+           FROM office_plans
+           WHERE office_id = ?
+           ORDER BY (period_start <= ? AND period_end >= ?) DESC, updated_at DESC
+           LIMIT 1`,
+          [officeId, todayIso, todayIso]
+        );
+        if (rows[0] && rows[0].period_start && rows[0].period_end) {
+          return { from: rows[0].period_start, to: rows[0].period_end, today: todayIso, label: 'plan' };
+        }
+      } catch (_) {
+        // fallback below
+      }
+    }
+    // No plan → fallback to current month
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { from: isoDay(monthStart), to: todayIso, today: todayIso, label: 'plan' };
   }
   const days =
     period === 'today' || period === 'day' ? 1 :
@@ -101,7 +126,7 @@ const officeDashboardController = {
       const allowed = await assertOfficeAccess(req.user, officeId);
       if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещён' });
 
-      const { from, to, today, label } = resolvePeriod(req);
+      const { from, to, today, label } = await resolvePeriod(req);
 
       // Все 5 запросов независимы между собой — гоняем параллельно через Promise.all,
       // чтобы суммарный latency был ~max(query), а не sum(query).

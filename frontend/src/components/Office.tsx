@@ -62,7 +62,7 @@ interface Office {
   ogrn?: string;
 }
 
-type PeriodType = "day" | "yesterday" | "week" | "2weeks" | "month" | "custom";
+type PeriodType = "plan" | "day" | "yesterday" | "week" | "2weeks" | "month" | "custom";
 
 interface DashboardData {
   period: { label: string; from: string; to: string; today: string };
@@ -177,7 +177,7 @@ const Office = () => {
   //     }
   //   }
   // }, [officeFromContext]);
-  const [period, setPeriod] = useState<PeriodType>("day");
+  const [period, setPeriod] = useState<PeriodType>("plan");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
@@ -1206,7 +1206,7 @@ const Office = () => {
               <tbody>
                 {consultationStats.length > 0 ? (
                   (() => {
-                    const roleOrder: Record<string, number> = { lawyer: 0, manager: 1, okk: 2, expert: 3, representative: 4, reception: 5, cc_operator: 6 };
+                    const roleOrder: Record<string, number> = { manager: 0, okk: 1, lawyer: 2, expert: 3, representative: 4, reception: 5, cc_operator: 6 };
                     const sorted = [...consultationStats].sort((a, b) =>
                       (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9)
                     );

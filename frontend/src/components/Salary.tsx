@@ -14,12 +14,16 @@ import {
   Popover,
   Empty,
   Popconfirm,
+  Input,
+  Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
 import {
   ReloadOutlined,
   SettingOutlined,
+  LeftOutlined,
+  RightOutlined,
   EditOutlined,
   PlusOutlined,
   DeleteOutlined,
@@ -115,7 +119,7 @@ const Salary: React.FC = () => {
   const isManagerOrAbove = ['director', 'admin', 'owner', 'manager'].includes(String(user?.role || '').toLowerCase());
   const isLawyer = String(user?.role || '').toLowerCase() === 'lawyer';
 
-  const [period, setPeriod] = useState<PeriodKey>('month');
+  const [period, setPeriod] = useState<PeriodKey>('custom');
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
   const [data, setData] = useState<SalaryCalcResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -279,7 +283,7 @@ const Salary: React.FC = () => {
   };
 
   const reception = useMemo(
-    () => employees.filter((e: any) => /ресепш|админ/i.test(String(e.position || ''))),
+    () => employees.filter((e: any) => String(e.user_role || '').toLowerCase() === 'admin'),
     [employees]
   );
 
@@ -373,30 +377,45 @@ const Salary: React.FC = () => {
   return (
     <Page>
       <ToolRow>
-        <Space size={12} wrap>
-          <Select
-            value={period}
-            style={{ minWidth: 180 }}
-            onChange={(v) => setPeriod(v)}
-            options={[
-              { value: 'today', label: 'Сегодня' },
-              { value: 'yesterday', label: 'Вчера' },
-              { value: 'week', label: 'Неделя' },
-              { value: 'month', label: 'Месяц' },
-              { value: 'custom', label: 'Произвольный период' },
-            ]}
-          />
-          {period === 'custom' && (
-            <DatePicker.RangePicker
-              value={customRange}
-              onChange={(v) => v && v[0] && v[1] && setCustomRange([v[0], v[1]])}
-              format="DD.MM.YYYY"
+        <Space size={8} wrap align="center">
+          <Tooltip title="Предыдущий период">
+            <Button
+              icon={<LeftOutlined />}
+              onClick={() => {
+                const len = customRange[1].diff(customRange[0], 'day') + 1;
+                setPeriod('custom');
+                setCustomRange([
+                  customRange[0].subtract(len, 'day'),
+                  customRange[1].subtract(len, 'day'),
+                ]);
+              }}
             />
-          )}
+          </Tooltip>
+          <span style={{ fontSize: 14, fontWeight: 600, minWidth: 220, textAlign: 'center' }}>
+            {customRange[0].format('DD.MM.YYYY')} — {customRange[1].format('DD.MM.YYYY')}
+          </span>
+          <Tooltip title="Следующий период">
+            <Button
+              icon={<RightOutlined />}
+              onClick={() => {
+                const len = customRange[1].diff(customRange[0], 'day') + 1;
+                setPeriod('custom');
+                setCustomRange([
+                  customRange[0].add(len, 'day'),
+                  customRange[1].add(len, 'day'),
+                ]);
+              }}
+            />
+          </Tooltip>
+          <DatePicker.RangePicker
+            value={customRange}
+            onChange={(v) => { if (v && v[0] && v[1]) { setPeriod('custom'); setCustomRange([v[0], v[1]]); } }}
+            format="DD.MM.YYYY"
+            allowClear={false}
+          />
         </Space>
         <Space wrap>
-          <Button icon={<ReloadOutlined />} onClick={load}>Пересчитать</Button>
-          {isDirector && (
+{isDirector && (
             <Button icon={<SettingOutlined />} onClick={openSettings}>Настройки расчёта</Button>
           )}
         </Space>
@@ -420,14 +439,6 @@ const Salary: React.FC = () => {
             <Stat>
               <div className="lbl">Прибыль офиса</div>
               <div className="val">{formatMoney(data?.office_profit)}</div>
-            </Stat>
-            <Stat>
-              <div className="lbl">ФОТ</div>
-              <div className="val">{formatMoney(totalPayroll)}</div>
-            </Stat>
-            <Stat>
-              <div className="lbl">Сотрудников в расчёте</div>
-              <div className="val">{data?.rows?.length || 0}</div>
             </Stat>
           </>
         )}
@@ -643,11 +654,14 @@ const Salary: React.FC = () => {
             />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: 4 }}>Заметка (необязательно)</label>
-            <input
-              className="ant-input"
+            <label style={{ display: 'block', marginBottom: 4 }}>Заметка</label>
+            <Input.TextArea
+              rows={3}
               value={shiftForm.note}
               onChange={(e) => setShiftForm((p) => ({ ...p, note: e.target.value }))}
+              placeholder="Дополнительная информация о смене"
+              maxLength={500}
+              showCount
             />
           </div>
         </Space>
