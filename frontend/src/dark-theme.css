@@ -1,0 +1,443 @@
+/* ════════════════════════════════════════════════════════════════════
+   COMPREHENSIVE DARK THEME OVERRIDES
+   Loaded after all component CSS. Affects ONLY [data-theme='dark'].
+   Light theme is untouched.
+   ════════════════════════════════════════════════════════════════════ */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* ── Root surfaces ────────────────────────────────────────────── */
+[data-theme='dark'] body,
+[data-theme='dark'] html,
+[data-theme='dark'] #root {
+  background-color: #0F1116 !important;
+  color: #E6E8EF;
+}
+
+/* ── Generic container/page surfaces ──────────────────────────── */
+[data-theme='dark'] .apt-container,
+[data-theme='dark'] .cc-container,
+[data-theme='dark'] .documents-container,
+[data-theme='dark'] .clients-container,
+[data-theme='dark'] .office-content,
+[data-theme='dark'] .reception-container,
+[data-theme='dark'] .expenses-container,
+[data-theme='dark'] .employees-container,
+[data-theme='dark'] .calendar-container,
+[data-theme='dark'] .materials-container,
+[data-theme='dark'] .experts-container,
+[data-theme='dark'] .lawyers-container,
+[data-theme='dark'] .scanner-container,
+[data-theme='dark'] .chat-interface-container {
+  background-color: transparent !important;
+  color: #E6E8EF;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+[data-theme='dark'] .apt-card,
+[data-theme='dark'] .apt-card-body,
+[data-theme='dark'] .cc-card,
+[data-theme='dark'] .cc-stat-card,
+[data-theme='dark'] .doc-card,
+[data-theme='dark'] .document-card,
+[data-theme='dark'] .documents-card,
+[data-theme='dark'] .client-card,
+[data-theme='dark'] .office-card,
+[data-theme='dark'] .expense-card,
+[data-theme='dark'] .employee-card,
+[data-theme='dark'] .lawyer-card,
+[data-theme='dark'] .expert-card,
+[data-theme='dark'] .material-card,
+[data-theme='dark'] .stat-card,
+[data-theme='dark'] .info-card,
+[data-theme='dark'] .summary-card {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme='dark'] .apt-card:hover,
+[data-theme='dark'] .cc-card:hover,
+[data-theme='dark'] .doc-card:hover,
+[data-theme='dark'] .office-card:hover,
+[data-theme='dark'] .expense-card:hover,
+[data-theme='dark'] .stat-card:hover {
+  background-color: #1D2230 !important;
+  border-color: #363C4E !important;
+}
+
+/* ── Headers / toolbars ────────────────────────────────────────── */
+[data-theme='dark'] .apt-header,
+[data-theme='dark'] .cc-header,
+[data-theme='dark'] .doc-header,
+[data-theme='dark'] .documents-header,
+[data-theme='dark'] .clients-header,
+[data-theme='dark'] .office-header,
+[data-theme='dark'] .page-header,
+[data-theme='dark'] .panel-header,
+[data-theme='dark'] .toolbar,
+[data-theme='dark'] .filter-bar,
+[data-theme='dark'] .search-bar {
+  background-color: transparent !important;
+  color: #E6E8EF;
+  border-color: #2A2F3D !important;
+}
+
+[data-theme='dark'] .apt-title,
+[data-theme='dark'] .cc-title,
+[data-theme='dark'] .page-title,
+[data-theme='dark'] .section-title,
+[data-theme='dark'] h1,
+[data-theme='dark'] h2,
+[data-theme='dark'] h3,
+[data-theme='dark'] h4,
+[data-theme='dark'] h5,
+[data-theme='dark'] h6 {
+  color: #E6E8EF !important;
+}
+
+[data-theme='dark'] .apt-subtitle,
+[data-theme='dark'] .cc-subtitle,
+[data-theme='dark'] .text-muted,
+[data-theme='dark'] .muted,
+[data-theme='dark'] .label,
+[data-theme='dark'] .field-label,
+[data-theme='dark'] small {
+  color: #8B8FA3 !important;
+}
+
+/* ── Buttons (non-AntD) ───────────────────────────────────────── */
+[data-theme='dark'] .apt-cal-btn,
+[data-theme='dark'] .apt-date-arrow,
+[data-theme='dark'] .apt-dots-btn,
+[data-theme='dark'] .cc-btn,
+[data-theme='dark'] .new-document-btn,
+[data-theme='dark'] .doc-btn,
+[data-theme='dark'] .icon-btn,
+[data-theme='dark'] button.cancel-btn,
+[data-theme='dark'] button.action-btn {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+[data-theme='dark'] .apt-cal-btn:hover,
+[data-theme='dark'] .apt-date-arrow:hover,
+[data-theme='dark'] .apt-dots-btn:hover,
+[data-theme='dark'] .cc-btn:hover,
+[data-theme='dark'] .new-document-btn:hover,
+[data-theme='dark'] .icon-btn:hover {
+  background-color: #2A2F3D !important;
+  border-color: #7C5CFF !important;
+}
+
+[data-theme='dark'] .premium-btn,
+[data-theme='dark'] .new-document-btn:not(.cancel) {
+  background-color: #7C5CFF !important;
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .premium-btn:hover {
+  background-color: #6A4AED !important;
+}
+
+/* ── Inputs / textareas (non-AntD HTML) ───────────────────────── */
+[data-theme='dark'] input[type="text"]:not(.ant-input),
+[data-theme='dark'] input[type="search"]:not(.ant-input),
+[data-theme='dark'] input[type="email"]:not(.ant-input),
+[data-theme='dark'] input[type="tel"]:not(.ant-input),
+[data-theme='dark'] input[type="number"]:not(.ant-input),
+[data-theme='dark'] input[type="password"]:not(.ant-input),
+[data-theme='dark'] input[type="date"]:not(.ant-input),
+[data-theme='dark'] textarea:not(.ant-input) {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+[data-theme='dark'] input::placeholder,
+[data-theme='dark'] textarea::placeholder {
+  color: #5A5E72 !important;
+}
+
+[data-theme='dark'] input:focus:not(.ant-input),
+[data-theme='dark'] textarea:focus:not(.ant-input) {
+  border-color: #7C5CFF !important;
+  outline-color: #7C5CFF;
+}
+
+/* ── Search inputs (Appointments etc.) ────────────────────────── */
+[data-theme='dark'] .apt-search,
+[data-theme='dark'] .cc-search,
+[data-theme='dark'] .doc-search,
+[data-theme='dark'] .search-input {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Lists / items ────────────────────────────────────────────── */
+[data-theme='dark'] .apt-cards-list .apt-card,
+[data-theme='dark'] .list-item,
+[data-theme='dark'] .item-row,
+[data-theme='dark'] .row-item {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+
+/* ── Tables (non-AntD HTML) ───────────────────────────────────── */
+[data-theme='dark'] table:not(.ant-table) {
+  background-color: #161A22 !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] table:not(.ant-table) thead {
+  background-color: #1D2230 !important;
+}
+[data-theme='dark'] table:not(.ant-table) th,
+[data-theme='dark'] table:not(.ant-table) td {
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] table:not(.ant-table) tbody tr:hover {
+  background-color: #1D2230 !important;
+}
+
+/* ── Custom modals (non-AntD) ─────────────────────────────────── */
+[data-theme='dark'] .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.7) !important;
+}
+[data-theme='dark'] .modal-content,
+[data-theme='dark'] .modal-body,
+[data-theme='dark'] .modal,
+[data-theme='dark'] .contract-modal,
+[data-theme='dark'] .new-document-modal {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme='dark'] .modal-header,
+[data-theme='dark'] .modal-footer {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Form groups ──────────────────────────────────────────────── */
+[data-theme='dark'] .form-group label,
+[data-theme='dark'] .form-label {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .form-group input,
+[data-theme='dark'] .form-group select,
+[data-theme='dark'] .form-group textarea {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────── */
+[data-theme='dark'] .sidebar,
+[data-theme='dark'] .sidebar-container,
+[data-theme='dark'] .main-sidebar {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .sidebar-item,
+[data-theme='dark'] .sidebar-link,
+[data-theme='dark'] .nav-item {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .sidebar-item:hover,
+[data-theme='dark'] .sidebar-link:hover,
+[data-theme='dark'] .nav-item:hover {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .sidebar-item.active,
+[data-theme='dark'] .sidebar-link.active,
+[data-theme='dark'] .nav-item.active,
+[data-theme='dark'] .sidebar-item.selected {
+  background-color: rgba(124, 92, 255, 0.12) !important;
+  color: #7C5CFF !important;
+}
+
+/* ── Telegram-style chat (OfficeChat) ─────────────────────────── */
+[data-theme='dark'] .tg-chat-wrap,
+[data-theme='dark'] .tg-body,
+[data-theme='dark'] .tg-sidebar,
+[data-theme='dark'] .tg-main,
+[data-theme='dark'] .tg-messages,
+[data-theme='dark'] .tg-input-bar,
+[data-theme='dark'] .tg-participants {
+  background-color: #161A22 !important;
+  color: #E6E8EF !important;
+  border-color: #2A2F3D !important;
+}
+
+[data-theme='dark'] .tg-chat-list-item {
+  background-color: transparent !important;
+  color: #E6E8EF !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .tg-chat-list-item:hover {
+  background-color: #1D2230 !important;
+}
+[data-theme='dark'] .tg-chat-list-item.active {
+  background-color: rgba(124, 92, 255, 0.12) !important;
+}
+
+[data-theme='dark'] .tg-message-bubble,
+[data-theme='dark'] .tg-message-content {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .tg-message-bubble.own,
+[data-theme='dark'] .tg-message-bubble.my {
+  background-color: rgba(124, 92, 255, 0.25) !important;
+  color: #E6E8EF !important;
+}
+
+[data-theme='dark'] .tg-chat-header {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+[data-theme='dark'] .tg-input,
+[data-theme='dark'] .tg-input-textarea {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+  border-color: #2A2F3D !important;
+}
+
+/* ── Empty states ─────────────────────────────────────────────── */
+[data-theme='dark'] .empty-state,
+[data-theme='dark'] .no-data,
+[data-theme='dark'] .apt-empty-state,
+[data-theme='dark'] .doc-empty-state {
+  background-color: transparent !important;
+  color: #8B8FA3 !important;
+}
+
+[data-theme='dark'] .apt-empty-state-title,
+[data-theme='dark'] .empty-state-title {
+  color: #E6E8EF !important;
+}
+
+/* ── Badges / tags (custom, not AntD) ─────────────────────────── */
+[data-theme='dark'] .apt-badge:not(.ant-badge),
+[data-theme='dark'] .cc-badge:not(.ant-badge),
+[data-theme='dark'] .status-badge:not(.ant-badge) {
+  background-color: #1D2230 !important;
+  color: #E6E8EF !important;
+  border-color: #2A2F3D !important;
+}
+
+/* ── Auth page (white card on possibly dark bg) ─────────────────*/
+[data-theme='dark'] .auth-container,
+[data-theme='dark'] .auth-card,
+[data-theme='dark'] .login-card,
+[data-theme='dark'] .login-form {
+  background-color: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Tooltip-style hover boxes ────────────────────────────────── */
+[data-theme='dark'] .tooltip,
+[data-theme='dark'] .popover,
+[data-theme='dark'] .menu,
+[data-theme='dark'] .dropdown-menu {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Hard-coded white bg fix (catch-all) ──────────────────────── */
+[data-theme='dark'] [style*="background: #fff"],
+[data-theme='dark'] [style*="background: #FFFFFF"],
+[data-theme='dark'] [style*="background:#fff"],
+[data-theme='dark'] [style*="background-color: #fff"],
+[data-theme='dark'] [style*="background-color: #FFFFFF"],
+[data-theme='dark'] [style*="background-color:#fff"] {
+  background-color: #161A22 !important;
+}
+
+[data-theme='dark'] [style*="background: #fafafa"],
+[data-theme='dark'] [style*="background:#fafafa"],
+[data-theme='dark'] [style*="background: #FAFAFA"],
+[data-theme='dark'] [style*="background: rgb(250"],
+[data-theme='dark'] [style*="background-color: #fafafa"] {
+  background-color: #1D2230 !important;
+}
+
+[data-theme='dark'] [style*="background: #f5f5f5"],
+[data-theme='dark'] [style*="background: #f0f0f0"],
+[data-theme='dark'] [style*="background: #f8f9fa"],
+[data-theme='dark'] [style*="background-color: #f5f5f5"],
+[data-theme='dark'] [style*="background-color: #f0f0f0"] {
+  background-color: #1D2230 !important;
+}
+
+/* Dark hardcoded text on light bg fix */
+[data-theme='dark'] [style*="color: #000"],
+[data-theme='dark'] [style*="color:#000"],
+[data-theme='dark'] [style*="color: #111"],
+[data-theme='dark'] [style*="color: #1f"],
+[data-theme='dark'] [style*="color: rgb(15"] {
+  color: #E6E8EF !important;
+}
+
+/* ── Mesh background tone-down for dark ───────────────────────── */
+[data-theme='dark'] body::before {
+  opacity: 0.5;
+}
+
+/* ── Status pill colors keep their semantics in dark ──────────── */
+[data-theme='dark'] .status-success,
+[data-theme='dark'] .badge-success {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  color: #4ADE80 !important;
+}
+[data-theme='dark'] .status-warning,
+[data-theme='dark'] .badge-warning {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #FBBF24 !important;
+}
+[data-theme='dark'] .status-error,
+[data-theme='dark'] .badge-error {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #F87171 !important;
+}
+[data-theme='dark'] .status-info,
+[data-theme='dark'] .badge-info {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #60A5FA !important;
+}
+
+/* ── Filter panels / dropdowns ────────────────────────────────── */
+[data-theme='dark'] .apt-filter-panel,
+[data-theme='dark'] .filter-panel,
+[data-theme='dark'] .filter-content {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Charts placeholders ──────────────────────────────────────── */
+[data-theme='dark'] .recharts-default-tooltip {
+  background-color: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .recharts-cartesian-axis text,
+[data-theme='dark'] .recharts-text {
+  fill: #8B8FA3 !important;
+}
