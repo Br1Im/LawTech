@@ -5,9 +5,8 @@
  * @returns {Object} - Отформатированное сообщение
  */
 const formatMessageResponse = (message, currentUserId) => {
-  const timestamp = message.created_at 
-    ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
+  // timestamp left empty — frontend formats from createdAt with user's locale & TZ
+  const timestamp = '';
 
   // Формируем имя отправителя из данных JOIN
   const senderName = message.sender_name

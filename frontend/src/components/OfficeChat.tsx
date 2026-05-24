@@ -56,12 +56,19 @@ const OfficeChat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [searching, setSearching] = useState(false);
-  const [lastMessages, setLastMessages] = useState<Record<string, { sender: string; text: string; time: string }>>({});
+  const [lastMessages, setLastMessages] = useState<Record<string, { sender: string; text: string; time: string; createdAt?: string }>>({});
   const msgContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMsgCountRef = useRef(0);
+
+  const formatMsgTime = (createdAt?: string, fallback?: string): string => {
+    if (!createdAt) return fallback || '';
+    try {
+      return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch { return fallback || ''; }
+  };
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (msgContainerRef.current) {
@@ -143,6 +150,7 @@ const OfficeChat: React.FC = () => {
             sender: last.sender?.split(' ')[0] || '',
             text: last.text || last.fileName || '',
             time: last.timestamp || '',
+            createdAt: last.createdAt,
           }
         }));
       }
@@ -306,7 +314,7 @@ const OfficeChat: React.FC = () => {
                 <div className="tg-msg-text">{msg.text}</div>
               )}
               <div className="tg-msg-meta">
-                <span className="tg-msg-time">{msg.timestamp}</span>
+                <span className="tg-msg-time">{formatMsgTime(msg.createdAt, msg.timestamp)}</span>
                 {msg.isMine && renderStatus(msg)}
               </div>
             </div>
@@ -388,7 +396,7 @@ const OfficeChat: React.FC = () => {
                   <div className="tg-channel-info">
                     <div className="tg-channel-top">
                       <span className="tg-channel-name">{ch.label}</span>
-                      <span className="tg-channel-time">{lastMsg?.time || ''}</span>
+                      <span className="tg-channel-time">{formatMsgTime((lastMsg as any)?.createdAt, lastMsg?.time)}</span>
                     </div>
                     <div className="tg-channel-bottom">
                       <span className="tg-channel-preview">
@@ -454,7 +462,7 @@ const OfficeChat: React.FC = () => {
             {searchResults.length === 0 && !searching && <div className="tg-search-empty">Ничего не найдено</div>}
             {searchResults.map(msg => (
               <div key={msg.id} className="tg-search-result-item">
-                <div className="tg-search-result-sender">{msg.sender} <span className="tg-search-result-time">{msg.timestamp}</span></div>
+                <div className="tg-search-result-sender">{msg.sender} <span className="tg-search-result-time">{formatMsgTime(msg.createdAt, msg.timestamp)}</span></div>
                 <div className="tg-search-result-text">{msg.text}</div>
               </div>
             ))}
@@ -531,12 +539,7 @@ const OfficeChat: React.FC = () => {
           </button>
         </div>
 
-        {/* Legend */}
-        <div className="tg-legend">
-          <span className="tg-legend-item"><SingleCheck /> отправлено</span>
-          <span className="tg-legend-item"><DoubleCheck /> доставлено</span>
-          <span className="tg-legend-item"><DoubleCheck read /> прочитано</span>
-        </div>
+
       </div>
     </div>
   );

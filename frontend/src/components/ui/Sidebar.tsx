@@ -113,6 +113,24 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const [chatUnread, setChatUnread] = useState<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      if (!activeOfficeId) return;
+      try {
+        const res = await apiClient.get(`/offices/${activeOfficeId}/messages/unread`);
+        const counts = res.data?.counts || res.data || {};
+        const total = Object.values(counts).reduce((a: number, b: any) => a + Number(b || 0), 0);
+        if (!cancelled) setChatUnread(total);
+      } catch { /* skip */ }
+    };
+    fetchUnread();
+    const t = setInterval(fetchUnread, 30000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [activeOfficeId]);
+
   const activeOffice = offices.find(o => o.id === activeOfficeId);
 
   const getMenuItemsByRole = (role?: string) => {
@@ -268,7 +286,31 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => onTabClick(item.key)}
             title={collapsed ? item.label : ''}
           >
-            <span className="sidebar-icon">{item.icon}</span>
+            <span className="sidebar-icon" style={{ position: 'relative' }}>
+              {item.icon}
+              {item.key === 'Чат' && chatUnread > 0 && (
+                <span
+                  className="sidebar-badge"
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -6,
+                    minWidth: 16,
+                    height: 16,
+                    padding: '0 4px',
+                    borderRadius: 8,
+                    background: '#EF4444',
+                    color: 'white',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    lineHeight: 1,
+                  }}
+                >{chatUnread > 99 ? '99+' : chatUnread}</span>
+              )}
+            </span>
             {!collapsed && <span className="sidebar-label">{item.label}</span>}
           </button>
         ))}
