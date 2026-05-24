@@ -5,8 +5,42 @@
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LawTech</title>
+    <style>
+      /* Лоадер до загрузки JS */
+      #boot-loader {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 18px;
+        background: #f5f6f8; color: #1e40af;
+        font-family: system-ui, -apple-system, "Segoe UI", Inter, Roboto, Arial, sans-serif;
+        z-index: 9999; transition: opacity .25s ease;
+      }
+      [data-theme="dark"] #boot-loader { background: #0F1116; color: #8aa9ff; }
+      #boot-loader .spinner {
+        width: 44px; height: 44px;
+        border: 3px solid rgba(30,64,175,0.15);
+        border-top-color: #1e40af; border-radius: 50%;
+        animation: bl-spin .9s linear infinite;
+      }
+      [data-theme="dark"] #boot-loader .spinner {
+        border-color: rgba(138,169,255,0.18); border-top-color: #8aa9ff;
+      }
+      #boot-loader .label { font-size: 14px; font-weight: 500; letter-spacing: .3px; opacity: .85; }
+      @keyframes bl-spin { to { transform: rotate(360deg); } }
+      #boot-loader.hidden { opacity: 0; pointer-events: none; }
+    </style>
+    <script>
+      // Применяем сохранённую тему до рендера, чтобы лоадер сразу был в нужной палитре
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+      } catch(e){}
+    </script>
   </head>
   <body>
+    <div id="boot-loader">
+      <div class="spinner"></div>
+      <div class="label">LawTech загружается…</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

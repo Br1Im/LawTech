@@ -1,29 +1,29 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { Layout } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Office from "../components/Office";
-import AITools from '../components/AITools/AITools';
-import Employees from '../components/Employees';
-import Documents from '../components/Documents';
-import Arrivals from '../components/Arrivals';
-import Expenses from '../components/Expenses';
-import Reception from '../components/Reception';
-import CallCenter from '../components/CallCenter';
-import Materials from '../components/Materials';
-import Clients from '../components/Clients';
-import Acts from '../components/Acts';
-import Salary from '../components/Salary';
-import Appointments from '../components/Appointments';
-import MyCases from '../components/MyCases';
+const Office = React.lazy(() => import("../components/Office"));
+const AITools = React.lazy(() => import('../components/AITools/AITools'));
+const Employees = React.lazy(() => import('../components/Employees'));
+const Documents = React.lazy(() => import('../components/Documents'));
+const Arrivals = React.lazy(() => import('../components/Arrivals'));
+const Expenses = React.lazy(() => import('../components/Expenses'));
+const Reception = React.lazy(() => import('../components/Reception'));
+const CallCenter = React.lazy(() => import('../components/CallCenter'));
+const Materials = React.lazy(() => import('../components/Materials'));
+const Clients = React.lazy(() => import('../components/Clients'));
+const Acts = React.lazy(() => import('../components/Acts'));
+const Salary = React.lazy(() => import('../components/Salary'));
+const Appointments = React.lazy(() => import('../components/Appointments'));
+const MyCases = React.lazy(() => import('../components/MyCases'));
 import MiniCalendar from '../components/ui/MiniCalendar';
 import { FaCalendarAlt, FaTimes } from 'react-icons/fa';
 import NotificationPanel from '../components/NotificationPanel';
-import OfficeChat from '../components/OfficeChat';
-import CashRegister from '../components/CashRegister';
-import Applications from '../components/Applications';
-import Cases from '../components/Cases';
+const OfficeChat = React.lazy(() => import('../components/OfficeChat'));
+const CashRegister = React.lazy(() => import('../components/CashRegister'));
+const Applications = React.lazy(() => import('../components/Applications'));
+const Cases = React.lazy(() => import('../components/Cases'));
 
 import Sidebar from "../components/ui/Sidebar";
 import MobileSidebar from "../components/ui/MobileSidebar";
@@ -321,6 +321,7 @@ const SRM = () => {
           unreadChatCount={unreadChatCount}
         />
         <Content style={styles.content}>
+          <Suspense fallback={<div style={{padding:48,textAlign:"center",color:"var(--color-text-muted)"}}>Загрузка…</div>}>
           {activeTab === "Офис" && (<Office />)}
           {activeTab === "AI инструменты" && <AITools />}
           {activeTab === "Сотрудники" && <Employees />}
@@ -339,6 +340,7 @@ const SRM = () => {
           {activeTab === "Представители" && <MyCases />}
           {activeTab === "Заявления" && <Applications />}
           {activeTab === "Суды" && <Cases />}
+          </Suspense>
 
         </Content>
       </div>

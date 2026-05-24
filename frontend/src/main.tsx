@@ -29,6 +29,12 @@ const queryClient = new QueryClient({
   },
 })
 
+// Прячем boot-loader, как только React начал рендер
+requestAnimationFrame(() => {
+  const el = document.getElementById('boot-loader');
+  if (el) { el.classList.add('hidden'); setTimeout(() => el.remove(), 300); }
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

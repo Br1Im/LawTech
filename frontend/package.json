@@ -17,7 +17,6 @@
     "@ant-design/icons": "*",
     "@emotion/react": "*",
     "@emotion/styled": "*",
-    "@reduxjs/toolkit": "*",
     "@tanstack/react-query": "^5.100.10",
     "antd": "*",
     "axios": "*",
@@ -26,7 +25,6 @@
     "react": "*",
     "react-dom": "*",
     "react-icons": "*",
-    "react-redux": "*",
     "react-router-dom": "*"
   },
   "devDependencies": {
