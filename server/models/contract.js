@@ -274,11 +274,17 @@ class Contract {
       // Используем paid_amount, если указан, иначе amount
       const paidAmountValue = paid_amount !== undefined ? paid_amount : amount;
 
+      // Если paid_amount УВЕЛИЧИЛСЯ — обновляем payment_date на сегодня (доплата)
+      const oldPaid = Number(oldContract.paid_amount) || 0;
+      const newPaid = Number(paidAmountValue) || 0;
+      const paymentDateChanged = newPaid > oldPaid;
+
       // Build dynamic SET so unspecified fields keep prior value (PATCH-style)
       const sets = [
         'id_employee = ?', 'id_client = ?', 'contract_date = ?', 'amount = ?', 'paid_amount = ?', 'status = ?',
       ];
       const params = [id_employee, id_client, contract_date, amount, paidAmountValue, status];
+      if (paymentDateChanged) { sets.push('payment_date = CURRENT_DATE()'); }
       if (contract_type !== undefined) { sets.push('contract_type = ?'); params.push(contract_type); }
       if (expert_id !== undefined)     { sets.push('expert_id = ?');     params.push(expert_id ? Number(expert_id) : null); }
       if (docs_status !== undefined)   { sets.push('docs_status = ?');   params.push(docs_status); }
