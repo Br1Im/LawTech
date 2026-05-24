@@ -2566,3 +2566,124 @@ button.confirm-delete svg {
   .contract-modal .form-grid .span-full { grid-column: 1 / -1; }
   .contract-modal .document-types-selection .checkbox-group { grid-template-columns: 1fr; }
 }
+
+
+/* === contract-modal horizontal layout v2 === */
+.contract-modal {
+  max-width: 1100px !important;
+  max-height: 88vh;
+}
+.contract-modal .modal-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+.contract-modal .modal-header h3 { font-size: 16px; margin: 0; }
+.contract-modal .document-form { padding: 14px 18px 18px; }
+
+/* двух-колоночная раскладка: Клиент рядом с Договор */
+.contract-modal .form-row-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.contract-modal .form-row-2col .form-section {
+  margin-top: 0;
+}
+.contract-modal .form-section {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.contract-modal .form-section-title {
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.contract-modal .form-group { margin-bottom: 8px; }
+.contract-modal .form-group label {
+  font-size: 12px;
+  margin-bottom: 3px;
+  color: var(--color-muted, #6b7280);
+}
+.contract-modal .form-group input,
+.contract-modal .form-group select,
+.contract-modal .form-group textarea {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+.contract-modal .form-grid {
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+.contract-modal .radio-group {
+  gap: 10px;
+  font-size: 13px;
+}
+.contract-modal .document-types-selection .checkbox-group {
+  gap: 4px 12px;
+  font-size: 13px;
+}
+.contract-modal .modal-actions {
+  padding: 10px 18px;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+  margin: 14px -18px -18px;
+}
+.contract-modal .auto-fill-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+@media (max-width: 920px) {
+  .contract-modal .form-row-2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* DARK THEME for contract-modal */
+[data-theme='dark'] .contract-modal {
+  background: #161A22;
+  color: #E6E8EF;
+  border: 1px solid #2A2F3D;
+}
+[data-theme='dark'] .contract-modal .modal-header,
+[data-theme='dark'] .contract-modal .modal-actions {
+  border-color: #2A2F3D;
+  background: transparent;
+}
+[data-theme='dark'] .contract-modal .form-section {
+  background: rgba(255,255,255,0.025);
+  border-color: #2A2F3D;
+}
+[data-theme='dark'] .contract-modal .form-section-title {
+  color: #8B8FA3;
+}
+[data-theme='dark'] .contract-modal .form-group label {
+  color: #ADB1C2;
+}
+[data-theme='dark'] .contract-modal .form-group input,
+[data-theme='dark'] .contract-modal .form-group select,
+[data-theme='dark'] .contract-modal .form-group textarea {
+  background: #1A1F2A;
+  border: 1px solid #2A2F3D;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .contract-modal .form-group input:focus,
+[data-theme='dark'] .contract-modal .form-group select:focus,
+[data-theme='dark'] .contract-modal .form-group textarea:focus {
+  border-color: var(--color-accent, #D2AA38);
+  background: #20252F;
+}
+[data-theme='dark'] .contract-modal .form-group input::placeholder,
+[data-theme='dark'] .contract-modal .form-group textarea::placeholder {
+  color: #6B7080;
+}
+[data-theme='dark'] .contract-modal .auto-fill-btn {
+  background: rgba(210,170,56,0.15);
+  border: 1px solid rgba(210,170,56,0.4);
+  color: var(--color-accent, #D2AA38);
+}
+[data-theme='dark'] .contract-modal .modal-close-btn {
+  color: #ADB1C2;
+}
+[data-theme='dark'] .contract-modal input[type="date"] {
+  color-scheme: dark;
+}

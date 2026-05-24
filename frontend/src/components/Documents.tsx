@@ -904,6 +904,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
               <button className="modal-close-btn" onClick={closeModal}>&times;</button>
             </div>
             <form onSubmit={createNewDocument} className="document-form">
+              <div className="form-row-2col">
               {/* ── Клиент ── */}
               <div className="form-section">
                 <div className="form-section-title">Клиент</div>
@@ -1064,6 +1065,8 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
                   </div>
                 </div>
               )}
+
+              </div>
 
               {/* ── Финансы ── */}
               <div className="form-section">
