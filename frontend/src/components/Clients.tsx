@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import dayjs from 'dayjs';
+import { useIsMobile } from '../shared/lib/useIsMobile';
 import 'dayjs/locale/ru';
 dayjs.locale('ru');
 import {
@@ -166,6 +167,7 @@ const Clients: React.FC<ClientsProps> = () => {
   const [contracts, setContracts] = useState<CrmContract[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const isMobile = useIsMobile();
   const [dealType, setDealType] = useState<DealType>('docs');
   useEffect(() => { if (user?.role === 'expert' && dealType !== 'docs') setDealType('docs'); }, [user?.role, dealType]);
   const [view, setView] = useState<ClientsView>('contracts');
@@ -2085,25 +2087,67 @@ const Clients: React.FC<ClientsProps> = () => {
             </Space>
           </ToolRow>
 
-          <TableCard>
-            <Table<ContractRow>
-              rowKey="key"
-              dataSource={filtered}
-              columns={dealType === 'docs' ? docsColumns : courtColumns}
-              loading={loading}
-              pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
-              locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
-              size="middle"
-              onRow={(row) => ({
-                onClick: (ev) => {
-                  const target = ev.target as HTMLElement;
-                  if (target.closest('button')) return;
-                  openDetail(row.contract, row.client);
-                },
-                style: { cursor: 'pointer' },
-              })}
-            />
-          </TableCard>
+          {isMobile ? (
+            <div className="mobile-card-list">
+              {filtered.length === 0 ? (
+                <Empty description="Нет договоров" />
+              ) : filtered.map((row) => (
+                <div
+                  key={row.key}
+                  className="mc-card"
+                  onClick={() => openDetail(row.contract, row.client)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="mc-title">{row.client?.name || 'Без имени'}</div>
+                  <div className="mc-row">
+                    <span className="mc-label">Договор</span>
+                    <span>№ {row.contract.id}</span>
+                  </div>
+                  <div className="mc-row">
+                    <span className="mc-label">Тема</span>
+                    <span style={{ textAlign: 'right', maxWidth: '60%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {(row.contract as any).title || '—'}
+                    </span>
+                  </div>
+                  <div className="mc-row">
+                    <span className="mc-label">Сумма</span>
+                    <span>{Number(row.contract.amount || 0).toLocaleString('ru-RU')} ₽</span>
+                  </div>
+                  <div className="mc-row">
+                    <span className="mc-label">Статус</span>
+                    <Tag color={STATUS_COLORS[row.contract.status as keyof typeof STATUS_COLORS] || 'default'} style={{ margin: 0 }}>
+                      {row.contract.status}
+                    </Tag>
+                  </div>
+                  {(row.contract as any).needs_lawyer_input ? (
+                    <div style={{ marginTop: 8, padding: '4px 10px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 12, fontWeight: 600, display: 'inline-block' }}>
+                      ⚠ Дополнить данные
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <TableCard>
+              <Table<ContractRow>
+                rowKey="key"
+                dataSource={filtered}
+                columns={dealType === 'docs' ? docsColumns : courtColumns}
+                loading={loading}
+                pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+                locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
+                size="middle"
+                onRow={(row) => ({
+                  onClick: (ev) => {
+                    const target = ev.target as HTMLElement;
+                    if (target.closest('button')) return;
+                    openDetail(row.contract, row.client);
+                  },
+                  style: { cursor: 'pointer' },
+                })}
+              />
+            </TableCard>
+          )}
         </>
       )}
 
@@ -2215,7 +2259,7 @@ const Clients: React.FC<ClientsProps> = () => {
         title="Карточка договора"
         open={detailOpen}
         onClose={closeDetail}
-        width={Math.min(720, window.innerWidth - 40)}
+        width={isMobile ? '100vw' : Math.min(720, window.innerWidth - 40)}
         destroyOnClose
       >
         <Tabs

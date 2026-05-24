@@ -12,6 +12,7 @@ import {
   DollarOutlined, HistoryOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useIsMobile } from '../shared/lib/useIsMobile';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
 
@@ -75,6 +76,7 @@ const MyCases: React.FC = () => {
   const [actions, setActions] = useState<CaseAction[]>([]);
   const [actionsLoading, setActionsLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState('');
 
   // Add action modal
@@ -338,7 +340,7 @@ const MyCases: React.FC = () => {
         title={selectedCase ? `Дело: ${selectedCase.client_name || 'Без имени'}` : 'Дело'}
         open={drawerOpen}
         onClose={() => { setDrawerOpen(false); setSelectedCase(null); }}
-        width={640}
+        width={isMobile ? '100vw' : 640}
       >
         {selectedCase && (
           <>
