@@ -23,5 +23,17 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'antd-vendor': ['antd'],
+          'antd-icons': ['@ant-design/icons'],
+          'charts': ['chart.js'],
+          'utils': ['dayjs', 'axios'],
+        },
+      },
+    },
   },
 });
