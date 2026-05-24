@@ -164,3 +164,76 @@
 @media (min-width: 769px) {
   .mobile-only { display: none !important; }
 }
+
+/* ─── Office: карточки офисов и план/факт ──────────────────────── */
+@media (max-width: 768px) {
+  .office-content { padding: 8px !important; }
+  .office-cards-row { grid-template-columns: 1fr !important; gap: 12px !important; }
+  .plan-fact-grid-v2,
+  .plan-fact-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .workload-grid,
+  .office-stats-grid,
+  .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+  .plan-fact-card-v2,
+  .plan-fact-card { padding: 12px !important; }
+  .office-card { padding: 12px !important; }
+  .office-header { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+  .office-header-add-btn { width: 100% !important; }
+  .lawyer-cash-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ─── Salary: период + статистика ──────────────────────────────── */
+@media (max-width: 768px) {
+  .salary-period-bar { flex-wrap: wrap !important; gap: 8px !important; }
+  .salary-period-bar > * { flex: 1 1 100% !important; }
+  .salary-summary { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ─── Appointments: header + дата-стрелки ──────────────────────── */
+@media (max-width: 768px) {
+  .apt-title { font-size: 18px !important; }
+  .apt-header { flex-wrap: wrap !important; gap: 8px !important; }
+  .apt-date-controls { flex: 1 1 100%; justify-content: center; }
+  .apt-search { width: 100% !important; }
+  .apt-card { padding: 10px !important; }
+  .apt-card-row { flex-direction: column !important; align-items: stretch !important; gap: 8px !important; }
+}
+
+/* ─── Договорная форма (Новый договор / Дополнить) ─────────────── */
+@media (max-width: 768px) {
+  .contract-modal { width: 100% !important; max-width: 100% !important; height: 100% !important; max-height: 100% !important; border-radius: 0 !important; }
+  .contract-modal .form-row-2col { grid-template-columns: 1fr !important; }
+  .contract-modal .form-grid.cols-3,
+  .contract-modal .form-grid.cols-2 { grid-template-columns: 1fr !important; }
+  .contract-modal .form-section { padding: 12px !important; }
+  .contract-modal .form-section-title { font-size: 14px !important; margin-bottom: 8px !important; }
+  .modal-overlay { padding: 0 !important; }
+}
+
+/* ─── Documents (раздел с таблицей договоров) ──────────────────── */
+@media (max-width: 768px) {
+  .documents-container { padding: 8px !important; }
+  .documents-toolbar { flex-wrap: wrap !important; gap: 8px !important; }
+  .documents-toolbar > * { flex: 1 1 100% !important; }
+}
+
+/* ─── Боковая панель / сайдбар ─────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar-nav { padding: 4px !important; }
+  .sidebar-nav .menu-item { padding: 10px 12px !important; font-size: 13px !important; }
+}
+
+/* ─── Карточки клиента и дела (тонкая настройка)  ──────────────── */
+@media (max-width: 768px) {
+  .mobile-card-list { padding: 8px 0 !important; }
+  .mobile-card-list .ant-card { box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  [data-theme="dark"] .mobile-card-list .ant-card { box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+}
+
+/* ─── Acts / Расходы / Касса toolbars ──────────────────────────── */
+@media (max-width: 768px) {
+  .acts-toolbar,
+  .expenses-toolbar { flex-wrap: wrap !important; }
+  .acts-toolbar > *,
+  .expenses-toolbar > * { flex: 1 1 100% !important; }
+}
