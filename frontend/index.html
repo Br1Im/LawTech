@@ -3,44 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1E40AF" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="LawTech" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="LawTech" />
     <title>LawTech</title>
     <style>
-      /* Лоадер до загрузки JS */
-      #boot-loader {
-        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-        flex-direction: column; gap: 18px;
-        background: #f5f6f8; color: #1e40af;
-        font-family: system-ui, -apple-system, "Segoe UI", Inter, Roboto, Arial, sans-serif;
-        z-index: 9999; transition: opacity .25s ease;
-      }
-      [data-theme="dark"] #boot-loader { background: #0F1116; color: #8aa9ff; }
-      #boot-loader .spinner {
-        width: 44px; height: 44px;
-        border: 3px solid rgba(30,64,175,0.15);
-        border-top-color: #1e40af; border-radius: 50%;
-        animation: bl-spin .9s linear infinite;
-      }
-      [data-theme="dark"] #boot-loader .spinner {
-        border-color: rgba(138,169,255,0.18); border-top-color: #8aa9ff;
-      }
-      #boot-loader .label { font-size: 14px; font-weight: 500; letter-spacing: .3px; opacity: .85; }
+      #boot-loader { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; background:#fafafa; z-index:99999; transition: opacity 0.3s ease; }
+      [data-theme='dark'] #boot-loader { background:#0F1116; }
+      #boot-loader.hidden { opacity:0; pointer-events:none; }
+      #boot-loader .spinner { width:36px; height:36px; border:3px solid #E5E7EB; border-top-color:#1E40AF; border-radius:50%; animation: bl-spin 0.9s linear infinite; }
+      [data-theme='dark'] #boot-loader .spinner { border-color:#2A2F3D; border-top-color:#7C5CFF; }
+      #boot-loader .label { font-family:Inter,system-ui,sans-serif; font-size:13px; color:#6B7280; letter-spacing:0.04em; }
       @keyframes bl-spin { to { transform: rotate(360deg); } }
-      #boot-loader.hidden { opacity: 0; pointer-events: none; }
     </style>
-    <script>
-      // Применяем сохранённую тему до рендера, чтобы лоадер сразу был в нужной палитре
-      try {
-        var t = localStorage.getItem('theme');
-        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    </script>
   </head>
   <body>
-    <div id="boot-loader">
-      <div class="spinner"></div>
-      <div class="label">LawTech загружается…</div>
-    </div>
+    <div id="boot-loader"><div class="spinner"></div><div class="label">LawTech загружается…</div></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
