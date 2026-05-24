@@ -52,6 +52,11 @@ const contractController = {
         });
       }
 
+      // ACL: call-center роли не имеют доступа к договорам
+      if (["cc_operator", "cc_manager"].includes(user.role)) {
+        return res.status(403).json({ success: false, message: "Нет доступа к договорам" });
+      }
+
       let contracts = await Contract.getAllByOffice(officeId);
 
       // ACL: expert работает только с docs контрактами
