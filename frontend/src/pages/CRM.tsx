@@ -27,6 +27,7 @@ const Cases = React.lazy(() => import('../components/Cases'));
 
 import Sidebar from "../components/ui/Sidebar";
 import MobileSidebar from "../components/ui/MobileSidebar";
+import MobileIconRail from "../components/ui/MobileIconRail";
 import HamburgerButton from "../components/ui/HamburgerButton";
 import ChangePasswordModal from "../components/ChangePasswordModal";
 import { receptionAPI } from '../shared/api/reception';
@@ -83,7 +84,7 @@ const SRM = () => {
   
   const [activeTab, setActiveTab] = useState<string>(tabParam || getDefaultTabByRole(user?.role));
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(window.innerWidth <= 768);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
@@ -137,7 +138,7 @@ const SRM = () => {
     const handleResize = () => {
       const isMobileView = window.innerWidth <= 768;
       setIsMobile(isMobileView);
-      setIsMobileSidebarOpen(isMobileView);
+      // rail handles default mobile nav
     };
 
     window.addEventListener('resize', handleResize);
@@ -237,13 +238,13 @@ const SRM = () => {
 
     content: {
       flex: 1,
-      marginLeft: isMobile ? "0" : (collapsed ? "64px" : "240px"),
-      marginTop: isMobile ? "70px" : "0px",
+      marginLeft: isMobile ? "60px" : (collapsed ? "64px" : "240px"),
+      marginTop: "0px",
       padding: isMobile ? "8px" : "16px",
       backgroundColor: "var(--color-bg)",
       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-      height: isMobile ? `calc(100vh - 70px)` : "100vh",
-      maxWidth: isMobile ? "100%" : `calc(100vw - ${collapsed ? "64px" : "240px"})`,
+      height: "100vh",
+      maxWidth: `calc(100vw - ${isMobile ? "60px" : (collapsed ? "64px" : "240px")})`,
       overflow: "auto",
       position: "relative" as const,
       WebkitOverflowScrolling: "touch" as const,
@@ -300,6 +301,15 @@ const SRM = () => {
             onClick={toggleMobileSidebar}
           />
         )}
+      {isMobile && (
+        <MobileIconRail
+          userRole={user?.role}
+          activeTab={activeTab}
+          onTabClick={handleTabClick}
+          onMoreClick={() => setIsMobileSidebarOpen(true)}
+        />
+      )}
+
         <MobileSidebar
           isOpen={isMobileSidebarOpen}
           isMobile={isMobile}

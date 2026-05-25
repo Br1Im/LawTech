@@ -1,0 +1,98 @@
+.mobile-icon-rail {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-icon-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 60px;
+    z-index: 900;
+    background: var(--color-bg-alt, #ffffff);
+    border-right: 1px solid var(--color-border, #e5e7eb);
+    box-shadow: 1px 0 4px rgba(0, 0, 0, 0.04);
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  [data-theme="dark"] .mobile-icon-rail {
+    background: #1a1f2e;
+    border-right-color: #2a2f3d;
+  }
+
+  .rail-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    width: 100%;
+    min-height: 56px;
+    padding: 6px 2px 4px;
+    cursor: pointer;
+    color: var(--color-text-muted, #6b7280);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .rail-btn:active { background: var(--color-bg, #f5f5f5); }
+  .rail-btn.active {
+    color: var(--color-primary, #1e40af);
+    background: var(--color-bg, rgba(30, 64, 175, 0.06));
+  }
+  [data-theme="dark"] .rail-btn.active {
+    background: rgba(96, 165, 250, 0.12);
+    color: #60a5fa;
+  }
+
+  .rail-btn.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 3px;
+    height: 32px;
+    background: var(--color-primary, #1e40af);
+    border-radius: 0 3px 3px 0;
+  }
+  .rail-btn { position: relative; }
+
+  .rail-label {
+    font-size: 9.5px;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-align: center;
+    max-width: 56px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .rail-divider {
+    height: 1px;
+    background: var(--color-border, #e5e7eb);
+    margin: 4px 8px;
+  }
+
+  .rail-spacer { flex: 1; }
+
+  /* Hide the desktop sidebar AND the floating hamburger when rail is visible */
+  .sidebar { display: none !important; }
+  .hamburger-button { display: none !important; }
+
+  /* Push content right by rail width */
+  body, #root, .app, [data-app-shell] {
+    /* not pushing globally to avoid breaking pages that use 100vw */
+  }
+
+  /* The actual content offset is applied in mobile.css via class */
+}
