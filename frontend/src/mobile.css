@@ -865,3 +865,278 @@
     word-break: normal !important;
   }
 }
+
+/* ─── Chat mobile fixes ─── */
+@media (max-width: 768px) {
+  .tg-chat-wrap {
+    height: calc(100dvh - 56px) !important;
+  }
+  /* Hide channels sidebar — switch via dropdown */
+  .tg-sidebar {
+    display: none !important;
+  }
+  /* Hide right participants panel by default */
+  .tg-participants {
+    display: none !important;
+  }
+  .tg-main {
+    width: 100% !important;
+    flex: 1 1 100% !important;
+  }
+  /* Compact header */
+  .tg-header {
+    padding: 8px 10px !important;
+    min-height: 56px !important;
+    gap: 8px !important;
+  }
+  .tg-header-avatar {
+    width: 36px !important; height: 36px !important;
+    font-size: 13px !important;
+  }
+  .tg-header-info {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden;
+  }
+  .tg-header-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    overflow: hidden !important;
+  }
+  .tg-header-members {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    white-space: nowrap !important;
+  }
+  /* Action icons compact */
+  .tg-header-actions {
+    gap: 4px !important;
+  }
+  .tg-header-actions .tg-icon-btn {
+    width: 36px !important; height: 36px !important;
+    padding: 6px !important;
+  }
+  /* Message bubble wider */
+  .tg-bubble {
+    max-width: 78% !important;
+    padding: 8px 10px !important;
+    border-radius: 14px !important;
+  }
+  .tg-msg-text {
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+    word-break: break-word !important;
+  }
+  .tg-msg-sender {
+    margin-bottom: 2px !important;
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+  }
+  .tg-msg-sender-name {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .tg-msg-sender-role {
+    font-size: 11px !important;
+    color: var(--color-text-muted) !important;
+    white-space: nowrap !important;
+  }
+  .tg-msg-meta { gap: 4px !important; }
+  .tg-msg-time {
+    font-size: 11px !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+  .tg-msg-avatar {
+    width: 30px !important; height: 30px !important;
+    font-size: 12px !important;
+    flex-shrink: 0 !important;
+  }
+  /* Date separator pill */
+  .tg-date-sep {
+    margin: 8px auto !important;
+    padding: 3px 10px !important;
+    font-size: 11px !important;
+  }
+  /* Input area */
+  .tg-input-area {
+    padding: 8px !important;
+    gap: 6px !important;
+    position: sticky !important;
+    bottom: 0 !important;
+    background: var(--color-bg) !important;
+    border-top: 1px solid var(--color-border) !important;
+  }
+  .tg-input-area textarea, .tg-input-area input[type="text"] {
+    font-size: 16px !important;
+    min-height: 40px !important;
+    padding: 8px 12px !important;
+    border-radius: 18px !important;
+  }
+  .tg-input-area .tg-send-btn,
+  .tg-input-area button {
+    width: 40px !important;
+    height: 40px !important;
+    flex-shrink: 0 !important;
+  }
+  /* Messages list takes remaining space */
+  .tg-body { height: auto !important; flex: 1 1 auto !important; }
+  .tg-messages {
+    padding: 8px !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
+}
+
+/* ─── Channels as horizontal strip on mobile ─── */
+@media (max-width: 768px) {
+  /* Show sidebar as horizontal strip above chat */
+  .tg-sidebar {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 64px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 6px 8px !important;
+    gap: 8px !important;
+    scrollbar-width: none !important;
+  }
+  .tg-sidebar::-webkit-scrollbar { display: none; }
+  /* Hide office picker and section headers — only keep channels */
+  .tg-sidebar .tg-sidebar-section:first-child,
+  .tg-sidebar .tg-office-list,
+  .tg-sidebar .tg-sidebar-section-header,
+  .tg-sidebar .tg-sidebar-section-actions,
+  .tg-sidebar .tg-search-bar {
+    display: none !important;
+  }
+  .tg-sidebar .tg-sidebar-section.tg-chats-section {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    align-items: center !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+  .tg-channel-list {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    flex: 1 1 auto !important;
+    overflow-x: auto !important;
+    padding: 0 !important;
+    scrollbar-width: none !important;
+  }
+  .tg-channel-list::-webkit-scrollbar { display: none; }
+  .tg-channel-item {
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 56px !important;
+    padding: 4px !important;
+    border-radius: 10px !important;
+    gap: 0 !important;
+  }
+  .tg-channel-info, .tg-channel-top, .tg-channel-bottom, .tg-channel-preview, .tg-channel-time {
+    display: none !important;
+  }
+  .tg-channel-avatar {
+    width: 36px !important; height: 36px !important;
+    font-size: 14px !important;
+    margin: 0 !important;
+  }
+  /* Restructure layout: vertical stack */
+  .tg-chat-wrap {
+    flex-direction: column !important;
+  }
+}
+
+/* ─── Chat final polish ─── */
+@media (max-width: 768px) {
+  /* Bubble минимум 56px, время всегда одной строкой */
+  .tg-bubble {
+    min-width: 56px !important;
+  }
+  .tg-msg-meta,
+  .tg-msg-time {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    flex-direction: row !important;
+    display: inline-flex !important;
+    align-items: center !important;
+  }
+  /* Input area: textarea flex grow */
+  .tg-input-area > textarea,
+  .tg-input-area > input[type="text"],
+  .tg-input-area .ant-input,
+  .tg-input-area > div:has(textarea) {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  /* placeholder/text overflow */
+  .tg-input-area textarea {
+    resize: none !important;
+    max-height: 96px !important;
+    line-height: 1.3 !important;
+  }
+  /* Channel item active state */
+  .tg-channel-item.active .tg-channel-avatar {
+    box-shadow: 0 0 0 2px var(--color-primary) !important;
+  }
+}
+
+/* ─── Chat textarea must grow ─── */
+@media (max-width: 768px) {
+  .tg-input-area {
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+  .tg-input-area .tg-textarea {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .tg-input-area .tg-attach-btn,
+  .tg-input-area .tg-send-btn {
+    flex: 0 0 auto !important;
+  }
+}
+
+/* ─── Textarea: enough height for placeholder ─── */
+@media (max-width: 768px) {
+  .tg-input-area .tg-textarea {
+    min-height: 44px !important;
+    padding: 10px 14px !important;
+    font-size: 15px !important;
+    white-space: pre-wrap !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.4 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .tg-input-area .tg-textarea::placeholder {
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .tg-input-area {
+    min-height: 60px !important;
+    padding: 8px 10px !important;
+  }
+}

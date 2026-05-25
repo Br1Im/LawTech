@@ -66,7 +66,7 @@ const OfficeChat: React.FC = () => {
   const formatMsgTime = (createdAt?: string, fallback?: string): string => {
     if (!createdAt) return fallback || '';
     try {
-      return new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return new Date(createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false });
     } catch { return fallback || ''; }
   };
 
@@ -205,7 +205,7 @@ const OfficeChat: React.FC = () => {
     if (!file) {
       const temp: Message = {
         id: `temp-${Date.now()}`, text, sender: user?.name || user?.email || 'Вы',
-        senderRole: user?.role, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        senderRole: user?.role, timestamp: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', hour12: false }),
         office_id: selectedOfficeId, isRead: false, isMine: true, status: 'sent', createdAt: new Date().toISOString(),
       };
       setMessages(prev => [...prev, temp]);
