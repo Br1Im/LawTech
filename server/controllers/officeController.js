@@ -27,7 +27,7 @@ const officeController = {
     try {
       const { period } = req.query;
       
-      if (!period || !['day', '2weeks', 'month'].includes(period)) {
+      if (!period || !['day', '2weeks', 'month', 'plan'].includes(period)) {
         return res.status(400).json({ success: false, message: 'Необходимо указать корректный период (day, 2weeks, month)' });
       }
 
@@ -41,7 +41,8 @@ const officeController = {
         officeIds = [user.office_id];
       }
 
-      const revenueData = await Office.getRevenueByPeriod(period, officeIds);
+      const chartPeriod = period === 'plan' ? 'month' : period;
+      const revenueData = await Office.getRevenueByPeriod(chartPeriod, officeIds);
       return res.json(revenueData);
     } catch (error) {
       console.error('Ошибка при получении данных о выручке:', error);
