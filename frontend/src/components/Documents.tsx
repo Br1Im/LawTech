@@ -11,6 +11,8 @@ import { TableSkeleton, EmptyState } from './ui';
 const getStatusText = (status: string) => {
   const statusMap: { [key: string]: string } = {
     'draft': 'Черновик',
+    'registered': 'Зарегистрирован',
+    'pending': 'Ожидает',
     'active': 'Подписан',
     'completed': 'Завершен',
     'cancelled': 'Расторгнут',
@@ -783,7 +785,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
       {!headless && error && <div className="error-message">{error}</div>}
 
       {headless ? (
-        user?.role !== 'expert' ? <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button> : null
+        !['expert','lawyer','representative'].includes(user?.role || '') ? <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button> : null
       ) : (
       <div className="documents-filters">
         <div className="search-container">
@@ -821,7 +823,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
           </select>
         </div>
         
-        {user?.role !== 'expert' && <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button>}
+        {!['expert','lawyer','representative'].includes(user?.role || '') && <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button>}
       </div>
       )}
 

@@ -29,8 +29,8 @@ function itemsByRole(role?: string): NavItem[] {
     case 'admin': return [A.office, A.clients, A.appointments, A.documents, A.cashRegister, A.chat];
     case 'director': case 'manager': return [A.office, A.clients, A.appointments, A.employees, A.salary, A.expenses, A.chat];
     case 'okk': return [A.office, A.clients, A.appointments, A.employees, A.chat];
-    case 'lawyer': return [A.office, A.clients, A.acts, A.salary, A.chat];
-    case 'expert': return [A.clients, A.documents, A.chat];
+    case 'lawyer': return [A.office, A.clients, A.acts, A.salary];
+    case 'expert': return [A.clients, A.documents];
     case 'representative': return [A.cases, A.acts];
     case 'cc_operator': case 'cc_manager': return [A.callcenter, A.appointments, A.chat];
     case 'reception': return [A.appointments, A.clients, A.chat];

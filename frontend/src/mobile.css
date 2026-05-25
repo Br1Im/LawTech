@@ -1265,3 +1265,25 @@
     flex-shrink: 0 !important;
   }
 }
+
+/* Простой плоский стиль кнопок edit/delete на мобиле */
+@media (max-width: 768px) {
+  .documents-table .action-btn,
+  .documents-table .action-btn.edit-btn,
+  .documents-table .action-btn.delete-btn,
+  .documents-table .action-btn.view-btn {
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--color-text) !important;
+    width: 36px !important;
+    height: 36px !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    margin: 2px !important;
+  }
+  .documents-table .action-btn.edit-btn { color: #d4af37 !important; border-color: #e6c870 !important; }
+  .documents-table .action-btn.delete-btn { color: #ef4444 !important; border-color: #fca5a5 !important; }
+  .documents-table .action-btn.view-btn { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
+  .documents-table .action-btn::before { display: none !important; }
+  .documents-table .action-btn:hover { transform: none !important; }
+}

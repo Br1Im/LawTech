@@ -218,7 +218,7 @@ const CashRegister: React.FC = () => {
               justifyContent: 'space-between',
               alignItems: 'center',
             }}>
-              <span>{new Date(g.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+              <span className="cash-day-pill" style={{whiteSpace:'nowrap'}}>{new Date(g.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>
               <Space size={16}>
                 {g.totalCash > 0 && <Tag color="green">Наличные: {fmtMoney(g.totalCash)}</Tag>}
                 {g.totalNoncash > 0 && <Tag color="blue">Безнал: {fmtMoney(g.totalNoncash)}</Tag>}
