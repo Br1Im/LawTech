@@ -2126,7 +2126,7 @@ const Clients: React.FC<ClientsProps> = () => {
                   <div className="mc-row">
                     <span className="mc-label">Статус</span>
                     <Tag color={STATUS_COLORS[row.contract.status as keyof typeof STATUS_COLORS] || 'default'} style={{ margin: 0 }}>
-                      {row.contract.status}
+                      {({registered:"Зарегистрирован",active:"Активный",pending:"Ожидает",completed:"Завершён",cancelled:"Отменён",draft:"Черновик",terminated:"Расторгнут"} as Record<string,string>)[row.contract.status] || row.contract.status}
                     </Tag>
                   </div>
                   {(row.contract as any).needs_lawyer_input ? (
