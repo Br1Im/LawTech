@@ -45,9 +45,3 @@ createRoot(document.getElementById('root')!).render(
 )
 
 
-// PWA: регистрация service worker
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js?v=3").then(reg => reg.update()).catch(err => console.warn("SW registration failed:", err));
-  });
-}
