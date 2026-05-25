@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import dayjs from 'dayjs';
+import MobileMaterialUpload from './ui/MobileMaterialUpload';
 import { useIsMobile } from '../shared/lib/useIsMobile';
 import 'dayjs/locale/ru';
 dayjs.locale('ru');
@@ -1419,16 +1420,24 @@ const Clients: React.FC<ClientsProps> = () => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {!isExpert && (
-          <Upload.Dragger
-            multiple
-            showUploadList={false}
-            beforeUpload={handleUploadMaterial}
-            disabled={materialUploading}
-          >
-            <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-            <p className="ant-upload-text">Перетащите файл или нажмите для загрузки</p>
-            <p className="ant-upload-hint">Любые типы файлов — документы, фотографии, сканы</p>
-          </Upload.Dragger>
+          isMobile ? (
+            <MobileMaterialUpload
+              contractId={detailContract.id}
+              onUploaded={() => loadContractMaterials(detailContract.id)}
+              disabled={materialUploading}
+            />
+          ) : (
+            <Upload.Dragger
+              multiple
+              showUploadList={false}
+              beforeUpload={handleUploadMaterial}
+              disabled={materialUploading}
+            >
+              <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+              <p className="ant-upload-text">Перетащите файл или нажмите для загрузки</p>
+              <p className="ant-upload-hint">Любые типы файлов — документы, фотографии, сканы</p>
+            </Upload.Dragger>
+          )
         )}
 
         {materialUploading && (
