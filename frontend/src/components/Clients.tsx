@@ -157,6 +157,16 @@ interface Representative {
   cases_count: number;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  active: 'green',
+  pending: 'orange',
+  completed: 'blue',
+  cancelled: 'red',
+  draft: 'default',
+  registered: 'cyan',
+  terminated: 'red',
+};
+
 const Clients: React.FC<ClientsProps> = () => {
   const { message } = App.useApp();
   const { user } = useAuth();
