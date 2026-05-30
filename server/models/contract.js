@@ -15,6 +15,7 @@ class Contract {
         LEFT JOIN employees e ON c.id_employee = e.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
+        LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
         WHERE c.office_id = ?
       `;
 
@@ -28,7 +29,8 @@ class Contract {
                CONCAT(e.first_name, ' ', e.last_name) as lawyer_short,
                TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                CONCAT(exp.first_name, ' ', exp.last_name) as expert_short,
-               TRIM(CONCAT_WS(' ', sb.last_name, sb.first_name, sb.middle_name)) as signed_by_name
+               TRIM(CONCAT_WS(' ', sb.last_name, sb.first_name, sb.middle_name)) as signed_by_name,
+               TRIM(CONCAT_WS(' ', rc.last_name, rc.first_name, rc.middle_name)) as remainder_confirmed_by_name
       `;
 
       if (page > 0 && pageSize > 0) {
@@ -62,12 +64,14 @@ class Contract {
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
                TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                TRIM(CONCAT_WS(' ', sb.last_name, sb.first_name, sb.middle_name)) as signed_by_name,
+               TRIM(CONCAT_WS(' ', rc.last_name, rc.first_name, rc.middle_name)) as remainder_confirmed_by_name,
                e.office_id as office_id
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
+        LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
         WHERE c.id = ?
       `;
       const [contracts] = await db.query(query, [id]);
@@ -678,6 +682,36 @@ class Contract {
       return stats[0];
     } catch (error) {
       console.error('Error getting contract stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Подтвердить оплату остатка по договору
+   */
+  static async confirmRemainder(id, userId) {
+    try {
+      const contract = await this.getById(id);
+      if (!contract) throw new Error('Договор не найден');
+      if (contract.remainder_confirmed) throw new Error('Оплата остатка уже подтверждена');
+
+      const remaining = parseFloat(contract.amount || 0) - parseFloat(contract.paid_amount || 0);
+      if (remaining <= 0) throw new Error('Нет остатка по договору');
+
+      // Подтверждаем и обновляем paid_amount
+      await db.query(
+        `UPDATE contracts
+         SET remainder_confirmed = 1,
+             remainder_confirmed_by = ?,
+             remainder_confirmed_at = NOW(),
+             paid_amount = amount
+         WHERE id = ?`,
+        [userId, id]
+      );
+
+      return await this.getById(id);
+    } catch (error) {
+      console.error('Error confirming remainder:', error);
       throw error;
     }
   }

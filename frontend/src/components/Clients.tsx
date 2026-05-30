@@ -373,6 +373,19 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   };
 
+  const handleConfirmRemainder = async (contractId: number) => {
+    try {
+      await contractsApi.confirmRemainder(contractId);
+      message.success('Оплата остатка подтверждена');
+      load();
+      // Refresh detail
+      const updated = await contractsApi.getById(contractId);
+      setDetailContract(updated);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Ошибка при подтверждении оплаты остатка');
+    }
+  };
+
   const clientsById = useMemo(() => {
     const m = new Map<number, CrmClient>();
     for (const c of data) m.set(c.id, c);
@@ -1063,6 +1076,23 @@ const Clients: React.FC<ClientsProps> = () => {
               {formatMoney(remaining)}
             </span>
           </Descriptions.Item>
+          {(c as any).additional_payment_date && (
+            <Descriptions.Item label="Дата внесения остатка">
+              {new Date((c as any).additional_payment_date).toLocaleDateString('ru-RU')}
+            </Descriptions.Item>
+          )}
+          {remaining > 0 && (c as any).additional_payment_date && (
+            <Descriptions.Item label="Оплата остатка">
+              {(c as any).remainder_confirmed
+                ? <Tag color="green">Оплачено{(c as any).remainder_confirmed_by_name ? ` (${(c as any).remainder_confirmed_by_name})` : ''}</Tag>
+                : <Tag color="orange">Ожидает оплаты</Tag>}
+            </Descriptions.Item>
+          )}
+          {(c as any).remainder_confirmed && (
+            <Descriptions.Item label="Оплата остатка">
+              <Tag color="green">Оплачено{(c as any).remainder_confirmed_by_name ? ` (${(c as any).remainder_confirmed_by_name})` : ''}</Tag>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Юрист">{shortName(c.lawyer_full_name || c.employee_name)}</Descriptions.Item>
           {isDocsType && (
             <Descriptions.Item label="Эксперт">
@@ -1334,6 +1364,23 @@ const Clients: React.FC<ClientsProps> = () => {
               </div>
             )}
           </>
+        )}
+
+        {/* ── Кнопка подтверждения оплаты остатка (только админ) ── */}
+        {isAdmin && !c.remainder_confirmed && (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0))) > 0 && (c as any).additional_payment_date && (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
+            <Popconfirm
+              title="Подтвердить оплату остатка?"
+              description={`Сумма остатка: ${formatMoney(parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)))} будет помечена как оплаченная.`}
+              okText="Да, оплачено"
+              cancelText="Отмена"
+              onConfirm={() => handleConfirmRemainder(c.id)}
+            >
+              <Button type="primary" icon={<DollarOutlined />} size="large" block>
+                Подтвердить оплату остатка
+              </Button>
+            </Popconfirm>
+          </div>
         )}
 
         {/* ── Кнопка удаления договора (только админ) ── */}

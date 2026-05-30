@@ -30,6 +30,9 @@ router.post('/:id/terminate', contractController.terminateContract);
 // Подтвердить возврат денег
 router.post('/:id/confirm-refund', contractController.confirmRefund);
 
+// Подтвердить оплату остатка
+router.post('/:id/confirm-remainder', contractController.confirmRemainder);
+
 // Создать новый договор
 router.post('/', contractController.createContract);
 

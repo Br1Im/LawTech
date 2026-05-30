@@ -413,6 +413,35 @@ const contractController = {
   },
 
   /**
+   * Подтвердить оплату остатка (только admin)
+   */
+  async confirmRemainder(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+
+      if (user.role !== 'admin' && user.role !== 'administrator') {
+        return res.status(403).json({ success: false, message: 'Только администратор может подтвердить оплату остатка' });
+      }
+
+      const existingContract = await Contract.getById(id);
+      if (!existingContract) {
+        return res.status(404).json({ success: false, message: 'Договор не найден' });
+      }
+      const allowed = await checkOfficeAccess(user, existingContract.office_id);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+      }
+
+      const contract = await Contract.confirmRemainder(id, user.id);
+      res.json({ success: true, message: 'Оплата остатка подтверждена', data: contract });
+    } catch (error) {
+      console.error('Error confirming remainder:', error);
+      res.status(500).json({ success: false, message: error.message || 'Ошибка при подтверждении оплаты остатка' });
+    }
+  },
+
+  /**
    * Получить расторгнутые договоры
    */
   async getTerminatedContracts(req, res) {
