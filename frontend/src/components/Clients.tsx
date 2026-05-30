@@ -1325,13 +1325,41 @@ const Clients: React.FC<ClientsProps> = () => {
                 )}
               </div>
             )}
-            {circumstances && (
+            {circumstances && !isAdmin && (
               <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14 }}>Обстоятельства</div>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{circumstances}</div>
               </div>
             )}
           </>
+        )}
+
+        {/* ── Кнопка удаления договора (только админ) ── */}
+        {isAdmin && (
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+            <Popconfirm
+              title="Удалить договор?"
+              description="Это действие необратимо. Договор будет полностью удалён из системы."
+              okText="Удалить"
+              cancelText="Отмена"
+              okButtonProps={{ danger: true }}
+              onConfirm={async () => {
+                if (!detailContract) return;
+                try {
+                  await contractsApi.remove(detailContract.id);
+                  message.success('Договор удалён');
+                  closeDetail();
+                  load();
+                } catch {
+                  message.error('Ошибка при удалении договора');
+                }
+              }}
+            >
+              <Button danger icon={<DeleteOutlined />} size="large" block>
+                Удалить договор
+              </Button>
+            </Popconfirm>
+          </div>
         )}
       </div>
     );
