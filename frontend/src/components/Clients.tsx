@@ -1229,6 +1229,7 @@ const Clients: React.FC<ClientsProps> = () => {
               </>
             )}
                         {/* ── Обстоятельства ── */}
+            {!isAdmin && (
             <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
               <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>Обстоятельства</div>
               <Input.TextArea
@@ -1239,6 +1240,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 style={{ fontSize: 13 }}
               />
             </div>
+            )}
 
             {/* ── Кнопки сохранения ── */}
             {hasChanges && (
