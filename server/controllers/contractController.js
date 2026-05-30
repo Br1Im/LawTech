@@ -310,7 +310,7 @@ const contractController = {
 
       // Удаляем связанные записи из кассы
       const db = require('../db');
-      await db.query('DELETE FROM cash_register WHERE contract_id = ?', [id]);
+      await db.query('DELETE FROM cash_register WHERE contract_number = ?', [contract.contract_number]);
 
       await Contract.delete(id);
       
