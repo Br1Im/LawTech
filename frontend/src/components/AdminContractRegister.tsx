@@ -3,7 +3,8 @@ import dayjs from 'dayjs';
 import {
   Modal, Input, Button, DatePicker, InputNumber, Select, Radio, Space, App, Divider,
 } from 'antd';
-import { contractsApi, employeesApi, type CrmEmployee } from '../shared/api/crm';
+import { contractsApi, type CrmEmployee } from '../shared/api/crm';
+import { apiInstance } from '../shared/api/instance';
 
 import { formatRussianPhone } from "../shared/lib/phone";
 interface AppointmentInfo {
@@ -46,12 +47,23 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
   // Список сотрудников, кто может заключить договор (менеджер, юристы, ОКК, директор)
   const [signers, setSigners] = useState<CrmEmployee[]>([]);
 
+  const ROLE_LABELS: Record<string, string> = { lawyer: 'Юрист', manager: 'Менеджер', okk: 'ОКК', director: 'Директор' };
+
   const loadSigners = useCallback(async () => {
     try {
-      const list = await employeesApi.list();
-      const all = Array.isArray(list) ? list : [];
+      const res = await apiInstance.get('/visits/employees');
+      const all: { id: number; name: string; role: string }[] = res.data?.data || [];
       const signerRoles = new Set(['manager', 'okk', 'director', 'lawyer']);
-      setSigners(all.filter((e) => e.user_role && signerRoles.has(e.user_role)));
+      setSigners(all.filter((e) => signerRoles.has(e.role)).map(e => {
+        const parts = (e.name || '').split(' ');
+        return {
+          id: e.id,
+          first_name: parts[0] || '',
+          last_name: parts.slice(1).join(' ') || '',
+          position: ROLE_LABELS[e.role] || e.role,
+          user_role: e.role,
+        } as CrmEmployee;
+      }));
     } catch {
       setSigners([]);
     }
