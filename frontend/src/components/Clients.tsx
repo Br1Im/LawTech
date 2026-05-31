@@ -50,6 +50,8 @@ import {
   LeftOutlined,
   RightOutlined,
   CalendarOutlined,
+  EyeOutlined,
+  FileImageOutlined,
 } from '@ant-design/icons';
 import {
   clientsApi,
@@ -239,6 +241,9 @@ const Clients: React.FC<ClientsProps> = () => {
   const [contractMaterials, setContractMaterials] = useState<CrmMaterial[]>([]);
   const [contractMaterialsLoading, setContractMaterialsLoading] = useState(false);
   const [materialUploading, setMaterialUploading] = useState(false);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
 
   // Supplement form (дополнение данных после регистрации администратором)
   const [supplementForm, setSupplementForm] = useState<{
@@ -1490,6 +1495,25 @@ const Clients: React.FC<ClientsProps> = () => {
     );
   };
 
+  const isImageFile = (name: string) => /\.(jpe?g|png|gif|bmp|webp|svg)$/i.test(name);
+
+  const handlePreviewMaterial = async (m: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(buildApiUrl('/materials/' + m.id + '/download'), {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!r.ok) throw new Error('Ошибка загрузки');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setPreviewTitle(m.name || 'Просмотр');
+      setPreviewVisible(true);
+    } catch {
+      message.error('Не удалось загрузить изображение');
+    }
+  };
+
   const renderMaterialsTab = () => {
     if (!detailContract) return null;
     const isExpert = user?.role === 'expert';
@@ -1530,40 +1554,51 @@ const Clients: React.FC<ClientsProps> = () => {
           renderItem={(m) => (
             <List.Item
               actions={[
+                m.file_url && isImageFile(m.name) ? (
+                  <Tooltip key="preview" title="Просмотр">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => handlePreviewMaterial(m)}
+                      style={{ color: '#1677ff' }}
+                    />
+                  </Tooltip>
+                ) : null,
                 m.file_url ? (
-                  <Button
-                    key="open"
-                    type="primary"
-                    size="small"
-                    icon={<FolderOpenOutlined />}
-                    onClick={() => {
-                      const token = localStorage.getItem('token');
-                      fetch(buildApiUrl('/materials/' + m.id + '/download'), {
-                        headers: { Authorization: 'Bearer ' + token }
-                      })
-                        .then(r => {
-                          if (!r.ok) throw new Error('Ошибка скачивания');
-                          const cd = r.headers.get('content-disposition');
-                          let fname = m.name || 'file';
-                          if (cd) {
-                            const match = cd.match(/filename\*=UTF-8''(.+)/);
-                            if (match) fname = decodeURIComponent(match[1]);
-                          }
-                          return r.blob().then(blob => ({ blob, fname }));
+                  <Tooltip key="open" title="Скачать">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DownloadOutlined />}
+                      onClick={() => {
+                        const token = localStorage.getItem('token');
+                        fetch(buildApiUrl('/materials/' + m.id + '/download'), {
+                          headers: { Authorization: 'Bearer ' + token }
                         })
-                        .then(({ blob, fname }) => {
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = fname;
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        })
-                        .catch(() => message.error('Ошибка при скачивании файла'));
-                    }}
-                  >
-                    Скачать
-                  </Button>
+                          .then(r => {
+                            if (!r.ok) throw new Error('Ошибка скачивания');
+                            const cd = r.headers.get('content-disposition');
+                            let fname = m.name || 'file';
+                            if (cd) {
+                              const match = cd.match(/filename\*=UTF-8''(.+)/);
+                              if (match) fname = decodeURIComponent(match[1]);
+                            }
+                            return r.blob().then(blob => ({ blob, fname }));
+                          })
+                          .then(({ blob, fname }) => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = fname;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          })
+                          .catch(() => message.error('Ошибка при скачивании файла'));
+                      }}
+                      style={{ color: '#1677ff' }}
+                    />
+                  </Tooltip>
                 ) : null,
                 <Popconfirm
                   key="rm"
@@ -1572,12 +1607,14 @@ const Clients: React.FC<ClientsProps> = () => {
                   cancelText="Отмена"
                   onConfirm={() => handleRemoveMaterial(m)}
                 >
-                  <Button danger size="small" icon={<DeleteOutlined />}>Удалить</Button>
+                  <Tooltip title="Удалить">
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  </Tooltip>
                 </Popconfirm>,
               ].filter(Boolean)}
             >
               <List.Item.Meta
-                avatar={<FileOutlined style={{ fontSize: 24, color: '#6B7280' }} />}
+                avatar={isImageFile(m.name) ? <FileImageOutlined style={{ fontSize: 24, color: '#1677ff' }} /> : <FileOutlined style={{ fontSize: 24, color: '#6B7280' }} />}
                 title={m.name}
                 description={
                   <>
@@ -1628,9 +1665,13 @@ const Clients: React.FC<ClientsProps> = () => {
           renderItem={(d) => (
             <List.Item
               actions={[
-                <Button key="dl" type="primary" icon={<DownloadOutlined />} onClick={() => handleDownloadDoc(d)}>Скачать</Button>,
+                <Tooltip key="dl" title="Скачать">
+                  <Button type="text" size="small" icon={<DownloadOutlined />} onClick={() => handleDownloadDoc(d)} style={{ color: '#1677ff' }} />
+                </Tooltip>,
                 <Popconfirm key="rm" title="Удалить файл?" okText="Да" cancelText="Отмена" onConfirm={() => handleRemoveDoc(d)}>
-                  <Button danger icon={<DeleteOutlined />}>Удалить</Button>
+                  <Tooltip title="Удалить">
+                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                  </Tooltip>
                 </Popconfirm>,
               ]}
             >
@@ -2365,6 +2406,19 @@ const Clients: React.FC<ClientsProps> = () => {
           size="middle"
         />
       </Drawer>
+
+      {/* ── Preview modal for images ── */}
+      <Modal
+        open={previewVisible}
+        title={previewTitle}
+        footer={null}
+        onCancel={() => { setPreviewVisible(false); URL.revokeObjectURL(previewUrl); setPreviewUrl(''); }}
+        width="90vw"
+        style={{ top: 20 }}
+        styles={{ body: { display: 'flex', justifyContent: 'center', alignItems: 'center', padding: 16, maxHeight: '80vh', overflow: 'auto' } }}
+      >
+        <img src={previewUrl} alt={previewTitle} style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }} />
+      </Modal>
 
       {/* Модалка назначения представителя */}
       <Modal
