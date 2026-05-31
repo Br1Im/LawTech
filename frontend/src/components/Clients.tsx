@@ -2063,16 +2063,16 @@ const Clients: React.FC<ClientsProps> = () => {
       tabs.push({ key: 'supplement', label: '⚠ Дополнить данные', children: renderSupplementTab() });
     }
     if (!isAdmin) {
-      tabs.push({ key: 'materials', label: `Материалы дела (${contractMaterials.length})`, children: renderMaterialsTab() });
+      tabs.push({ key: 'materials', label: `Материалы (${contractMaterials.length})`, children: renderMaterialsTab() });
     }
     if (isDocsType && !isAdmin) {
-      tabs.push({ key: 'docs', label: `Документы эксперта (${docsList.length})`, children: renderDocsTab() });
+      tabs.push({ key: 'docs', label: `Документы (${docsList.length})`, children: renderDocsTab() });
     }
     if (!isAdmin && (detailContract?.status === 'terminated' || canTerminate)) {
       if ((detailContract?.contract_type || 'docs') === 'court_rep') {
-        tabs.push({ key: 'case-actions', label: `Процессуальные действия (${caseActions.length})`, children: renderCaseActionsTab() });
+        tabs.push({ key: 'case-actions', label: `Проц. действия (${caseActions.length})`, children: renderCaseActionsTab() });
       }
-      tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторгнуть договор', children: renderTerminateTab() });
+      tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторжение', children: renderTerminateTab() });
     }
     return tabs;
   };
@@ -2273,7 +2273,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
                 locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
-                size="middle"
+                size="small"
                 onRow={(row) => ({
                   onClick: (ev) => {
                     const target = ev.target as HTMLElement;
@@ -2296,7 +2296,7 @@ const Clients: React.FC<ClientsProps> = () => {
             loading={terminatedLoading}
             pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
             locale={{ emptyText: <Empty description="Нет расторгнутых договоров" /> }}
-            size="middle"
+            size="small"
             onRow={(row) => ({
               onClick: () => {
                 const cl = clientsById.get(row.id_client) || null;
@@ -2403,7 +2403,7 @@ const Clients: React.FC<ClientsProps> = () => {
           activeKey={detailTab}
           onChange={setDetailTab}
           items={buildDrawerTabs()}
-          size="middle"
+          size="small"
         />
       </Drawer>
 
