@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const db = require('../db');
 
 /**
  * Middleware для проверки JWT токена
@@ -24,7 +25,7 @@ const authenticateToken = (req, res, next) => {
     });
   }
 
-  jwt.verify(token, config.JWT_SECRET, (err, user) => {
+  jwt.verify(token, config.JWT_SECRET, async (err, user) => {
     if (err) {
       // Distinguish expired vs truly invalid for debugging
       const isExpired = err.name === 'TokenExpiredError';
@@ -36,10 +37,38 @@ const authenticateToken = (req, res, next) => {
     }
     req.user = user;
 
-    // Директор может переключать офис через заголовок X-Office-Id
+    // Директор может переключать офис через заголовок X-Office-Id,
+    // НО только на офисы, которыми он реально владеет (owner_id = его id).
+    // Если запрошен чужой офис — заголовок игнорируется и остаётся родной
+    // офис из токена. Это защищает от утечки данных между офисами, когда
+    // в браузере остаётся устаревший activeOfficeId от другого аккаунта.
     const xOfficeId = req.headers['x-office-id'];
     if (xOfficeId && user.role === 'director') {
-      req.user.office_id = parseInt(xOfficeId, 10) || null;
+      const requestedOfficeId = parseInt(xOfficeId, 10) || null;
+      if (requestedOfficeId && requestedOfficeId !== Number(user.office_id)) {
+        try {
+          const [offices] = await db.query(
+            'SELECT id FROM offices WHERE id = ? AND owner_id = ? LIMIT 1',
+            [requestedOfficeId, user.id]
+          );
+          if (offices && offices.length > 0) {
+            // Директор владеет этим офисом — разрешаем переключение
+            req.user.office_id = requestedOfficeId;
+          } else {
+            // Чужой офис — НЕ доверяем заголовку, оставляем родной офис.
+            console.warn(
+              `[auth] Директор ${user.id} запросил X-Office-Id=${requestedOfficeId}, ` +
+              `которым не владеет. Заголовок проигнорирован, используется office_id=${user.office_id}.`
+            );
+          }
+        } catch (e) {
+          console.error('[auth] Ошибка проверки владения офисом:', e);
+          // При ошибке проверки безопаснее оставить родной офис из токена.
+        }
+      } else if (requestedOfficeId) {
+        // Запрошенный офис совпадает с родным офисом директора — ок.
+        req.user.office_id = requestedOfficeId;
+      }
     }
 
     next();

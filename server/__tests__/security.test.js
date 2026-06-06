@@ -67,6 +67,34 @@ describe('X-Office-Id header handling', () => {
     expect(res.body.data.office_id).toBe(officeId);
   });
 
+  it('does NOT let a director access another director\'s office via a foreign X-Office-Id (ownership enforced)', async () => {
+    // Regression test for the cross-office data leak (2026-06-06):
+    // auth.js used to blindly trust X-Office-Id for directors without checking
+    // that the director actually OWNS the requested office. A stale activeOfficeId
+    // in the browser then exposed another office's data.
+    const a = await registerDirectorWithOffice(app); // owns a.officeId
+    const foreign = await registerDirectorWithOffice(app); // owns foreign.officeId
+
+    // Re-login so A's JWT carries its real home office_id (production flow).
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ login: a.email, password: a.password });
+    const aToken = login.body.token;
+
+    const res = await request(app)
+      .post('/api/cases')
+      .set('Authorization', `Bearer ${aToken}`)
+      .set('X-Office-Id', String(foreign.officeId)) // office A does NOT own
+      .send({ title: 'Cross-office attempt' });
+
+    // The foreign header must be ignored — the case must NEVER land in the
+    // foreign office. It should fall back to A's own office.
+    expect(res.body?.data?.office_id).not.toBe(foreign.officeId);
+    if (res.status === 200) {
+      expect(res.body.data.office_id).toBe(a.officeId);
+    }
+  });
+
   it('ignores X-Office-Id for non-director roles (lawyer cannot spoof another office)', async () => {
     const { token: lawyerToken } = await registerLawyerWithOffice(app);
     const other = await registerDirectorWithOffice(app);
