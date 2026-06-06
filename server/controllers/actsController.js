@@ -79,10 +79,10 @@ const list = async (req, res) => {
       params.push(...officeIds);
     }
 
-    // Представитель видит только свои акты (которые он создал)
+    // Представитель видит только акты по своим договорам (где он назначен представителем)
     const userRole = String(req.user.role || '').toLowerCase();
     if (userRole === 'representative') {
-      where.push('a.created_by = ?');
+      where.push('a.contract_id IN (SELECT id FROM contracts WHERE representative_id = ?)');
       params.push(req.user.id);
     }
 
@@ -175,7 +175,7 @@ const createForContract = async (req, res) => {
       if (!allowed) return bad(res, 403, 'Договор находится в другом офисе');
     }
 
-    const { amount, act_date, responsible_id, description } = req.body;
+    const { amount, act_date, description } = req.body;
     if (amount == null || Number.isNaN(Number(amount))) {
       return bad(res, 400, 'Сумма акта обязательна');
     }
@@ -187,10 +187,25 @@ const createForContract = async (req, res) => {
     }
 
     const type = contract.contract_type || 'docs';
-    let respId = responsible_id ? Number(responsible_id) : null;
-    if (!respId) {
-      // Подставляем по типу: docs → expert_id, court_rep → id_employee (юрист) как заглушка.
-      if (type === 'docs' && contract.expert_id) respId = Number(contract.expert_id);
+    // Ответственный определяется автоматически: создатель акта (user.id = employee.id).
+    let respId = req.user.id ? Number(req.user.id) : null;
+
+    // Контроль лимита: сумма всех актов по договору не должна превышать стоимость договора
+    const contractAmount = Number(contract.amount) || 0;
+    if (contractAmount > 0) {
+      const [[{ acts_total }]] = await db.query(
+        'SELECT COALESCE(SUM(amount), 0) AS acts_total FROM acts WHERE contract_id = ?',
+        [contractId]
+      );
+      const used = Number(acts_total);
+      const available = contractAmount - used;
+      if (Number(amount) > available) {
+        if (available <= 0) {
+          return bad(res, 400, 'Договор исполнен полностью. Создание новых актов невозможно.');
+        }
+        return bad(res, 400,
+          `Невозможно создать акт. Сумма акта превышает остаток по договору. Доступный остаток: ${available.toLocaleString('ru-RU')} ₽.`);
+      }
     }
 
     const date = act_date || new Date().toISOString().slice(0, 10);
@@ -229,11 +244,29 @@ const update = async (req, res) => {
     }
     const allowedUpdate = await checkOfficeAccess(req.user, row.office_id);
     if (!allowedUpdate) return bad(res, 403, 'Акт другого офиса');
-    const fields = ['act_date', 'amount', 'responsible_id', 'description'];
+    const fields = ['act_date', 'amount', 'description'];
     const updates = [];
     const params = [];
     if (req.body.description !== undefined && !String(req.body.description || '').trim()) {
       return bad(res, 400, 'Описание акта не может быть пустым');
+    }
+    // Контроль лимита при изменении суммы акта
+    if (req.body.amount !== undefined) {
+      const newAmount = Number(req.body.amount);
+      const [[contract]] = await db.query('SELECT amount FROM contracts WHERE id = ?', [row.contract_id]);
+      const contractAmount = Number(contract?.amount || 0);
+      if (contractAmount > 0) {
+        const [[{ acts_total }]] = await db.query(
+          'SELECT COALESCE(SUM(amount), 0) AS acts_total FROM acts WHERE contract_id = ? AND id != ?',
+          [row.contract_id, row.id]
+        );
+        const used = Number(acts_total);
+        const available = contractAmount - used;
+        if (newAmount > available) {
+          return bad(res, 400,
+            `Невозможно изменить акт. Сумма превышает остаток по договору. Доступный остаток: ${available.toLocaleString('ru-RU')} ₽.`);
+        }
+      }
     }
     for (const f of fields) {
       if (req.body[f] !== undefined) {
@@ -253,6 +286,10 @@ const update = async (req, res) => {
 
 const confirm = async (req, res) => {
   try {
+    // Подтвердить акт могут только: директор, менеджер, ОКК, admin, owner
+    const confirmRole = String(req.user.role || '').toLowerCase();
+    const canConfirm = ['admin', 'owner', 'director', 'manager', 'okk'].includes(confirmRole);
+    if (!canConfirm) return bad(res, 403, 'Подтвердить акт может только директор, менеджер или сотрудник ОКК');
     const [[row]] = await db.query('SELECT * FROM acts WHERE id = ?', [req.params.id]);
     if (!row) return bad(res, 404, 'Акт не найден');
     if (row.status === 'confirmed') return bad(res, 409, 'Акт уже подтверждён');

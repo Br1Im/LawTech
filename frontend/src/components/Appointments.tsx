@@ -220,12 +220,22 @@ const Appointments: React.FC = () => {
     return r;
   }, [filterStatus, filterLawyer, filterSource, filterOperator, search]);
 
-  /* Date-filtered list */
+  /* Date-filtered list. When a search query is active, search across ALL dates
+     so "lost" records (e.g. booked for another day) can always be found. */
+  const isSearching = search.trim().length > 0;
   const mainList = useMemo(() => {
+    if (isSearching) {
+      return applyFilters(appointments).sort((a, b) => {
+        const da = toDate(a.appointment_date);
+        const db = toDate(b.appointment_date);
+        if (da !== db) return db.localeCompare(da); // newest first
+        return a.appointment_time.localeCompare(b.appointment_time);
+      });
+    }
     const dateStr = selectedDate.format('YYYY-MM-DD');
     const filtered = appointments.filter(a => toDate(a.appointment_date) === dateStr);
     return applyFilters(filtered).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
-  }, [selectedDate, appointments, applyFilters]);
+  }, [selectedDate, appointments, applyFilters, isSearching]);
 
   const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
 
@@ -385,8 +395,10 @@ const Appointments: React.FC = () => {
                 <span className="apt-card-field-label">Юрист</span>
                 {canAssignLawyer ? (
                   <Select
-                    value={apt.assigned_lawyer_id || undefined}
-                    onChange={(v: number) => assignLawyer(apt.id, v)}
+                    labelInValue
+                    optionFilterProp="label"
+                    value={apt.assigned_lawyer_id ? { value: apt.assigned_lawyer_id, label: apt.lawyer_name || `#${apt.assigned_lawyer_id}` } : undefined}
+                    onChange={(item: { value: number; label: string } | undefined) => assignLawyer(apt.id, item?.value ?? null)}
                     allowClear
                     onClear={() => assignLawyer(apt.id, null)}
                     placeholder="Назначить"
@@ -394,11 +406,8 @@ const Appointments: React.FC = () => {
                     style={{ width: '100%', maxWidth: 160 }}
                     popupMatchSelectWidth={false}
                     onClick={e => e.stopPropagation()}
-                  >
-                    {lawyers.map(e => (
-                      <Select.Option key={e.id} value={e.id}>{e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim()}</Select.Option>
-                    ))}
-                  </Select>
+                    options={lawyers.map(e => ({ value: e.id, label: e.name || `${e.last_name || ''} ${e.first_name || ''}`.trim() }))}
+                  />
                 ) : (
                   <span className="apt-card-field-text">{apt.lawyer_name || '—'}</span>
                 )}
@@ -533,9 +542,11 @@ const Appointments: React.FC = () => {
           <div className="apt-empty-state">
             <div className="apt-empty-state-icon"><CalendarOutlined /></div>
             <h3 className="apt-empty-state-title">
-              {`Записей на ${selectedDate.format('D MMMM')} нет`}
+              {isSearching ? 'Ничего не найдено' : `Записей на ${selectedDate.format('D MMMM')} нет`}
             </h3>
-            <p className="apt-empty-state-text">Выберите другую дату или создайте новую запись</p>
+            <p className="apt-empty-state-text">
+              {isSearching ? 'Попробуйте изменить запрос — поиск идёт по всем датам' : 'Выберите другую дату или создайте новую запись'}
+            </p>
           </div>
         )}
       </div>

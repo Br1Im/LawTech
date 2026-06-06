@@ -9,6 +9,7 @@ const Employees = React.lazy(() => import('../components/Employees'));
 const Documents = React.lazy(() => import('../components/Documents'));
 const Arrivals = React.lazy(() => import('../components/Arrivals'));
 const Expenses = React.lazy(() => import('../components/Expenses'));
+const Balance = React.lazy(() => import('../components/Balance'));
 const Reception = React.lazy(() => import('../components/Reception'));
 const CallCenter = React.lazy(() => import('../components/CallCenter'));
 const Materials = React.lazy(() => import('../components/Materials'));
@@ -17,6 +18,7 @@ const Acts = React.lazy(() => import('../components/Acts'));
 const Salary = React.lazy(() => import('../components/Salary'));
 const Appointments = React.lazy(() => import('../components/Appointments'));
 const MyCases = React.lazy(() => import('../components/MyCases'));
+const Settings = React.lazy(() => import('../components/Settings'));
 import MiniCalendar from '../components/ui/MiniCalendar';
 import { FaCalendarAlt, FaTimes } from 'react-icons/fa';
 import NotificationPanel from '../components/NotificationPanel';
@@ -85,13 +87,6 @@ const SRM = () => {
   const [activeTab, setActiveTab] = useState<string>(tabParam || getDefaultTabByRole(user?.role));
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  });
   const [showChangePassword, setShowChangePassword] = useState(() => localStorage.getItem('must_change_password') === 'true');
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -145,11 +140,8 @@ const SRM = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    const theme = isDarkTheme ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [isDarkTheme]);
+  // Тема (светлая/тёмная) управляется единым AntThemeProvider через useThemeMode().
+  // Здесь намеренно нет дублирующей логики data-theme, чтобы не было рассинхрона с Ant Design.
 
   // Poll unread chat messages for badge
   useEffect(() => {
@@ -238,13 +230,13 @@ const SRM = () => {
 
     content: {
       flex: 1,
-      marginLeft: isMobile ? "60px" : (collapsed ? "64px" : "240px"),
+      marginLeft: isMobile ? "0" : (collapsed ? "64px" : "191px"),
       marginTop: "0px",
-      padding: isMobile ? "8px" : "16px",
+      padding: isMobile ? "8px 8px 76px" : "16px",
       backgroundColor: "var(--color-bg)",
       transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       height: "100vh",
-      maxWidth: `calc(100vw - ${isMobile ? "60px" : (collapsed ? "64px" : "240px")})`,
+      maxWidth: isMobile ? "100vw" : `calc(100vw - ${collapsed ? "64px" : "191px"})`,
       overflow: "auto",
       position: "relative" as const,
       WebkitOverflowScrolling: "touch" as const,
@@ -295,12 +287,6 @@ const SRM = () => {
       </style>
 
       <div style={styles.mainLayout}>
-        {isMobile && (
-          <HamburgerButton
-            isOpen={isMobileSidebarOpen}
-            onClick={toggleMobileSidebar}
-          />
-        )}
       {isMobile && (
         <MobileIconRail
           userRole={user?.role}
@@ -310,17 +296,6 @@ const SRM = () => {
         />
       )}
 
-        <MobileSidebar
-          isOpen={isMobileSidebarOpen}
-          isMobile={isMobile}
-          onClose={() => setIsMobileSidebarOpen(false)}
-          activeTab={activeTab}
-          onTabClick={(tab) => {
-            handleTabClick(tab);
-            setIsMobileSidebarOpen(false);
-          }}
-          user={user ? { ...user } : undefined}
-        />
         <Sidebar
           collapsed={collapsed}
           onCollapse={(value) => setCollapsed(value)}
@@ -338,6 +313,7 @@ const SRM = () => {
           {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
           {activeTab === "Приходы" && <Arrivals />}
           {activeTab === "Расходы" && <Expenses />}
+          {activeTab === "Баланс" && <Balance />}
           {activeTab === "Колл-центр" && <CallCenter />}
           {activeTab === "Материалы" && <Materials />}
           {activeTab === "Клиенты" && (<Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />)}
@@ -346,6 +322,7 @@ const SRM = () => {
           {activeTab === "Записи" && <Appointments />}
           {activeTab === "Мои дела" && <MyCases />}
           {activeTab === "Чат" && <OfficeChat />}
+          {activeTab === "Настройки" && <Settings />}
           {activeTab === "Касса" && <CashRegister />}
           {activeTab === "Представители" && <MyCases />}
           {activeTab === "Заявления" && <Applications />}

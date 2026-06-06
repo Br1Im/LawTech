@@ -1,7 +1,7 @@
 // LawTech PWA Service Worker v3 — network-first для всего, чтобы пользователь
 // никогда не залипал на старом коде. Кэш только как fallback при offline.
 
-const CACHE = 'lawtech-v3';
+const CACHE = 'lawtech-v6';
 const STATIC = ['/', '/manifest.json', '/logo.svg', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', e => {

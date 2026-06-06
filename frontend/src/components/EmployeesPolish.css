@@ -70,10 +70,11 @@
   .employees-v2 .reset-filter { order: 4; margin-left: auto; }
 }
 
+/* Список сотрудников — одна колонка, сверху вниз */
 .employees-v2 .employees-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .employees-v2 .employee-grid-item { cursor: pointer; }
@@ -294,18 +295,9 @@
   color: #9CA3AF; font-size: 14px;
 }
 
-@media (max-width: 1200px) {
-  .employees-v2 .employees-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (max-width: 900px) {
-  .employees-v2 .employees-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
 @media (max-width: 640px) {
   .add-employee-form .form-grid { grid-template-columns: 1fr; }
   .add-employee-form label.span-2 { grid-column: span 1; }
-  .employees-v2 .employees-grid { grid-template-columns: 1fr; }
 }
 
 /* ── Dark theme ── */

@@ -55,8 +55,22 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Статические файлы для uploads
-app.use('/uploads', express.static(uploadsDir));
+// Статические файлы для uploads (с проверкой JWT)
+const jwt = require('jsonwebtoken');
+app.use('/uploads', (req, res, next) => {
+  // Проверяем JWT из query-параметра или заголовка Authorization
+  const token = req.query.token
+    || (req.headers.authorization && req.headers.authorization.replace('Bearer ', ''));
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Требуется авторизация для доступа к файлам' });
+  }
+  try {
+    jwt.verify(token, process.env.JWT_SECRET || require('./config').JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Недействительный токен' });
+  }
+}, express.static(uploadsDir));
 
 // Импортируем необходимые модули
 const { seedDefaultUsers } = require('./scripts/seed_default_users');

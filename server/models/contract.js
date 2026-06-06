@@ -13,6 +13,7 @@ class Contract {
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
+        LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
         LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
@@ -27,6 +28,7 @@ class Contract {
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
                CONCAT(e.first_name, ' ', e.last_name) as lawyer_short,
+               TRIM(CONCAT_WS(' ', e2.last_name, e2.first_name, e2.middle_name)) as second_lawyer_full_name,
                TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                CONCAT(exp.first_name, ' ', exp.last_name) as expert_short,
                TRIM(CONCAT_WS(' ', sb.last_name, sb.first_name, sb.middle_name)) as signed_by_name,
@@ -62,6 +64,7 @@ class Contract {
                cl.email as client_email,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
+               TRIM(CONCAT_WS(' ', e2.last_name, e2.first_name, e2.middle_name)) as second_lawyer_full_name,
                TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                TRIM(CONCAT_WS(' ', sb.last_name, sb.first_name, sb.middle_name)) as signed_by_name,
                TRIM(CONCAT_WS(' ', rc.last_name, rc.first_name, rc.middle_name)) as remainder_confirmed_by_name,
@@ -69,6 +72,7 @@ class Contract {
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
+        LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
         LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
@@ -138,6 +142,7 @@ class Contract {
         contract_number, additional_payment_date, additional_payment_amount,
         registered_by, payment_method, on_behalf_of,
         appointment_id, signed_by,
+        is_joint, second_employee_id,
       } = contractData;
 
       // Используем paid_amount, если указан, иначе amount
@@ -145,6 +150,11 @@ class Contract {
       const ctype = (contract_type || 'docs').toString();
       const expertVal = expert_id ? Number(expert_id) : null;
       const dStatus = (docs_status || 'pending').toString();
+
+      // Совместный договор: второй юрист обязателен и не равен первому
+      let secondEmpVal = second_employee_id ? Number(second_employee_id) : null;
+      let isJointVal = (is_joint && secondEmpVal && secondEmpVal !== Number(id_employee)) ? 1 : 0;
+      if (!isJointVal) secondEmpVal = null;
 
       // При регистрации через администратора юрист должен дополнить данные
       const needsLawyerInput = registered_by ? 1 : 0;
@@ -156,14 +166,14 @@ class Contract {
       // Создаем договор с привязкой к офису
       const [result] = await connection.query(
         `INSERT INTO contracts (
-           id_employee, contract_type, expert_id, docs_status,
+           id_employee, is_joint, second_employee_id, contract_type, expert_id, docs_status,
            id_client, contract_date, amount, paid_amount, status, title, description, office_id,
            contract_number, additional_payment_date, additional_payment_amount,
            registered_by, signed_by, payment_method, on_behalf_of,
            needs_lawyer_input, appointment_id
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          id_employee, ctype, expertVal, dStatus,
+          id_employee, isJointVal, secondEmpVal, ctype, expertVal, dStatus,
           id_client, contract_date, amount, paidAmountValue,
           status || 'active', title || null, description || null, contractOfficeId,
           contract_number || null, additional_payment_date || null,
@@ -174,6 +184,22 @@ class Contract {
       );
 
       const contractId = result.insertId;
+
+      // История: при создании совместного договора фиксируем второго юриста
+      if (isJointVal && secondEmpVal) {
+        const [[secEmp]] = await connection.query(
+          `SELECT TRIM(CONCAT_WS(' ', last_name, first_name, middle_name)) AS full_name FROM employees WHERE id = ?`,
+          [secondEmpVal]
+        );
+        await Contract.addHistory(connection, {
+          contract_id: contractId,
+          user_id: registered_by || null,
+          action: 'second_lawyer_added',
+          field: 'second_employee_id',
+          old_value: null,
+          new_value: secEmp ? secEmp.full_name : String(secondEmpVal),
+        });
+      }
 
       if (contractOfficeId) {
         const officeId = contractOfficeId;
@@ -259,7 +285,7 @@ class Contract {
   /**
    * Обновить договор
    */
-  static async update(id, contractData) {
+  static async update(id, contractData, actor = null) {
     const connection = await db.getClient();
     try {
       await connection.beginTransaction();
@@ -273,6 +299,7 @@ class Contract {
       const {
         id_employee, id_client, contract_date, amount, paid_amount, status,
         contract_type, expert_id, docs_status, title, description,
+        is_joint, second_employee_id,
       } = contractData;
 
       // Используем paid_amount, если указан, иначе amount
@@ -295,11 +322,69 @@ class Contract {
       if (title !== undefined)         { sets.push('title = ?');         params.push(title); }
       if (description !== undefined)   { sets.push('description = ?');   params.push(description); }
       if (contractData.document_types !== undefined) { sets.push('document_types = ?'); params.push(JSON.stringify(contractData.document_types)); }
+
+      // Изменение состава юристов (совместный договор). Обрабатываем только если
+      // в payload пришли соответствующие поля. Логируем в историю.
+      let compositionChange = null;
+      if (is_joint !== undefined || second_employee_id !== undefined) {
+        const primaryId = Number(id_employee);
+        let newSecond = second_employee_id ? Number(second_employee_id) : null;
+        let newJoint = (is_joint && newSecond && newSecond !== primaryId) ? 1 : 0;
+        if (!newJoint) newSecond = null;
+
+        const oldSecond = oldContract.second_employee_id ? Number(oldContract.second_employee_id) : null;
+        if (newSecond !== oldSecond) {
+          sets.push('is_joint = ?'); params.push(newJoint);
+          sets.push('second_employee_id = ?'); params.push(newSecond);
+
+          // Резолвим имена для истории
+          const nameOf = async (eid) => {
+            if (!eid) return null;
+            const [[r]] = await connection.query(
+              `SELECT TRIM(CONCAT_WS(' ', last_name, first_name, middle_name)) AS n FROM employees WHERE id = ?`, [eid]);
+            return r ? r.n : String(eid);
+          };
+          const oldName = await nameOf(oldSecond);
+          const newName = await nameOf(newSecond);
+          let action = 'second_lawyer_changed';
+          if (!oldSecond && newSecond) action = 'second_lawyer_added';
+          else if (oldSecond && !newSecond) action = 'second_lawyer_removed';
+          compositionChange = { action, oldName, newName };
+        }
+      }
+
       params.push(id);
       await connection.query(
         `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,
         params
       );
+
+      if (compositionChange) {
+        await Contract.addHistory(connection, {
+          contract_id: Number(id),
+          user_id: actor && actor.id ? actor.id : (contractData.registered_by || null),
+          user_name: actor && actor.name ? actor.name : null,
+          action: compositionChange.action,
+          field: 'second_employee_id',
+          old_value: compositionChange.oldName,
+          new_value: compositionChange.newName,
+        });
+      }
+
+      // Логируем изменение стоимости договора в историю
+      const oldAmount = Number(oldContract.amount) || 0;
+      const newAmount = Number(amount) || 0;
+      if (amount !== undefined && oldAmount !== newAmount) {
+        await Contract.addHistory(connection, {
+          contract_id: Number(id),
+          user_id: actor && actor.id ? actor.id : null,
+          user_name: actor && actor.name ? actor.name : null,
+          action: 'amount_changed',
+          field: 'amount',
+          old_value: oldAmount.toFixed(2),
+          new_value: newAmount.toFixed(2),
+        });
+      }
 
       // Если изменилась сумма внесения или дата, обновляем статистику
       const oldPaidAmount = oldContract.paid_amount || oldContract.amount;
@@ -623,6 +708,7 @@ class Contract {
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
                CONCAT(e.first_name, ' ', e.last_name) as lawyer_short,
+               TRIM(CONCAT_WS(' ', e2.last_name, e2.first_name, e2.middle_name)) as second_lawyer_full_name,
                TRIM(CONCAT_WS(' ', exp.last_name, exp.first_name, exp.middle_name)) as expert_full_name,
                CONCAT(exp.first_name, ' ', exp.last_name) as expert_short,
                CONCAT(conf.first_name, ' ', conf.last_name) as refund_confirmed_by_name,
@@ -630,6 +716,7 @@ class Contract {
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
         LEFT JOIN employees e ON c.id_employee = e.id
+        LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN users conf ON c.refund_confirmed_by = conf.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
@@ -714,6 +801,48 @@ class Contract {
       console.error('Error confirming remainder:', error);
       throw error;
     }
+  }
+
+  /**
+   * Записать изменение в историю договора.
+   * conn — активное соединение/транзакция или общий db (оба поддерживают .query).
+   */
+  static async addHistory(conn, { contract_id, user_id, user_name, action, field, old_value, new_value }) {
+    try {
+      let uname = user_name || null;
+      if (!uname && user_id) {
+        const [[u]] = await conn.query(
+          `SELECT TRIM(CONCAT_WS(' ', last_name, first_name)) AS name FROM users WHERE id = ?`,
+          [user_id]
+        );
+        uname = u && u.name ? u.name : null;
+      }
+      await conn.query(
+        `INSERT INTO contract_history
+           (contract_id, user_id, user_name, action, field, old_value, new_value)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [contract_id, user_id || null, uname, action, field || null,
+         old_value != null ? String(old_value) : null,
+         new_value != null ? String(new_value) : null]
+      );
+    } catch (err) {
+      console.error('Error writing contract history (non-critical):', err.message);
+    }
+  }
+
+  /**
+   * Получить историю изменений договора (новые сверху).
+   */
+  static async getHistory(contractId) {
+    const [rows] = await db.query(
+      `SELECT id, contract_id, user_id, user_name, action, field, old_value, new_value,
+              created_at
+         FROM contract_history
+        WHERE contract_id = ?
+        ORDER BY created_at DESC, id DESC`,
+      [contractId]
+    );
+    return rows;
   }
 }
 

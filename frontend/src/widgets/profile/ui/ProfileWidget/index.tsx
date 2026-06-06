@@ -124,10 +124,12 @@ export const ProfileWidget: React.FC<ProfileWidgetProps> = ({ className }) => {
           <UserCard user={user} />
         </CardWrapper>
         
-        <ProfileEditForm 
-          user={user} 
-          onSave={handleUpdateProfile} 
-        />
+        {String((user as any).role || '').toLowerCase() === 'director' && (
+          <ProfileEditForm 
+            user={user} 
+            onSave={handleUpdateProfile} 
+          />
+        )}
       </ContentWrapper>
     </WidgetContainer>
   );

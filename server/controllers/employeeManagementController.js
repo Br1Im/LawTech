@@ -383,6 +383,83 @@ const changeRole = async (req, res) => {
   }
 };
 
+// Получить список офисов текущего генерального директора (для перевода сотрудников)
+const getMyOffices = async (req, res) => {
+  try {
+    const user = req.user;
+    // Офисы доступны для перевода только генеральному директору
+    if (user.role !== 'director') {
+      return res.json({ offices: [] });
+    }
+    const [offices] = await db.query(
+      'SELECT id, name FROM offices WHERE owner_id = ? ORDER BY name ASC',
+      [user.id]
+    );
+    res.json({ offices });
+  } catch (error) {
+    console.error('Ошибка при получении офисов директора:', error);
+    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+};
+
+// Перевод сотрудника в другой офис того же генерального директора
+const transferOffice = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { office_id: newOfficeId } = req.body;
+    const creator = req.user;
+
+    // Только генеральный директор может переводить сотрудников между офисами
+    if (creator.role !== 'director') {
+      return res.status(403).json({ success: false, message: 'Только генеральный директор может переводить сотрудников между офисами' });
+    }
+    if (!newOfficeId) {
+      return res.status(400).json({ success: false, message: 'Укажите офис назначения' });
+    }
+
+    // Проверяем, что сотрудник существует
+    const [users] = await db.query('SELECT id, role, office_id FROM users WHERE id = ?', [id]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+    const target = users[0];
+
+    // Нельзя переводить директора
+    if (target.role === 'director') {
+      return res.status(403).json({ success: false, message: 'Нельзя переводить генерального директора' });
+    }
+
+    // Офис назначения должен принадлежать этому директору
+    const [destOffices] = await db.query('SELECT id, name FROM offices WHERE id = ? AND owner_id = ?', [newOfficeId, creator.id]);
+    if (destOffices.length === 0) {
+      return res.status(403).json({ success: false, message: 'Этот офис вам не принадлежит' });
+    }
+
+    // Текущий офис сотрудника тоже должен принадлежать директору (нельзя забирать чужих)
+    if (target.office_id) {
+      const [srcOffices] = await db.query('SELECT id FROM offices WHERE id = ? AND owner_id = ?', [target.office_id, creator.id]);
+      if (srcOffices.length === 0) {
+        return res.status(403).json({ success: false, message: 'Сотрудник не относится к вашим офисам' });
+      }
+    }
+
+    if (Number(target.office_id) === Number(newOfficeId)) {
+      return res.status(400).json({ success: false, message: 'Сотрудник уже в этом офисе' });
+    }
+
+    await db.query('UPDATE users SET office_id = ?, updated_at = NOW() WHERE id = ?', [newOfficeId, id]);
+
+    res.json({
+      message: 'Сотрудник переведён в другой офис',
+      office_id: Number(newOfficeId),
+      office_name: destOffices[0].name,
+    });
+  } catch (error) {
+    console.error('Ошибка при переводе сотрудника:', error);
+    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+};
+
 // Получить допустимые роли для смены роли сотрудника
 const getChangeableRoles = async (req, res) => {
   try {
@@ -406,5 +483,7 @@ module.exports = {
   getAllowedRoles,
   changeRole,
   getChangeableRoles,
+  getMyOffices,
+  transferOffice,
   ROLE_LABELS,
 };

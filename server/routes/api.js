@@ -51,6 +51,7 @@ router.post('/auth/register', authController.register);
 router.post('/auth/refresh', authController.refresh);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
+router.put('/profile', authenticateToken, authController.updateProfile); // Обновление своего профиля (только директор)
 router.post('/leads/incoming', callCenterRoutes.receiveIncomingLead);
 
 // Gainnet webhook — no auth required (verified by webhook key inside handler)
@@ -107,6 +108,8 @@ router.post('/staff/:id/reset-password', authenticateToken, employeeManagement.r
 router.put('/staff/:id/active', authenticateToken, employeeManagement.deactivateEmployee);
 router.patch('/staff/:id/role', authenticateToken, employeeManagement.changeRole);
 router.get('/staff/changeable-roles', authenticateToken, employeeManagement.getChangeableRoles);
+router.get('/staff/my-offices', authenticateToken, employeeManagement.getMyOffices);
+router.patch('/staff/:id/office', authenticateToken, employeeManagement.transferOffice);
 router.post('/staff/change-password', authenticateToken, employeeManagement.changeOwnPassword);
 
 // Назначения договоров (авто-маршрутизация)
@@ -214,6 +217,15 @@ router.get('/office/:officeId/expenses-summary', authenticateToken, expensesCont
 router.post('/expenses', authenticateToken, expensesController.createExpense);
 router.put('/expenses/:id', authenticateToken, expensesController.updateExpense);
 router.delete('/expenses/:id', authenticateToken, expensesController.deleteExpense);
+
+// Роуты для «Баланс денежных средств»
+const balanceController = require('../controllers/balanceController');
+router.get('/office/:officeId/balance', authenticateToken, balanceController.getBalance);
+router.get('/office/:officeId/balance/opening', authenticateToken, balanceController.getOpening);
+router.put('/office/:officeId/balance/opening', authenticateToken, balanceController.setOpening);
+router.get('/office/:officeId/balance/day', authenticateToken, balanceController.getDayDetail);
+router.post('/office/:officeId/income', authenticateToken, balanceController.createIncome);
+router.delete('/office/:officeId/income/:id', authenticateToken, balanceController.deleteIncome);
 
 // Роуты для приходов офиса
 router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {

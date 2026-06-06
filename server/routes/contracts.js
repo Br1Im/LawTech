@@ -24,6 +24,9 @@ router.get('/generate-number', contractController.generateNumber);
 // Получить договор по ID
 router.get('/:id', contractController.getContractById);
 
+// История изменений договора (состав юристов и т.п.)
+router.get('/:id/history', contractController.getContractHistory);
+
 // Расторгнуть договор
 router.post('/:id/terminate', contractController.terminateContract);
 
@@ -39,6 +42,12 @@ router.post('/', contractController.createContract);
 // Обновить данные карточки клиента (документы, обстоятельства, эксперт, тема)
 router.patch('/:id/card-data', async (req, res) => {
   try {
+    // Представитель не может редактировать карточку договора
+    const userRole = String(req.user.role || '').toLowerCase();
+    if (userRole === 'representative') {
+      return res.status(403).json({ success: false, message: 'Представитель не может редактировать карточку договора' });
+    }
+
     const contractId = req.params.id;
     const { document_types, custom_documents, circumstances, expert_id, title, customer_goal, legal_cost_comp, moral_comp } = req.body;
     const db = require('../db');

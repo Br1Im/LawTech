@@ -1,6 +1,7 @@
 const db = require('../db');
 const socketEmitter = require('../middleware/socketEmitter');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { resolveRollingWindow } = require('../utils/planPeriod');
 
 const LEAD_STATUSES = [
   'NEW',
@@ -451,7 +452,9 @@ const callCenterController = {
       );
 
       await addHistoryEntry(connection, result.insertId, 'LEAD_CREATED', null, { source });
-      const assignedTo = await assignLead(connection, result.insertId, targetOfficeId);
+      // Лиды НЕ назначаются автоматически — приходят без оператора,
+      // начальник КЦ распределяет их вручную (независимо от источника).
+      const assignedTo = null;
 
       await connection.commit();
 
@@ -1065,24 +1068,35 @@ const callCenterController = {
 
     try {
       const { date_from, date_to } = req.query;
+      const cycleOffset = Number(req.query.cycle_offset || 0);
 
-      // Default to current office plan period if no dates provided
+      // Default to the current office plan period if no explicit dates are provided.
       let periodFrom, periodTo;
+      let cycleIndex = null, currentCycleIndex = null, durationDays = null;
       if (date_from && date_to) {
         periodFrom = date_from;
         periodTo = date_to;
       } else {
-        // Try to get the current office plan period
+        // Get the latest office plan and roll its window forward automatically:
+        // a finished cycle gives way to the next cycle of the same length.
+        const todayIso = new Date().toISOString().slice(0, 10);
         const [planRows] = await db.query(
           `SELECT period_start, period_end FROM office_plans
-           WHERE office_id = ? ORDER BY created_at DESC LIMIT 1`,
-          [req.user.office_id]
+           WHERE office_id = ?
+           ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC LIMIT 1`,
+          [req.user.office_id, todayIso]
         );
         if (planRows.length > 0 && planRows[0].period_start && planRows[0].period_end) {
           const ps = planRows[0].period_start;
           const pe = planRows[0].period_end;
-          periodFrom = (ps instanceof Date ? ps : new Date(ps)).toISOString().slice(0, 10);
-          periodTo = (pe instanceof Date ? pe : new Date(pe)).toISOString().slice(0, 10);
+          const psIso = (ps instanceof Date ? ps : new Date(ps)).toISOString().slice(0, 10);
+          const peIso = (pe instanceof Date ? pe : new Date(pe)).toISOString().slice(0, 10);
+          const win = resolveRollingWindow(psIso, peIso, todayIso, cycleOffset);
+          periodFrom = win.from;
+          periodTo = win.to;
+          cycleIndex = win.cycle_index;
+          currentCycleIndex = win.current_cycle_index;
+          durationDays = win.duration_days;
         } else {
           // Fallback: current month
           const now = new Date();
@@ -1135,11 +1149,11 @@ const callCenterController = {
         );
         const arrivedLeads = Number(arrivedRow[0].cnt);
 
-        // 4. Brak leads (REJECTED, SPAM, DUPLICATE, NON_TARGET, NO_ANSWER, CLOSED)
+        // 4. Brak leads — только архивные «отказные» статусы: Отказ, Спам, Дубль, Нецелевой
         const [brakRow] = await db.query(
           `SELECT COUNT(*) AS cnt FROM call_center_leads
            WHERE assigned_to = ? AND office_id = ?
-             AND status IN ('REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'NO_ANSWER', 'CLOSED')
+             AND status IN ('REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET')
              AND DATE(created_at) BETWEEN ? AND ?`,
           [op.id, officeId, periodFrom, periodTo]
         );
@@ -1170,7 +1184,13 @@ const callCenterController = {
       res.json({
         success: true,
         data: stats,
-        period: { from: periodFrom, to: periodTo }
+        period: {
+          from: periodFrom,
+          to: periodTo,
+          cycle_index: cycleIndex,
+          current_cycle_index: currentCycleIndex,
+          duration_days: durationDays,
+        }
       });
     } catch (error) {
       console.error('Error getting operator stats:', error);
@@ -1283,14 +1303,7 @@ const callCenterController = {
 
       await addHistoryEntry(connection, result.insertId, 'LEAD_CREATED', req.user.id, { source: 'тест' });
 
-      // Автоназначение на начальника КЦ (текущего пользователя)
-      await connection.query(
-        'UPDATE call_center_leads SET assigned_to = ? WHERE id = ?',
-        [req.user.id, result.insertId]
-      );
-
-      await addHistoryEntry(connection, result.insertId, 'ASSIGNED', req.user.id, { assigned_to: req.user.id });
-      await recalculateOperatorLoad(connection, req.user.office_id);
+      // Лид создаётся без назначенного оператора — начальник КЦ распределяет вручную.
       await connection.commit();
 
       const lead = await getLeadDetails(connection, result.insertId, req.user.office_id);
@@ -1517,6 +1530,11 @@ const callCenterController = {
       const updates = ['status = ?'];
       const params = [status];
 
+      // Фиксируем фактическое время прихода в момент нажатия «Пришёл».
+      if (status === 'arrived') {
+        updates.push('arrived_at = CURRENT_TIMESTAMP');
+      }
+
       if (manager_comment !== undefined) {
         updates.push('manager_comment = ?');
         params.push(manager_comment);
@@ -1603,6 +1621,7 @@ const callCenterController = {
            CONCAT(u.first_name, ' ', u.last_name) AS operator_full_name,
            CONCAT(s.first_name, ' ', s.last_name) AS signed_by_name,
            CONCAT(l.first_name, ' ', l.last_name) AS assigned_lawyer_name,
+           CONCAT(l2.first_name, ' ', l2.last_name) AS assigned_lawyer_name_2,
            con.id AS linked_contract_id,
            con.contract_type AS linked_contract_type,
            con.contract_number AS linked_contract_number,
@@ -1611,6 +1630,7 @@ const callCenterController = {
          LEFT JOIN users u ON u.id = a.operator_id
          LEFT JOIN users s ON s.id = a.contract_signed_by
          LEFT JOIN users l ON l.id = a.assigned_lawyer_id
+         LEFT JOIN users l2 ON l2.id = a.assigned_lawyer_id_2
          LEFT JOIN contracts con ON con.appointment_id = a.id
          WHERE a.office_id = ? AND a.status = 'arrived'
          ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
@@ -1625,6 +1645,8 @@ const callCenterController = {
           signed_by_name: r.signed_by_name || null,
           assigned_lawyer_id: r.assigned_lawyer_id || null,
           assigned_lawyer_name: r.assigned_lawyer_name || null,
+          assigned_lawyer_id_2: r.assigned_lawyer_id_2 || null,
+          assigned_lawyer_name_2: r.assigned_lawyer_name_2 || null,
           linked_contract_id: r.linked_contract_id || null,
           linked_contract_type: r.linked_contract_type || null,
           linked_contract_number: r.linked_contract_number || null,
@@ -1686,18 +1708,32 @@ const callCenterController = {
   async assignLawyer(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
 
-    const canAssign = ['manager', 'okk', 'director', 'admin'].includes(req.user.role);
+    // Назначать юристов могут только Директор / Менеджер / ОКК. Администратор НЕ редактирует.
+    const canAssign = ['manager', 'okk', 'director'].includes(req.user.role);
     if (!canAssign) {
       return res.status(403).json({ success: false, message: 'Нет прав для назначения сотрудника' });
     }
 
     try {
       const { id } = req.params;
-      const { assigned_lawyer_id } = req.body;
+      // Поддержка до 2 юристов одновременно
+      let lawyer1 = req.body.assigned_lawyer_id ?? null;
+      let lawyer2 = req.body.assigned_lawyer_id_2 ?? null;
+      // Если массив прислали — разложим
+      if (Array.isArray(req.body.assigned_lawyer_ids)) {
+        lawyer1 = req.body.assigned_lawyer_ids[0] ?? null;
+        lawyer2 = req.body.assigned_lawyer_ids[1] ?? null;
+      }
+      // Нормализация: если первый пуст, а второй задан — поднимаем второго
+      if (!lawyer1 && lawyer2) { lawyer1 = lawyer2; lawyer2 = null; }
+      // Два юриста должны различаться
+      if (lawyer1 && lawyer2 && Number(lawyer1) === Number(lawyer2)) {
+        return res.status(400).json({ success: false, message: 'Юристы должны отличаться друг от друга' });
+      }
 
       await db.query(
-        `UPDATE appointments SET assigned_lawyer_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND office_id = ?`,
-        [assigned_lawyer_id || null, id, req.user.office_id]
+        `UPDATE appointments SET assigned_lawyer_id = ?, assigned_lawyer_id_2 = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND office_id = ?`,
+        [lawyer1 || null, lawyer2 || null, id, req.user.office_id]
       );
 
       res.json({ success: true, message: 'Сотрудник назначен' });

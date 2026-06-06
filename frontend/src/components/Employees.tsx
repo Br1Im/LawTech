@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { FaUser, FaUserPlus, FaUserShield, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt } from "react-icons/fa";
+import { FaUser, FaUserPlus, FaUserShield, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt, FaBuilding } from "react-icons/fa";
 import { MdReplay, MdClose } from "react-icons/md";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useAuth } from "../shared/lib/hooks/useAuth";
@@ -118,6 +118,50 @@ const StaffDetailModal = ({
   const [changeableRoles, setChangeableRoles] = useState<AllowedRole[]>([]);
   const [selectedNewRole, setSelectedNewRole] = useState<string>(staff.role);
   const [changingRole, setChangingRole] = useState(false);
+  const { user } = useAuth();
+  const isGeneralDirector = user?.role === 'director';
+  const [showOfficeTransfer, setShowOfficeTransfer] = useState(false);
+  const [myOffices, setMyOffices] = useState<{ id: number; name: string }[]>([]);
+  const [selectedOffice, setSelectedOffice] = useState<string>('');
+  const [transferring, setTransferring] = useState(false);
+
+  // Офисы, в которые можно перевести (все офисы директора, кроме текущего офиса сотрудника)
+  const transferTargets = myOffices.filter(o => Number(o.id) !== Number(staff.office_id));
+
+  // Загружаем офисы директора при открытии карточки (только для генерального директора)
+  useEffect(() => {
+    if (!isGeneralDirector || staff.role === 'director') return;
+    fetch(buildApiUrl('/staff/my-offices'), { headers: getAuthHeaders() })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(data => setMyOffices(data.offices || []))
+      .catch(() => setMyOffices([]));
+  }, [isGeneralDirector, staff.role]);
+
+  useEffect(() => {
+    if (showOfficeTransfer) {
+      const first = transferTargets[0];
+      if (first) setSelectedOffice(String(first.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOfficeTransfer, myOffices]);
+
+  const handleTransferOffice = async () => {
+    if (!selectedOffice) return;
+    setError(null); setTransferring(true);
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/office`), {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ office_id: Number(selectedOffice) }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || b.error || 'Ошибка'); }
+      const data = await res.json();
+      setSuccess(`Сотрудник переведён в офис: ${data.office_name}`);
+      setShowOfficeTransfer(false);
+      onUpdated();
+    } catch (e) { setError((e as Error).message); }
+    finally { setTransferring(false); }
+  };
 
   useEffect(() => {
     if (showRoleChange && changeableRoles.length === 0) {
@@ -303,6 +347,29 @@ const StaffDetailModal = ({
           </div>
         )}
 
+        {showOfficeTransfer && (
+          <div className="emp-modal-section">
+            <h4><FaBuilding /> Перевод в другой офис</h4>
+            <p style={{ fontSize: '13px', color: '#888', margin: '0 0 8px' }}>
+              Текущий офис: <b>{myOffices.find(o => Number(o.id) === Number(staff.office_id))?.name || `Офис #${staff.office_id ?? '—'}`}</b>
+            </p>
+            {transferTargets.length > 0 ? (
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <select value={selectedOffice} onChange={(e) => setSelectedOffice(e.target.value)} style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9', fontSize: '14px' }}>
+                  {transferTargets.map(o => (
+                    <option key={o.id} value={String(o.id)}>{o.name}</option>
+                  ))}
+                </select>
+                <button className="btn-primary" onClick={handleTransferOffice} disabled={transferring} style={{ whiteSpace: 'nowrap' }}>
+                  {transferring ? 'Перевод…' : 'Перевести'}
+                </button>
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: '#999' }}>Нет других офисов для перевода</p>
+            )}
+          </div>
+        )}
+
         {error && <div className="form-error">{error}</div>}
         {success && <div className="form-success">{success}</div>}
 
@@ -319,6 +386,9 @@ const StaffDetailModal = ({
                 <button className="btn-secondary" onClick={() => { setShowPasswordChange(!showPasswordChange); setResetCreds(null); setPasswordMode('choose'); setCustomPassword(''); }}><FaKey /> Изменить пароль</button>
                 {staff.role !== 'director' && (
                   <button className="btn-secondary" onClick={() => setShowRoleChange(!showRoleChange)}><FaExchangeAlt /> Сменить роль</button>
+                )}
+                {isGeneralDirector && staff.role !== 'director' && transferTargets.length > 0 && (
+                  <button className="btn-secondary" onClick={() => setShowOfficeTransfer(!showOfficeTransfer)}><FaBuilding /> Перевести в офис</button>
                 )}
                 {confirmDeactivate ? (
                   <div className="delete-confirm">

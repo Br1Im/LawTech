@@ -16,7 +16,17 @@ export const api = {
   profile: {
     getProfile: async () => {
       const response = await apiInstance.get('/profile');
-      return response.data;
+      const u = response.data?.user ?? response.data ?? {};
+      const fullName = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+      return {
+        id: u.id,
+        name: fullName || u.name || '',
+        email: u.email || '',
+        userType: u.role || u.userType || '',
+        role: u.role || '',
+        officeId: u.office_id ?? u.officeId,
+        officeName: u.officeName,
+      };
     },
     updateProfile: async (profileData: any) => {
       const response = await apiInstance.put('/profile', profileData);

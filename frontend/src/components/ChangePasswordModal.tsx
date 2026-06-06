@@ -46,7 +46,7 @@ const ChangePasswordModal = ({ onDone }: Props) => {
         <div className="emp-modal-header" style={{ justifyContent: 'center', textAlign: 'center' }}>
           <div>
             <h3><FaLock /> Смена пароля</h3>
-            <p style={{ fontSize: 14, color: '#888', margin: '4px 0 0' }}>
+            <p style={{ fontSize: 14, color: 'var(--color-muted)', margin: '4px 0 0' }}>
               При первом входе необходимо установить свой пароль
             </p>
           </div>

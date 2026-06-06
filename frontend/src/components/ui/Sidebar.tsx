@@ -14,15 +14,17 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
-  Settings,
   LogOut,
   ArrowLeftRight,
   MessageSquare,
   Briefcase,
   ChevronDown,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import './Sidebar.css';
 import apiClient from '../../shared/api/apiClient';
+import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 
 const ICON_SIZE = 20;
 const ICON_STROKE = 1.5;
@@ -63,6 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   user
 }) => {
   const navigate = useNavigate();
+  const { mode, toggle } = useThemeMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [offices, setOffices] = useState<OfficeItem[]>([]);
@@ -142,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       appointments: { key: 'Записи', icon: <Clock size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <TrendingUp size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Приходы' },
-      expenses: { key: 'Расходы', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Расходы' },
+      expenses: { key: 'Баланс', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <Phone size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <Package size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Материалы' },
@@ -220,10 +223,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleProfileClick = () => {
     setIsUserMenuOpen(!isUserMenuOpen);
-  };
-
-  const handleSettingsClick = () => {
-    navigate('/settings');
   };
 
   const handleLogout = () => {
@@ -318,12 +317,21 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sidebar-footer">
         <button
-          className="sidebar-item"
-          onClick={handleSettingsClick}
-          title={collapsed ? 'Настройки' : ''}
+          className="sidebar-item sidebar-theme-toggle"
+          onClick={toggle}
+          title={collapsed ? (mode === 'dark' ? 'Светлая тема' : 'Тёмная тема') : ''}
+          aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
         >
-          <span className="sidebar-icon"><Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} /></span>
-          {!collapsed && <span className="sidebar-label">Настройки</span>}
+          <span className="sidebar-icon">
+            {mode === 'dark'
+              ? <Sun size={ICON_SIZE} strokeWidth={ICON_STROKE} />
+              : <Moon size={ICON_SIZE} strokeWidth={ICON_STROKE} />}
+          </span>
+          {!collapsed && (
+            <span className="sidebar-label">
+              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            </span>
+          )}
         </button>
 
         <div className="sidebar-user-menu" ref={userMenuRef}>

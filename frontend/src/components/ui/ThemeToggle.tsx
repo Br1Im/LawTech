@@ -1,39 +1,20 @@
-import { useState, useEffect } from 'react';
 import './ThemeToggle.css';
+import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 
 const ThemeToggle = () => {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
-
-  useEffect(() => {
-    // Загружаем сохраненную тему
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.setAttribute('data-theme', savedTheme);
-    } else {
-      // Проверяем системные настройки
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const defaultTheme = prefersDark ? 'dark' : 'light';
-      setTheme(defaultTheme);
-      document.documentElement.setAttribute('data-theme', defaultTheme);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
+  // Единый источник правды для темы — AntThemeProvider. Так один клик
+  // одновременно меняет и CSS-переменные (data-theme), и тему Ant Design,
+  // без рассинхрона и без перезагрузки страницы.
+  const { mode, toggle } = useThemeMode();
 
   return (
-    <button 
-      className="theme-toggle-button" 
-      onClick={toggleTheme} 
-      title={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
-      aria-label={`Переключить на ${theme === 'light' ? 'тёмную' : 'светлую'} тему`}
+    <button
+      className="theme-toggle-button"
+      onClick={toggle}
+      title={`Переключить на ${mode === 'light' ? 'тёмную' : 'светлую'} тему`}
+      aria-label={`Переключить на ${mode === 'light' ? 'тёмную' : 'светлую'} тему`}
     >
-      {theme === 'light' ? (
+      {mode === 'light' ? (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="var(--color-text)" />
         </svg>

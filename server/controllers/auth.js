@@ -261,9 +261,94 @@ const getCurrentUser = async (req, res) => {
     }
 };
 
+/**
+ * Обновление собственного профиля (имя, email, пароль).
+ * Доступно ТОЛЬКО директору и только для своего аккаунта.
+ */
+const updateProfile = async (req, res) => {
+    try {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Пользователь не авторизован' });
+        }
+
+        const userId = req.user.id;
+        const role = String(req.user.role || '').toLowerCase();
+        if (role !== 'director') {
+            return res.status(403).json({ success: false, message: 'Изменять профиль может только директор' });
+        }
+
+        const { name, email, password } = req.body || {};
+
+        const updates = [];
+        const params = [];
+
+        // Имя -> first_name / last_name (middle_name не трогаем)
+        if (typeof name === 'string' && name.trim().length > 0) {
+            const parts = name.trim().split(/\s+/);
+            const firstName = parts.shift();
+            const lastName = parts.join(' ');
+            updates.push('first_name = ?');
+            params.push(firstName);
+            updates.push('last_name = ?');
+            params.push(lastName);
+        }
+
+        // Email — проверка формата и уникальности
+        if (typeof email === 'string' && email.trim().length > 0) {
+            const emailNorm = email.trim();
+            const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRe.test(emailNorm)) {
+                return res.status(400).json({ success: false, message: 'Некорректный email' });
+            }
+            const [dupes] = await db.query('SELECT id FROM users WHERE email = ? AND id <> ?', [emailNorm, userId]);
+            if (dupes.length > 0) {
+                return res.status(400).json({ success: false, message: 'Этот email уже используется' });
+            }
+            updates.push('email = ?');
+            params.push(emailNorm);
+        }
+
+        // Пароль
+        if (typeof password === 'string' && password.length > 0) {
+            if (password.length < 6) {
+                return res.status(400).json({ success: false, message: 'Пароль должен быть не менее 6 символов' });
+            }
+            const hashedPassword = await bcrypt.hash(password, 10);
+            updates.push('password = ?');
+            params.push(hashedPassword);
+            updates.push('must_change_password = 0');
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ success: false, message: 'Нет данных для обновления' });
+        }
+
+        updates.push('updated_at = NOW()');
+        params.push(userId);
+
+        await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+
+        const [users] = await db.query(
+            'SELECT id, first_name, last_name, email, role, office_id, created_at FROM users WHERE id = ?',
+            [userId]
+        );
+        const user = users[0];
+
+        return res.json({
+            success: true,
+            message: 'Профиль обновлён',
+            user: { ...user, officeId: user.office_id }
+        });
+    } catch (error) {
+        console.error('Ошибка при обновлении профиля:', error);
+        return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+};
+
 module.exports = {
     login,
     register,
     refresh,
-    getCurrentUser
+    getCurrentUser,
+    updateProfile
 };

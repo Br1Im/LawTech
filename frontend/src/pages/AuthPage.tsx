@@ -2,7 +2,6 @@ import { Button, Form, Input, message, Select, Tabs } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
-import ThemeToggle from '../components/ui/ThemeToggle';
 import './AuthPage.css';
 
 interface LoginFormValues {
@@ -20,33 +19,13 @@ interface RegisterFormValues {
   officeName?: string;
 }
 
-const testAccounts = [
-  { name: 'Администратор — Иван Админов', email: 'admin@lawtech.ru', password: 'admin123', role: 'admin' },
-  { name: 'Директор — Пётр Директоров', email: 'director@pravoved.ru', password: 'director123', role: 'director' },
-  { name: 'Юрист — Анна Юристова', email: 'lawyer1@pravoved.ru', password: 'lawyer123', role: 'lawyer' },
-  { name: 'Эксперт — Мария Экспертова', email: 'expert@test.com', password: 'test123', role: 'expert' },
-  { name: 'Менеджер — Сергей Менеджеров', email: 'manager@test.com', password: 'test123', role: 'manager' },
-  { name: 'ОКК — Ольга Контрольная', email: 'okk@test.com', password: 'test123', role: 'okk' },
-];
-
 const AuthPage = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'register' | 'login'>('login');
   const [userType, setUserType] = useState<RegisterFormValues['userType'] | ''>('');
   const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
   const [loading, setLoading] = useState(false);
-  const [showTestAccounts, setShowTestAccounts] = useState(false);
   const [form] = Form.useForm();
-  const [activeUsers, setActiveUsers] = useState(247);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setActiveUsers((v) =>
-        Math.max(180, Math.min(420, v + Math.floor(Math.random() * 7) - 3))
-      );
-    }, 3500);
-    return () => clearInterval(id);
-  }, []);
 
   // Если уже авторизован — на CRM
   useEffect(() => {
@@ -149,14 +128,6 @@ const AuthPage = () => {
     }
   };
 
-  const fillTestAccount = (acc: typeof testAccounts[number]) => {
-    setMode('login');
-    setTimeout(() => {
-      form.setFieldsValue({ login: acc.email, password: acc.password });
-    }, 10);
-    setShowTestAccounts(false);
-  };
-
   return (
     <div className="auth-shell">
       <div className="auth-shell__bg" aria-hidden>
@@ -171,28 +142,27 @@ const AuthPage = () => {
 
         <div className="auth-brand__hero">
           <div className="auth-brand__eyebrow">
-            <b>{activeUsers}</b>&nbsp;юристов работают сейчас
+            Контроль офиса в реальном времени
           </div>
           <h1 className="auth-brand__title">
-            Юридическая практика&nbsp;на <em>автопилоте</em>
+            CRM для <em>юридических</em> компаний
           </h1>
           <p className="auth-brand__lead">
-            Клиенты, дела, документы, финансы и AI-поиск по законодательству —
-            всё в одном рабочем пространстве. Глубокая интеграция, быстрые ответы,
-            прозрачная аналитика.
+            Контролируйте лиды, консультации, договоры, сотрудников, зарплаты
+            и кассу офиса в одной системе.
           </p>
           <div className="auth-brand__chips">
             <span className="auth-brand__chip">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              ФЗ-152 · данные в РФ
+              Полный контроль
             </span>
             <span className="auth-brand__chip">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              Ответ AI — 1.2s
+              Аналитика в реальном времени
             </span>
             <span className="auth-brand__chip">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              E2E-шифрование
+              Безопасность данных
             </span>
           </div>
 
@@ -215,9 +185,9 @@ const AuthPage = () => {
               </span>
             </div>
             <div className="auth-brand__mockup-row">
-              <span>AI-проверок</span>
+              <span>Конверсия лидов</span>
               <span>
-                <b>187</b> <span className="delta">без рисков</span>
+                <b>62%</b> <span className="delta">за месяц</span>
               </span>
             </div>
           </div>
@@ -234,8 +204,6 @@ const AuthPage = () => {
 
       <section className="auth-card-wrap">
         <div className="auth-card">
-          <div className="auth-card__theme"><ThemeToggle /></div>
-
           <div className="auth-card__header">
             <h2 className="auth-card__title">
               {mode === 'login' ? 'С возвращением' : 'Создать аккаунт'}
@@ -278,20 +246,6 @@ const AuthPage = () => {
                 </Button>
               </Form.Item>
 
-              <button type="button" className="auth-test-toggle" onClick={() => setShowTestAccounts((v) => !v)}>
-                {showTestAccounts ? 'Скрыть тестовые аккаунты' : 'Тестовые аккаунты для демо'}
-              </button>
-              {showTestAccounts && (
-                <div className="auth-test-panel">
-                  {testAccounts.map((a) => (
-                    <div key={a.email} className="auth-test-item" onClick={() => fillTestAccount(a)}>
-                      <div className="auth-test-item__name">{a.name}</div>
-                      <div className="auth-test-item__email">{a.email} · {a.password}</div>
-                      <span className="auth-test-item__role">{a.role}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Form>
           ) : (
             <Form key="register" form={form} layout="vertical" className="auth-form" onFinish={handleRegisterSubmit}>

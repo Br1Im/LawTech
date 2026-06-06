@@ -64,6 +64,11 @@ const contractController = {
         contracts = (contracts || []).filter(c => (c.contract_type || 'docs') === 'docs');
       }
 
+      // ACL: представитель видит только свои договоры (где он назначен представителем)
+      if (user.role === 'representative') {
+        contracts = (contracts || []).filter(c => c.representative_id === user.id);
+      }
+
       res.json({
         success: true,
         data: contracts
@@ -246,6 +251,11 @@ const contractController = {
     try {
       const { id } = req.params;
       const user = req.user;
+
+      // Представитель не может редактировать договор
+      if (user.role === 'representative') {
+        return res.status(403).json({ success: false, message: 'Представитель не может редактировать договор' });
+      }
       const contractData = req.body;
 
       // Проверяем существование и доступ
@@ -266,7 +276,20 @@ const contractController = {
         });
       }
 
-      const contract = await Contract.update(id, contractData);
+      // Состав юристов (совместный договор) могут менять только
+      // ГенДиректор, Менеджер, ОКК. Остальные (в т.ч. администратор)
+      // не могут изменить состав после регистрации.
+      const COMPOSITION_ROLES = ['director', 'manager', 'okk'];
+      const wantsCompositionChange = (contractData.is_joint !== undefined
+        || contractData.second_employee_id !== undefined);
+      if (wantsCompositionChange && !COMPOSITION_ROLES.includes(user.role)) {
+        // Запрещено менять состав — убираем эти поля, остальные правки применяем.
+        delete contractData.is_joint;
+        delete contractData.second_employee_id;
+      }
+
+      const actorName = [user.last_name, user.first_name].filter(Boolean).join(' ') || null;
+      const contract = await Contract.update(id, contractData, { id: user.id, name: actorName });
       
       res.json({
         success: true,
@@ -279,6 +302,28 @@ const contractController = {
         success: false,
         message: 'Ошибка при обновлении договора'
       });
+    }
+  },
+
+  /**
+   * Получить историю изменений договора
+   */
+  async getContractHistory(req, res) {
+    try {
+      const { id } = req.params;
+      const existing = await Contract.getById(id);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Договор не найден' });
+      }
+      const allowed = await checkOfficeAccess(req.user, existing.office_id);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещён' });
+      }
+      const history = await Contract.getHistory(id);
+      res.json({ success: true, data: history });
+    } catch (error) {
+      console.error('Error getting contract history:', error);
+      res.status(500).json({ success: false, message: 'Ошибка получения истории договора' });
     }
   },
 

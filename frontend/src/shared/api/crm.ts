@@ -155,6 +155,10 @@ export interface CrmContract {
   docs_status?: 'pending' | 'ready' | string | null;
   lawyer_full_name?: string | null;
   lawyer_short?: string | null;
+  // Совместный договор (два юриста, деление 50/50)
+  is_joint?: number | boolean | null;
+  second_employee_id?: number | null;
+  second_lawyer_full_name?: string | null;
   expert_full_name?: string | null;
   expert_short?: string | null;
   // Техническое задание (обязательно для contract_type='docs')
@@ -214,7 +218,21 @@ export const contractsApi = {
     unwrap<{ id: number }>(apiInstance.delete(`/contracts/${id}`)),
   supplement: (id: number, payload: Record<string, unknown>) =>
     unwrap<{ message: string }>(apiInstance.post(`/assignments/contract/${id}/supplement`, payload)),
+  history: (id: number) =>
+    unwrap<ContractHistoryEntry[]>(apiInstance.get(`/contracts/${id}/history`)),
 };
+
+export interface ContractHistoryEntry {
+  id: number;
+  contract_id: number;
+  user_id?: number | null;
+  user_name?: string | null;
+  action: string;
+  field?: string | null;
+  old_value?: string | null;
+  new_value?: string | null;
+  created_at: string;
+}
 
 export interface ContractAssignment {
   assignment_id: number;

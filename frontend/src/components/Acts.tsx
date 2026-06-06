@@ -14,6 +14,7 @@ import {
   InputNumber,
   Popconfirm,
   Tooltip,
+  Progress,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
@@ -112,8 +113,9 @@ const Acts: React.FC = () => {
   const [filterResp, setFilterResp] = useState<number | undefined>(undefined);
 
   const [detail, setDetail] = useState<{ open: boolean; act: CrmAct | null }>({ open: false, act: null });
-  const [editing, setEditing] = useState<{ amount: number; act_date: string; responsible_id: number | undefined; description: string }>(
-    { amount: 0, act_date: '', responsible_id: undefined, description: '' }
+  const [detailContractActs, setDetailContractActs] = useState<CrmAct[]>([]);
+  const [editing, setEditing] = useState<{ amount: number; act_date: string; description: string }>(
+    { amount: 0, act_date: '', description: '' }
   );
   const [editMode, setEditMode] = useState(false);
 
@@ -122,9 +124,11 @@ const Acts: React.FC = () => {
     contract_id: number | undefined;
     amount: number | undefined;
     act_date: Dayjs;
-    responsible_id: number | undefined;
     description: string;
-  }>({ contract_id: undefined, amount: undefined, act_date: dayjs(), responsible_id: undefined, description: '' });
+  }>({ contract_id: undefined, amount: undefined, act_date: dayjs(), description: '' });
+
+  // Contract acts for remaining calculation in create modal
+  const [contractActsForCreate, setContractActsForCreate] = useState<CrmAct[]>([]);
 
   const actsInitRef = React.useRef(true);
   const load = useCallback(async () => {
@@ -174,20 +178,18 @@ const Acts: React.FC = () => {
     [contracts, createForm.contract_id]
   );
 
-  const responsibleOptionsForCreate = useMemo(
-    () => employees.filter(isResponsibleRole),
-    [employees]
-  );
+
 
   const fmtEmployee = (e: any) => {
     const full = [e.last_name, e.first_name, e.middle_name].filter(Boolean).join(' ') || `#${e.id}`;
     return shortName(full);
   };
 
-  const responsibleLabel = 'Ответственный *';
+
 
   const openCreate = () => {
-    setCreateForm({ contract_id: undefined, amount: undefined, act_date: dayjs(), responsible_id: undefined, description: '' });
+    setCreateForm({ contract_id: undefined, amount: undefined, act_date: dayjs(), description: '' });
+    setContractActsForCreate([]);
     setCreateModal(true);
   };
 
@@ -204,15 +206,11 @@ const Acts: React.FC = () => {
       message.error('Опишите, что было сделано и за что сумма');
       return;
     }
-    if (!createForm.responsible_id) {
-      message.error('Выберите ответственного');
-      return;
-    }
+
     try {
       await actsApi.createForContract(createForm.contract_id, {
         amount: createForm.amount,
         act_date: createForm.act_date.format('YYYY-MM-DD'),
-        responsible_id: createForm.responsible_id ?? null,
         description: createForm.description || null,
       });
       message.success('Акт создан в статусе «Черновик»');
@@ -229,9 +227,10 @@ const Acts: React.FC = () => {
     setEditing({
       amount: typeof a.amount === 'string' ? parseFloat(a.amount) : (a.amount || 0),
       act_date: a.act_date,
-      responsible_id: a.responsible_id ?? undefined,
       description: a.description || '',
     });
+    // Load all acts for this contract to show remaining info
+    actsApi.listForContract(a.contract_id).then((d) => setDetailContractActs(Array.isArray(d) ? d : [])).catch(() => setDetailContractActs([]));
   };
 
   const saveEdit = async () => {
@@ -240,7 +239,6 @@ const Acts: React.FC = () => {
       await actsApi.update(detail.act.id, {
         amount: editing.amount,
         act_date: editing.act_date,
-        responsible_id: editing.responsible_id ?? null,
         description: editing.description || null,
       });
       message.success('Акт обновлён');
@@ -424,8 +422,54 @@ const Acts: React.FC = () => {
         width={620}
         destroyOnClose
       >
-        {detail.act && (
+        {detail.act && (() => {
+          const detailContract = contracts.find((c) => c.id === detail.act!.contract_id);
+          const dcAmount = parseFloat(String(detailContract?.amount || 0));
+          const dcUsed = detailContractActs.reduce((s, a) => s + (typeof a.amount === 'string' ? parseFloat(a.amount) : (a.amount || 0)), 0);
+          const dcRemain = Math.max(0, dcAmount - dcUsed);
+          const dcPct = dcAmount > 0 ? Math.min(100, Math.round((dcUsed / dcAmount) * 100)) : 0;
+          const dcFull = dcAmount > 0 && dcUsed >= dcAmount;
+          return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Execution info */}
+            {dcAmount > 0 && (
+              <div style={{
+                border: dcFull ? '1px solid #b7eb8f' : '1px solid var(--color-border)',
+                borderRadius: 8,
+                padding: 12,
+                background: dcFull ? 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)' : 'var(--color-bg-alt)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>
+                    <FileDoneOutlined style={{ marginRight: 6, color: dcFull ? '#52c41a' : '#1677ff' }} />
+                    Исполнение договора
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{dcPct}%</span>
+                </div>
+                <Progress
+                  percent={dcPct}
+                  strokeColor={dcFull ? '#52c41a' : { from: '#1677ff', to: '#69b1ff' }}
+                  trailColor="var(--color-border)"
+                  size={['100%', 8]}
+                  showInfo={false}
+                  style={{ marginBottom: 6 }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, fontSize: 12 }}>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Стоимость</div>
+                    <div style={{ fontWeight: 600 }}>{formatMoney(dcAmount)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Выполнено</div>
+                    <div style={{ fontWeight: 600, color: '#1677ff' }}>{formatMoney(dcUsed)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Остаток</div>
+                    <div style={{ fontWeight: 600, color: dcFull ? '#52c41a' : '#e74c3c' }}>{formatMoney(dcRemain)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label="Клиент">{detail.act.client_name || '—'}</Descriptions.Item>
               <Descriptions.Item label="Договор">
@@ -461,22 +505,7 @@ const Acts: React.FC = () => {
                   : <b>{formatMoney(detail.act.amount)}</b>}
               </Descriptions.Item>
               <Descriptions.Item label="Ответственный">
-                {editMode
-                  ? (
-                    <Select
-                      allowClear
-                      showSearch
-                      style={{ minWidth: 280 }}
-                      value={editing.responsible_id}
-                      onChange={(v) => setEditing((prev) => ({ ...prev, responsible_id: v }))}
-                      optionFilterProp="label"
-                      options={responsibles.map((e: any) => ({
-                        value: e.id,
-                        label: fmtEmployee(e),
-                      }))}
-                    />
-                  )
-                  : (detail.act.responsible_full_name ? shortName(detail.act.responsible_full_name) : '—')}
+                {detail.act.responsible_full_name ? shortName(detail.act.responsible_full_name) : '—'}
               </Descriptions.Item>
               <Descriptions.Item label="Статус">
                 {detail.act.status === 'confirmed'
@@ -523,7 +552,8 @@ const Acts: React.FC = () => {
               )}
             </Space>
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* Модалка создания акта */}
@@ -550,8 +580,13 @@ const Acts: React.FC = () => {
                 setCreateForm((prev) => ({
                   ...prev,
                   contract_id: v,
-                  responsible_id: c?.expert_id ?? prev.responsible_id,
                 }));
+                // Load acts for this contract to show remaining balance
+                if (v) {
+                  actsApi.listForContract(v).then((d) => setContractActsForCreate(Array.isArray(d) ? d : [])).catch(() => setContractActsForCreate([]));
+                } else {
+                  setContractActsForCreate([]);
+                }
               }}
               optionFilterProp="label"
               options={contracts.map((c) => ({
@@ -563,6 +598,57 @@ const Acts: React.FC = () => {
               Тип акта (документы / суд) подтянется из договора автоматически.
             </div>
           </div>
+          {/* Блок остатка по договору */}
+          {selectedContract && (() => {
+            const cAmount = parseFloat(String(selectedContract.amount || 0));
+            const usedAmount = contractActsForCreate.reduce((s, a) => s + (typeof a.amount === 'string' ? parseFloat(a.amount) : (a.amount || 0)), 0);
+            const remainAmount = Math.max(0, cAmount - usedAmount);
+            const pct = cAmount > 0 ? Math.min(100, Math.round((usedAmount / cAmount) * 100)) : 0;
+            const fullyDone = cAmount > 0 && usedAmount >= cAmount;
+            return cAmount > 0 ? (
+              <div style={{
+                border: fullyDone ? '1px solid #b7eb8f' : '1px solid var(--color-border)',
+                borderRadius: 8,
+                padding: 12,
+                background: fullyDone ? 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)' : 'var(--color-bg-alt)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>
+                    <FileDoneOutlined style={{ marginRight: 6, color: fullyDone ? '#52c41a' : '#1677ff' }} />
+                    Исполнение договора
+                  </span>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{pct}%</span>
+                </div>
+                <Progress
+                  percent={pct}
+                  strokeColor={fullyDone ? '#52c41a' : { from: '#1677ff', to: '#69b1ff' }}
+                  trailColor="var(--color-border)"
+                  size={['100%', 8]}
+                  showInfo={false}
+                  style={{ marginBottom: 8 }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 12 }}>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Стоимость</div>
+                    <div style={{ fontWeight: 600 }}>{formatMoney(cAmount)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Выполнено</div>
+                    <div style={{ fontWeight: 600, color: '#1677ff' }}>{formatMoney(usedAmount)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--color-muted)' }}>Доступный остаток</div>
+                    <div style={{ fontWeight: 600, color: fullyDone ? '#52c41a' : '#e74c3c' }}>{formatMoney(remainAmount)}</div>
+                  </div>
+                </div>
+                {fullyDone && (
+                  <div style={{ marginTop: 8, color: '#52c41a', fontWeight: 600, fontSize: 12, textAlign: 'center' }}>
+                    ✓ Договор исполнен полностью. Создание новых актов невозможно.
+                  </div>
+                )}
+              </div>
+            ) : null;
+          })()}
           <div>
             <label style={{ display: 'block', marginBottom: 4 }}>Сумма акта, ₽ *</label>
             <InputNumber
@@ -583,25 +669,7 @@ const Acts: React.FC = () => {
               style={{ width: '100%' }}
             />
           </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: 4 }}>{responsibleLabel}</label>
-            <Select
-              showSearch
-              style={{ width: '100%' }}
-              placeholder="Начните вводить фамилию"
-              value={createForm.responsible_id}
-              onChange={(v) => setCreateForm((prev) => ({ ...prev, responsible_id: v }))}
-              optionFilterProp="label"
-              options={responsibleOptionsForCreate.map((e: any) => ({
-                value: e.id,
-                label: fmtEmployee(e),
-              }))}
-              notFoundContent="Нет подходящих сотрудников в этом офисе"
-            />
-            <div style={{ color: 'var(--color-muted)', fontSize: 12, marginTop: 4 }}>
-              Менеджер, юристы, сотрудники ОКК, представители.
-            </div>
-          </div>
+
           <div>
             <label style={{ display: 'block', marginBottom: 4 }}>Описание *</label>
             <Input.TextArea

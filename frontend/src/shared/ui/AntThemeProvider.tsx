@@ -32,8 +32,21 @@ interface AntThemeProviderProps {
 const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
   const [mode, setMode] = useState<ThemeMode>(readInitialTheme);
 
+  const isFirstRender = React.useRef(true);
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', mode);
+    const root = document.documentElement;
+    // На самом первом рендере не анимируем — просто выставляем тему.
+    if (!isFirstRender.current) {
+      // Включаем единый плавный кросс-фейд цветов на время переключения темы,
+      // чтобы все элементы меняли цвет одновременно (без рывков/прерывистости).
+      root.classList.add('theme-transition');
+      window.clearTimeout((window as any).__themeTransitionTimer);
+      (window as any).__themeTransitionTimer = window.setTimeout(() => {
+        root.classList.remove('theme-transition');
+      }, 420);
+    }
+    isFirstRender.current = false;
+    root.setAttribute('data-theme', mode);
     localStorage.setItem('theme', mode);
   }, [mode]);
 

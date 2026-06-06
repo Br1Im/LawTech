@@ -332,7 +332,7 @@
   .office-content > div:first-child,
   .crm-page-header,
   [class*="page-header"] {
-    padding-left: 56px !important;
+    padding-left: 12px !important;
     padding-right: 12px !important;
     min-height: 48px !important;
   }
@@ -443,7 +443,7 @@
 @media (max-width: 380px) {
   .office-content > div:first-child,
   .crm-page-header {
-    padding-left: 48px !important;
+    padding-left: 12px !important;
     font-size: 14px !important;
   }
   .plan-fact-card-v2 .number,
@@ -700,8 +700,7 @@
 
 /* ─── Узкие экраны 320-360 ─── */
 @media (max-width: 360px) {
-  body { padding-left: 56px; }
-  .mobile-icon-rail { width: 56px !important; }
+  body { padding-left: 0; }
   h1 { font-size: 16px !important; }
   h2 { font-size: 14px !important; }
   .ant-card-body, .ant-modal-body { padding: 10px !important; }
@@ -739,11 +738,8 @@
 }
 
 @media (max-width: 768px){
-  /* FORCE content offset for rail */
-  .ant-layout-content { margin-left: 60px !important; width: calc(100vw - 60px) !important; max-width: calc(100vw - 60px) !important; }
-}
-@media (max-width: 360px){
-  .ant-layout-content { margin-left: 56px !important; width: calc(100vw - 56px) !important; max-width: calc(100vw - 56px) !important; }
+  /* Rail moved to BOTTOM — content full width, bottom clearance for the bar */
+  .ant-layout-content { margin-left: 0 !important; width: 100vw !important; max-width: 100vw !important; padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important; }
 }
 
 /* ─── Касса юристов: table → cards на мобиле ─── */
@@ -1286,4 +1282,188 @@
   .documents-table .action-btn.view-btn { color: var(--color-primary) !important; border-color: var(--color-primary) !important; }
   .documents-table .action-btn::before { display: none !important; }
   .documents-table .action-btn:hover { transform: none !important; }
+}
+
+/* ─── Viktor mobile polish pass (Jun 2026) ─────────────────────── */
+@media (max-width: 768px) {
+  /* Office card: status badge must never wrap into multiple lines */
+  .office-card-title-row { display:flex !important; align-items:center !important; gap:8px !important; flex-wrap:wrap !important; }
+  .office-card-title-row h3 { font-size:16px !important; margin:0 !important; line-height:1.25 !important; flex:1 1 60%; min-width:0; word-break:break-word; }
+  .office-status-badge {
+    white-space:nowrap !important; flex:none !important;
+    width:auto !important; min-width:0 !important; max-width:none !important;
+    height:auto !important; min-height:0 !important;
+    padding:3px 10px !important; border-radius:999px !important;
+    display:inline-flex !important; align-items:center !important; justify-content:center !important;
+    line-height:1.2 !important; font-size:12px !important; aspect-ratio:auto !important;
+  }
+  /* Office info rows: bold labels must not break mid-word */
+  .office-card-info p { display:flex !important; flex-wrap:wrap !important; align-items:center !important; gap:4px 6px !important; margin:6px 0 !important; }
+  .office-card-info p > svg { flex:none !important; }
+  .office-card-info p b { white-space:nowrap !important; flex:none !important; }
+  /* AntD Tabs: keep tab labels on one line (strip scrolls horizontally) */
+  .ant-tabs-tab-btn { white-space:nowrap !important; }
+}
+
+
+/* Viktor: contract creation header tidy on mobile (high specificity to beat Documents.css) */
+@media (max-width:768px){
+  .modal-overlay .contract-modal .modal-header{ flex-direction:column !important; align-items:stretch !important; gap:14px !important; padding:18px 50px 14px 16px !important; position:relative !important; }
+  .modal-overlay .contract-modal .modal-header h3{ position:static !important; text-align:left !important; font-size:17px !important; line-height:1.25 !important; white-space:normal !important; margin:0 !important; }
+  .modal-overlay .contract-modal .modal-header .auto-fill-btn{ position:static !important; transform:none !important; left:auto !important; top:auto !important; right:auto !important; width:100% !important; justify-content:center !important; margin:0 !important; order:2 !important; }
+  .modal-overlay .contract-modal .modal-header .modal-close-btn{ position:absolute !important; right:12px !important; top:12px !important; transform:none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Viktor 2026-06-04: mobile polish pass #2 (tables + tabs + overflow)
+   Appended last so it wins. Goal: ideal data tables & tab strips on phone.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Никакой случайный широкий элемент не должен ломать ширину страницы —
+     внутренние контейнеры (.ant-table-content, табы) скроллятся сами. */
+  .ant-layout-content { overflow-x: hidden !important; }
+
+  /* ── Широкие AntD-таблицы (ЗП «Расчёт», «Смены» и пр.) ──────────────
+     делаем явный, плавный горизонтальный скролл + закреплённую 1-ю колонку */
+  .ant-table-wrapper, .ant-table { max-width: 100% !important; }
+  .ant-table-content,
+  .ant-table-body {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin;
+  }
+  /* видимый тонкий скроллбар = подсказка «таблицу можно листать» */
+  .ant-table-content::-webkit-scrollbar,
+  .ant-table-body::-webkit-scrollbar { height: 5px; }
+  .ant-table-content::-webkit-scrollbar-thumb,
+  .ant-table-body::-webkit-scrollbar-thumb { background: rgba(120,130,150,0.45); border-radius: 999px; }
+
+  /* колонки держат естественную ширину, не сжимаются в кашу */
+  .ant-table table { min-width: max-content !important; }
+
+  /* закрепляем первую колонку (обычно ФИО/сотрудник) при свайпе вбок */
+  .ant-table-thead > tr > th.ant-table-cell:first-child,
+  .ant-table-tbody > tr > td.ant-table-cell:first-child {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 2 !important;
+    background: var(--color-bg-alt, #ffffff) !important;
+    box-shadow: 1px 0 0 var(--color-border, #e5e7eb);
+  }
+  .ant-table-thead > tr > th.ant-table-cell:first-child { z-index: 3 !important; }
+  [data-theme="dark"] .ant-table-thead > tr > th.ant-table-cell:first-child,
+  [data-theme="dark"] .ant-table-tbody > tr > td.ant-table-cell:first-child {
+    background: #161A22 !important;
+    box-shadow: 1px 0 0 #2a2f3d;
+  }
+
+  /* TableCard (styled) клипает — разрешаем внутренней таблице скроллиться */
+  .ant-table-wrapper { overflow: visible !important; }
+
+  /* ── Горизонтальные «таб-полоски» (кастомные сегменты в Клиентах и пр.)
+     тонкий скроллбар + инерция, чтобы вкладки листались, а не обрезались */
+  [style*="overflow-x: auto"], [style*="overflowX"] {
+    -webkit-overflow-scrolling: touch;
+  }
+  .ant-tabs-nav-wrap { overflow-x: auto !important; }
+  .ant-tabs-nav-list { flex-wrap: nowrap !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Viktor 2026-06-04: Office tab density pass #3 (убираем пустоты)
+   Appended last → wins cascade. Цель: «Касса юристов» компактные карточки
+   + плотнее карточки офисов. Сайдбар/нижнюю панель НЕ трогаем.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Касса юристов: высокая колонка → компактная карточка 2×N ── */
+  table.lawyers-table tbody tr,
+  table.lawyers-table tfoot tr {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px 10px !important;
+    padding: 12px !important;
+    margin-bottom: 10px !important;
+    align-items: stretch !important;
+    box-shadow: 0 1px 3px rgba(16,24,40,0.05) !important;
+  }
+
+  /* (1) Имя сотрудника — шапка во всю ширину */
+  table.lawyers-table tbody td:nth-child(1),
+  table.lawyers-table tfoot td:nth-child(1) {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    background: transparent !important;
+    margin: 0 0 2px 0 !important;
+    padding: 0 0 8px 0 !important;
+    border-bottom: 1px solid var(--color-border, #e5e7eb) !important;
+    border-radius: 0 !important;
+  }
+  table.lawyers-table tbody td:nth-child(1)::before,
+  table.lawyers-table tfoot td:nth-child(1)::before { display: none !important; }
+  table.lawyers-table tbody td:nth-child(1),
+  table.lawyers-table tbody td:nth-child(1) b,
+  table.lawyers-table tfoot td:nth-child(1),
+  table.lawyers-table tfoot td:nth-child(1) b {
+    font-size: 15px !important; font-weight: 700 !important; line-height: 1.25 !important;
+  }
+
+  /* (2) Роль — подзаголовок во всю ширину (тег), без подписи */
+  table.lawyers-table tbody td:nth-child(2),
+  table.lawyers-table tfoot td:nth-child(2) {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    background: transparent !important;
+    padding: 0 !important; margin: 0 0 2px 0 !important;
+  }
+  table.lawyers-table tbody td:nth-child(2)::before,
+  table.lawyers-table tfoot td:nth-child(2)::before { display: none !important; }
+
+  /* (3+) Числовые метрики → аккуратные плитки label-сверху / value-снизу */
+  table.lawyers-table tbody td:nth-child(n+3),
+  table.lawyers-table tfoot td:nth-child(n+3) {
+    display: block !important;
+    background: #F5F7FA !important;
+    border-radius: 8px !important;
+    padding: 6px 9px !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    text-align: left !important;
+    font-size: 14px !important; font-weight: 700 !important;
+    color: var(--color-text, #111827) !important;
+    line-height: 1.2 !important;
+  }
+  table.lawyers-table tbody td:nth-child(n+3)::before,
+  table.lawyers-table tfoot td:nth-child(n+3)::before {
+    display: block !important;
+    font-size: 9.5px !important; font-weight: 600 !important;
+    letter-spacing: 0.03em !important;
+    color: var(--color-text-muted, #6b7280) !important;
+    margin-bottom: 3px !important; line-height: 1.15 !important;
+  }
+  table.lawyers-table td .ant-tag { margin: 0 !important; }
+  [data-theme="dark"] table.lawyers-table tbody td:nth-child(n+3),
+  [data-theme="dark"] table.lawyers-table tfoot td:nth-child(n+3) { background: #1D2230 !important; }
+
+  /* Заголовок секции ближе к карточкам */
+  .lawyers-section .table-header,
+  .lawyers-section .table-header-v2 { margin-bottom: 8px !important; }
+
+  /* ── Карточки офисов: плотнее, меньше воздуха ── */
+  .office-cards-row { gap: 8px !important; }
+  .office-card { padding: 12px 14px !important; }
+  .office-card-header { margin-bottom: 6px !important; }
+  .office-card-info p { margin: 3px 0 !important; }
+}
+
+
+/* Viktor 2026-06-04 pass #3b: убираем фантомные отступы у sub-обёрток
+   офисной карточки ([class*="office-card"]{padding:12px} бил по всем детям). */
+@media (max-width: 768px) {
+  .office-card-header { padding: 0 !important; margin-bottom: 6px !important; }
+  .office-card-title-row { padding: 0 !important; }
+  .office-card-info { padding: 0 !important; }
+  .office-card-menu-btn {
+    padding: 6px !important; min-height: 0 !important; height: auto !important;
+    line-height: 1 !important;
+  }
 }

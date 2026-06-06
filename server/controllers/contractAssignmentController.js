@@ -69,6 +69,7 @@ const contractAssignmentController = {
       const {
         title, description, customer_goal, situation_description,
         expert_id, expert_deadline_days, legal_cost_comp, moral_comp,
+        custom_documents, circumstances,
       } = req.body;
 
       // Проверяем что договор назначен этому пользователю
@@ -92,6 +93,8 @@ const contractAssignmentController = {
       if (legal_cost_comp !== undefined) { sets.push('legal_cost_comp = ?'); params.push(legal_cost_comp); }
       if (moral_comp !== undefined) { sets.push('moral_comp = ?'); params.push(moral_comp); }
       if (req.body.document_types !== undefined) { sets.push('document_types = ?'); params.push(JSON.stringify(req.body.document_types)); }
+      if (custom_documents !== undefined) { sets.push('custom_documents = ?'); params.push(JSON.stringify(custom_documents)); }
+      if (circumstances !== undefined) { sets.push('circumstances = ?'); params.push(circumstances); }
 
       // Снимаем флаг needs_lawyer_input
       sets.push('needs_lawyer_input = 0');

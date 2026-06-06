@@ -1,5 +1,6 @@
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { resolveRollingWindow } = require('../utils/planPeriod');
 
 /**
  * Office dashboard controller
@@ -29,8 +30,11 @@ async function resolvePeriod(req) {
     return { from, to, today: todayIso, label: 'custom' };
   }
   if (period === 'plan') {
-    // Use active office plan period
+    // Use the active office plan period — but roll it forward automatically.
+    // The plan defines a recurring cycle; once a cycle ends, the next cycle of the
+    // same length becomes active. `cycle_offset` lets the UI view previous periods.
     const officeId = Number(req.params.officeId);
+    const cycleOffset = Number(req.query.cycle_offset || 0);
     if (officeId) {
       try {
         const [rows] = await db.query(
@@ -38,12 +42,21 @@ async function resolvePeriod(req) {
                   DATE_FORMAT(period_end, '%Y-%m-%d') AS period_end
            FROM office_plans
            WHERE office_id = ?
-           ORDER BY (period_start <= ? AND period_end >= ?) DESC, updated_at DESC
+           ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC
            LIMIT 1`,
-          [officeId, todayIso, todayIso]
+          [officeId, todayIso]
         );
         if (rows[0] && rows[0].period_start && rows[0].period_end) {
-          return { from: rows[0].period_start, to: rows[0].period_end, today: todayIso, label: 'plan' };
+          const win = resolveRollingWindow(rows[0].period_start, rows[0].period_end, todayIso, cycleOffset);
+          return {
+            from: win.from,
+            to: win.to,
+            today: todayIso,
+            label: 'plan',
+            cycle_index: win.cycle_index,
+            current_cycle_index: win.current_cycle_index,
+            duration_days: win.duration_days,
+          };
         }
       } catch (_) {
         // fallback below
@@ -126,7 +139,7 @@ const officeDashboardController = {
       const allowed = await assertOfficeAccess(req.user, officeId);
       if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещён' });
 
-      const { from, to, today, label } = await resolvePeriod(req);
+      const { from, to, today, label, cycle_index, current_cycle_index, duration_days } = await resolvePeriod(req);
 
       // Все 5 запросов независимы между собой — гоняем параллельно через Promise.all,
       // чтобы суммарный latency был ~max(query), а не sum(query).
@@ -157,14 +170,15 @@ const officeDashboardController = {
            WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0`,
           [today, from, to, officeId]
         ),
-        // Plan: latest record covering this period; otherwise latest record overall.
+        // Plan: the canonical recurring plan (latest already-started period). Must match
+        // the row resolvePeriod() rolls forward, so dates and amounts stay consistent.
         db.query(
           `SELECT id, daily_plan_weekday, daily_plan_weekend, period_plan_amount, period_start, period_end
            FROM office_plans
            WHERE office_id = ?
-           ORDER BY (period_start <= ? AND period_end >= ?) DESC, updated_at DESC
+           ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC
            LIMIT 1`,
-          [officeId, to, from]
+          [officeId, today]
         ),
         // Lawyers cash table — менеджеры, ОКК, юристы/адвокаты/представители, только paid_amount > 0
         db.query(
@@ -172,11 +186,11 @@ const officeDashboardController = {
              e.id,
              TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) AS full_name,
              e.position,
-             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount ELSE 0 END), 0) AS today_cash,
-             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount ELSE 0 END), 0) AS period_cash
+             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS today_cash,
+             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_cash
            FROM employees e
            LEFT JOIN users u ON u.email = e.email
-           LEFT JOIN contracts c ON c.id_employee = e.id AND c.paid_amount > 0
+           LEFT JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id)) AND c.paid_amount > 0
            WHERE e.office_id = ?
              AND (
                LOWER(e.position) LIKE '%юрист%'
@@ -191,16 +205,16 @@ const officeDashboardController = {
            ORDER BY period_cash DESC, today_cash DESC, e.last_name ASC`,
           [today, from, to, officeId]
         ),
-        // Per-employee confirmed refunds for lawyers_cash subtraction
+        // Per-employee confirmed refunds for lawyers_cash subtraction (split 50/50 for joint)
         db.query(
           `SELECT
-             c.id_employee,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
-           FROM contracts c
-           JOIN employees e ON e.id = c.id_employee
+             e.id AS id_employee,
+             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_refund,
+             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
+           FROM employees e
+           JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id))
            WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0
-           GROUP BY c.id_employee`,
+           GROUP BY e.id`,
           [today, from, to, officeId]
         ),
       ]);
@@ -217,7 +231,12 @@ const officeDashboardController = {
       return res.json({
         success: true,
         data: {
-          period: { label, from, to, today },
+          period: {
+            label, from, to, today,
+            cycle_index: cycle_index ?? null,
+            current_cycle_index: current_cycle_index ?? null,
+            duration_days: duration_days ?? null,
+          },
           fact: { day: day_fact, period: period_fact },
           plan: plan
             ? {
@@ -227,8 +246,10 @@ const officeDashboardController = {
                 day: Number(isWeekend(today) ? plan.daily_plan_weekend : plan.daily_plan_weekday),
                 day_kind: isWeekend(today) ? 'weekend' : 'weekday',
                 period: Number(plan.period_plan_amount),
-                period_start: plan.period_start,
-                period_end: plan.period_end,
+                // For the rolling 'plan' period, show the active (rolled) window dates,
+                // not the originally-stored ones.
+                period_start: label === 'plan' ? from : plan.period_start,
+                period_end: label === 'plan' ? to : plan.period_end,
               }
             : null,
           lawyers_cash: lawyersRows.map(r => {

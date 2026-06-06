@@ -194,12 +194,10 @@ body {
   }
 }
 
-/* Плавные переходы */
-* {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-duration: 0.3s;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
+/* Плавные переходы — УДАЛЁН глобальный * transition.
+   Причина: он конфликтовал с .theme-transition (index.css) при смене темы,
+   заставляя ВСЕ элементы анимироваться одновременно с разной скоростью,
+   что ломало визуал. Теперь переходы задаются точечно в компонентных CSS. */
 
 /* Отключение переходов при изменении размера окна */
 .resize-animation-stopper * {

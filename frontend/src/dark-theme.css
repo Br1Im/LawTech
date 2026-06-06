@@ -441,3 +441,714 @@
 [data-theme='dark'] .recharts-text {
   fill: #8B8FA3 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ADDITIONS — Viktor theme-switch fix (1780746646)
+   Missing dark overrides for component CSS files & inline styles.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Balance component ────────────────────────────────────────────── */
+[data-theme='dark'] .bal-wrap {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+[data-theme='dark'] .bal-kpi {
+  background: var(--color-bg) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+[data-theme='dark'] .bal-error {
+  background: rgba(239,68,68,0.15) !important;
+  border-color: #EF4444 !important;
+  color: #F87171 !important;
+}
+[data-theme='dark'] .bal-banner {
+  background: rgba(245,158,11,0.15) !important;
+  border-color: #F59E0B !important;
+  color: #FBBF24 !important;
+}
+[data-theme='dark'] .bal-add-card {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .bal-tbl-wrap {
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .bal-tbl th,
+[data-theme='dark'] .bal-tbl td {
+  color: var(--color-text) !important;
+}
+[data-theme='dark'] .bal-grp-row th {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .bal-sub-row th {
+  background: var(--color-bg-alt) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .bal-row {
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .bal-row:hover,
+[data-theme='dark'] .bal-row--open {
+  background: var(--color-bg) !important;
+}
+[data-theme='dark'] .bal-foot td {
+  border-color: var(--color-border) !important;
+  background: var(--color-bg) !important;
+}
+[data-theme='dark'] .bal-detail-row td {
+  background: var(--color-bg-alt) !important;
+}
+[data-theme='dark'] .bal-item-pm {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* ── Experts component ────────────────────────────────────────────── */
+[data-theme='dark'] .experts-container {
+  background: transparent !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .expert-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .expert-card:hover {
+  background: #1D2230 !important;
+}
+
+/* ── Lawyers component ────────────────────────────────────────────── */
+[data-theme='dark'] .lawyers-container {
+  background: transparent !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .lawyer-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .lawyer-card:hover {
+  background: #1D2230 !important;
+}
+
+/* ── Reception component ──────────────────────────────────────────── */
+[data-theme='dark'] .reception-container {
+  background: transparent !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .reception-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+
+/* ── Expenses component ───────────────────────────────────────────── */
+[data-theme='dark'] .expenses-container {
+  background: transparent !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .expense-item,
+[data-theme='dark'] .expense-form {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+
+/* ── StatCard component ───────────────────────────────────────────── */
+[data-theme='dark'] .stat-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+[data-theme='dark'] .stat-card:hover {
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+  border-color: rgba(124,92,255,0.3) !important;
+}
+[data-theme='dark'] .stat-card-title {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .stat-card-value {
+  color: #E6E8EF !important;
+}
+
+/* ── AITools component ────────────────────────────────────────────── */
+[data-theme='dark'] .ai-tools-container,
+[data-theme='dark'] .ai-tools-wrapper {
+  background: transparent !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .ai-tool-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF;
+}
+[data-theme='dark'] .ai-tool-card:hover {
+  background: #1D2230 !important;
+}
+
+/* ── Strengthened inline-style catch-alls ──────────────────────────
+   React may render background as rgb() or hex; cover more patterns. */
+[data-theme='dark'] [style*="background: white"],
+[data-theme='dark'] [style*="background:white"],
+[data-theme='dark'] [style*="background-color: white"],
+[data-theme='dark'] [style*="backgroundColor: white"] {
+  background-color: #161A22 !important;
+}
+
+[data-theme='dark'] [style*="background: rgb(255"],
+[data-theme='dark'] [style*="background-color: rgb(255"],
+[data-theme='dark'] [style*="background: rgb(250"],
+[data-theme='dark'] [style*="background: rgb(245"],
+[data-theme='dark'] [style*="background: rgb(243"],
+[data-theme='dark'] [style*="background: rgb(249"],
+[data-theme='dark'] [style*="background: rgb(248"] {
+  background-color: #161A22 !important;
+}
+
+/* Light-mode inline bg colors (status pills, badges) — tone down for dark */
+[data-theme='dark'] [style*="background: rgb(240, 253"],
+[data-theme='dark'] [style*="background: #F0FDF4"] {
+  background-color: rgba(34,197,94,0.15) !important;
+}
+[data-theme='dark'] [style*="background: rgb(255, 247"],
+[data-theme='dark'] [style*="background: #FFF7ED"] {
+  background-color: rgba(245,158,11,0.15) !important;
+}
+[data-theme='dark'] [style*="background: rgb(254, 243"],
+[data-theme='dark'] [style*="background: #fef3c7"],
+[data-theme='dark'] [style*="background: #FEF3C7"] {
+  background-color: rgba(245,158,11,0.15) !important;
+}
+[data-theme='dark'] [style*="background: rgb(239, 246"],
+[data-theme='dark'] [style*="background: #EFF6FF"],
+[data-theme='dark'] [style*="background: #e6f4ff"] {
+  background-color: rgba(124,92,255,0.12) !important;
+}
+
+/* Inline text color overrides for dark */
+[data-theme='dark'] [style*="color: rgb(55, 65"],
+[data-theme='dark'] [style*="color: #374151"],
+[data-theme='dark'] [style*="color: rgb(17, 24"],
+[data-theme='dark'] [style*="color: #111827"] {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] [style*="color: #92400e"],
+[data-theme='dark'] [style*="color: rgb(146, 64"] {
+  color: #FBBF24 !important;
+}
+
+/* ── Ant Design additional overrides (commonly missed) ────────────── */
+[data-theme='dark'] .ant-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-card-head {
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-card-body {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-divider {
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-empty-description {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-spin-text {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-modal-content {
+  background: #161A22 !important;
+}
+[data-theme='dark'] .ant-modal-header {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-modal-title {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-modal-close-x {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-form-item-label > label {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-picker {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-picker-input > input {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-picker-suffix,
+[data-theme='dark'] .ant-picker-clear {
+  color: #5A5E72 !important;
+}
+[data-theme='dark'] .ant-select-selector {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-select-selection-item {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-select-arrow {
+  color: #5A5E72 !important;
+}
+[data-theme='dark'] .ant-pagination-item {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-pagination-item a {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-pagination-item-active {
+  background: rgba(124,92,255,0.16) !important;
+  border-color: #7C5CFF !important;
+}
+[data-theme='dark'] .ant-pagination-item-active a {
+  color: #7C5CFF !important;
+}
+[data-theme='dark'] .ant-pagination-prev .ant-pagination-item-link,
+[data-theme='dark'] .ant-pagination-next .ant-pagination-item-link {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #8B8FA3 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPREHENSIVE DARK OVERRIDES v2 — Viktor 1780747183
+   Covers ALL component CSS files that lack dark-mode support.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Appointments (hardcoded light colors) ─────────────────────────── */
+[data-theme='dark'] .apt-container { background: #0F1116 !important; }
+[data-theme='dark'] .apt-container input[type="text"],
+[data-theme='dark'] .apt-container input[type="tel"],
+[data-theme='dark'] .apt-container input[type="date"],
+[data-theme='dark'] .apt-container input[type="time"],
+[data-theme='dark'] .apt-container select,
+[data-theme='dark'] .apt-container textarea {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── Expenses component (var-based but needs shadow fix) ───────────── */
+[data-theme='dark'] .expenses-wrap {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .exp-kpi {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .exp-error {
+  background: rgba(255,76,76,0.15) !important;
+  color: #ff6b6b !important;
+}
+[data-theme='dark'] .exp-add-card {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-tbl-wrap {
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-grp-row th {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-sub-row th {
+  background: var(--color-bg-alt) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-row {
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-row:hover {
+  background: var(--color-bg) !important;
+}
+[data-theme='dark'] .exp-foot td {
+  border-color: var(--color-border) !important;
+  background: var(--color-bg) !important;
+}
+[data-theme='dark'] .exp-detail-row td {
+  background: var(--color-bg-alt) !important;
+}
+[data-theme='dark'] .exp-item-pm {
+  background: var(--color-bg) !important;
+  border-color: var(--color-border) !important;
+}
+[data-theme='dark'] .exp-btn-del {
+  color: #ff6b6b !important;
+}
+
+/* ── Experts component ────────────────────────────────────────────── */
+[data-theme='dark'] .experts-container {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .contract-item {
+  background: var(--color-bg) !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.25) !important;
+}
+[data-theme='dark'] .contract-item:hover {
+  box-shadow: 0 8px 15px rgba(0,0,0,0.35) !important;
+}
+[data-theme='dark'] .upload-document {
+  background: var(--color-bg-alt) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* ── Lawyers component ────────────────────────────────────────────── */
+[data-theme='dark'] .lawyers-content {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .filters {
+  background-color: var(--color-bg) !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+}
+[data-theme='dark'] .employee-card {
+  background-color: var(--color-bg) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .employee-card:hover {
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3) !important;
+  border-color: var(--color-accent) !important;
+}
+[data-theme='dark'] .employee-modal-overlay {
+  background-color: rgba(0,0,0,0.7) !important;
+}
+[data-theme='dark'] .modal-content-box {
+  background: var(--color-bg) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+}
+[data-theme='dark'] .stat-block {
+  background: var(--color-bg-alt) !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .stat-value {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .stat-label {
+  color: #8B8FA3 !important;
+}
+
+/* ── Materials component ──────────────────────────────────────────── */
+[data-theme='dark'] .materials-container {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .case-item {
+  background: var(--color-bg) !important;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.25) !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .case-item:hover {
+  box-shadow: 0 8px 15px rgba(0,0,0,0.35) !important;
+  border-color: var(--color-accent) !important;
+}
+[data-theme='dark'] .modal-content {
+  background: var(--color-bg) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important;
+}
+[data-theme='dark'] .modal-content input,
+[data-theme='dark'] .modal-content textarea,
+[data-theme='dark'] .modal-content select {
+  background: var(--color-bg-alt) !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .tech-task-status {
+  background: var(--color-bg) !important;
+}
+[data-theme='dark'] .file-list-item {
+  background: var(--color-bg-alt) !important;
+  border-color: #2A2F3D !important;
+}
+
+/* ── Reception / Chat component ───────────────────────────────────── */
+[data-theme='dark'] .reception-container {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .office-list {
+  background: var(--color-bg) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+}
+[data-theme='dark'] .office-item {
+  background: var(--color-bg-alt) !important;
+}
+[data-theme='dark'] .office-item:hover {
+  background: var(--color-accent-light) !important;
+}
+[data-theme='dark'] .chat-section {
+  background: var(--color-bg) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25) !important;
+}
+[data-theme='dark'] .channel-tab {
+  border-color: #2A2F3D !important;
+  background: var(--color-bg-alt) !important;
+}
+[data-theme='dark'] .channel-tab:hover {
+  border-color: var(--color-accent) !important;
+}
+[data-theme='dark'] .chat-header {
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .message-content {
+  background: var(--color-bg-alt) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+}
+[data-theme='dark'] .message.mine .message-content {
+  background: linear-gradient(135deg, var(--color-accent) 0%, #8B6CC1 100%) !important;
+}
+[data-theme='dark'] .chat-form {
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .chat-form input {
+  background: var(--color-bg-alt) !important;
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+
+/* ── StatCard ─────────────────────────────────────────────────────── */
+[data-theme='dark'] .stat-card {
+  background: #161A22 !important;
+  border-color: #2A2F3D !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+[data-theme='dark'] .stat-card:hover {
+  box-shadow: 0 12px 30px rgba(0,0,0,0.35) !important;
+  border-color: rgba(124,92,255,0.3) !important;
+}
+[data-theme='dark'] .stat-card-title {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .stat-card-value {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .description {
+  color: #8B8FA3 !important;
+}
+
+/* ── Scan component ───────────────────────────────────────────────── */
+[data-theme='dark'] .scanner-overlay {
+  background-color: rgba(0,0,0,0.8) !important;
+}
+[data-theme='dark'] .scanner-container {
+  background-color: var(--color-bg) !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .scanner-header {
+  background-color: var(--color-bg-alt) !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .canvas-wrap canvas {
+  border-color: var(--color-accent) !important;
+  background: #1D2230 !important;
+}
+
+/* ── App.css overrides ────────────────────────────────────────────── */
+[data-theme='dark'] .read-the-docs {
+  color: #8B8FA3 !important;
+}
+
+/* ── ThemeToggle ──────────────────────────────────────────────────── */
+[data-theme='dark'] .theme-toggle-button {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .theme-toggle-button:hover {
+  border-color: #7C5CFF !important;
+  background: #252A3A !important;
+}
+
+/* ── Global catch-alls for remaining inline styles ─────────────────
+   These cover React inline styles with hardcoded light-mode colors
+   that we couldn't convert to CSS variables. */
+
+/* White backgrounds — covers #fff, #ffffff, rgb(255,255,255), white */
+[data-theme='dark'] [style*="background: #fff"],
+[data-theme='dark'] [style*="background:#fff"],
+[data-theme='dark'] [style*="background: #FFF"],
+[data-theme='dark'] [style*="background:#FFF"],
+[data-theme='dark'] [style*="background: white"],
+[data-theme='dark'] [style*="background:white"],
+[data-theme='dark'] [style*="background-color: #fff"],
+[data-theme='dark'] [style*="background-color: white"],
+[data-theme='dark'] [style*="background-color: rgb(255, 255, 255)"],
+[data-theme='dark'] [style*="background: rgb(255, 255, 255)"] {
+  background: var(--color-bg) !important;
+  background-color: var(--color-bg) !important;
+}
+
+/* Near-white backgrounds */
+[data-theme='dark'] [style*="background: #F3F4F6"],
+[data-theme='dark'] [style*="background: #f3f4f6"],
+[data-theme='dark'] [style*="background: #F9FAFB"],
+[data-theme='dark'] [style*="background: #f9fafb"],
+[data-theme='dark'] [style*="background: #F8FAFC"],
+[data-theme='dark'] [style*="background: #f8fafc"],
+[data-theme='dark'] [style*="background-color: #f9fafb"],
+[data-theme='dark'] [style*="background-color: #F3F4F6"] {
+  background: var(--color-bg-alt) !important;
+  background-color: var(--color-bg-alt) !important;
+}
+
+/* Dark text on light bg → light text */
+[data-theme='dark'] [style*="color: #374151"],
+[data-theme='dark'] [style*="color: #1F2937"],
+[data-theme='dark'] [style*="color: #111827"],
+[data-theme='dark'] [style*="color: #333"],
+[data-theme='dark'] [style*="color: rgb(55, 65, 81)"],
+[data-theme='dark'] [style*="color: rgb(31, 41, 55)"],
+[data-theme='dark'] [style*="color: rgb(17, 24, 39)"] {
+  color: #E6E8EF !important;
+}
+
+/* Muted text adjustments */
+[data-theme='dark'] [style*="color: #6B7280"],
+[data-theme='dark'] [style*="color: #6b7280"],
+[data-theme='dark'] [style*="color: #9CA3AF"],
+[data-theme='dark'] [style*="color: #9ca3af"],
+[data-theme='dark'] [style*="color: #64748b"],
+[data-theme='dark'] [style*="color: #888"],
+[data-theme='dark'] [style*="color: rgb(107, 114, 128)"] {
+  color: #8B8FA3 !important;
+}
+
+/* Light border overrides */
+[data-theme='dark'] [style*="border: 1px solid #d1d5db"],
+[data-theme='dark'] [style*="border: 1px solid #D1D5DB"],
+[data-theme='dark'] [style*="border: 1px solid #E5E7EB"],
+[data-theme='dark'] [style*="border: 1px solid #e5e7eb"],
+[data-theme='dark'] [style*="border-color: #d1d5db"],
+[data-theme='dark'] [style*="border-color: #D1D5DB"],
+[data-theme='dark'] [style*="border-color: #E5E7EB"] {
+  border-color: #2A2F3D !important;
+}
+
+/* Status badge backgrounds (keep hue, darken bg) */
+[data-theme='dark'] [style*="background: #F0FDF4"],
+[data-theme='dark'] [style*="background: #f0fdf4"],
+[data-theme='dark'] [style*="background: #D1FAE5"],
+[data-theme='dark'] [style*="background: #d1fae5"] {
+  background: rgba(34,197,94,0.15) !important;
+}
+[data-theme='dark'] [style*="background: #FFF7ED"],
+[data-theme='dark'] [style*="background: #fff7ed"],
+[data-theme='dark'] [style*="background: #FEF3C7"],
+[data-theme='dark'] [style*="background: #fef3c7"] {
+  background: rgba(245,158,11,0.15) !important;
+}
+[data-theme='dark'] [style*="background: #FEE2E2"],
+[data-theme='dark'] [style*="background: #fee2e2"] {
+  background: rgba(239,68,68,0.15) !important;
+}
+[data-theme='dark'] [style*="background: #DBEAFE"],
+[data-theme='dark'] [style*="background: #dbeafe"],
+[data-theme='dark'] [style*="background: #EFF6FF"],
+[data-theme='dark'] [style*="background: #eff6ff"],
+[data-theme='dark'] [style*="background: #e6f4ff"] {
+  background: rgba(59,130,246,0.15) !important;
+}
+[data-theme='dark'] [style*="background: #EDE9FE"],
+[data-theme='dark'] [style*="background: #ede9fe"] {
+  background: rgba(124,92,255,0.15) !important;
+}
+[data-theme='dark'] [style*="background: #F3F4F6"][style*="color: #6B7280"] {
+  background: rgba(107,114,128,0.12) !important;
+  color: #8B8FA3 !important;
+}
+
+/* ── Ant Design dropdowns/popups (rendered outside main tree) ──── */
+[data-theme='dark'] .ant-dropdown-menu {
+  background: #1D2230 !important;
+  border: 1px solid #2A2F3D !important;
+}
+[data-theme='dark'] .ant-dropdown-menu-item {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-dropdown-menu-item:hover {
+  background: #252A3A !important;
+}
+[data-theme='dark'] .ant-tooltip-inner {
+  background: #252A3A !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-popover-inner {
+  background: #1D2230 !important;
+}
+[data-theme='dark'] .ant-popover-inner-content {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-message-notice-content {
+  background: #1D2230 !important;
+  color: #E6E8EF !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3) !important;
+}
+[data-theme='dark'] .ant-notification-notice {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-notification-notice-message {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-notification-notice-description {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-picker-dropdown {
+  background: transparent !important;
+}
+[data-theme='dark'] .ant-picker-panel-container {
+  background: #1D2230 !important;
+  border: 1px solid #2A2F3D !important;
+}
+[data-theme='dark'] .ant-picker-panel {
+  background: #1D2230 !important;
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-picker-header {
+  border-color: #2A2F3D !important;
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-picker-header button {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-picker-header button:hover {
+  color: #7C5CFF !important;
+}
+[data-theme='dark'] .ant-picker-body th {
+  color: #5A5E72 !important;
+}
+[data-theme='dark'] .ant-picker-cell {
+  color: #8B8FA3 !important;
+}
+[data-theme='dark'] .ant-picker-cell:hover .ant-picker-cell-inner {
+  background: #252A3A !important;
+}
+[data-theme='dark'] .ant-picker-cell-selected .ant-picker-cell-inner {
+  background: #7C5CFF !important;
+  color: #fff !important;
+}
+[data-theme='dark'] .ant-picker-cell-today .ant-picker-cell-inner::before {
+  border-color: #7C5CFF !important;
+}
+[data-theme='dark'] .ant-picker-footer {
+  border-color: #2A2F3D !important;
+}
+[data-theme='dark'] .ant-select-dropdown {
+  background: #1D2230 !important;
+  border: 1px solid #2A2F3D !important;
+}
+[data-theme='dark'] .ant-select-item {
+  color: #E6E8EF !important;
+}
+[data-theme='dark'] .ant-select-item-option-active {
+  background: #252A3A !important;
+}
+[data-theme='dark'] .ant-select-item-option-selected {
+  background: rgba(124,92,255,0.16) !important;
+}

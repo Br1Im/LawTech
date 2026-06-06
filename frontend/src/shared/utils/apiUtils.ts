@@ -42,6 +42,18 @@ export const getFileUrl = (filePath: string): string => {
 };
 
 /**
+ * Добавляет JWT-токен к URL для авторизованного доступа к файлам
+ * Используется для <img src>, <a href> и других прямых обращений к /uploads/
+ */
+export const getAuthenticatedUrl = (url: string): string => {
+  if (!url) return url;
+  const token = localStorage.getItem('token');
+  if (!token) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+};
+
+/**
  * Создает заголовки для авторизованного запроса
  * @returns Объект с заголовками, включая Authorization если есть токен
  */

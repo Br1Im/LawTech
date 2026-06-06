@@ -113,14 +113,15 @@ const getSummary = async (req, res) => {
 // ─── POST /api/expenses ───
 const createExpense = async (req, res) => {
   try {
-    const { office_id, category, amount, title, description, spent_on, expense_type } = req.body;
+    const { office_id, category, amount, title, description, spent_on, expense_type, payment_method } = req.body;
     if (!office_id || !title || amount === undefined) {
       return bad(res, 400, 'Обязательные поля: office_id, title, amount');
     }
+    const pm = ['cash', 'noncash', 'bank'].includes(payment_method) ? payment_method : 'cash';
 
     const [result] = await db.query(
-      `INSERT INTO expenses (office_id, category, amount, expense_type, is_auto, title, description, spent_on, created_by)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+      `INSERT INTO expenses (office_id, category, amount, expense_type, is_auto, title, description, spent_on, created_by, payment_method)
+       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
       [
         office_id,
         category || 'Прочее',
@@ -130,6 +131,7 @@ const createExpense = async (req, res) => {
         description || null,
         spent_on || new Date().toISOString().slice(0, 10),
         req.user.id || null,
+        pm,
       ]
     );
 
@@ -144,7 +146,7 @@ const createExpense = async (req, res) => {
 const updateExpense = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { category, amount, title, description, spent_on, expense_type } = req.body;
+    const { category, amount, title, description, spent_on, expense_type, payment_method } = req.body;
 
     const updates = [];
     const params = [];
@@ -154,6 +156,7 @@ const updateExpense = async (req, res) => {
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
     if (spent_on !== undefined) { updates.push('spent_on = ?'); params.push(spent_on); }
     if (expense_type !== undefined) { updates.push('expense_type = ?'); params.push(expense_type); }
+    if (payment_method !== undefined && ['cash', 'noncash', 'bank'].includes(payment_method)) { updates.push('payment_method = ?'); params.push(payment_method); }
 
     if (!updates.length) return bad(res, 400, 'Нет полей для обновления');
 

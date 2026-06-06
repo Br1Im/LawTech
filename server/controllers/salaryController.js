@@ -400,12 +400,61 @@ const calculate = async (req, res) => {
     const actParams = [officeId];
     if (dateFrom) { actWhere.push('a.act_date >= ?'); actParams.push(dateFrom); }
     if (dateTo) { actWhere.push('a.act_date <= ?'); actParams.push(dateTo); }
+    // Совместные договоры: акт, ответственным по которому указан один из двух юристов
+    // договора, делится 50/50 по СУММЕ между обоими юристами; КОЛИЧЕСТВО учитывается
+    // полностью каждому. Прочие акты (в т.ч. экспертные) — как раньше, по responsible_id.
+    const actCond = actWhere.join(' AND ');
     const [actRows] = await db.query(
-      `SELECT a.responsible_id, a.type, COUNT(*) AS cnt, COALESCE(SUM(a.amount), 0) AS sum_amount
-         FROM acts a
-        WHERE ${actWhere.join(' AND ')}
-        GROUP BY a.responsible_id, a.type`,
-      actParams
+      `SELECT emp_id AS responsible_id, type, SUM(cnt_unit) AS cnt, COALESCE(SUM(amt), 0) AS sum_amount
+         FROM (
+           /* 1. Все акты → ответственному (кроме совместных договоров, где ответственный — один из юристов) */
+           SELECT a.responsible_id AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount AS amt
+             FROM acts a
+             LEFT JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND a.responsible_id IS NOT NULL
+              AND NOT (c.is_joint = 1 AND a.responsible_id IN (c.id_employee, c.second_employee_id))
+           UNION ALL
+           /* 2. Совместные договоры, ответственный = один из юристов → юрист 1 получает 50% */
+           SELECT c.id_employee AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount * 0.5 AS amt
+             FROM acts a
+             JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND c.is_joint = 1 AND c.id_employee IS NOT NULL
+              AND a.responsible_id IN (c.id_employee, c.second_employee_id)
+           UNION ALL
+           /* 3. Совместные договоры, ответственный = один из юристов → юрист 2 получает 50% */
+           SELECT c.second_employee_id AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount * 0.5 AS amt
+             FROM acts a
+             JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND c.is_joint = 1 AND c.second_employee_id IS NOT NULL
+              AND a.responsible_id IN (c.id_employee, c.second_employee_id)
+           UNION ALL
+           /* 4. НЕ совместный договор, ответственный НЕ юрист → юрист договора тоже получает зп */
+           SELECT c.id_employee AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount AS amt
+             FROM acts a
+             JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND c.id_employee IS NOT NULL
+              AND (c.is_joint = 0 OR c.is_joint IS NULL)
+              AND a.responsible_id IS NOT NULL
+              AND a.responsible_id != c.id_employee
+           UNION ALL
+           /* 5. Совместный договор, ответственный НЕ один из юристов → юрист 1 получает 50% */
+           SELECT c.id_employee AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount * 0.5 AS amt
+             FROM acts a
+             JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND c.is_joint = 1 AND c.id_employee IS NOT NULL
+              AND a.responsible_id IS NOT NULL
+              AND a.responsible_id NOT IN (c.id_employee, COALESCE(c.second_employee_id, -1))
+           UNION ALL
+           /* 6. Совместный договор, ответственный НЕ один из юристов → юрист 2 получает 50% */
+           SELECT c.second_employee_id AS emp_id, a.type AS type, 1 AS cnt_unit, a.amount * 0.5 AS amt
+             FROM acts a
+             JOIN contracts c ON c.id = a.contract_id
+            WHERE ${actCond} AND c.is_joint = 1 AND c.second_employee_id IS NOT NULL
+              AND a.responsible_id IS NOT NULL
+              AND a.responsible_id NOT IN (COALESCE(c.id_employee, -1), c.second_employee_id)
+         ) t
+        GROUP BY emp_id, type`,
+      [...actParams, ...actParams, ...actParams, ...actParams, ...actParams, ...actParams]
     );
     const actsByResp = new Map();
     for (const r of actRows) {

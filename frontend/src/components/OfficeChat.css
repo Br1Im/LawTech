@@ -510,21 +510,23 @@
 
 /* Bubble */
 .tg-bubble {
-  padding: 8px 12px;
+  padding: 9px 14px;
   max-width: 100%;
   word-break: break-word;
 }
 
+/* Variant 2 — soft fully-rounded bubbles (both light & dark themes) */
 .tg-msg.mine .tg-bubble {
-  background: #1E40AF;
+  background: linear-gradient(135deg, #7C5CFF, #5B7CFF);
   color: #fff;
-  border-radius: 12px 12px 4px 12px;
+  border-radius: 18px;
 }
 
 .tg-msg.other .tg-bubble {
   background: #F3F4F6;
   color: #111827;
-  border-radius: 12px 12px 12px 4px;
+  border: 1px solid #E5E7EB;
+  border-radius: 18px;
 }
 
 .tg-msg.error .tg-bubble {
@@ -702,8 +704,12 @@
 [data-theme="dark"] .tg-channel-item { border-color: #2A2F3D; }
 [data-theme="dark"] .tg-channel-item:hover { background: #1D2230; }
 [data-theme="dark"] .tg-channel-item.active { background: rgba(124,92,255,0.08); border-color: #7C5CFF; }
-[data-theme="dark"] .tg-msg { background: #1D2230; }
-[data-theme="dark"] .tg-msg.own { background: rgba(124,92,255,0.15); }
+/* fix: background belongs on the bubble, not the row (.tg-msg is the flex
+   avatar+bubble row with no border-radius → painting it made square boxes) */
+[data-theme="dark"] .tg-msg { background: transparent; }
+/* mine bubble keeps the gradient from the base rule in dark theme too */
+[data-theme="dark"] .tg-msg.mine .tg-msg-time,
+[data-theme="dark"] .tg-msg.mine .msg-status { color: rgba(255,255,255,0.75); }
 [data-theme="dark"] .tg-input-area { background: #161A22; border-color: #2A2F3D; }
 [data-theme="dark"] .tg-input { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
 [data-theme="dark"] .tg-participants-panel { background: #161A22; border-color: #2A2F3D; }
@@ -727,7 +733,7 @@
 [data-theme="dark"] .tg-participants-close:hover { background: #2A2F3D; color: #E6E8EF; }
 [data-theme="dark"] .tg-participant-name { color: #E6E8EF; }
 [data-theme="dark"] .tg-search-close:hover { color: #E6E8EF; }
-[data-theme="dark"] .tg-msg.other .tg-bubble { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
+[data-theme="dark"] .tg-msg.other .tg-bubble { background: #191E2A; color: #E6E8EF; border-color: #2A2F3D; }
 [data-theme="dark"] .tg-textarea { background: #1D2230; color: #E6E8EF; border-color: #2A2F3D; }
 [data-theme="dark"] .tg-textarea:focus { border-color: #7C5CFF; }
 [data-theme="dark"] .tg-sidebar-icon-btn { color: #8B8FA3; }

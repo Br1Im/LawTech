@@ -40,6 +40,7 @@ import {
   type ShiftRecord,
 } from '../shared/api/crm';
 import useAuth from '../shared/lib/hooks/useAuth';
+import { useIsMobile } from '../shared/lib/useIsMobile';
 
 const Page = styled.div`
   display: flex;
@@ -66,6 +67,30 @@ const TableCard = styled.div`
   overflow: hidden;
   .ant-table-thead > tr > th { background: transparent !important; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
   .ant-table-tbody > tr > td { background: transparent !important; }
+`;
+
+const SalaryCards = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  .salary-m-card {
+    border-radius: var(--radius-md);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .sm-name { font-weight: 700; font-size: 15px; }
+  .sm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+  .sm-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .sm-cell.sm-total { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--glass-border); }
+  .sm-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-muted); }
+  .sm-val { font-size: 15px; font-weight: 600; }
+  .sm-total .sm-val { font-size: 19px; font-weight: 800; }
 `;
 
 const StatRow = styled.div`
@@ -118,6 +143,7 @@ const Salary: React.FC = () => {
   const isDirector = ['director', 'admin', 'owner'].includes(String(user?.role || '').toLowerCase());
   const isManagerOrAbove = ['director', 'admin', 'owner', 'manager'].includes(String(user?.role || '').toLowerCase());
   const isLawyer = String(user?.role || '').toLowerCase() === 'lawyer';
+  const isMobile = useIsMobile();
 
   const [period, setPeriod] = useState<PeriodKey>('custom');
   const [customRange, setCustomRange] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
@@ -449,7 +475,67 @@ const Salary: React.FC = () => {
           {
             key: 'payroll',
             label: <span><CalculatorOutlined /> Расчёт</span>,
-            children: (
+            children: isMobile ? (
+              loading ? (
+                <div style={{ textAlign: 'center', padding: 24, color: 'var(--color-muted)' }}>Загрузка…</div>
+              ) : visibleRows.length === 0 ? (
+                <Empty description="Нет сотрудников или акт за период" />
+              ) : (
+                <SalaryCards>
+                  {visibleRows.map((r) => (
+                    <div className="salary-m-card" key={r.employee_id}>
+                      <div className="sm-head">
+                        <span className="sm-name">{shortName(r.full_name)}</span>
+                        <Space size={4}>
+                          <Tag color={ROLE_TAG_COLORS[r.role || ''] || 'default'}>{r.role_label}</Tag>
+                          {r.external ? <Tag color="default">внешний</Tag> : null}
+                        </Space>
+                      </div>
+                      <div className="sm-grid">
+                        <div className="sm-cell">
+                          <span className="sm-lbl">Оклад</span>
+                          <span className="sm-val">{formatMoney(r.base_salary)}</span>
+                        </div>
+                        <div className="sm-cell">
+                          <span className="sm-lbl">Процент</span>
+                          <span className="sm-val">
+                            {r.bonus_breakdown && r.bonus_breakdown.length > 0 ? (
+                              <Popover
+                                title="Расчёт процента"
+                                content={
+                                  <ul style={{ paddingLeft: 16, margin: 0 }}>
+                                    {r.bonus_breakdown.map((b, i) => (
+                                      <li key={i}>{b.label}: <b>{formatMoney(b.value)}</b></li>
+                                    ))}
+                                  </ul>
+                                }
+                              >
+                                <span style={{ borderBottom: '1px dashed #aaa', cursor: 'help' }}>{formatMoney(r.bonus)}</span>
+                              </Popover>
+                            ) : (
+                              formatMoney(r.bonus)
+                            )}
+                          </span>
+                        </div>
+                        <div className="sm-cell sm-total">
+                          <span className="sm-lbl">Итого ЗП</span>
+                          <span className="sm-val">{formatMoney(r.total)}</span>
+                        </div>
+                      </div>
+                      <Button
+                        block
+                        size="small"
+                        icon={<EditOutlined />}
+                        disabled={!isManagerOrAbove}
+                        onClick={() => openSalaryEditor(r)}
+                      >
+                        Настроить
+                      </Button>
+                    </div>
+                  ))}
+                </SalaryCards>
+              )
+            ) : (
               <TableCard>
                 <Table<SalaryRow>
                   rowKey="employee_id"

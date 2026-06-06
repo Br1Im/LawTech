@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { getAuthenticatedUrl } from '../shared/utils/apiUtils';
 import { Table, Tag, Button, Modal, Select, message, Drawer, Descriptions, List, Typography, Space, Tabs } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import { useAuth } from '../shared/lib/hooks/useAuth';
@@ -473,7 +474,7 @@ const Cases: React.FC = () => {
                 renderItem={(m) => (
                   <List.Item
                     actions={m.file_url ? [
-                      <a key="open" href={m.file_url} target="_blank" rel="noreferrer">Открыть</a>
+                      <a key="open" href={getAuthenticatedUrl(m.file_url || "")} target="_blank" rel="noreferrer">Открыть</a>
                     ] : []}
                   >
                     <List.Item.Meta

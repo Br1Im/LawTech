@@ -109,6 +109,8 @@ interface OperatorStats {
 interface StatsPeriod {
   from: string;
   to: string;
+  cycle_index?: number | null;
+  current_cycle_index?: number | null;
 }
 
 interface OfficeOption {
@@ -220,6 +222,9 @@ const CallCenter: React.FC = () => {
   const [operators, setOperators] = useState<Operator[]>([]);
   const [operatorStats, setOperatorStats] = useState<OperatorStats[]>([]);
   const [statsPeriod, setStatsPeriod] = useState<StatsPeriod | null>(null);
+  // Смещение периода офиса для статистики (0 = текущий, -1 = предыдущий).
+  const [statsCycleOffset, setStatsCycleOffset] = useState<number>(0);
+  const statsCycleOffsetRef = React.useRef<number>(0);
   const [activeMainTab, setActiveMainTab] = useState<'leads' | 'stats'>('leads');
   const [sources, setSources] = useState<SourceSummary[]>([]);
   const [enums, setEnums] = useState<CcEnums | null>(null);
@@ -295,10 +300,12 @@ const CallCenter: React.FC = () => {
   const fetchOperatorStats = async (dateFrom?: string, dateTo?: string) => {
     if (!isManager) return;
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string | number> = {};
       if (dateFrom && dateTo) {
         params.date_from = dateFrom;
         params.date_to = dateTo;
+      } else if (statsCycleOffsetRef.current !== 0) {
+        params.cycle_offset = statsCycleOffsetRef.current;
       }
       const response = await apiInstance.get('/call-center/stats/operators', { params });
       setOperatorStats(response.data.data as OperatorStats[]);
@@ -965,9 +972,9 @@ const CallCenter: React.FC = () => {
               <button
                 className="cc-btn cc-btn-consult"
                 onClick={() => handleQuickStatus('BOOKED')}
-                disabled={submitting || selectedLead.status === 'BOOKED'}
+                disabled={submitting}
               >
-                Записать на консультацию
+                {selectedLead.status === 'BOOKED' ? 'Перезаписать на консультацию' : 'Записать на консультацию'}
               </button>
             </div>
           </div>
@@ -977,12 +984,35 @@ const CallCenter: React.FC = () => {
       {/* ── OPERATOR STATS TABLE ── */}
       {showStatsTab && activeMainTab === 'stats' && (
         <div className="cc-stats-section">
-          <div className="cc-stats-period-info">
-            {statsPeriod && (
-              <span className="cc-stats-period-label">
-                Период: {new Date(statsPeriod.from).toLocaleDateString('ru-RU')} — {new Date(statsPeriod.to).toLocaleDateString('ru-RU')}
-              </span>
-            )}
+          <div className="cc-stats-period-info" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+            {(() => {
+              const cIdx = statsPeriod?.cycle_index ?? null;
+              const curIdx = statsPeriod?.current_cycle_index ?? null;
+              const atCurrent = cIdx == null || curIdx == null ? statsCycleOffset >= 0 : cIdx >= curIdx;
+              const canPrev = cIdx == null ? true : cIdx > 0;
+              const go = (next: number) => { statsCycleOffsetRef.current = next; setStatsCycleOffset(next); fetchOperatorStats(); };
+              const nb = (en: boolean): React.CSSProperties => ({
+                padding: '4px 10px', fontSize: 13, borderRadius: 8, border: '1px solid var(--color-border)',
+                background: 'var(--color-bg)', color: en ? 'var(--color-text)' : 'var(--color-muted)', cursor: en ? 'pointer' : 'not-allowed', fontWeight: 500,
+              });
+              return (
+                <>
+                  <button onClick={() => { if (canPrev) go(curIdx != null ? Math.max(-curIdx, statsCycleOffset - 1) : statsCycleOffset - 1); }}
+                    disabled={!canPrev} style={nb(canPrev)} title="Предыдущий период">‹ Пред. период</button>
+                  {statsPeriod && (
+                    <span className="cc-stats-period-label">
+                      Период: {new Date(statsPeriod.from).toLocaleDateString('ru-RU')} — {new Date(statsPeriod.to).toLocaleDateString('ru-RU')}
+                      {!atCurrent && <span style={{ color: '#64748b' }}> (прошлый)</span>}
+                    </span>
+                  )}
+                  <button onClick={() => { if (!atCurrent) go(Math.min(0, statsCycleOffset + 1)); }}
+                    disabled={atCurrent} style={nb(!atCurrent)} title="Следующий период">След. период ›</button>
+                  {!atCurrent && (
+                    <button onClick={() => go(0)} style={nb(true)} title="К текущему периоду">Текущий</button>
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div className="cc-table-wrap">
             <table className="cc-table cc-stats-table">

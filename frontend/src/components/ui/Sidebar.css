@@ -6,7 +6,7 @@
   position: fixed;
   left: 0; top: 0;
   height: 100vh;
-  width: 240px;
+  width: 191px;
   background: #FAFAFA;
   border-right: 1px solid #E5E7EB;
   display: flex;
@@ -90,8 +90,8 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   margin-bottom: 2px;
   border: none;
   border-radius: 8px;
@@ -324,7 +324,7 @@
 
 /* ── RESPONSIVE ──────────────────────────── */
 @media (max-width: 1024px) and (min-width: 769px) {
-  .sidebar { width: 220px; }
+  .sidebar { width: 173px; }
   .sidebar.collapsed { width: 64px; }
 }
 
@@ -332,7 +332,7 @@
 @media (max-width: 480px) { .sidebar { display: none; } }
 
 @media (min-width: 1440px) {
-  .sidebar { width: 260px; }
+  .sidebar { width: 209px; }
   .sidebar.collapsed { width: 72px; }
 }
 
@@ -340,3 +340,6 @@
   .sidebar-item { padding: 12px; min-height: 44px; }
   .collapse-button { width: 36px; height: 36px; }
 }
+
+/* theme toggle in footer (Viktor) */
+.sidebar-theme-toggle { margin-bottom: 4px; }

@@ -248,7 +248,10 @@ const officeController = {
         return res.status(404).json({ success: false, message: 'Офис не найден' });
       }
 
-      const allowed = await isOfficeOwner(req.user, officeId);
+      // Редактировать офис (название/адрес) может владелец офиса, а также любой
+      // директор/owner — как и при создании офиса (createOffice разрешён директорам).
+      const userRole = String(req.user?.role || '').toLowerCase();
+      const allowed = userRole === 'director' || userRole === 'owner' || await isOfficeOwner(req.user, officeId);
       if (!allowed) {
         return res.status(403).json({ success: false, message: 'Доступ запрещён' });
       }

@@ -14,14 +14,16 @@ import {
   FaUserFriends,
   FaClock,
   FaUser,
-  FaCog,
   FaSignOutAlt,
   FaComments,
   FaExchangeAlt,
+  FaSun,
+  FaMoon,
 } from 'react-icons/fa';
 
 import './MobileSidebar.css';
 import { buildApiUrl, getAuthHeaders } from '../../shared/utils/apiUtils';
+import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   user
 }) => {
   const navigate = useNavigate();
+  const { mode, toggle } = useThemeMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [offices, setOffices] = useState<{id: number; name: string}[]>([]);
@@ -91,7 +94,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
-      expenses: { key: 'Расходы', icon: <FaMoneyBillWave />, label: 'Расходы' },
+      expenses: { key: 'Баланс', icon: <FaMoneyBillWave />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <FaUserTie />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
@@ -146,11 +149,6 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
   const handleProfileClick = () => {
     setIsUserMenuOpen(!isUserMenuOpen);
-  };
-
-  const handleSettingsClick = () => {
-    navigate('/settings');
-    onClose();
   };
 
   const handleLogout = () => {
@@ -227,13 +225,18 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
 
         <div className="mobile-sidebar-footer">
           <button
-            className="mobile-sidebar-item"
-            onClick={handleSettingsClick}
+            className="mobile-sidebar-item mobile-sidebar-theme-toggle"
+            onClick={toggle}
+            aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
           >
-            <span className="mobile-sidebar-icon"><FaCog /></span>
-            <span className="mobile-sidebar-label">Настройки</span>
+            <span className="mobile-sidebar-icon">
+              {mode === 'dark' ? <FaSun /> : <FaMoon />}
+            </span>
+            <span className="mobile-sidebar-label">
+              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            </span>
           </button>
-          
+
           <div className="mobile-sidebar-user-menu" ref={userMenuRef}>
             <button
               className="mobile-sidebar-item mobile-sidebar-profile"

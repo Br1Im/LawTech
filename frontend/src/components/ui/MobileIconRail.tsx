@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, Users, Calendar, Wallet, MessageSquare, Settings, Menu, Receipt, BarChart3, ClipboardList, FileText, Building2, PhoneCall } from 'lucide-react';
+import { Briefcase, Users, Calendar, Wallet, MessageSquare, Receipt, BarChart3, ClipboardList, FileText, Building2, PhoneCall } from 'lucide-react';
 import './MobileIconRail.css';
 
 interface NavItem { key: string; icon: React.ReactNode; label: string; }
@@ -14,7 +14,7 @@ const allItems: Record<string, NavItem> = {
   cases: { key: 'Мои дела', icon: <ClipboardList size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Дела' },
   employees: { key: 'Сотрудники', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Кадры' },
   salary: { key: 'Зарплата', icon: <BarChart3 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'ЗП' },
-  expenses: { key: 'Расходы', icon: <Receipt size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Расходы' },
+  expenses: { key: 'Баланс', icon: <Receipt size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Баланс' },
   cashRegister: { key: 'Касса', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Касса' },
   chat: { key: 'Чат', icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Чат' },
   callcenter: { key: 'Колл-центр', icon: <PhoneCall size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'КЦ' },
@@ -49,10 +49,6 @@ const MobileIconRail: React.FC<Props> = ({ userRole, activeTab, onTabClick, onMo
   const items = itemsByRole(userRole);
   return (
     <aside className="mobile-icon-rail" role="navigation" aria-label="Главное меню">
-      <button className="rail-btn rail-burger" onClick={onMoreClick} aria-label="Открыть меню">
-        <Menu size={ICON_SIZE} strokeWidth={ICON_STROKE} />
-      </button>
-      <div className="rail-divider" />
       {items.map(it => (
         <button
           key={it.key}
@@ -65,11 +61,6 @@ const MobileIconRail: React.FC<Props> = ({ userRole, activeTab, onTabClick, onMo
           <span className="rail-label">{it.label}</span>
         </button>
       ))}
-      <div className="rail-spacer" />
-      <button className="rail-btn" onClick={() => onTabClick('Настройки')} aria-label="Настройки">
-        <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />
-        <span className="rail-label">Опции</span>
-      </button>
     </aside>
   );
 };

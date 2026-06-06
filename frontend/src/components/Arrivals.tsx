@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { Table, Select, Button, Space, App, Input, Tabs } from 'antd';
+import { Table, Select, Button, Space, App, Input, Tabs, DatePicker } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled, LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ru';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import AdminContractRegister from './AdminContractRegister';
+import './Appointments.css';
+
+dayjs.locale('ru');
 
 /* ─── styled (Scandinavian minimal, matching Salary) ─── */
 
@@ -117,6 +122,9 @@ interface PrimaryVisit {
   contract_signed_by: number | null;
   assigned_lawyer_id: number | null;
   assigned_lawyer_name: string | null;
+  assigned_lawyer_id_2: number | null;
+  assigned_lawyer_name_2: string | null;
+  arrived_at: string | null;
   created_at: string;
   linked_contract_id: number | null;
   linked_contract_type: 'docs' | 'court_rep' | null;
@@ -153,6 +161,16 @@ const fmtDT = (d: string) => {
   try { return new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   catch { return d; }
 };
+// Фактическое время прихода (когда нажали «Пришёл»); fallback — время записи.
+const fmtArrivedTime = (arrivedAt: string | null, scheduled: string) => {
+  if (arrivedAt) {
+    try { return new Date(arrivedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+    catch { /* fallthrough */ }
+  }
+  return fmtTime(scheduled);
+};
+// День из даты/датавремени в формате YYYY-MM-DD (как в «Записях»).
+const toDayKey = (d: string) => { try { return new Date(d).toISOString().slice(0, 10); } catch { return (d || '').slice(0, 10); } };
 
 /* ─── component ─── */
 
@@ -161,8 +179,12 @@ const Arrivals: React.FC = () => {
   const { message } = App.useApp();
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const canSetResult = ['director', 'manager', 'okk'].includes(user?.role || '') || isAdmin;
+  // Назначать юриста(ов) могут только Директор / Менеджер / ОКК (НЕ администратор)
+  const canAssignLawyer = ['director', 'manager', 'okk'].includes(user?.role || '');
 
   const [tab, setTab] = useState('primary');
+  const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [calOpen, setCalOpen] = useState(false);
   const [primaryVisits, setPrimaryVisits] = useState<PrimaryVisit[]>([]);
   const [existingVisits, setExistingVisits] = useState<ExistingVisit[]>([]);
   const [stats, setStats] = useState<VisitsStats | null>(null);
@@ -204,12 +226,17 @@ const Arrivals: React.FC = () => {
     } catch { message.error('Не удалось обновить результат'); }
   };
 
-  const handleAssignLawyer = async (id: number, lawyerId: number | null) => {
+  const handleAssignLawyers = async (id: number, lawyerIds: number[]) => {
     try {
-      await apiInstance.patch(`/appointments/${id}/assign-lawyer`, { assigned_lawyer_id: lawyerId });
-      message.success('Сотрудник назначен');
+      await apiInstance.patch(`/appointments/${id}/assign-lawyer`, {
+        assigned_lawyer_id: lawyerIds[0] ?? null,
+        assigned_lawyer_id_2: lawyerIds[1] ?? null,
+      });
+      message.success('Сотрудник(и) назначен(ы)');
       fetchPrimary();
-    } catch { message.error('Не удалось назначить сотрудника'); }
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось назначить сотрудника');
+    }
   };
 
   const handleAddExisting = async () => {
@@ -224,29 +251,86 @@ const Arrivals: React.FC = () => {
     finally { setSubmitting(false); }
   };
 
+  /* ─── разграничение по дням (как во вкладке «Записи») ─── */
+  const todayStr = dayjs().format('YYYY-MM-DD');
+  const selectedDayKey = selectedDate.format('YYYY-MM-DD');
+  const primaryByDay = useMemo(
+    () => primaryVisits.filter(v => toDayKey(v.appointment_date) === selectedDayKey),
+    [primaryVisits, selectedDayKey]
+  );
+  const existingByDay = useMemo(
+    () => existingVisits.filter(v => toDayKey(v.visited_at) === selectedDayKey),
+    [existingVisits, selectedDayKey]
+  );
+
+  const DateNav = (
+    <div className="apt-date-nav">
+      <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.subtract(1, 'day'))} title="Предыдущий день">
+        <LeftOutlined />
+      </button>
+      <span className="apt-date-current" onClick={() => setSelectedDate(dayjs())} title="Вернуться к сегодня">
+        {selectedDayKey === todayStr ? `Сегодня, ${selectedDate.format('D MMM')}` : selectedDate.format('D MMMM, dd')}
+      </span>
+      <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.add(1, 'day'))} title="Следующий день">
+        <RightOutlined />
+      </button>
+      <div style={{ position: 'relative', display: 'inline-block' }}>
+        <button className="apt-cal-btn" onClick={() => setCalOpen(v => !v)} title="Выбрать дату">
+          <CalendarOutlined />
+        </button>
+        <DatePicker
+          value={selectedDate}
+          onChange={d => { if (d) { setSelectedDate(d); setCalOpen(false); } }}
+          open={calOpen}
+          onOpenChange={setCalOpen}
+          allowClear={false}
+          style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
+        />
+      </div>
+    </div>
+  );
+
   /* ─── primary table columns ─── */
   const primaryCols: ColumnsType<PrimaryVisit> = [
     { title: 'ФИО', dataIndex: 'client_name', key: 'name', render: (v: string) => <strong>{v}</strong> },
     { title: 'Телефон', dataIndex: 'client_phone', key: 'phone', width: 140 },
     { title: 'Дата', dataIndex: 'appointment_date', key: 'date', width: 110, render: (v: string) => fmtDate(v) },
-    { title: 'Время', dataIndex: 'appointment_time', key: 'time', width: 70, render: (v: string) => fmtTime(v) },
+    { title: 'Время', key: 'time', width: 80, render: (_: unknown, row: PrimaryVisit) => fmtArrivedTime(row.arrived_at, row.appointment_time) },
     { title: 'Кто записал', dataIndex: 'operator_name', key: 'op', width: 150, render: (v: string) => v || '—' },
     {
-      title: 'Сотрудник на консультации', key: 'lawyer', width: 200,
-      render: (_: unknown, row: PrimaryVisit) =>
-        canSetResult ? (
-          <Select
-            size="small"
-            style={{ width: '100%' }}
-            placeholder="Не назначен"
-            allowClear
-            value={row.assigned_lawyer_id || undefined}
-            onChange={(val: number | undefined) => handleAssignLawyer(row.id, val ?? null)}
-            options={employees.map(e => ({ value: e.id, label: e.name }))}
-          />
-        ) : (
-          <span>{row.assigned_lawyer_name || '—'}</span>
-        ),
+      title: 'Сотрудник на консультации', key: 'lawyer', width: 240,
+      render: (_: unknown, row: PrimaryVisit) => {
+        // labelInValue: подпись берётся из значения (имя приходит с бэкенда),
+        // поэтому имя сотрудника показывается даже если он не входит в список опций
+        // (например, переведён в другой офис).
+        const assignedItems = [
+          row.assigned_lawyer_id ? { value: row.assigned_lawyer_id, label: row.assigned_lawyer_name || `#${row.assigned_lawyer_id}` } : null,
+          row.assigned_lawyer_id_2 ? { value: row.assigned_lawyer_id_2, label: row.assigned_lawyer_name_2 || `#${row.assigned_lawyer_id_2}` } : null,
+        ].filter((x): x is { value: number; label: string } => x !== null);
+        if (canAssignLawyer) {
+          return (
+            <Select
+              size="small"
+              mode="multiple"
+              labelInValue
+              optionFilterProp="label"
+              style={{ width: '100%' }}
+              placeholder="Не назначен"
+              allowClear
+              maxTagCount="responsive"
+              value={assignedItems}
+              onChange={(items: { value: number; label: string }[]) => {
+                // не более 2 юристов одновременно
+                const next = items.map(i => i.value).slice(-2);
+                handleAssignLawyers(row.id, next);
+              }}
+              options={employees.map(e => ({ value: e.id, label: e.name }))}
+            />
+          );
+        }
+        const names = [row.assigned_lawyer_name, row.assigned_lawyer_name_2].filter(Boolean);
+        return <span>{names.length ? names.join(', ') : '—'}</span>;
+      },
     },
     {
       title: 'Результат консультации', key: 'result', width: 180,
@@ -356,10 +440,13 @@ const Arrivals: React.FC = () => {
         activeKey={tab}
         onChange={setTab}
         items={[
-          { key: 'primary', label: `Первичные (${primaryVisits.length})` },
-          { key: 'existing', label: `Действующие клиенты (${existingVisits.length})` },
+          { key: 'primary', label: `Первичные (${primaryByDay.length})` },
+          { key: 'existing', label: `Действующие клиенты (${existingByDay.length})` },
         ]}
         />
+
+      {/* ─── Разграничение по дням (как во вкладке «Записи») ─── */}
+      {DateNav}
 
       {/* ─── Primary ─── */}
       {tab === 'primary' && (
@@ -368,7 +455,7 @@ const Arrivals: React.FC = () => {
             <TableSkeleton rows={6} cols={primaryCols.length} />
           ) : (
             <Table<PrimaryVisit>
-              dataSource={primaryVisits}
+              dataSource={primaryByDay}
               columns={primaryCols}
               rowKey="id"
               size="small"
@@ -377,8 +464,8 @@ const Arrivals: React.FC = () => {
               locale={{
                 emptyText: (
                   <EmptyState
-                    title="Нет первичных приходов"
-                    description="Первичные клиенты появятся здесь после регистрации визита."
+                    title="Нет первичных приходов за этот день"
+                    description="Выберите другой день стрелками или календарём выше."
                   />
                 ),
               }}
@@ -427,7 +514,7 @@ const Arrivals: React.FC = () => {
               <TableSkeleton rows={5} cols={existingCols.length} />
             ) : (
               <Table<ExistingVisit>
-                dataSource={existingVisits}
+                dataSource={existingByDay}
                 columns={existingCols}
                 rowKey="id"
                 size="small"
@@ -436,8 +523,8 @@ const Arrivals: React.FC = () => {
                 locale={{
                   emptyText: (
                     <EmptyState
-                      title="Нет приходов действующих клиентов"
-                      description="Добавьте приход действующего клиента кнопкой выше."
+                      title="Нет приходов действующих клиентов за этот день"
+                      description="Добавьте приход кнопкой выше или выберите другой день."
                     />
                   ),
                 }}
@@ -459,6 +546,9 @@ const Arrivals: React.FC = () => {
           client_phone: registerAppointment.client_phone,
           comment: registerAppointment.comment,
           assigned_lawyer_id: registerAppointment.assigned_lawyer_id,
+          assigned_lawyer_id_2: registerAppointment.assigned_lawyer_id_2,
+          assigned_lawyer_name: registerAppointment.assigned_lawyer_name,
+          assigned_lawyer_name_2: registerAppointment.assigned_lawyer_name_2,
         } : null}
       />
     </Page>

@@ -65,7 +65,7 @@ interface Office {
 type PeriodType = "plan" | "day" | "yesterday" | "week" | "2weeks" | "month" | "custom";
 
 interface DashboardData {
-  period: { label: string; from: string; to: string; today: string };
+  period: { label: string; from: string; to: string; today: string; cycle_index?: number | null; current_cycle_index?: number | null; duration_days?: number | null };
   fact: { day: number; period: number };
   plan: {
     id: number;
@@ -186,6 +186,8 @@ const Office = () => {
   const [selectedLawyerId, setSelectedLawyerId] = useState<string | null>(null);
   const [contracts, setContracts] = useState<Array<{ id: number; id_employee: number; status: string; title: string; amount?: number | string }>>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  // Смещение периода офиса для просмотра предыдущих периодов (0 = текущий, -1 = предыдущий).
+  const [planCycleOffset, setPlanCycleOffset] = useState<number>(0);
   const [customFrom, setCustomFrom] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() - 13); return d.toISOString().slice(0, 10);
   });
@@ -426,6 +428,9 @@ const Office = () => {
           params.set('from', customFrom);
           params.set('to', customTo);
         }
+        if (period === 'plan' && planCycleOffset !== 0) {
+          params.set('cycle_offset', String(planCycleOffset));
+        }
         const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
           headers: getAuthHeaders(),
         });
@@ -441,7 +446,7 @@ const Office = () => {
       }
     };
     fetchDashboard();
-  }, [selectedOffice?.id, period, customFrom, customTo]);
+  }, [selectedOffice?.id, period, customFrom, customTo, planCycleOffset]);
 
   const isCcRole = ['cc_manager', 'cc_operator'].includes(userRole);
 
@@ -462,27 +467,58 @@ const Office = () => {
     role: string;
     is_online: boolean;
     total_leads: number;
+    booked_leads: number;
     arrived_leads: number;
     brak_leads: number;
-    active_leads: number;
+    booking_rate: number;
     arrival_rate: number;
     brak_rate: number;
   }
   const [ccOperatorStats, setCcOperatorStats] = useState<CcOperatorStat[]>([]);
+  // Период для статистики операторов КЦ. Пусто = период офиса (план ГД).
+  const isCcManager = userRole === 'cc_manager';
+  const [ccStatsFrom, setCcStatsFrom] = useState<string>('');
+  const [ccStatsTo, setCcStatsTo] = useState<string>('');
+  const [ccStatsPreset, setCcStatsPreset] = useState<string>('office');
+  const [ccStatsPeriod, setCcStatsPeriod] = useState<{ from: string; to: string; cycle_index?: number | null; current_cycle_index?: number | null } | null>(null);
+  // Смещение периода офиса для статистики КЦ (0 = текущий, -1 = предыдущий).
+  const [ccCycleOffset, setCcCycleOffset] = useState<number>(0);
+
+  const applyCcStatsPreset = (preset: string) => {
+    const toYmd = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const today = new Date();
+    setCcStatsPreset(preset);
+    setCcCycleOffset(0);
+    if (preset === 'office') { setCcStatsFrom(''); setCcStatsTo(''); return; }
+    if (preset === 'today') { const t = toYmd(today); setCcStatsFrom(t); setCcStatsTo(t); return; }
+    if (preset === 'week') { const f = new Date(today); f.setDate(f.getDate() - 6); setCcStatsFrom(toYmd(f)); setCcStatsTo(toYmd(today)); return; }
+    if (preset === 'month') { const f = new Date(today); f.setDate(f.getDate() - 29); setCcStatsFrom(toYmd(f)); setCcStatsTo(toYmd(today)); return; }
+    if (preset === 'thisMonth') { const f = new Date(today.getFullYear(), today.getMonth(), 1); setCcStatsFrom(toYmd(f)); setCcStatsTo(toYmd(today)); return; }
+    // 'custom' — даты выставляются вручную через инпуты
+  };
 
   useEffect(() => {
     if (!isCcRole) return;
     const fetchCcStats = async () => {
       try {
-        const res = await apiInstance.get('/call-center/stats/operators');
+        const params: Record<string, string | number> = (ccStatsFrom && ccStatsTo)
+          ? { date_from: ccStatsFrom, date_to: ccStatsTo }
+          : (ccCycleOffset !== 0 ? { cycle_offset: ccCycleOffset } : {});
+        const res = await apiInstance.get('/call-center/stats/operators', { params });
         const allOps = (res.data?.data || []) as CcOperatorStat[];
         setCcOperatorStats(allOps.filter((o: CcOperatorStat) => ['cc_manager', 'cc_operator'].includes(o.role)));
+        if (res.data?.period) setCcStatsPeriod(res.data.period);
       } catch (e) { /* ignore */ }
     };
     fetchCcStats();
     const iv = setInterval(fetchCcStats, 15000);
     return () => clearInterval(iv);
-  }, [isCcRole]);
+  }, [isCcRole, ccStatsFrom, ccStatsTo, ccCycleOffset]);
 
   const openPlanEditor = () => {
     setPlanError(null);
@@ -621,6 +657,7 @@ const Office = () => {
         console.error('Ошибка при переключении офиса:', e);
       }
     }
+    setPlanCycleOffset(0);
     setSelectedOffice(office);
   };
 
@@ -815,11 +852,7 @@ const Office = () => {
     if (selectedOffice) {
       form.setFieldsValue({
         officeName: selectedOffice.title,
-        officeAddress: selectedOffice.address,
-        contactPhone: selectedOffice.work_phone || '',
-        work_phone2: selectedOffice.work_phone2 || '',
-        inn: selectedOffice.inn || '',
-        ogrn: selectedOffice.ogrn || ''
+        officeAddress: selectedOffice.address
       });
       setIsEditModalVisible(true);
     }
@@ -838,7 +871,8 @@ const Office = () => {
         method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({
-          ...values
+          name: values.officeName,
+          address: values.officeAddress || ''
         })
       });
 
@@ -855,11 +889,7 @@ const Office = () => {
           ...selectedOffice,
           title: values.officeName,
           address: values.officeAddress || '',
-          description: values.officeAddress || 'Адрес не указан',
-          inn: values.inn || '',
-          ogrn: values.ogrn || '',
-          work_phone: values.contactPhone || '',
-          work_phone2: values.work_phone2 || ''
+          description: values.officeAddress || 'Адрес не указан'
         };
 
         setSelectedOffice(updatedOffice);
@@ -1082,6 +1112,23 @@ const Office = () => {
           : '';
         const planId = dashboard?.plan?.id ? `#${dashboard.plan.id}` : '';
 
+        const cycIdx = dashboard?.period?.cycle_index ?? null;
+        const curIdx = dashboard?.period?.current_cycle_index ?? null;
+        const periodWindowLabel = dashboard?.period?.from && dashboard?.period?.to
+          ? `${new Date(dashboard.period.from).toLocaleDateString('ru-RU')} – ${new Date(dashboard.period.to).toLocaleDateString('ru-RU')}`
+          : periodLabel;
+        const isCurrentCycle = cycIdx == null || curIdx == null ? planCycleOffset >= 0 : cycIdx >= curIdx;
+        const canGoPrev = cycIdx == null ? true : cycIdx > 0;
+        const navBtnStyle = (enabled: boolean): React.CSSProperties => ({
+          padding: '5px 12px', fontSize: 13, borderRadius: 8,
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-bg-alt)',
+          color: enabled ? 'var(--color-text)' : 'var(--color-muted)',
+          cursor: enabled ? 'pointer' : 'not-allowed', fontWeight: 500,
+          opacity: enabled ? 1 : 0.6,
+          transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
+        });
+
         return (
           <div className="plan-fact-block">
             <div className="plan-fact-header">
@@ -1090,6 +1137,27 @@ const Office = () => {
                 <button className="plan-edit-btn-v2" onClick={openPlanEditor}>
                   <FaEdit style={{ fontSize: 13 }} /> Изменить план
                 </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: '0 0 12px' }}>
+              <button
+                onClick={() => { if (canGoPrev) setPlanCycleOffset(o => (curIdx != null ? Math.max(-curIdx, o - 1) : o - 1)); }}
+                disabled={!canGoPrev}
+                style={navBtnStyle(canGoPrev)}
+                title="Предыдущий период"
+              >‹ Пред. период</button>
+              <span style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 600 }}>
+                {periodWindowLabel}
+                {!isCurrentCycle && <span style={{ color: 'var(--color-muted)', fontWeight: 400 }}> (прошлый период)</span>}
+              </span>
+              <button
+                onClick={() => { if (!isCurrentCycle) setPlanCycleOffset(o => Math.min(0, o + 1)); }}
+                disabled={isCurrentCycle}
+                style={navBtnStyle(!isCurrentCycle)}
+                title="Следующий период"
+              >След. период ›</button>
+              {!isCurrentCycle && (
+                <button onClick={() => setPlanCycleOffset(0)} style={navBtnStyle(true)} title="К текущему периоду">Текущий</button>
               )}
             </div>
             <div className="plan-fact-grid-v2">
@@ -1121,54 +1189,111 @@ const Office = () => {
       {/* ── CC: Статистика операторов КЦ ── */}
       {isCcRole && (
         <div className="lawyers-section">
-          <div className="table-header">
+          <div className="plan-fact-header">
             <h4 className="section-title">Статистика операторов колл-центра</h4>
           </div>
+          {(() => {
+            const cIdx = ccStatsPeriod?.cycle_index ?? null;
+            const curIdx = ccStatsPeriod?.current_cycle_index ?? null;
+            const atCurrent = cIdx == null || curIdx == null ? ccCycleOffset >= 0 : cIdx >= curIdx;
+            const canPrev = cIdx == null ? true : cIdx > 0;
+            const periodWindowLabel = ccStatsPeriod
+              ? `${new Date(ccStatsPeriod.from).toLocaleDateString('ru-RU')} – ${new Date(ccStatsPeriod.to).toLocaleDateString('ru-RU')}`
+              : '';
+            const navBtnStyle = (enabled: boolean): React.CSSProperties => ({
+              padding: '5px 12px', fontSize: 13, borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg-alt)',
+              color: enabled ? 'var(--color-text)' : 'var(--color-muted)',
+              cursor: enabled ? 'pointer' : 'not-allowed', fontWeight: 500,
+              opacity: enabled ? 1 : 0.6,
+              transition: 'background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease',
+            });
+            return (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: '0 0 12px' }}>
+                <button
+                  onClick={() => { if (canPrev) setCcCycleOffset(o => (curIdx != null ? Math.max(-curIdx, o - 1) : o - 1)); }}
+                  disabled={!canPrev}
+                  style={navBtnStyle(canPrev)}
+                  title="Предыдущий период"
+                >‹ Пред. период</button>
+                <span style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 600 }}>
+                  {periodWindowLabel}
+                  {!atCurrent && <span style={{ color: 'var(--color-muted)', fontWeight: 400 }}> (прошлый период)</span>}
+                </span>
+                <button
+                  onClick={() => { if (!atCurrent) setCcCycleOffset(o => Math.min(0, o + 1)); }}
+                  disabled={atCurrent}
+                  style={navBtnStyle(!atCurrent)}
+                  title="Следующий период"
+                >След. период ›</button>
+                {!atCurrent && (
+                  <button onClick={() => setCcCycleOffset(0)} style={navBtnStyle(true)} title="К текущему периоду">Текущий</button>
+                )}
+              </div>
+            );
+          })()}
           <div className="lawyers-table-scroll">
             <table className="employee-stats-table lawyers-table">
               <thead>
                 <tr>
                   <th>Оператор</th>
                   <th className="num">Всего лидов</th>
-                  <th className="num">Активных</th>
                   <th className="num">Записано</th>
                   <th className="num">% записи</th>
+                  <th className="num">Пришло</th>
+                  <th className="num">% прихода</th>
                   <th className="num">Брак</th>
                   <th className="num">% брака</th>
                 </tr>
               </thead>
               <tbody>
-                {ccOperatorStats.length > 0 ? ccOperatorStats.map(op => (
+                {ccOperatorStats.length > 0 ? ccOperatorStats.map(op => {
+                  const bookingRate = op.total_leads > 0 ? Math.round(op.booked_leads / op.total_leads * 100) : 0;
+                  const arrivalRate = op.booked_leads > 0 ? Math.round(op.arrived_leads / op.booked_leads * 100) : 0;
+                  const brakRate = op.total_leads > 0 ? Math.round(op.brak_leads / op.total_leads * 100) : 0;
+                  return (
                   <tr key={op.id}>
                     <td><b>{op.name || op.email}</b></td>
                     <td className="num">{op.total_leads}</td>
-                    <td className="num">{op.active_leads}</td>
+                    <td className="num">{op.booked_leads}</td>
+                    <td className="num">{bookingRate}%</td>
                     <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{op.arrived_leads}</td>
-                    <td className="num">{op.arrival_rate}%</td>
+                    <td className="num" style={{ color: '#138a5d', fontWeight: 700 }}>{arrivalRate}%</td>
                     <td className="num" style={{ color: '#c0392b' }}>{op.brak_leads}</td>
-                    <td className="num">{op.brak_rate}%</td>
+                    <td className="num">{brakRate}%</td>
                   </tr>
-                )) : (
+                  );
+                }) : (
                   <tr>
-                    <td colSpan={7} className="no-data">Нет данных по операторам</td>
+                    <td colSpan={8} className="no-data">Нет данных по операторам</td>
                   </tr>
                 )}
               </tbody>
               {ccOperatorStats.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td><b>Итого</b></td>
-                    <td></td>
-                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.total_leads, 0)}</b></td>
-                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.active_leads, 0)}</b></td>
-                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.arrived_leads, 0)}</b></td>
-                    <td className="num"><b>{(() => {
-                      const total = ccOperatorStats.reduce((s, o) => s + o.total_leads, 0);
-                      const booked = ccOperatorStats.reduce((s, o) => s + o.arrived_leads, 0);
-                      return total > 0 ? Math.round(booked / total * 100) : 0;
-                    })()}%</b></td>
-                    <td className="num"><b>{ccOperatorStats.reduce((s, o) => s + o.brak_leads, 0)}</b></td>
-                    <td></td>
+                    {(() => {
+                      const totalLeads = ccOperatorStats.reduce((s, o) => s + o.total_leads, 0);
+                      const totalBooked = ccOperatorStats.reduce((s, o) => s + o.booked_leads, 0);
+                      const totalArrived = ccOperatorStats.reduce((s, o) => s + o.arrived_leads, 0);
+                      const totalBrak = ccOperatorStats.reduce((s, o) => s + o.brak_leads, 0);
+                      const bookingPct = totalLeads > 0 ? Math.round(totalBooked / totalLeads * 100) : 0;
+                      const arrivalPct = totalBooked > 0 ? Math.round(totalArrived / totalBooked * 100) : 0;
+                      const brakPct = totalLeads > 0 ? Math.round(totalBrak / totalLeads * 100) : 0;
+                      return (
+                        <>
+                          <td><b>Итого</b></td>
+                          <td className="num"><b>{totalLeads}</b></td>
+                          <td className="num"><b>{totalBooked}</b></td>
+                          <td className="num"><b>{bookingPct}%</b></td>
+                          <td className="num" style={{ color: '#138a5d' }}><b>{totalArrived}</b></td>
+                          <td className="num" style={{ color: '#138a5d' }}><b>{arrivalPct}%</b></td>
+                          <td className="num" style={{ color: '#c0392b' }}><b>{totalBrak}</b></td>
+                          <td className="num"><b>{brakPct}%</b></td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 </tfoot>
               )}
@@ -1298,65 +1423,12 @@ const Office = () => {
           >
             <Input placeholder="Введите название офиса" />
           </Form.Item>
-          
-          <div style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d9d9d9', borderRadius: '6px', backgroundColor: '#fafafa' }}>
-            <h4 style={{ margin: '0 0 16px 0', color: '#1890ff' }}>ИП (Индивидуальный предприниматель)</h4>
-            <Form.Item
-              name="ipSurname"
-              label="Фамилия"
-              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
-            >
-              <Input placeholder="Введите фамилию" />
-            </Form.Item>
-            <Form.Item
-              name="ipName"
-              label="Имя"
-              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
-            >
-              <Input placeholder="Введите имя" />
-            </Form.Item>
-            <Form.Item
-              name="ipMiddleName"
-              label="Отчество"
-            >
-              <Input placeholder="Введите отчество" />
-            </Form.Item>
-          </div>
-          
-          <Form.Item
-            name="inn"
-            label="ИНН"
-            rules={[{ required: true, message: 'Пожалуйста, введите ИНН' }]}
-          >
-            <Input placeholder="Введите ИНН" />
-          </Form.Item>
-          <Form.Item
-            name="ogrn"
-            label="ОГРН"
-            rules={[{ required: true, message: 'Пожалуйста, введите ОГРН' }]}
-          >
-            <Input placeholder="Введите ОГРН" />
-          </Form.Item>
-          
           <Form.Item
             name="officeAddress"
             label="Адрес"
+            rules={[{ required: true, message: 'Пожалуйста, введите адрес' }]}
           >
-            <Input placeholder="Введите адрес офиса" />
-          </Form.Item>
-          <Form.Item
-            name="contactPhone"
-            label="Рабочий телефон 1"
-            normalize={(v) => formatRussianPhone(v || "")}
-          >
-            <Input placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
-          </Form.Item>
-          <Form.Item
-            name="work_phone2"
-            label="Рабочий телефон 2"
-            normalize={(v) => formatRussianPhone(v || "")}
-          >
-            <Input placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
+            <Input placeholder="Введите адрес" />
           </Form.Item>
         </Form>
       </Modal>

@@ -4,7 +4,6 @@ import AuthPage from './pages/AuthPage';
 import WelcomePage from './pages/WelcomePage';
 import CRM from './pages/CRM';
 import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage.tsx';
 import JoinPage from './pages/JoinPage';
 import PendingRequestPage from './pages/PendingRequestPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -45,11 +44,6 @@ function AppRoutes() {
         <Route path="/profile" element={
           <ProtectedRoute>
             <ProfilePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <SettingsPage />
           </ProtectedRoute>
         } />
         <Route path="/join" element={

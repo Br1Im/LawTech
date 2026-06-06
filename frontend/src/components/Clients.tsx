@@ -27,6 +27,9 @@ import {
   InputNumber,
   Result,
   Select,
+  Checkbox,
+  Progress,
+  Image,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -68,11 +71,12 @@ import {
   type CrmAct,
   type CashStats,
   type CrmEmployee,
+  type ContractHistoryEntry,
 } from '../shared/api/crm';
 import apiInstance from '../shared/api/instance';
 import Documents from './Documents';
 import { useAuth } from '../shared/lib/hooks/useAuth';
-import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
+import { buildApiUrl, getAuthHeaders, getAuthenticatedUrl } from '../shared/utils/apiUtils';
 
 interface ClientsProps {
   onTabClick?: (tab: string) => void;
@@ -142,6 +146,16 @@ const shortName = (full?: string | null): string => {
   return `${last}${initials ? ' ' + initials : ''}`;
 };
 
+// «Юристы по делу»: один юрист или два (совместный договор, через « / »)
+const lawyersLabel = (c?: Partial<CrmContract> | null): string => {
+  if (!c) return '—';
+  const first = shortName(c.lawyer_full_name || c.employee_name);
+  if (c.is_joint && c.second_lawyer_full_name) {
+    return `${first} / ${shortName(c.second_lawyer_full_name)}`;
+  }
+  return first;
+};
+
 type DealType = 'docs' | 'court_rep';
 type ClientsView = 'contracts' | 'terminated';
 
@@ -205,6 +219,12 @@ const Clients: React.FC<ClientsProps> = () => {
   // Detail drawer
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailContract, setDetailContract] = useState<CrmContract | null>(null);
+  // Совместный договор: история изменений состава юристов + редактирование
+  const [contractHistory, setContractHistory] = useState<ContractHistoryEntry[]>([]);
+  const [officeLawyers, setOfficeLawyers] = useState<{ id: number; name: string }[]>([]);
+  const [editJoint, setEditJoint] = useState(false);
+  const [editSecondLawyer, setEditSecondLawyer] = useState<number | null>(null);
+  const [savingLawyers, setSavingLawyers] = useState(false);
   const [detailClient, setDetailClient] = useState<CrmClient | null>(null);
   const [detailTab, setDetailTab] = useState('info');
 
@@ -403,8 +423,9 @@ const Clients: React.FC<ClientsProps> = () => {
       .filter((c) => {
         const t = (c.contract_type || 'docs').toString();
         if (t !== dealType) return false;
-        // Юрист видит только свои договоры
-        if (isLawyer && user?.id && c.id_employee !== user.id) return false;
+        // Юрист видит свои договоры (включая совместные, где он второй юрист)
+        if (isLawyer && user?.id && c.id_employee !== user.id
+            && !(c.is_joint && c.second_employee_id === user.id)) return false;
         // Фильтр по дате (если включён)
         if (dateFilterEnabled) {
           const cd = (c.contract_date || '').toString().slice(0, 10);
@@ -604,9 +625,76 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   }, []);
 
+  const loadContractHistory = useCallback(async (contractId: number) => {
+    try {
+      const h = await contractsApi.history(contractId);
+      setContractHistory(Array.isArray(h) ? h : []);
+    } catch {
+      setContractHistory([]);
+    }
+  }, []);
+
+  const loadOfficeLawyers = useCallback(async () => {
+    try {
+      const list = await employeesApi.list();
+      const all = Array.isArray(list) ? list : [];
+      setOfficeLawyers(all
+        .filter((e) => {
+          const role = String(e.user_role || '').toLowerCase();
+          return ['lawyer', 'manager', 'okk'].includes(role);
+        })
+        .map((e) => {
+          const roleLbl = { manager: 'менеджер', okk: 'ОКК', lawyer: 'юрист' }[String(e.user_role || '').toLowerCase()] || '';
+          const name = `${e.last_name || ''} ${e.first_name || ''}`.trim() || String(e.id);
+          return { id: e.id, name: roleLbl ? `${name} (${roleLbl})` : name };
+        }));
+    } catch {
+      setOfficeLawyers([]);
+    }
+  }, []);
+
+  const handleSaveLawyers = async () => {
+    if (!detailContract) return;
+    const c = detailContract;
+    if (editJoint && (editSecondLawyer == null || editSecondLawyer === c.id_employee)) {
+      message.error('Выберите второго юриста (отличного от первого)');
+      return;
+    }
+    setSavingLawyers(true);
+    try {
+      await contractsApi.update(c.id, {
+        // обязательные поля, чтобы не обнулить договор
+        id_employee: c.id_employee,
+        id_client: c.id_client,
+        contract_date: c.contract_date,
+        amount: c.amount,
+        paid_amount: c.paid_amount,
+        status: c.status,
+        // состав юристов
+        is_joint: editJoint,
+        second_employee_id: editJoint ? editSecondLawyer : null,
+      });
+      message.success('Состав юристов обновлён');
+      const updated = await contractsApi.getById(c.id);
+      setDetailContract(updated);
+      await loadContractHistory(c.id);
+      const refreshed = await contractsApi.list();
+      setContracts(refreshed);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Ошибка при сохранении состава юристов');
+    } finally {
+      setSavingLawyers(false);
+    }
+  };
+
   const openDetail = (contract: CrmContract, client: CrmClient | null) => {
     setDetailContract(contract);
     setDetailClient(client);
+    setContractHistory([]);
+    setEditJoint(!!contract.is_joint);
+    setEditSecondLawyer(contract.second_employee_id ?? null);
+    loadContractHistory(contract.id);
+    if (['director', 'manager', 'okk'].includes(user?.role || '')) loadOfficeLawyers();
     const isOwner = !!(user?.id && contract.registered_by === user.id);
     setDetailTab(contract.needs_lawyer_input && !isAdmin && isOwner ? 'supplement' : 'info');
     setDetailOpen(true);
@@ -660,7 +748,8 @@ const Clients: React.FC<ClientsProps> = () => {
     setCardDataChanged(false);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
     const isAssignedEmployee = user?.id != null && (contract as any).id_employee === user.id;
-    const canEditCard = isOwner || isAssignedLawyer || isAssignedEmployee;
+    const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const canEditCard = isOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
     if (canEditCard) loadExperts();
   };
 
@@ -710,10 +799,13 @@ const Clients: React.FC<ClientsProps> = () => {
       title: 'Юрист',
       key: 'lawyer',
       render: (_, r) => {
-        const name = isAdmin
+        const base = isAdmin
           ? (r.contract.signed_by_name || r.contract.lawyer_full_name || r.contract.employee_name)
           : (r.contract.lawyer_full_name || r.contract.employee_name);
-        return <span>{shortName(name)}</span>;
+        const label = (r.contract.is_joint && r.contract.second_lawyer_full_name)
+          ? `${shortName(base)} / ${shortName(r.contract.second_lawyer_full_name)}`
+          : shortName(base);
+        return <span>{label}</span>;
       },
     },
     ...(!isAdmin ? [{
@@ -823,7 +915,7 @@ const Clients: React.FC<ClientsProps> = () => {
       key: 'contacts',
       render: (_, r) => r.client?.phone || r.contract.client_phone || '—',
     },
-    { title: 'Юрист', key: 'lawyer', render: (_, r) => shortName(r.contract.lawyer_full_name || r.contract.employee_name) },
+    { title: 'Юрист', key: 'lawyer', render: (_, r) => lawyersLabel(r.contract) },
     { title: 'Сумма', key: 'amount', align: 'right', render: (_, r) => formatMoney(r.contract.amount) },
     { title: 'Внесено', key: 'paid', align: 'right', render: (_, r) => formatMoney(r.contract.paid_amount) },
     {
@@ -1022,6 +1114,11 @@ const Clients: React.FC<ClientsProps> = () => {
       message.success('Данные сохранены');
       setDocTypesChanged(false);
       setCardDataChanged(false);
+      // Обновляем detailContract чтобы при следующем сохранении не затереть данные
+      try {
+        const updated = await contractsApi.getById(detailContract.id);
+        if (updated) setDetailContract(updated);
+      } catch {}
       load();
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Ошибка при сохранении');
@@ -1041,12 +1138,75 @@ const Clients: React.FC<ClientsProps> = () => {
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
     const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
-    const canEditCard = isContractOwner || isAssignedLawyer || isAssignedEmployee;
+    const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const canEditCard = isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const canEditLawyers = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const lawyerOptions = officeLawyers.filter((l) => l.id !== c.id_employee);
+    const lawyersComposChanged = (editJoint ? 1 : 0) !== (c.is_joint ? 1 : 0)
+      || (editJoint ? (editSecondLawyer ?? null) : null) !== (c.second_employee_id ?? null);
     const hasChanges = docTypesChanged || cardDataChanged;
+
+    // ── Исполнение договора ──
+    const actsCompletedSum = contractActs
+      .filter((a) => a.status === 'confirmed')
+      .reduce((s, a) => s + (typeof a.amount === 'string' ? parseFloat(a.amount) : (a.amount || 0)), 0);
+    const actsTotalSum = contractActs
+      .reduce((s, a) => s + (typeof a.amount === 'string' ? parseFloat(a.amount) : (a.amount || 0)), 0);
+    const contractTotal = parseFloat(String(c.amount || 0));
+    const actsRemaining = Math.max(0, contractTotal - actsTotalSum);
+    const executionPercent = contractTotal > 0 ? Math.min(100, Math.round((actsTotalSum / contractTotal) * 100)) : 0;
+    const isFullyExecuted = contractTotal > 0 && actsTotalSum >= contractTotal;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* ── Блок «Исполнение договора» ── */}
+        {contractTotal > 0 && (
+          <div style={{
+            border: '1px solid var(--color-border)',
+            borderRadius: 10,
+            padding: 16,
+            background: isFullyExecuted ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' : 'var(--color-bg-alt)',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FileDoneOutlined style={{ color: isFullyExecuted ? '#16a34a' : '#1677ff' }} />
+              Исполнение договора
+              {isFullyExecuted && (
+                <Tag color="green" style={{ marginLeft: 'auto', fontSize: 12 }}>
+                  <CheckCircleFilled style={{ marginRight: 4 }} />
+                  Договор исполнен полностью
+                </Tag>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2 }}>Стоимость договора</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{formatMoney(contractTotal)}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2 }}>Выполнено работ</div>
+                <div style={{ fontWeight: 600, fontSize: 15, color: '#1677ff' }}>{formatMoney(actsTotalSum)}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2 }}>Остаток</div>
+                <div style={{ fontWeight: 600, fontSize: 15, color: isFullyExecuted ? '#16a34a' : '#e74c3c' }}>{formatMoney(actsRemaining)}</div>
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2 }}>Исполнение</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>{executionPercent}%</div>
+              </div>
+            </div>
+            <Progress
+              percent={executionPercent}
+              strokeColor={isFullyExecuted ? '#16a34a' : { from: '#1677ff', to: '#69b1ff' }}
+              trailColor="var(--color-border)"
+              size={['100%', 12]}
+              showInfo={false}
+              style={{ marginBottom: 0 }}
+            />
+          </div>
+        )}
+
         <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
           <Descriptions.Item label="ФИО клиента">{cl?.name || c.client_name || '—'}</Descriptions.Item>
           <Descriptions.Item label="Тема">
@@ -1098,7 +1258,41 @@ const Clients: React.FC<ClientsProps> = () => {
               <Tag color="green">Оплачено{(c as any).remainder_confirmed_by_name ? ` (${(c as any).remainder_confirmed_by_name})` : ''}</Tag>
             </Descriptions.Item>
           )}
-          <Descriptions.Item label="Юрист">{shortName(c.lawyer_full_name || c.employee_name)}</Descriptions.Item>
+          <Descriptions.Item label={(editJoint || (c.is_joint && c.second_lawyer_full_name)) ? "Юристы по делу" : "Юрист"}>
+            {canEditLawyers ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span>{shortName(c.lawyer_full_name || c.employee_name || '') || '—'}{editJoint && editSecondLawyer ? ` / ${(lawyerOptions.find((l) => l.id === editSecondLawyer)?.name) || (c.second_lawyer_full_name || '')}` : ''}</span>
+                <Checkbox
+                  checked={editJoint}
+                  onChange={(e) => { setEditJoint(e.target.checked); if (!e.target.checked) setEditSecondLawyer(null); }}
+                >
+                  Совместный договор
+                </Checkbox>
+                {editJoint && (
+                  <Select
+                    value={editSecondLawyer ?? undefined}
+                    onChange={(v) => setEditSecondLawyer(v)}
+                    placeholder="Второй сотрудник"
+                    size="small"
+                    style={{ width: '100%', minWidth: 200 }}
+                    showSearch
+                    filterOption={(input, option) =>
+                      String(option?.label || '').toLowerCase().includes(input.toLowerCase())
+                    }
+                    options={lawyerOptions.map((l) => ({ value: l.id, label: l.name }))}
+                    notFoundContent="Нет сотрудников"
+                  />
+                )}
+                {lawyersComposChanged && (
+                  <Button type="primary" size="small" loading={savingLawyers} onClick={handleSaveLawyers} style={{ alignSelf: 'flex-start' }}>
+                    Сохранить юристов
+                  </Button>
+                )}
+              </div>
+            ) : (
+              lawyersLabel(c)
+            )}
+          </Descriptions.Item>
           {isDocsType && (
             <Descriptions.Item label="Эксперт">
               {canAssignExpert ? (
@@ -1127,6 +1321,38 @@ const Clients: React.FC<ClientsProps> = () => {
           </Descriptions.Item>
         </Descriptions>
 
+        {contractHistory.length > 0 && (
+          <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)' }}>
+            <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 14 }}>История изменений</div>
+            <Timeline
+              items={contractHistory.map((h) => {
+                const labels: Record<string, string> = {
+                  second_lawyer_added: 'Добавлен второй юрист',
+                  second_lawyer_removed: 'Удалён второй юрист',
+                  second_lawyer_changed: 'Изменён второй юрист',
+                };
+                const when = h.created_at ? new Date(h.created_at).toLocaleString('ru-RU') : '';
+                const detail = h.action === 'second_lawyer_removed'
+                  ? `${h.old_value || '—'} → нет`
+                  : h.action === 'second_lawyer_changed'
+                    ? `${h.old_value || '—'} → ${h.new_value || '—'}`
+                    : `${h.new_value || '—'}`;
+                return {
+                  key: h.id,
+                  children: (
+                    <div>
+                      <div style={{ fontWeight: 500 }}>{labels[h.action] || h.action}: {detail}</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        {when}{h.user_name ? ` · ${h.user_name}` : ''}
+                      </div>
+                    </div>
+                  ),
+                };
+              })}
+            />
+          </div>
+        )}
+
         {canEditCard && (
           <>
             {isDocsType && (
@@ -1146,8 +1372,8 @@ const Clients: React.FC<ClientsProps> = () => {
                             padding: '6px 14px',
                             borderRadius: 6,
                             border: active ? '2px solid #1677ff' : '1px solid var(--color-border)',
-                            background: active ? '#e6f4ff' : 'var(--color-bg-elevated)',
-                            color: active ? '#1677ff' : 'var(--color-text)',
+                            background: active ? 'var(--color-accent-light)' : 'var(--color-bg-elevated)',
+                            color: active ? 'var(--color-accent)' : 'var(--color-text)',
                             cursor: 'pointer',
                             fontWeight: active ? 600 : 400,
                             fontSize: 13,
@@ -1518,8 +1744,38 @@ const Clients: React.FC<ClientsProps> = () => {
     if (!detailContract) return null;
     const isExpert = user?.role === 'expert';
 
+    const imageFiles = contractMaterials.filter(m => isImageFile(m.name) && m.file_url);
+    const otherFiles = contractMaterials.filter(m => !isImageFile(m.name) || !m.file_url);
+
+    const downloadMaterial = (m: CrmMaterial) => {
+      const token = localStorage.getItem('token');
+      fetch(buildApiUrl('/materials/' + m.id + '/download'), {
+        headers: { Authorization: 'Bearer ' + token }
+      })
+        .then(r => {
+          if (!r.ok) throw new Error('Ошибка скачивания');
+          const cd = r.headers.get('content-disposition');
+          let fname = m.name || 'file';
+          if (cd) {
+            const match = cd.match(/filename\*=UTF-8''(.+)/);
+            if (match) fname = decodeURIComponent(match[1]);
+          }
+          return r.blob().then(blob => ({ blob, fname }));
+        })
+        .then(({ blob, fname }) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fname;
+          a.click();
+          URL.revokeObjectURL(url);
+        })
+        .catch(() => message.error('Ошибка при скачивании файла'));
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Загрузка файлов */}
         {!isExpert && (
           isMobile ? (
             <MobileMaterialUpload
@@ -1547,90 +1803,169 @@ const Clients: React.FC<ClientsProps> = () => {
           </div>
         )}
 
-        <List
-          loading={contractMaterialsLoading}
-          dataSource={contractMaterials}
-          locale={{ emptyText: <Empty description="Материалы ещё не загружены" /> }}
-          renderItem={(m) => (
-            <List.Item
-              actions={[
-                m.file_url && isImageFile(m.name) ? (
-                  <Tooltip key="preview" title="Просмотр">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EyeOutlined />}
-                      onClick={() => handlePreviewMaterial(m)}
-                      style={{ color: '#1677ff' }}
-                    />
-                  </Tooltip>
-                ) : null,
-                m.file_url ? (
-                  <Tooltip key="open" title="Скачать">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() => {
-                        const token = localStorage.getItem('token');
-                        fetch(buildApiUrl('/materials/' + m.id + '/download'), {
-                          headers: { Authorization: 'Bearer ' + token }
-                        })
-                          .then(r => {
-                            if (!r.ok) throw new Error('Ошибка скачивания');
-                            const cd = r.headers.get('content-disposition');
-                            let fname = m.name || 'file';
-                            if (cd) {
-                              const match = cd.match(/filename\*=UTF-8''(.+)/);
-                              if (match) fname = decodeURIComponent(match[1]);
-                            }
-                            return r.blob().then(blob => ({ blob, fname }));
-                          })
-                          .then(({ blob, fname }) => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = fname;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          })
-                          .catch(() => message.error('Ошибка при скачивании файла'));
+        {contractMaterialsLoading && <div style={{ textAlign: 'center', padding: 24 }}><Spin /></div>}
+
+        {!contractMaterialsLoading && contractMaterials.length === 0 && (
+          <Empty description="Материалы ещё не загружены" />
+        )}
+
+        {/* ── Галерея изображений ── */}
+        {imageFiles.length > 0 && (
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14, color: 'var(--color-text, #111)' }}>
+              <FileImageOutlined style={{ marginRight: 6 }} />Фотографии ({imageFiles.length})
+            </div>
+            <Image.PreviewGroup>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : 'repeat(auto-fill, minmax(130px, 1fr))',
+                gap: isMobile ? 6 : 10,
+              }}>
+                {imageFiles.map((m) => (
+                  <div key={m.id} style={{
+                    position: 'relative',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: '1px solid var(--color-border, #e5e7eb)',
+                    background: 'var(--color-bg-elevated, #fafafa)',
+                  }}>
+                    <Image
+                      src={getAuthenticatedUrl(m.file_url!)}
+                      alt={m.name}
+                      style={{
+                        width: '100%',
+                        aspectRatio: '1',
+                        objectFit: 'cover',
+                        display: 'block',
+                        cursor: 'pointer',
                       }}
-                      style={{ color: '#1677ff' }}
+                      placeholder={
+                        <div style={{
+                          width: '100%',
+                          aspectRatio: '1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--color-bg-elevated, #f5f5f5)',
+                        }}>
+                          <Spin size="small" />
+                        </div>
+                      }
+                      fallback="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwIiB5PSI1NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSIgZm9udC1zaXplPSIxMiI+0J3QtdGCINGE0L7RgtC+PC90ZXh0Pjwvc3ZnPg=="
                     />
-                  </Tooltip>
-                ) : null,
-                <Popconfirm
-                  key="rm"
-                  title="Удалить материал?"
-                  okText="Да"
-                  cancelText="Отмена"
-                  onConfirm={() => handleRemoveMaterial(m)}
-                >
-                  <Tooltip title="Удалить">
-                    <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                  </Tooltip>
-                </Popconfirm>,
-              ].filter(Boolean)}
-            >
-              <List.Item.Meta
-                avatar={isImageFile(m.name) ? <FileImageOutlined style={{ fontSize: 24, color: '#1677ff' }} /> : <FileOutlined style={{ fontSize: 24, color: '#6B7280' }} />}
-                title={m.name}
-                description={
-                  <>
-                    {m.category && <Tag>{m.category}</Tag>}
-                    {m.description && <span style={{ marginLeft: 4 }}>{m.description}</span>}
-                    {m.created_at && (
-                      <span style={{ color: 'var(--color-muted)', marginLeft: 8, fontSize: 12 }}>
-                        {new Date(m.created_at).toLocaleString('ru-RU')}
+                    {/* Нижняя панель с именем + действия */}
+                    <div style={{
+                      padding: isMobile ? '3px 4px' : '4px 6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 4,
+                      background: 'var(--color-bg-elevated, #fafafa)',
+                    }}>
+                      <span style={{
+                        fontSize: isMobile ? 10 : 11,
+                        color: 'var(--color-text-secondary, #666)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        flex: 1,
+                        minWidth: 0,
+                      }} title={m.name}>
+                        {m.name}
                       </span>
-                    )}
-                  </>
-                }
-              />
-            </List.Item>
-          )}
-        />
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <Tooltip title="Скачать">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            onClick={(e) => { e.stopPropagation(); downloadMaterial(m); }}
+                            style={{ color: '#1677ff', padding: '0 4px', height: 22, fontSize: 12 }}
+                          />
+                        </Tooltip>
+                        <Popconfirm
+                          title="Удалить?"
+                          okText="Да"
+                          cancelText="Нет"
+                          onConfirm={() => handleRemoveMaterial(m)}
+                        >
+                          <Tooltip title="Удалить">
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ padding: '0 4px', height: 22, fontSize: 12 }}
+                            />
+                          </Tooltip>
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Image.PreviewGroup>
+          </div>
+        )}
+
+        {/* ── Остальные файлы (не изображения) ── */}
+        {otherFiles.length > 0 && (
+          <div>
+            {imageFiles.length > 0 && (
+              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 14, color: 'var(--color-text, #111)' }}>
+                <FileOutlined style={{ marginRight: 6 }} />Документы ({otherFiles.length})
+              </div>
+            )}
+            <List
+              dataSource={otherFiles}
+              renderItem={(m) => (
+                <List.Item
+                  actions={[
+                    m.file_url ? (
+                      <Tooltip key="dl" title="Скачать">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<DownloadOutlined />}
+                          onClick={() => downloadMaterial(m)}
+                          style={{ color: '#1677ff' }}
+                        />
+                      </Tooltip>
+                    ) : null,
+                    <Popconfirm
+                      key="rm"
+                      title="Удалить материал?"
+                      okText="Да"
+                      cancelText="Отмена"
+                      onConfirm={() => handleRemoveMaterial(m)}
+                    >
+                      <Tooltip title="Удалить">
+                        <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+                      </Tooltip>
+                    </Popconfirm>,
+                  ].filter(Boolean)}
+                >
+                  <List.Item.Meta
+                    avatar={<FileOutlined style={{ fontSize: 24, color: '#6B7280' }} />}
+                    title={m.name}
+                    description={
+                      <>
+                        {m.category && <Tag>{m.category}</Tag>}
+                        {m.description && <span style={{ marginLeft: 4 }}>{m.description}</span>}
+                        {m.created_at && (
+                          <span style={{ color: 'var(--color-muted)', marginLeft: 8, fontSize: 12 }}>
+                            {new Date(m.created_at).toLocaleString('ru-RU')}
+                          </span>
+                        )}
+                      </>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          </div>
+        )}
       </div>
     );
   };
@@ -1707,7 +2042,13 @@ const Clients: React.FC<ClientsProps> = () => {
 
       await contractsApi.supplement(detailContract.id, payload);
       message.success('Данные дополнены');
-      closeDetail();
+      // Обновляем detailContract
+      try {
+        const updated = await contractsApi.getById(detailContract.id);
+        if (updated) setDetailContract(updated);
+      } catch {}
+      setDocTypesChanged(false);
+      setCardDataChanged(false);
       load();
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Ошибка при сохранении');
@@ -2081,7 +2422,7 @@ const Clients: React.FC<ClientsProps> = () => {
     <Page>
       <ToolRow>
         <Space size={12} wrap>
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', overflowX: 'auto', maxWidth: 'min(100%, calc(100vw - 32px))' }}>
             {[
               { label: 'Договоры', value: 'contracts' as ClientsView },
               ...(canTerminate ? [{ label: 'Расторжение договора', value: 'terminated' as ClientsView }] : []),
@@ -2091,6 +2432,8 @@ const Clients: React.FC<ClientsProps> = () => {
                 onClick={() => setView(tab.value)}
                 style={{
                   padding: '8px 16px',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   background: 'transparent',
                   border: 'none',
                   borderBottom: view === tab.value ? '2px solid var(--color-primary)' : '2px solid transparent',
@@ -2114,7 +2457,7 @@ const Clients: React.FC<ClientsProps> = () => {
         <>
           <ToolRow>
             <Space size={12} wrap>
-              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', overflowX: 'auto', maxWidth: 'min(100%, calc(100vw - 32px))' }}>
                 {([
                   { label: 'Подготовка документов', value: 'docs' as DealType },
                   { label: 'Представительство в суде', value: 'court_rep' as DealType },
@@ -2124,6 +2467,8 @@ const Clients: React.FC<ClientsProps> = () => {
                     onClick={() => setDealType(tab.value)}
                     style={{
                       padding: '8px 16px',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
                       background: 'transparent',
                       border: 'none',
                       borderBottom: dealType === tab.value ? '2px solid var(--color-primary)' : '2px solid transparent',
@@ -2330,7 +2675,7 @@ const Clients: React.FC<ClientsProps> = () => {
               {
                 title: 'Юрист',
                 key: 'lawyer',
-                render: (_, r) => shortName(r.lawyer_full_name || r.employee_name),
+                render: (_, r) => lawyersLabel(r),
               },
               {
                 title: 'Дата расторжения',
