@@ -14,6 +14,7 @@ const LEAD_STATUSES = [
   'SPAM',
   'DUPLICATE',
   'NON_TARGET',
+  'UNREACHABLE',
   'CLOSED'
 ];
 
@@ -27,7 +28,7 @@ const CALL_RESULTS = [
   'FAILED'
 ];
 
-const ALL_TARGETS = ["NEW", "IN_PROGRESS", "NO_ANSWER", "CALL_BACK", "INTERESTED", "BOOKED", "REJECTED", "SPAM", "DUPLICATE", "NON_TARGET", "CLOSED"];
+const ALL_TARGETS = ["NEW", "IN_PROGRESS", "NO_ANSWER", "CALL_BACK", "INTERESTED", "BOOKED", "REJECTED", "SPAM", "DUPLICATE", "NON_TARGET", "UNREACHABLE", "CLOSED"];
 const STATUS_TRANSITIONS = {};
 ALL_TARGETS.forEach(s => { STATUS_TRANSITIONS[s] = ALL_TARGETS.filter(t => t !== s); });
 
@@ -1328,7 +1329,7 @@ const callCenterController = {
     const connection = await db.getClient();
     try {
       const { id } = req.params;
-      const { client_name, appointment_date, appointment_time, comment } = req.body;
+      const { client_name, appointment_date, appointment_time, comment, target_office_id } = req.body;
 
       if (!client_name || !client_name.trim()) {
         return res.status(400).json({ success: false, message: 'ФИО клиента обязательно' });
@@ -1338,6 +1339,20 @@ const callCenterController = {
       }
       if (!appointment_time) {
         return res.status(400).json({ success: false, message: 'Время консультации обязательно' });
+      }
+
+      // Определяем целевой офис для записи (кросс-офисная запись)
+      let effectiveOfficeId = req.user.office_id;
+      if (target_office_id && Number(target_office_id) !== req.user.office_id) {
+        const targetId = Number(target_office_id);
+        // Проверяем что целевой офис принадлежит тому же владельцу
+        const [myOff] = await connection.query('SELECT owner_id FROM offices WHERE id = ?', [req.user.office_id]);
+        const [targetOff] = await connection.query('SELECT owner_id FROM offices WHERE id = ?', [targetId]);
+        if (!myOff.length || !targetOff.length || myOff[0].owner_id !== targetOff[0].owner_id) {
+          connection.release();
+          return res.status(403).json({ success: false, message: 'Нет доступа к выбранному офису' });
+        }
+        effectiveOfficeId = targetId;
       }
 
       await connection.beginTransaction();
@@ -1369,7 +1384,7 @@ const callCenterController = {
         `INSERT INTO appointments (office_id, lead_id, client_name, client_phone, source, appointment_date, appointment_time, comment, operator_id, operator_name, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
         [
-          req.user.office_id,
+          effectiveOfficeId,
           lead.id,
           client_name.trim(),
           lead.phone || '',
@@ -1399,7 +1414,7 @@ const callCenterController = {
       await connection.commit();
 
       // Real-time: уведомить офис о новой записи
-      socketEmitter.emitAppointmentNew(req.user.office_id, {
+      socketEmitter.emitAppointmentNew(effectiveOfficeId, {
         id: appointmentResult.insertId,
         client_name: client_name.trim(),
         date: appointment_date,
@@ -1425,23 +1440,41 @@ const callCenterController = {
     if (!await ensureOfficeAccess(req, res)) return;
 
     try {
+      // Для директора — показываем записи всех офисов того же владельца
+      let officeFilter = [req.user.office_id];
+      if (['director', 'cc_manager'].includes(req.user.role)) {
+        const [myOff] = await db.query('SELECT owner_id FROM offices WHERE id = ?', [req.user.office_id]);
+        if (myOff.length && myOff[0].owner_id) {
+          const [siblingOffices] = await db.query(
+            'SELECT id FROM offices WHERE owner_id = ?', [myOff[0].owner_id]
+          );
+          if (siblingOffices.length > 1) {
+            officeFilter = siblingOffices.map(o => o.id);
+          }
+        }
+      }
+
+      const placeholders = officeFilter.map(() => '?').join(',');
       const [rows] = await db.query(
         `SELECT
            a.*,
+           o.name AS office_name,
            CONCAT(u.first_name, ' ', u.last_name) AS operator_full_name,
            CONCAT(lw.last_name, ' ', LEFT(lw.first_name, 1), '.') AS lawyer_short_name
          FROM appointments a
+         LEFT JOIN offices o ON o.id = a.office_id
          LEFT JOIN users u ON u.id = a.operator_id
          LEFT JOIN users lw ON lw.id = a.assigned_lawyer_id
-         WHERE a.office_id = ?
+         WHERE a.office_id IN (${placeholders})
          ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
-        [req.user.office_id]
+        officeFilter
       );
 
       res.json({
         success: true,
         data: rows.map(r => ({
           ...r,
+          office_name: r.office_name || null,
           operator_name: r.operator_name || r.operator_full_name || 'Оператор',
           lawyer_name: r.lawyer_short_name || null,
         }))
@@ -1906,7 +1939,45 @@ const callCenterController = {
       console.error('Error getting office employees:', error);
       res.status(500).json({ success: false, message: 'Ошибка при получении сотрудников' });
     }
-  }
+  },
+
+  // --- Офисы для кросс-офисной записи ---
+  // Возвращает офисы с тем же владельцем, что и офис оператора.
+  // Используется для выбора города при записи клиента.
+  async getTargetOffices(req, res) {
+    if (!await ensureOfficeAccess(req, res)) return;
+
+    try {
+      // Находим владельца офиса оператора
+      const [myOffice] = await db.query(
+        'SELECT owner_id FROM offices WHERE id = ?',
+        [req.user.office_id]
+      );
+
+      if (!myOffice.length || !myOffice[0].owner_id) {
+        // Нет владельца — возвращаем только свой офис
+        const [single] = await db.query(
+          'SELECT id, name FROM offices WHERE id = ?',
+          [req.user.office_id]
+        );
+        return res.json({ success: true, data: single });
+      }
+
+      const ownerId = myOffice[0].owner_id;
+
+      // Все офисы того же владельца
+      const [offices] = await db.query(
+        'SELECT id, name FROM offices WHERE owner_id = ? ORDER BY id',
+        [ownerId]
+      );
+
+      res.json({ success: true, data: offices });
+    } catch (error) {
+      console.error('Error getting target offices:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при получении списка офисов' });
+    }
+  },
+
 };
 
 module.exports = callCenterController;

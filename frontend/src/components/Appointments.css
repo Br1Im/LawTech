@@ -829,3 +829,171 @@
 [data-theme="dark"] .apt-empty-state-btn:hover {
   background: #6A4AED;
 }
+
+
+/* ── Tab switch (Записи / Аналитика) ── */
+.apt-header-left {
+  display: flex;
+  align-items: center;
+}
+
+
+/* City tabs */
+.apt-city-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 4px 0;
+  margin-bottom: 2px;
+}
+
+.apt-city-tab {
+  background: var(--hover-bg, #f3f4f6);
+  border: none;
+  padding: 7px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+  transition: all 0.18s;
+  position: relative;
+}
+
+.apt-city-tab:hover {
+  color: var(--text-primary, #222);
+  background: var(--hover-bg, #e5e7eb);
+}
+
+.apt-city-tab.active {
+  background: var(--primary-color, #4F46E5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+}
+
+.apt-city-tab.active:hover {
+  background: var(--primary-hover, #4338ca);
+}
+
+[data-theme='dark'] .apt-city-tab {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+}
+
+[data-theme='dark'] .apt-city-tab:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+}
+
+[data-theme='dark'] .apt-city-tab.active {
+  background: var(--primary-color, #4F46E5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+}
+
+.apt-tab-switch {
+  display: flex;
+  background: var(--hover-bg, #f3f4f6);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.apt-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 7px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+  transition: all 0.18s;
+}
+
+.apt-tab-btn:hover {
+  color: var(--text-primary, #222);
+}
+
+.apt-tab-btn.active {
+  background: var(--card-bg, #fff);
+  color: var(--text-primary, #222);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+
+.dark-theme 
+/* City tabs */
+.apt-city-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 4px 0;
+  margin-bottom: 2px;
+}
+
+.apt-city-tab {
+  background: var(--hover-bg, #f3f4f6);
+  border: none;
+  padding: 7px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-secondary, #888);
+  transition: all 0.18s;
+  position: relative;
+}
+
+.apt-city-tab:hover {
+  color: var(--text-primary, #222);
+  background: var(--hover-bg, #e5e7eb);
+}
+
+.apt-city-tab.active {
+  background: var(--primary-color, #4F46E5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+}
+
+.apt-city-tab.active:hover {
+  background: var(--primary-hover, #4338ca);
+}
+
+[data-theme='dark'] .apt-city-tab {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+}
+
+[data-theme='dark'] .apt-city-tab:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.8);
+}
+
+[data-theme='dark'] .apt-city-tab.active {
+  background: var(--primary-color, #4F46E5);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
+}
+
+.apt-tab-switch {
+  background: rgba(255,255,255,0.06);
+}
+
+.dark-theme .apt-tab-btn.active {
+  background: rgba(255,255,255,0.1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* City badge on appointment cards */
+.apt-card-city {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-weight: 500;
+  margin-left: 4px;
+}
+[data-theme='dark'] .apt-card-city {
+  background: #312e81;
+  color: #a5b4fc;
+}

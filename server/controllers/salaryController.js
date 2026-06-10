@@ -368,14 +368,13 @@ const calculate = async (req, res) => {
     const expertsById = new Map(allExperts.map((e) => [e.id, e]));
 
     // 3. Касса офиса за период.
-    const cashWhere = ['emp.office_id = ?'];
+    const cashWhere = ['c.office_id = ?'];
     const cashParams = [officeId];
     if (dateFrom) { cashWhere.push('c.contract_date >= ?'); cashParams.push(dateFrom); }
     if (dateTo) { cashWhere.push('c.contract_date <= ?'); cashParams.push(dateTo); }
     const [[cashRow]] = await db.query(
       `SELECT COALESCE(SUM(c.paid_amount), 0) AS office_cash
          FROM contracts c
-         LEFT JOIN employees emp ON emp.id = c.id_employee
         WHERE ${cashWhere.join(' AND ')}`,
       cashParams
     );

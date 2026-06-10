@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import {
   CalendarOutlined, PlusOutlined,
   SearchOutlined, FilterOutlined,
@@ -15,6 +15,8 @@ import { TableSkeleton } from './ui';
 import './Appointments.css';
 
 import { formatRussianPhone } from "../shared/lib/phone";
+
+const AppointmentsAnalytics = lazy(() => import('./AppointmentsAnalytics'));
 dayjs.locale('ru');
 
 type AppointmentStatus = 'waiting' | 'confirmed' | 'arrived' | 'no_show' | 'cancelled' | 'rescheduled';
@@ -22,6 +24,7 @@ type AppointmentStatus = 'waiting' | 'confirmed' | 'arrived' | 'no_show' | 'canc
 interface AppointmentData {
   id: number;
   office_id: number;
+  office_name?: string | null;
   lead_id: number | null;
   client_id: number | null;
   client_name: string;
@@ -100,6 +103,10 @@ const Appointments: React.FC = () => {
   const canAssignLawyer = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const canEditText = isCCRole;
+  const isDirector = user?.role === 'director';
+  const isCCManager = user?.role === 'cc_manager';
+
+  const [activeTab, setActiveTab] = useState<'records' | 'analytics'>('records');
 
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -111,6 +118,7 @@ const Appointments: React.FC = () => {
   const [filterLawyer, setFilterLawyer] = useState<string>('all');
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterOperator, setFilterOperator] = useState<string>('all');
+  const [filterOfficeId, setFilterOfficeId] = useState<number | 'all'>(() => user?.office_id || 'all');
   const [newModal, setNewModal] = useState(false);
   const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null as number | null });
   const [creating, setCreating] = useState(false);
@@ -206,6 +214,12 @@ const Appointments: React.FC = () => {
   const uniqueSources = useMemo(() => [...new Set(appointments.map(a => a.source).filter(Boolean) as string[])], [appointments]);
   const uniqueOperators = useMemo(() => [...new Set(appointments.map(a => a.operator_name).filter(Boolean) as string[])], [appointments]);
   const uniqueLawyers = useMemo(() => [...new Set(appointments.map(a => a.lawyer_name).filter(Boolean) as string[])], [appointments]);
+  const uniqueOffices = useMemo(() => {
+    const map = new Map<number, string>();
+    appointments.forEach(a => { if (a.office_id && a.office_name) map.set(a.office_id, a.office_name); });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name: name.replace('Юридическая компания ', '') }));
+  }, [appointments]);
+  const showCityTabs = uniqueOffices.length > 1 && (isDirector || isCCManager);
 
   const applyFilters = useCallback((list: AppointmentData[]) => {
     let r = list;
@@ -213,12 +227,13 @@ const Appointments: React.FC = () => {
     if (filterLawyer !== 'all') r = r.filter(a => a.lawyer_name === filterLawyer);
     if (filterSource !== 'all') r = r.filter(a => a.source === filterSource);
     if (filterOperator !== 'all') r = r.filter(a => a.operator_name === filterOperator);
+    if (filterOfficeId !== 'all') r = r.filter(a => a.office_id === filterOfficeId);
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(a => a.client_name.toLowerCase().includes(q) || (a.client_phone || '').includes(q));
     }
     return r;
-  }, [filterStatus, filterLawyer, filterSource, filterOperator, search]);
+  }, [filterStatus, filterLawyer, filterSource, filterOperator, filterOfficeId, search]);
 
   /* Date-filtered list. When a search query is active, search across ALL dates
      so "lost" records (e.g. booked for another day) can always be found. */
@@ -382,6 +397,12 @@ const Appointments: React.FC = () => {
               <span className="apt-card-field-label">Источник</span>
               <span className="apt-card-field-text">{apt.source || '—'}</span>
             </div>
+            {apt.office_name && showCityTabs && filterOfficeId === 'all' && (
+            <div className="apt-card-field">
+              <span className="apt-card-field-label">Город</span>
+              <span className="apt-card-city">{apt.office_name.replace('Юридическая компания ', '')}</span>
+            </div>
+            )}
 
             {/* Operator */}
             <div className="apt-card-field apt-card-field-small">
@@ -444,15 +465,63 @@ const Appointments: React.FC = () => {
     <div className="apt-container">
       {/* Header */}
       <div className="apt-header">
-        <h2 className="apt-title">Записи</h2>
+        <div className="apt-header-left">
+          {isDirector ? (
+            <div className="apt-tab-switch">
+              <button
+                className={`apt-tab-btn ${activeTab === 'records' ? 'active' : ''}`}
+                onClick={() => setActiveTab('records')}
+              >
+                Записи
+              </button>
+              <button
+                className={`apt-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+                onClick={() => setActiveTab('analytics')}
+              >
+                Аналитика
+              </button>
+            </div>
+          ) : (
+            <h2 className="apt-title">Записи</h2>
+          )}
+        </div>
         <div className="apt-header-right">
-          {canManage && (
+          {activeTab === 'records' && canManage && (
             <button className="apt-new-btn" onClick={() => setNewModal(true)}>
               <PlusOutlined /> Новая запись
             </button>
           )}
         </div>
       </div>
+
+      {activeTab === 'analytics' && isDirector && (
+        <Suspense fallback={<div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary, #888)' }}>Загрузка…</div>}>
+          <AppointmentsAnalytics />
+        </Suspense>
+      )}
+
+      {activeTab === 'records' && (<>
+
+      {/* City tabs */}
+      {showCityTabs && (
+        <div className="apt-city-tabs">
+          {uniqueOffices.map(o => (
+            <button
+              key={o.id}
+              className={`apt-city-tab ${filterOfficeId === o.id ? 'active' : ''}`}
+              onClick={() => setFilterOfficeId(filterOfficeId === o.id ? 'all' : o.id)}
+            >
+              {o.name}
+            </button>
+          ))}
+          <button
+            className={`apt-city-tab ${filterOfficeId === 'all' ? 'active' : ''}`}
+            onClick={() => setFilterOfficeId('all')}
+          >
+            Все
+          </button>
+        </div>
+      )}
 
       {/* Date navigation: ← date → + calendar */}
       <div className="apt-date-nav">
@@ -550,6 +619,8 @@ const Appointments: React.FC = () => {
           </div>
         )}
       </div>
+
+      </>)}
 
       {/* New Appointment Modal */}
       <Modal

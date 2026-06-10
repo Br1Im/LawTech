@@ -65,6 +65,7 @@ router.use(caseWorkflowRoutes);
 
 // Маршруты для записей (appointments) — доступны всем авторизованным
 const callCenterController = require('../controllers/callCenterController');
+const analyticsController = require('../controllers/analyticsController');
 router.get('/appointments', authenticateToken, callCenterController.getAppointments);
 router.post('/appointments', authenticateToken, callCenterController.createDirectAppointment);
 router.patch('/appointments/:id/status', authenticateToken, callCenterController.updateAppointmentStatus);
@@ -79,6 +80,9 @@ router.get('/visits/stats', authenticateToken, callCenterController.getVisitsSta
 router.get('/visits/employees', authenticateToken, callCenterController.getOfficeEmployees);
 router.patch('/appointments/:id/assign-lawyer', authenticateToken, callCenterController.assignLawyer);
 router.get('/visits/consultation-stats', authenticateToken, callCenterController.getConsultationStats);
+
+// Analytics
+router.get('/analytics/call-center', authenticateToken, analyticsController.getCallCenterAnalytics);
 
 // Маршруты для юридических запросов
 router.post('/chat', authenticateToken, legalController.handleChatRequest);
@@ -105,12 +109,16 @@ router.post('/staff', authenticateToken, employeeManagement.createEmployee);
 router.get('/staff/allowed-roles', authenticateToken, employeeManagement.getAllowedRoles);
 router.put('/staff/:id', authenticateToken, employeeManagement.updateEmployee);
 router.post('/staff/:id/reset-password', authenticateToken, employeeManagement.resetPassword);
-router.put('/staff/:id/active', authenticateToken, employeeManagement.deactivateEmployee);
+router.patch('/staff/:id/active', authenticateToken, employeeManagement.deactivateEmployee);
 router.patch('/staff/:id/role', authenticateToken, employeeManagement.changeRole);
 router.get('/staff/changeable-roles', authenticateToken, employeeManagement.getChangeableRoles);
 router.get('/staff/my-offices', authenticateToken, employeeManagement.getMyOffices);
 router.patch('/staff/:id/office', authenticateToken, employeeManagement.transferOffice);
 router.post('/staff/change-password', authenticateToken, employeeManagement.changeOwnPassword);
+
+// Мульти-офис: назначение сотрудника на несколько офисов
+router.get('/staff/:id/offices', authenticateToken, employeeManagement.getStaffOffices);
+router.put('/staff/:id/offices', authenticateToken, employeeManagement.setStaffOffices);
 
 // Назначения договоров (авто-маршрутизация)
 const contractAssignmentController = require('../controllers/contractAssignmentController');

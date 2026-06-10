@@ -9,6 +9,11 @@ class Contract {
     try {
       const { page, pageSize } = options;
 
+      // Поддержка массива office_id (мульти-офис)
+      const isMulti = Array.isArray(officeId);
+      const officeFilter = isMulti ? 'c.office_id IN (?)' : 'c.office_id = ?';
+      const officeParam = officeId;
+
       const baseFrom = `
         FROM contracts c
         LEFT JOIN clients cl ON c.id_client = cl.id
@@ -17,11 +22,12 @@ class Contract {
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN employees sb ON c.signed_by = sb.id
         LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
-        WHERE c.office_id = ?
+        WHERE ${officeFilter}
       `;
 
       const selectFields = `
-        SELECT c.*, 
+        SELECT c.*,
+               (SELECT o.name FROM offices o WHERE o.id = c.office_id) as office_name,
                COALESCE(cl.name, 'Неизвестный клиент') as client_name,
                cl.phone as client_phone,
                cl.email as client_email,
@@ -36,15 +42,15 @@ class Contract {
       `;
 
       if (page > 0 && pageSize > 0) {
-        const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total ${baseFrom}`, [officeId]);
+        const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total ${baseFrom}`, [officeParam]);
         const offset = (page - 1) * pageSize;
         const query = `${selectFields} ${baseFrom} ORDER BY c.contract_date DESC LIMIT ? OFFSET ?`;
-        const [contracts] = await db.query(query, [officeId, pageSize, offset]);
+        const [contracts] = await db.query(query, [officeParam, pageSize, offset]);
         return { contracts, total };
       }
 
       const query = `${selectFields} ${baseFrom} ORDER BY c.contract_date DESC`;
-      const [contracts] = await db.query(query, [officeId]);
+      const [contracts] = await db.query(query, [officeParam]);
       return contracts;
     } catch (error) {
       console.error('Error getting contracts:', error);
@@ -159,9 +165,13 @@ class Contract {
       // При регистрации через администратора юрист должен дополнить данные
       const needsLawyerInput = registered_by ? 1 : 0;
 
-      // Получаем office_id сотрудника для привязки договора
-      const [empRows] = await connection.query('SELECT office_id FROM employees WHERE id = ?', [id_employee]);
-      const contractOfficeId = empRows.length > 0 ? empRows[0].office_id : null;
+      // Используем office_id из данных (переданный из контроллера — user.office_id),
+      // если не указан — фолбэк на employees
+      let contractOfficeId = contractData.office_id || null;
+      if (!contractOfficeId) {
+        const [empRows] = await connection.query('SELECT office_id FROM employees WHERE id = ?', [id_employee]);
+        contractOfficeId = empRows.length > 0 ? empRows[0].office_id : null;
+      }
 
       // Создаем договор с привязкой к офису
       const [result] = await connection.query(

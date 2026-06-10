@@ -74,13 +74,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const officeSwitcherRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.role === 'director') {
-      const storedId = localStorage.getItem('activeOfficeId');
-      if (storedId) setActiveOfficeId(Number(storedId));
+    const storedId = localStorage.getItem('activeOfficeId');
+    if (storedId) setActiveOfficeId(Number(storedId));
 
+    if (user?.role === 'director') {
+      // Директор: загружаем все офисы
       apiClient.get('/offices/my')
         .then((res) => {
           const list = res.data?.data || [];
+          setOffices(list);
+          if (list.length > 0 && !storedId) {
+            setActiveOfficeId(list[0].id);
+            localStorage.setItem('activeOfficeId', String(list[0].id));
+          }
+        })
+        .catch(() => {});
+    } else {
+      // Мульти-офис: загружаем назначенные офисы (пустой если только 1)
+      apiClient.get('/staff/my-offices')
+        .then((res) => {
+          const list = res.data?.offices || [];
           setOffices(list);
           if (list.length > 0 && !storedId) {
             setActiveOfficeId(list[0].id);
@@ -103,10 +116,14 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSwitchOffice = async (officeId: number) => {
     try {
-      const res = await apiClient.post('/offices/switch', { officeId });
-      if (res.data?.token) {
-        localStorage.setItem('token', res.data.token);
+      if (user?.role === 'director') {
+        // Директор: переключаем через API (обновляет токен)
+        const res = await apiClient.post('/offices/switch', { officeId });
+        if (res.data?.token) {
+          localStorage.setItem('token', res.data.token);
+        }
       }
+      // Для всех: сохраняем выбранный офис и перезагружаем
       localStorage.setItem('activeOfficeId', String(officeId));
       setActiveOfficeId(officeId);
       setIsOfficeSwitcherOpen(false);
@@ -276,6 +293,39 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+
+      {offices.length > 1 && (
+        <div className="sidebar-office-switcher" ref={officeSwitcherRef}>
+          <button
+            className="sidebar-item sidebar-office-btn"
+            onClick={() => setIsOfficeSwitcherOpen(!isOfficeSwitcherOpen)}
+            title={collapsed ? (activeOffice?.name || 'Офис') : ''}
+          >
+            <span className="sidebar-icon">
+              <ArrowLeftRight size={ICON_SIZE} strokeWidth={ICON_STROKE} />
+            </span>
+            {!collapsed && (
+              <span className="sidebar-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
+                {activeOffice?.name || 'Выбрать офис'}
+                <ChevronDown size={12} style={{ opacity: 0.5 }} />
+              </span>
+            )}
+          </button>
+          {isOfficeSwitcherOpen && !collapsed && (
+            <div className="sidebar-office-dropdown">
+              {offices.map(o => (
+                <button
+                  key={o.id}
+                  className={`sidebar-office-option ${o.id === activeOfficeId ? 'active' : ''}`}
+                  onClick={() => handleSwitchOffice(o.id)}
+                >
+                  {o.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => (

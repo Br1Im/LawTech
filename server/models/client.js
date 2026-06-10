@@ -11,10 +11,15 @@ class Client {
     try {
       const { page, pageSize } = options;
 
+      // Поддержка массива office_id (мульти-офис)
+      const isMulti = Array.isArray(officeId);
+      const officeFilter = isMulti ? 'cl.office_id IN (?)' : 'cl.office_id = ?';
+      const officeParam = officeId;
+
       const baseFrom = `
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
-        WHERE cl.office_id = ?
+        WHERE ${officeFilter}
       `;
       const selectFields = `
         SELECT cl.*,
@@ -25,19 +30,19 @@ class Client {
       if (page > 0 && pageSize > 0) {
         const [[{ total }]] = await db.query(
           `SELECT COUNT(DISTINCT cl.id) AS total ${baseFrom}`,
-          [officeId]
+          [officeParam]
         );
         const offset = (page - 1) * pageSize;
         const [items] = await db.query(
           `${selectFields} ${baseFrom} GROUP BY cl.id ORDER BY cl.id DESC LIMIT ? OFFSET ?`,
-          [officeId, pageSize, offset]
+          [officeParam, pageSize, offset]
         );
         return { items, total, page, pageSize };
       }
 
       const [clients] = await db.query(
         `${selectFields} ${baseFrom} GROUP BY cl.id ORDER BY cl.id DESC`,
-        [officeId]
+        [officeParam]
       );
       return clients;
     } catch (error) {

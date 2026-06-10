@@ -58,13 +58,14 @@ async function ensureUserOffice(user) {
 /**
  * checkOfficeAccess — проверяет, имеет ли пользователь доступ к указанному офису.
  *
- * Директор может видеть только офисы, где он owner_id.
  * owner (системная роль) — без ограничений.
- * admin и остальные роли — только свой office_id.
+ * director — офисы, где он owner_id.
+ * Остальные роли — свой office_id ИЛИ любой офис из user_offices.
  */
 async function checkOfficeAccess(user, officeId) {
   if (!user || !user.id || !officeId) return false;
   const role = String(user.role || '').toLowerCase();
+  const numOfficeId = Number(officeId);
 
   // Системная роль owner — доступ ко всему
   if (role === 'owner') return true;
@@ -73,28 +74,59 @@ async function checkOfficeAccess(user, officeId) {
   if (role === 'director') {
     const [offices] = await db.query(
       'SELECT id FROM offices WHERE id = ? AND owner_id = ?',
-      [officeId, user.id]
+      [numOfficeId, user.id]
     );
     return offices.length > 0;
   }
 
-  // admin и остальные роли — только свой офис
+  // Остальные роли — проверяем user_offices (включает основной офис)
+  const [uoRows] = await db.query(
+    'SELECT 1 FROM user_offices WHERE user_id = ? AND office_id = ? LIMIT 1',
+    [user.id, numOfficeId]
+  );
+  if (uoRows.length > 0) return true;
+
+  // Fallback: проверяем users.office_id напрямую (на случай если user_offices не синхронизирован)
   let userOfficeId = user.office_id;
   if (!userOfficeId) {
     const [rows] = await db.query('SELECT office_id FROM users WHERE id = ? LIMIT 1', [user.id]);
     if (rows[0]) userOfficeId = rows[0].office_id;
   }
-  return Number(userOfficeId) === Number(officeId);
+  return Number(userOfficeId) === numOfficeId;
 }
 
 /**
  * getUserOfficeIds — возвращает список office_id, к которым у пользователя есть доступ.
- * Для всех ролей (включая директора) — только текущий активный офис (user.office_id).
- * Данные между офисами одного директора не должны пересекаться.
+ *
+ * Для директора — все его офисы (owner_id), но только в контексте текущего активного
+ *   (данные между офисами не должны пересекаться для директора).
+ * Для остальных ролей — все офисы из user_offices.
+ * Если user_offices пуст — fallback на users.office_id.
  */
 async function getUserOfficeIds(user) {
   if (!user || !user.id) return [];
+  const role = String(user.role || '').toLowerCase();
 
+  // Директор: только активный офис (данные между офисами не пересекаются)
+  if (role === 'director') {
+    let userOfficeId = user.office_id;
+    if (!userOfficeId) {
+      const [rows] = await db.query('SELECT office_id FROM users WHERE id = ? LIMIT 1', [user.id]);
+      if (rows[0]) userOfficeId = rows[0].office_id;
+    }
+    return userOfficeId ? [Number(userOfficeId)] : [];
+  }
+
+  // Остальные роли: все офисы из user_offices
+  const [uoRows] = await db.query(
+    'SELECT office_id FROM user_offices WHERE user_id = ?',
+    [user.id]
+  );
+  if (uoRows.length > 0) {
+    return uoRows.map(r => Number(r.office_id));
+  }
+
+  // Fallback: users.office_id
   let userOfficeId = user.office_id;
   if (!userOfficeId) {
     const [rows] = await db.query('SELECT office_id FROM users WHERE id = ? LIMIT 1', [user.id]);

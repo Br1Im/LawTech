@@ -27,6 +27,8 @@ router.post('/calls', authenticateToken, requireCCRole, callCenterController.cre
 router.post('/test-lead', authenticateToken, requireCCRole, callCenterController.createTestLead);
 router.post('/leads/:id/book', authenticateToken, requireCCRole, callCenterController.bookClient);
 
+router.get('/target-offices', authenticateToken, requireCCRole, callCenterController.getTargetOffices);
+
 module.exports = {
   router,
   receiveIncomingLead: callCenterController.receiveIncomingLead

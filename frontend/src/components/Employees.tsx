@@ -124,6 +124,11 @@ const StaffDetailModal = ({
   const [myOffices, setMyOffices] = useState<{ id: number; name: string }[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<string>('');
   const [transferring, setTransferring] = useState(false);
+  const [showMultiOffice, setShowMultiOffice] = useState(false);
+  const [assignedOffices, setAssignedOffices] = useState<{ office_id: number; office_name: string; is_primary: number }[]>([]);
+  const [officeHistory, setOfficeHistory] = useState<{ office_id: number; office_name: string; action: string; changed_at: string; changed_by_name: string }[]>([]);
+  const [savingOffices, setSavingOffices] = useState(false);
+  const [showOfficeHistory, setShowOfficeHistory] = useState(false);
 
   // Офисы, в которые можно перевести (все офисы директора, кроме текущего офиса сотрудника)
   const transferTargets = myOffices.filter(o => Number(o.id) !== Number(staff.office_id));
@@ -144,6 +149,53 @@ const StaffDetailModal = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showOfficeTransfer, myOffices]);
+
+  // Загрузка назначенных офисов при открытии мульти-офис секции
+  const loadStaffOffices = async () => {
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/offices`), { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAssignedOffices(data.offices || []);
+      setOfficeHistory(data.history || []);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (showMultiOffice && isGeneralDirector) {
+      loadStaffOffices();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMultiOffice]);
+
+  const handleToggleOffice = (officeId: number) => {
+    const currentIds = assignedOffices.map(o => o.office_id);
+    const isPrimary = Number(officeId) === Number(staff.office_id);
+    if (isPrimary) return; // нельзя убрать основной офис
+    if (currentIds.includes(officeId)) {
+      setAssignedOffices(prev => prev.filter(o => o.office_id !== officeId));
+    } else {
+      const officeName = myOffices.find(o => o.id === officeId)?.name || 'Офис #' + officeId;
+      setAssignedOffices(prev => [...prev, { office_id: officeId, office_name: officeName, is_primary: 0 }]);
+    }
+  };
+
+  const handleSaveOffices = async () => {
+    setSavingOffices(true); setError(null);
+    try {
+      const ids = assignedOffices.map(o => o.office_id);
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/offices`), {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ office_ids: ids }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || 'Ошибка'); }
+      const data = await res.json();
+      setSuccess(data.message || 'Офисы обновлены');
+      await loadStaffOffices();
+    } catch (e) { setError((e as Error).message); }
+    finally { setSavingOffices(false); }
+  };
 
   const handleTransferOffice = async () => {
     if (!selectedOffice) return;
@@ -370,6 +422,53 @@ const StaffDetailModal = ({
           </div>
         )}
 
+        {showMultiOffice && isGeneralDirector && (
+          <div className="emp-modal-section">
+            <h4><FaBuilding /> Доступные офисы</h4>
+            <p style={{ fontSize: '13px', color: '#888', margin: '0 0 8px' }}>
+              Основной офис: <b>{myOffices.find(o => Number(o.id) === Number(staff.office_id))?.name || '—'}</b> (не снимается)
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '10px' }}>
+              {myOffices.map(o => {
+                const isPrimary = Number(o.id) === Number(staff.office_id);
+                const isAssigned = assignedOffices.some(ao => ao.office_id === o.id);
+                return (
+                  <label key={o.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isPrimary ? 'default' : 'pointer', opacity: isPrimary ? 0.7 : 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={isAssigned || isPrimary}
+                      disabled={isPrimary}
+                      onChange={() => handleToggleOffice(o.id)}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    <span style={{ fontSize: '14px' }}>{o.name}{isPrimary ? ' (основной)' : ''}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="btn-primary" onClick={handleSaveOffices} disabled={savingOffices} style={{ whiteSpace: 'nowrap' }}>
+                {savingOffices ? 'Сохранение…' : 'Сохранить офисы'}
+              </button>
+              <button className="btn-secondary" onClick={() => setShowOfficeHistory(!showOfficeHistory)} style={{ whiteSpace: 'nowrap', fontSize: '13px' }}>
+                {showOfficeHistory ? 'Скрыть историю' : 'История изменений'}
+              </button>
+            </div>
+            {showOfficeHistory && officeHistory.length > 0 && (
+              <div style={{ marginTop: '10px', fontSize: '12px', color: '#888', maxHeight: '150px', overflowY: 'auto' }}>
+                {officeHistory.map((h, i) => (
+                  <div key={i} style={{ padding: '3px 0', borderBottom: '1px solid rgba(128,128,128,0.1)' }}>
+                    <span style={{ color: h.action === 'added' ? '#52c41a' : '#ff4d4f' }}>
+                      {h.action === 'added' ? '+ Добавлен' : '− Убран'}
+                    </span>
+                    {' '}{h.office_name} — {h.changed_by_name || '?'}, {new Date(h.changed_at).toLocaleDateString('ru-RU')}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {error && <div className="form-error">{error}</div>}
         {success && <div className="form-success">{success}</div>}
 
@@ -389,6 +488,9 @@ const StaffDetailModal = ({
                 )}
                 {isGeneralDirector && staff.role !== 'director' && transferTargets.length > 0 && (
                   <button className="btn-secondary" onClick={() => setShowOfficeTransfer(!showOfficeTransfer)}><FaBuilding /> Перевести в офис</button>
+                )}
+                {isGeneralDirector && staff.role !== 'director' && myOffices.length > 1 && (
+                  <button className="btn-secondary" onClick={() => setShowMultiOffice(!showMultiOffice)}><FaBuilding /> Доступные офисы</button>
                 )}
                 {confirmDeactivate ? (
                   <div className="delete-confirm">

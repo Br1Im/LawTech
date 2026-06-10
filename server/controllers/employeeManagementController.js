@@ -96,10 +96,42 @@ const createEmployee = async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, NOW(), NOW())
     `, [first_name, last_name, middle_name || '', `${login}@staff.local`, login, phone || null, hashedPassword, role, employeeOfficeId, creator.id]);
 
+    const newUserId = result.insertId;
+
+    // Синхронизируем user_offices (мульти-офис)
+    try {
+      await db.query(
+        'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
+        [newUserId, employeeOfficeId, creator.id]
+      );
+    } catch (uoErr) {
+      console.warn('[createEmployee] user_offices sync failed:', uoErr.message);
+    }
+
+    // Автоматически создаём запись в employees (синхронизация users ↔ employees)
+    const positionMap = {
+      lawyer: 'Юрист', manager: 'Менеджер', admin: 'Администратор',
+      okk: 'ОКК', expert: 'Эксперт', cc_manager: 'Начальник КЦ',
+      cc_operator: 'Оператор КЦ', representative: 'Представитель',
+      director: 'Генеральный директор',
+    };
+    try {
+      await db.query(
+        `INSERT INTO employees (id, first_name, last_name, middle_name, email, phone, position, office_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE office_id = VALUES(office_id), position = VALUES(position)`,
+        [newUserId, first_name, last_name, middle_name || null,
+         `${login}@staff.local`, phone || null,
+         positionMap[role] || role, employeeOfficeId]
+      );
+    } catch (empErr) {
+      console.warn('[createEmployee] employees sync failed:', empErr.message);
+    }
+
     res.status(201).json({
       message: 'Сотрудник создан',
       employee: {
-        id: result.insertId,
+        id: newUserId,
         first_name,
         last_name,
         middle_name: middle_name || '',
@@ -130,15 +162,23 @@ const getEmployees = async (req, res) => {
       }
     }
 
-    let query = `
-      SELECT id, first_name, last_name, middle_name, login, phone, email, role, office_id, is_active, created_by, created_at
-      FROM users WHERE 1=1
-    `;
+    let query = '';
     const params = [];
 
     if (officeId) {
-      query += ' AND office_id = ?';
-      params.push(officeId);
+      // Показываем сотрудников основного офиса + мульти-офисных (назначенных через user_offices)
+      query = `
+        SELECT DISTINCT u.id, u.first_name, u.last_name, u.middle_name, u.login, u.phone, u.email, u.role, u.office_id, u.is_active, u.created_by, u.created_at
+        FROM users u
+        LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
+        WHERE (u.office_id = ? OR uo.office_id IS NOT NULL)
+      `;
+      params.push(officeId, officeId);
+    } else {
+      query = `
+        SELECT id, first_name, last_name, middle_name, login, phone, email, role, office_id, is_active, created_by, created_at
+        FROM users WHERE 1=1
+      `;
     }
 
     // Для КЦ ролей показываем только состав КЦ (начальник + операторы)
@@ -387,17 +427,34 @@ const changeRole = async (req, res) => {
 const getMyOffices = async (req, res) => {
   try {
     const user = req.user;
-    // Офисы доступны для перевода только генеральному директору
-    if (user.role !== 'director') {
-      return res.json({ offices: [] });
+    
+    if (user.role === 'director') {
+      // Директор видит все свои офисы
+      const [offices] = await db.query(
+        'SELECT id, name FROM offices WHERE owner_id = ? ORDER BY name ASC',
+        [user.id]
+      );
+      return res.json({ offices });
     }
-    const [offices] = await db.query(
-      'SELECT id, name FROM offices WHERE owner_id = ? ORDER BY name ASC',
+    
+    // Мульти-офис: не-директор видит свои назначенные офисы
+    const [assigned] = await db.query(
+      `SELECT o.id, o.name
+       FROM user_offices uo
+       JOIN offices o ON o.id = uo.office_id
+       WHERE uo.user_id = ?
+       ORDER BY o.name ASC`,
       [user.id]
     );
-    res.json({ offices });
+    
+    // Если назначен только на 1 офис — возвращаем пустой (нет нужды в переключателе)
+    if (assigned.length <= 1) {
+      return res.json({ offices: [] });
+    }
+    
+    res.json({ offices: assigned });
   } catch (error) {
-    console.error('Ошибка при получении офисов директора:', error);
+    console.error('Ошибка при получении офисов:', error);
     res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
   }
 };
@@ -449,6 +506,19 @@ const transferOffice = async (req, res) => {
 
     await db.query('UPDATE users SET office_id = ?, updated_at = NOW() WHERE id = ?', [newOfficeId, id]);
 
+    // Синхронизируем employees таблицу (если запись существует)
+    await db.query('UPDATE employees SET office_id = ? WHERE id = ?', [newOfficeId, id]);
+
+    // Синхронизируем user_offices: удаляем старый основной, добавляем новый
+    await db.query(
+      'DELETE FROM user_offices WHERE user_id = ? AND office_id = ?',
+      [id, target.office_id]
+    );
+    await db.query(
+      'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
+      [id, newOfficeId, creator.id]
+    );
+
     res.json({
       message: 'Сотрудник переведён в другой офис',
       office_id: Number(newOfficeId),
@@ -473,6 +543,168 @@ const getChangeableRoles = async (req, res) => {
   }
 };
 
+
+// ==========================================
+// МУЛЬТИ-ОФИС: Назначение сотрудника на несколько офисов
+// ==========================================
+
+// Получить список офисов, назначенных сотруднику
+const getStaffOffices = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+
+    if (user.role !== 'director') {
+      return res.status(403).json({ success: false, message: 'Доступ запрещён' });
+    }
+
+    const [users] = await db.query('SELECT id, office_id, role, first_name, last_name FROM users WHERE id = ?', [id]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+
+    const [offices] = await db.query(`
+      SELECT uo.office_id, o.name as office_name, uo.assigned_at,
+             CASE WHEN uo.office_id = u.office_id THEN 1 ELSE 0 END as is_primary
+      FROM user_offices uo
+      JOIN offices o ON o.id = uo.office_id
+      JOIN users u ON u.id = uo.user_id
+      WHERE uo.user_id = ?
+      ORDER BY is_primary DESC, o.name ASC
+    `, [id]);
+
+    const [history] = await db.query(`
+      SELECT uoh.office_id, uoh.office_name, uoh.action, uoh.changed_at,
+             CONCAT(u.first_name, ' ', u.last_name) as changed_by_name
+      FROM user_office_history uoh
+      LEFT JOIN users u ON u.id = uoh.changed_by
+      WHERE uoh.user_id = ?
+      ORDER BY uoh.changed_at DESC
+      LIMIT 50
+    `, [id]);
+
+    res.json({
+      success: true,
+      user_id: Number(id),
+      primary_office_id: users[0].office_id,
+      offices,
+      history,
+    });
+  } catch (error) {
+    console.error('Ошибка при получении офисов сотрудника:', error);
+    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+};
+
+// Назначить сотрудника на офисы
+const setStaffOffices = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { office_ids } = req.body;
+    const user = req.user;
+
+    if (user.role !== 'director') {
+      return res.status(403).json({ success: false, message: 'Только генеральный директор может назначать офисы' });
+    }
+
+    if (!Array.isArray(office_ids) || office_ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'Укажите хотя бы один офис' });
+    }
+
+    const numericOfficeIds = office_ids.map(Number).filter(Boolean);
+
+    const [users] = await db.query('SELECT id, office_id, role FROM users WHERE id = ?', [id]);
+    if (users.length === 0) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+
+    if (users[0].role === 'director') {
+      return res.status(403).json({ success: false, message: 'Нельзя назначать офисы директору' });
+    }
+
+    const [directorOffices] = await db.query('SELECT id, name FROM offices WHERE owner_id = ?', [user.id]);
+    const ownedIds = new Set(directorOffices.map(o => o.id));
+    const officeNameMap = {};
+    directorOffices.forEach(o => { officeNameMap[o.id] = o.name; });
+
+    for (const oid of numericOfficeIds) {
+      if (!ownedIds.has(oid)) {
+        return res.status(403).json({ success: false, message: `Офис ${oid} не принадлежит вам` });
+      }
+    }
+
+    const primaryOffice = users[0].office_id;
+    if (primaryOffice && !numericOfficeIds.includes(primaryOffice)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Основной офис сотрудника должен быть в списке. Для перевода используйте «Перевести в офис».'
+      });
+    }
+
+    const [currentUO] = await db.query('SELECT office_id FROM user_offices WHERE user_id = ?', [id]);
+    const currentIds = new Set(currentUO.map(r => r.office_id));
+    const newIds = new Set(numericOfficeIds);
+
+    const toAdd = numericOfficeIds.filter(oid => !currentIds.has(oid));
+    const toRemove = [...currentIds].filter(oid => !newIds.has(oid));
+
+    const conn = await db.getClient();
+    try {
+      await conn.beginTransaction();
+
+      if (toRemove.length > 0) {
+        await conn.query('DELETE FROM user_offices WHERE user_id = ? AND office_id IN (?)', [id, toRemove]);
+        for (const oid of toRemove) {
+          await conn.query(
+            'INSERT INTO user_office_history (user_id, office_id, office_name, action, changed_by) VALUES (?, ?, ?, ?, ?)',
+            [id, oid, officeNameMap[oid] || `Офис #${oid}`, 'removed', user.id]
+          );
+        }
+      }
+
+      if (toAdd.length > 0) {
+        for (const oid of toAdd) {
+          await conn.query(
+            'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
+            [id, oid, user.id]
+          );
+          await conn.query(
+            'INSERT INTO user_office_history (user_id, office_id, office_name, action, changed_by) VALUES (?, ?, ?, ?, ?)',
+            [id, oid, officeNameMap[oid] || `Офис #${oid}`, 'added', user.id]
+          );
+        }
+      }
+
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+
+    const [updatedOffices] = await db.query(`
+      SELECT uo.office_id, o.name as office_name,
+             CASE WHEN uo.office_id = ? THEN 1 ELSE 0 END as is_primary
+      FROM user_offices uo
+      JOIN offices o ON o.id = uo.office_id
+      WHERE uo.user_id = ?
+      ORDER BY is_primary DESC, o.name ASC
+    `, [primaryOffice, id]);
+
+    res.json({
+      success: true,
+      message: `Назначения обновлены: +${toAdd.length}, -${toRemove.length}`,
+      offices: updatedOffices,
+      added: toAdd.map(oid => ({ office_id: oid, office_name: officeNameMap[oid] })),
+      removed: toRemove.map(oid => ({ office_id: oid, office_name: officeNameMap[oid] })),
+    });
+  } catch (error) {
+    console.error('Ошибка при назначении офисов:', error);
+    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+};
+
 module.exports = {
   createEmployee,
   getEmployees,
@@ -485,5 +717,7 @@ module.exports = {
   getChangeableRoles,
   getMyOffices,
   transferOffice,
+  getStaffOffices,
+  setStaffOffices,
   ROLE_LABELS,
 };

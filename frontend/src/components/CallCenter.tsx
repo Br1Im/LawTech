@@ -8,7 +8,7 @@ import './CallCenter.css';
 
 dayjs.locale('ru');
 
-type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'CALL_BACK' | 'INTERESTED' | 'BOOKED' | 'REJECTED' | 'SPAM' | 'DUPLICATE' | 'NON_TARGET' | 'CLOSED';
+type LeadStatus = 'NEW' | 'IN_PROGRESS' | 'NO_ANSWER' | 'CALL_BACK' | 'INTERESTED' | 'BOOKED' | 'REJECTED' | 'SPAM' | 'DUPLICATE' | 'NON_TARGET' | 'UNREACHABLE' | 'CLOSED';
 
 type Temperature = 'hot' | 'warm' | 'cold' | null;
 
@@ -130,7 +130,7 @@ const ALL_STATUSES: LeadStatus[] = [
   'BOOKED', 'REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'CLOSED'
 ];
 
-const ARCHIVE_STATUSES: LeadStatus[] = ['REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'CLOSED'];
+const ARCHIVE_STATUSES: LeadStatus[] = ['REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'UNREACHABLE', 'CLOSED'];
 
 const TEMPERATURE_OPTIONS: Exclude<Temperature, null>[] = ['hot', 'warm', 'cold'];
 
@@ -151,7 +151,7 @@ const STATUS_LABELS: Record<LeadStatus, string> = {
 const STATUS_SHORT: Record<LeadStatus, string> = {
   NEW: 'Новый',
   IN_PROGRESS: 'В работе',
-  NO_ANSWER: 'Недозвон',
+  NO_ANSWER: 'Нет ответа',
   CALL_BACK: 'Перезвонить',
   INTERESTED: 'Заинтересован',
   BOOKED: 'Записан',
@@ -159,6 +159,7 @@ const STATUS_SHORT: Record<LeadStatus, string> = {
   SPAM: 'Спам',
   DUPLICATE: 'Дубль',
   NON_TARGET: 'Нецелевой',
+  UNREACHABLE: 'Недозвон',
   CLOSED: 'Закрыт'
 };
 
@@ -204,6 +205,11 @@ const SOURCE_LABEL = (source: string) => {
   };
   return known[source.toLowerCase()] || source;
 };
+
+interface TargetOffice {
+  id: number;
+  name: string;
+}
 
 const MANAGER_ROLES = ['cc_manager', 'admin', 'director'];
 
@@ -257,6 +263,8 @@ const CallCenter: React.FC = () => {
   const [bookingComment, setBookingComment] = useState('');
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [showCallbackPicker, setShowCallbackPicker] = useState(false);
+  const [targetOffices, setTargetOffices] = useState<TargetOffice[]>([]);
+  const [bookingOfficeId, setBookingOfficeId] = useState<number | null>(null);
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportDateFrom, setExportDateFrom] = useState('');
@@ -368,7 +376,16 @@ const CallCenter: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchEnums(); }, []);
+  useEffect(() => {
+    fetchEnums();
+    // Загружаем доступные офисы для кросс-офисной записи
+    apiInstance.get('/call-center/target-offices')
+      .then(res => {
+        const offices = res.data?.data || [];
+        setTargetOffices(offices);
+      })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -489,7 +506,8 @@ const CallCenter: React.FC = () => {
         client_name: bookingClientName,
         appointment_date: bookingDate,
         appointment_time: bookingTime,
-        comment: bookingComment || null
+        comment: bookingComment || null,
+        ...(bookingOfficeId ? { target_office_id: bookingOfficeId } : {})
       });
       setBookingClientName('');
       setBookingDate('');
@@ -939,7 +957,7 @@ const CallCenter: React.FC = () => {
               </div>
 
               {/* History timeline */}
-              {selectedLead.history && selectedLead.history.length > 0 && (
+              {!isOperatorOnly && selectedLead.history && selectedLead.history.length > 0 && (
                 <div className="cc-drawer-section">
                   <h4 className="cc-section-title">История взаимодействий</h4>
                   <div className="cc-timeline">
@@ -1112,6 +1130,21 @@ const CallCenter: React.FC = () => {
                 <span className="cc-form-label">ФИО клиента *</span>
                 <input type="text" className="cc-form-input" value={bookingClientName} onChange={(e) => setBookingClientName(e.target.value)} placeholder="Фамилия Имя Отчество" />
               </label>
+              {targetOffices.length > 1 && (
+                <label className="cc-form-field">
+                  <span className="cc-form-label">Город *</span>
+                  <select
+                    className="cc-form-input"
+                    value={bookingOfficeId ?? ''}
+                    onChange={(e) => setBookingOfficeId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">— Выберите город —</option>
+                    {targetOffices.map(o => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="cc-form-row">
                 <label className="cc-form-field">
                   <span className="cc-form-label">Дата *</span>
@@ -1128,7 +1161,7 @@ const CallCenter: React.FC = () => {
               </label>
             </div>
             <div className="cc-modal-footer">
-              <button className="cc-btn cc-btn-consult" onClick={handleBookClient} disabled={submitting || !bookingClientName.trim() || !bookingDate || !bookingTime}>
+              <button className="cc-btn cc-btn-consult" onClick={handleBookClient} disabled={submitting || !bookingClientName.trim() || !bookingDate || !bookingTime || (targetOffices.length > 1 && !bookingOfficeId)}>
                 Записать
               </button>
               <button className="cc-link-btn" onClick={() => setShowBookingForm(false)}>Отмена</button>

@@ -156,8 +156,7 @@ const officeDashboardController = {
              COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount ELSE 0 END), 0) AS day_fact,
              COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount ELSE 0 END), 0) AS period_fact
            FROM contracts c
-           JOIN employees e ON e.id = c.id_employee
-           WHERE e.office_id = ? AND c.paid_amount > 0`,
+           WHERE c.office_id = ? AND c.paid_amount > 0`,
           [today, from, to, officeId]
         ),
         // Confirmed refunds: subtract from fact on the day/period when refund was confirmed
@@ -166,8 +165,7 @@ const officeDashboardController = {
              COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
              COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
            FROM contracts c
-           JOIN employees e ON e.id = c.id_employee
-           WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0`,
+           WHERE c.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0`,
           [today, from, to, officeId]
         ),
         // Plan: the canonical recurring plan (latest already-started period). Must match
@@ -213,7 +211,7 @@ const officeDashboardController = {
              COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
            FROM employees e
            JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id))
-           WHERE e.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0
+           WHERE c.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0
            GROUP BY e.id`,
           [today, from, to, officeId]
         ),

@@ -9,6 +9,7 @@
  * Доступ к просмотру действий: ОКК, Директор, Менеджер
  */
 const db = require('../db');
+const { getUserOfficeIds } = require('../utils/ensureOffice');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -43,9 +44,11 @@ const representativeController = {
       }
 
       // Фильтр по офису
-      if (user.office_id) {
-        where += ' AND c.office_id = ?';
-        params.push(user.office_id);
+      // Мульти-офис: фильтр по всем назначенным офисам
+      const officeIds = await getUserOfficeIds(user);
+      if (officeIds.length > 0) {
+        where += ' AND c.office_id IN (?)';
+        params.push(officeIds);
       }
 
       const [rows] = await db.query(`
@@ -281,9 +284,10 @@ const representativeController = {
       let officeFilter = '';
       const params = [];
 
-      if (user.office_id) {
-        officeFilter = ' AND u.office_id = ?';
-        params.push(user.office_id);
+      const officeIds2 = await getUserOfficeIds(user);
+      if (officeIds2.length > 0) {
+        officeFilter = ' AND u.office_id IN (?)';
+        params.push(officeIds2);
       }
 
       const [rows] = await db.query(`

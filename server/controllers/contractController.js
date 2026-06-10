@@ -17,25 +17,28 @@ const contractController = {
       const user = req.user;
       
       // Подставляем office_id: сначала из URL/query, потом из пользователя.
-      // Если у пользователя офиса нет — создаём персональный.
-      let officeId = req.params.officeId || req.query.office_id || user.office_id;
-      if (!officeId) {
-        officeId = await ensureUserOffice(user);
-      }
-
-      if (!officeId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Пользователь не привязан к офису'
-        });
-      }
-
-      const allowed = await checkOfficeAccess(user, officeId);
-      if (!allowed) {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен'
-        });
+      let officeId = req.params.officeId || req.query.office_id || null;
+      
+      if (officeId) {
+        // Конкретный офис запрошен — проверяем доступ
+        const allowed = await checkOfficeAccess(user, officeId);
+        if (!allowed) {
+          return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+        }
+      } else {
+        // Нет конкретного офиса — берём все доступные (мульти-офис)
+        const officeIds = await getUserOfficeIds(user);
+        if (officeIds.length === 0) {
+          officeId = await ensureUserOffice(user);
+          if (!officeId) {
+            return res.status(403).json({ success: false, message: 'Пользователь не привязан к офису' });
+          }
+        } else if (officeIds.length === 1) {
+          officeId = officeIds[0];
+        } else {
+          // Мульти-офис: передаём массив
+          officeId = officeIds;
+        }
       }
 
       const page = parseInt(req.query.page, 10);
@@ -224,6 +227,9 @@ const contractController = {
           }
         });
       }
+
+      // Привязываем договор к офису текущего пользователя
+      contractData.office_id = user.office_id;
 
       const contract = await Contract.create(contractData);
 

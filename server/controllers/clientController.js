@@ -1,5 +1,5 @@
 const Client = require('../models/client');
-const { ensureUserOffice, checkOfficeAccess } = require('../utils/ensureOffice');
+const { ensureUserOffice, checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 const db = require('../db');
 
 /**
@@ -13,9 +13,16 @@ const clientController = {
     try {
       const user = req.user;
 
-      const officeId = await ensureUserOffice(user);
-      if (!officeId) {
-        return res.json({ success: true, data: [] });
+      // Мульти-офис: получаем все доступные офисы
+      const officeIds = await getUserOfficeIds(user);
+      let officeId;
+      if (officeIds.length === 0) {
+        officeId = await ensureUserOffice(user);
+        if (!officeId) return res.json({ success: true, data: [] });
+      } else if (officeIds.length === 1) {
+        officeId = officeIds[0];
+      } else {
+        officeId = officeIds; // массив для мульти-офиса
       }
 
       // Опциональная пагинация: ?page=1&page_size=50 (page_size capped at 200)
