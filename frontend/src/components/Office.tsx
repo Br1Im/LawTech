@@ -5,7 +5,7 @@ import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
 import "./OfficePolish.css";
 import StatCard from "./StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaRegStar, FaEllipsisH, FaPlus } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaEllipsisH, FaPlus } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import { Modal, Form, Input, Button, message } from "antd";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
@@ -183,7 +183,6 @@ const Office = () => {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showRevenueModal, setShowRevenueModal] = useState(false);
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
-  const [selectedLawyerId, setSelectedLawyerId] = useState<string | null>(null);
   const [contracts, setContracts] = useState<Array<{ id: number; id_employee: number; status: string; title: string; amount?: number | string }>>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   // Смещение периода офиса для просмотра предыдущих периодов (0 = текущий, -1 = предыдущий).
@@ -1016,19 +1015,9 @@ const Office = () => {
     return { rating: 0, ratingLabel: 'Низкий' };
   };
 
-  const renderStars = (rating: 0 | 1 | 2 | 3) => (
-    <span className="lawyer-rating-stars" aria-label={`Рейтинг ${rating} из 3`}>
-      {[1, 2, 3].map(i => i <= rating ? <FaStar key={i} /> : <FaRegStar key={i} />)}
-    </span>
-  );
 
-  // Данные для модалки выбранного сотрудника (мемоизация)
-  const selectedConsultationEmployee = useMemo(() =>
-    selectedLawyerId
-      ? consultationStats.find(cs => String(cs.id) === String(selectedLawyerId)) || null
-      : null,
-    [selectedLawyerId, consultationStats]
-  );
+
+
 
   // Cash data by employee id (мемоизация)
   const cashById = useMemo(() => {
@@ -1383,9 +1372,7 @@ const Office = () => {
                       return (
                         <tr
                           key={cs.id}
-                          className="lawyer-row"
-                          onClick={() => setSelectedLawyerId(String(cs.id))}
-                          title="Открыть статистику сотрудника"
+                          className="lawyer-row-static"
                         >
                           <td><b>{cs.name}</b></td>
                           <td>{roleLabel(cs.role)}</td>
@@ -1697,75 +1684,6 @@ const Office = () => {
         </div>
       )}
 
-      {selectedConsultationEmployee && (() => {
-        const cs = selectedConsultationEmployee;
-        const { rating, ratingLabel } = computeConsultationRating(cs.conversion);
-        const cash = cashById.get(cs.id);
-        return (
-          <div className="employee-modal-overlay active" onClick={() => setSelectedLawyerId(null)}>
-            <div className="modal-content lawyer-modal" onClick={(e) => e.stopPropagation()}>
-              <span className="modal-close-icon" onClick={() => setSelectedLawyerId(null)}>
-                <FaTimes />
-              </span>
-              <h3>{cs.name}</h3>
-              <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>{roleLabel(cs.role)}</div>
-
-              {cs.total_consultations > 0 && (
-                <div className="lawyer-rating-row">
-                  {renderStars(rating)}
-                  <span className={`rating-badge rating-${rating}`}>{ratingLabel}</span>
-                </div>
-              )}
-
-              <div className="lawyer-summary">
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Консультаций</div>
-                  <div className="cell-value">{cs.total_consultations}</div>
-                </div>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Заключено</div>
-                  <div className="cell-value" style={{ color: '#138a5d' }}>{cs.contracts_signed}</div>
-                </div>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Не заключено</div>
-                  <div className="cell-value" style={{ color: '#c0392b' }}>{cs.contracts_not_signed}</div>
-                </div>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Ожидает</div>
-                  <div className="cell-value">{cs.pending}</div>
-                </div>
-              </div>
-
-              <div className="lawyer-summary" style={{ marginTop: 12 }}>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Конверсия</div>
-                  <div className="cell-value" style={{ fontWeight: 700 }}>
-                    {cs.total_consultations > 0 ? `${cs.conversion}%` : '—'}
-                  </div>
-                </div>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">{dayOffset === 0 ? 'Касса сегодня' : 'Касса за день'}</div>
-                  <div className="cell-value">{cash ? `${Math.round(cash.today).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</div>
-                </div>
-                <div className="lawyer-summary-cell">
-                  <div className="cell-label">Касса за период</div>
-                  <div className="cell-value" style={{ fontWeight: 700 }}>{cash ? `${Math.round(cash.period).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</div>
-                </div>
-              </div>
-
-              {cs.total_consultations > 0 && (
-                <div className="modal-section" style={{ marginTop: 16 }}>
-                  <h4>Оценка эффективности</h4>
-                  <div style={{ padding: '10px 0', fontSize: 14, lineHeight: 1.6 }}>
-                    <p>Из <b>{cs.total_consultations}</b> консультаций договор заключён в <b>{cs.contracts_signed}</b> случаях.</p>
-                    <p>Конверсия: <b>{cs.conversion}%</b> — <span className={`rating-badge rating-${rating}`} style={{ display: 'inline' }}>{ratingLabel}</span></p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 };

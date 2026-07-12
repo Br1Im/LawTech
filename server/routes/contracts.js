@@ -169,4 +169,34 @@ router.post('/:id/payments', paymentController.addPayment);
 router.patch('/:id/payments/:paymentId/confirm', paymentController.confirmPayment);
 router.delete('/:id/payments/:paymentId', paymentController.deletePayment);
 
+// Изменить только статус документов (Ожидание/Готово). Не трогает остальные поля договора.
+router.patch('/:id/docs-status', async (req, res) => {
+  try {
+    const db = require('../db');
+    const { checkOfficeAccess } = require('../utils/ensureOffice');
+    const user = req.user;
+    const contractId = req.params.id;
+    const next = String(req.body.docs_status || '').toLowerCase();
+    if (next !== 'pending' && next !== 'ready') {
+      return res.status(400).json({ success: false, message: 'Неверный статус документов' });
+    }
+    const [[c]] = await db.query('SELECT id, office_id, expert_id, id_employee, registered_by FROM contracts WHERE id = ?', [contractId]);
+    if (!c) return res.status(404).json({ success: false, message: 'Договор не найден' });
+    const allowed = await checkOfficeAccess(user, c.office_id);
+    if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+    const role = String(user.role || '').toLowerCase();
+    const canEdit =
+      ['director', 'manager', 'okk', 'lawyer'].includes(role) ||
+      (role === 'expert' && Number(c.expert_id) === Number(user.id)) ||
+      Number(c.id_employee) === Number(user.id) ||
+      Number(c.registered_by) === Number(user.id);
+    if (!canEdit) return res.status(403).json({ success: false, message: 'Нет прав на изменение статуса' });
+    await db.query('UPDATE contracts SET docs_status = ? WHERE id = ?', [next, contractId]);
+    res.json({ success: true, id: Number(contractId), docs_status: next });
+  } catch (error) {
+    console.error('Error updating docs_status:', error);
+    res.status(500).json({ success: false, message: 'Ошибка при обновлении статуса документов' });
+  }
+});
+
 module.exports = router;
