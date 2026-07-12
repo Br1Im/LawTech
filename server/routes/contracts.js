@@ -53,7 +53,7 @@ router.patch('/:id/card-data', async (req, res) => {
     }
 
     const contractId = req.params.id;
-    const { document_types, custom_documents, circumstances, expert_id, title, customer_goal, legal_cost_comp, moral_comp } = req.body;
+    const { document_types, custom_documents, circumstances, expert_id, title, customer_goal, legal_cost_comp, moral_comp, expert_deadline, expert_deadline_time, expert_deadline_comment } = req.body;
     const db = require('../db');
 
     const sets = [];
@@ -90,6 +90,18 @@ router.patch('/:id/card-data', async (req, res) => {
     if (moral_comp !== undefined) {
       sets.push('moral_comp = ?');
       params.push(moral_comp === null || moral_comp === '' ? null : Number(moral_comp));
+    }
+    if (expert_deadline !== undefined) {
+      sets.push('expert_deadline = ?');
+      params.push(expert_deadline ? expert_deadline : null);
+    }
+    if (expert_deadline_time !== undefined) {
+      sets.push('expert_deadline_time = ?');
+      params.push(expert_deadline_time ? expert_deadline_time : null);
+    }
+    if (expert_deadline_comment !== undefined) {
+      sets.push('expert_deadline_comment = ?');
+      params.push(expert_deadline_comment ? expert_deadline_comment : null);
     }
 
     if (sets.length === 0) {
@@ -132,6 +144,10 @@ router.patch('/:id/card-data', async (req, res) => {
       }
     } catch (e) {
       console.error('needs_lawyer_input auto-clear failed:', e.message);
+    }
+
+    if (expert_deadline !== undefined || expert_deadline_time !== undefined || expert_deadline_comment !== undefined) {
+      try { await require('../services/deadlineNotifications').onDeadlineSet(contractId); } catch (e) { console.error('onDeadlineSet:', e.message); }
     }
 
     res.json({ success: true });

@@ -185,6 +185,7 @@ router.delete(
 );
 
 // Подключаем маршруты для договоров и клиентов
+router.use('/notifications', require('./notifications'));
 router.use('/contracts', contractRoutes);
 router.use('/clients', clientRoutes);
 

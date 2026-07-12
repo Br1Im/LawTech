@@ -155,6 +155,8 @@ export interface CrmContract {
   docs_status?: 'pending' | 'ready' | string | null;
   expert_deadline?: string | null;
   expert_deadline_days?: number | null;
+  expert_deadline_time?: string | null;
+  expert_deadline_comment?: string | null;
   lawyer_full_name?: string | null;
   lawyer_short?: string | null;
   // Совместный договор (два юриста, деление 50/50)
