@@ -180,7 +180,6 @@ const Office = () => {
   const [period, setPeriod] = useState<PeriodType>("plan");
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showRevenueModal, setShowRevenueModal] = useState(false);
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
   const [contracts, setContracts] = useState<Array<{ id: number; id_employee: number; status: string; title: string; amount?: number | string }>>([]);
@@ -1561,42 +1560,6 @@ const Office = () => {
         )}
       </Modal>
       
-      {selectedOffice && (
-        <div className={`employee-modal-overlay ${showEmployeeModal ? 'active' : ''}`}>
-          <div className="modal-content">
-            <span className="modal-close-icon" onClick={() => setShowEmployeeModal(false)}>
-              <FaTimes />
-            </span>
-            <h3>Сотрудники офиса {selectedOffice.title}</h3>
-            <div className="employee-table-modal">
-              <table className="employee-stats-table">
-                <thead>
-                  <tr>
-                    <th>Юрист</th>
-                    <th>Касса за день</th>
-                    <th>Касса за период</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOffice.employees.length > 0 ? (
-                    selectedOffice.employees.map(employee => (
-                      <tr key={employee.id}>
-                        <td>{`${employee.surname || 'Сотрудник'} ${employee.name ? employee.name.charAt(0) + '.' : ''}${employee.middle_name ? employee.middle_name.charAt(0) + '.' : ''}`}</td>
-                        <td>{employee.totalRevenue14Days?.toLocaleString() || '0'}</td>
-                        <td>{employee.periodRevenue?.toLocaleString() || '0'}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={3} className="no-data">Нет данных о сотрудниках</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {selectedOffice && (
         <div className={`employee-modal-overlay ${showRevenueModal ? 'active' : ''}`}>
