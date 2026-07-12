@@ -608,15 +608,7 @@ const Clients: React.FC<ClientsProps> = () => {
     setContracts((list) => list.map((x) => (x.id === c.id ? { ...x, docs_status: next } : x)));
     setDetailContract((dc) => (dc && dc.id === c.id ? { ...dc, docs_status: next } : dc));
     try {
-      await contractsApi.update(c.id, {
-        id_client: c.id_client,
-        id_employee: c.id_employee,
-        contract_date: c.contract_date,
-        amount: c.amount,
-        paid_amount: c.paid_amount,
-        status: c.status,
-        docs_status: next,
-      });
+      await contractsApi.setDocsStatus(c.id, next);
       message.success(next === 'ready' ? 'Документы отмечены как готовые' : 'Документы отмечены как ожидающие');
     } catch (e: any) {
       // При ошибке откатываем оптимистичное изменение

@@ -205,6 +205,8 @@ export const contractsApi = {
     unwrap<CrmContract>(apiInstance.post('/contracts', payload)),
   update: (id: number, payload: Partial<CrmContract>) =>
     unwrap<CrmContract>(apiInstance.put(`/contracts/${id}`, payload)),
+  setDocsStatus: (id: number, docs_status: 'pending' | 'ready') =>
+    unwrap<{ id: number; docs_status: string }>(apiInstance.patch(`/contracts/${id}/docs-status`, { docs_status })),
   terminate: (id: number, payload: {
     terminated_at: string;
     termination_reason?: string;
