@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import {
-  Modal, Input, Button, DatePicker, InputNumber, Select, Radio, Space, App, Divider,
+  Modal, Input, Button, DatePicker, InputNumber, Select, Radio, Space, App, Divider, Checkbox,
 } from 'antd';
 import { contractsApi, type CrmEmployee } from '../shared/api/crm';
 import { apiInstance } from '../shared/api/instance';
@@ -49,10 +49,10 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
     secondLawyerId: null as number | null,
   });
 
-  // Список сотрудников, кто может заключить договор (менеджер, юристы, ОКК, директор)
+  // Список сотрудников, кто может заключить договор (менеджер, юристы, Руководитель, директор)
   const [signers, setSigners] = useState<CrmEmployee[]>([]);
 
-  const ROLE_LABELS: Record<string, string> = { lawyer: 'Юрист', manager: 'Менеджер', okk: 'ОКК', director: 'Директор' };
+  const ROLE_LABELS: Record<string, string> = { lawyer: 'Юрист', manager: 'Менеджер', okk: 'Руководитель', director: 'Директор' };
 
   const loadSigners = useCallback(async () => {
     try {
@@ -127,7 +127,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
   const handleSave = async () => {
     if (!form.lastName.trim()) { message.warning('Укажите фамилию клиента'); return; }
     if (!form.firstName.trim()) { message.warning('Укажите имя клиента'); return; }
-    if (!form.signedById) { message.warning('Юрист не назначен. Назначение выполняет Директор / Менеджер / ОКК во вкладке «Приёмы».'); return; }
+    if (!form.signedById) { message.warning('Юрист не назначен. Назначение выполняет Директор / Менеджер / Руководитель во вкладке «Приёмы».'); return; }
     if (!form.amount || form.amount <= 0) { message.warning('Укажите сумму договора'); return; }
     if (!form.paidAmount && form.paidAmount !== 0) { message.warning('Укажите сумму внесения'); return; }
     if (form.isJoint && !form.secondLawyerId) { message.warning('Укажите второго юриста'); return; }
@@ -266,42 +266,45 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         </div>
 
         <div>
-          <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Кто заключил договор</div>
-          {(() => {
-            const nameOf = (id: number | null | undefined, fallback?: string | null) => {
-              if (!id) return null;
-              const s = signers.find((x) => x.id === id);
-              const full = s ? `${s.last_name || ''} ${s.first_name || ''}`.trim() : '';
-              return full || fallback || `ID ${id}`;
-            };
-            const n1 = nameOf(form.signedById, appointmentData?.assigned_lawyer_name);
-            const n2 = nameOf(form.secondLawyerId, appointmentData?.assigned_lawyer_name_2);
-            if (!n1) {
-              return (
-                <div style={{
-                  padding: '8px 12px', borderRadius: 8,
-                  background: 'rgba(245,158,11,0.12)', border: '1px solid #F59E0B',
-                  color: '#B45309', fontSize: 13,
-                }}>
-                  Юрист не назначен. Назначение выполняет Директор / Менеджер / ОКК во вкладке «Приёмы».
-                </div>
-              );
-            }
-            return (
-              <div style={{
-                padding: '8px 12px', borderRadius: 8,
-                background: 'var(--color-bg-subtle, #F3F4F6)', border: '1px solid #E5E7EB',
-                fontSize: 14, fontWeight: 600,
-              }}>
-                {n1}{n2 ? <> <span style={{ color: 'var(--color-muted)' }}>+</span> {n2}</> : null}
-                {n2 ? (
-                  <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--color-muted)', marginTop: 2 }}>
-                    Совместный договор (два юриста, деление 50/50)
-                  </div>
-                ) : null}
-              </div>
-            );
-          })()}
+          <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Кто заключил договор *</div>
+          <Select
+            showSearch
+            placeholder="Выберите юриста"
+            value={form.signedById ?? undefined}
+            onChange={(v) => set('signedById', (v as number | undefined) ?? null)}
+            style={{ width: '100%' }}
+            optionFilterProp="label"
+            notFoundContent="Нет доступных сотрудников"
+            options={signers.map((s) => ({
+              value: s.id,
+              label: `${s.last_name || ''} ${s.first_name || ''}`.trim() + (s.position ? ` — ${s.position}` : ''),
+            }))}
+          />
+          <div style={{ marginTop: 8 }}>
+            <Checkbox
+              checked={form.isJoint}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setForm((prev) => ({ ...prev, isJoint: checked, secondLawyerId: checked ? prev.secondLawyerId : null }));
+              }}
+            >
+              Совместный договор (два юриста, деление 50/50)
+            </Checkbox>
+          </div>
+          {form.isJoint ? (
+            <Select
+              showSearch
+              placeholder="Второй юрист"
+              value={form.secondLawyerId ?? undefined}
+              onChange={(v) => set('secondLawyerId', (v as number | undefined) ?? null)}
+              style={{ width: '100%', marginTop: 6 }}
+              optionFilterProp="label"
+              options={signers.filter((s) => s.id !== form.signedById).map((s) => ({
+                value: s.id,
+                label: `${s.last_name || ''} ${s.first_name || ''}`.trim(),
+              }))}
+            />
+          ) : null}
         </div>
 
         <Divider style={{ margin: '4px 0' }} />

@@ -15,6 +15,7 @@ import {
   Popconfirm,
   Tooltip,
   Progress,
+  Upload,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { Dayjs } from 'dayjs';
@@ -27,6 +28,8 @@ import {
   DeleteOutlined,
   InfoCircleOutlined,
   FileDoneOutlined,
+  UploadOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons';
 import { TableSkeleton, EmptyState } from './ui';
 import {
@@ -37,7 +40,10 @@ import {
   type CrmContract,
   type CrmEmployee,
   type ActsFilters,
+  type ActAttachment,
+  type ActsPeriodMeta,
 } from '../shared/api/crm';
+import { getAuthenticatedUrl } from '../shared/utils/apiUtils';
 
 const Page = styled.div`
   display: flex;
@@ -83,8 +89,8 @@ const formatMoney = (v?: string | number | null) => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 };
 
-const CONTRACT_PREFIX = 'ДОГ-';
-const contractNumber = (id: number) => `${CONTRACT_PREFIX}${String(id).padStart(8, '0')}`;
+const CONTRACT_PREFIX = '№';
+const contractNumber = (id: number, cn?: string | null) => `${CONTRACT_PREFIX}${cn || String(id).padStart(8, '0')}`;
 
 const shortName = (full?: string | null) => {
   if (!full) return '—';
@@ -114,6 +120,10 @@ const Acts: React.FC = () => {
 
   const [detail, setDetail] = useState<{ open: boolean; act: CrmAct | null }>({ open: false, act: null });
   const [detailContractActs, setDetailContractActs] = useState<CrmAct[]>([]);
+  const [createFiles, setCreateFiles] = useState<File[]>([]);
+  const [periodOffset, setPeriodOffset] = useState(0);
+  const [periodMeta, setPeriodMeta] = useState<ActsPeriodMeta | null>(null);
+  const [detailAttachments, setDetailAttachments] = useState<ActAttachment[]>([]);
   const [editing, setEditing] = useState<{ amount: number; act_date: string; description: string }>(
     { amount: 0, act_date: '', description: '' }
   );
@@ -141,14 +151,18 @@ const Acts: React.FC = () => {
       if (filterStatus) filters.status = filterStatus;
       if (filterResp) filters.responsible_id = filterResp;
       if (searchText.trim()) filters.q = searchText.trim();
-      const data = await actsApi.list(filters);
+      const manualRange = !!(filterDate?.[0] || filterDate?.[1]);
+      if (!manualRange) filters.cycle_offset = periodOffset;
+      const resp = await actsApi.listRaw(filters);
+      const data = resp?.data;
       setActs(Array.isArray(data) ? data : []);
+      setPeriodMeta(manualRange ? null : (resp?.period || null));
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Не удалось загрузить акты');
     } finally {
       if (actsInitRef.current) { setLoading(false); actsInitRef.current = false; }
     }
-  }, [filterDate, filterType, filterStatus, filterResp, searchText, message]);
+  }, [filterDate, filterType, filterStatus, filterResp, searchText, periodOffset, message]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -190,6 +204,7 @@ const Acts: React.FC = () => {
   const openCreate = () => {
     setCreateForm({ contract_id: undefined, amount: undefined, act_date: dayjs(), description: '' });
     setContractActsForCreate([]);
+    setCreateFiles([]);
     setCreateModal(true);
   };
 
@@ -207,12 +222,16 @@ const Acts: React.FC = () => {
       return;
     }
 
+    if (!createFiles.length) {
+      message.error('Приложите фотографии документов (сам акт)');
+      return;
+    }
     try {
       await actsApi.createForContract(createForm.contract_id, {
         amount: createForm.amount,
         act_date: createForm.act_date.format('YYYY-MM-DD'),
-        description: createForm.description || null,
-      });
+        description: createForm.description || '',
+      }, createFiles);
       message.success('Акт создан в статусе «Черновик»');
       setCreateModal(false);
       load();
@@ -231,6 +250,8 @@ const Acts: React.FC = () => {
     });
     // Load all acts for this contract to show remaining info
     actsApi.listForContract(a.contract_id).then((d) => setDetailContractActs(Array.isArray(d) ? d : [])).catch(() => setDetailContractActs([]));
+    setDetailAttachments(Array.isArray(a.attachments) ? a.attachments : []);
+    actsApi.getAttachments(a.id).then((d) => setDetailAttachments(Array.isArray(d) ? d : [])).catch(() => undefined);
   };
 
   const saveEdit = async () => {
@@ -287,7 +308,7 @@ const Acts: React.FC = () => {
       title: 'Договор',
       key: 'contract',
       width: 180,
-      render: (_, r) => contractNumber(r.contract_id),
+      render: (_, r) => contractNumber(r.contract_id, r.contract_number),
     },
     {
       title: 'Тип',
@@ -348,7 +369,7 @@ const Acts: React.FC = () => {
       <FiltersRow>
         <DatePicker.RangePicker
           value={filterDate as any}
-          onChange={(v) => setFilterDate(v as any)}
+          onChange={(v) => { setFilterDate(v as any); setPeriodOffset(0); }}
           format="DD.MM.YYYY"
           allowEmpty={[true, true]}
           placeholder={['Период с', 'Период по']}
@@ -389,6 +410,20 @@ const Acts: React.FC = () => {
           }))}
         />
       </FiltersRow>
+
+      {periodMeta && !(filterDate?.[0] || filterDate?.[1]) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Button size="small" disabled={!periodMeta.has_prev} onClick={() => setPeriodOffset((o) => o - 1)}>← Пред. период</Button>
+          <span style={{ fontWeight: 600 }}>
+            {dayjs(periodMeta.from).format('DD.MM.YYYY')} — {dayjs(periodMeta.to).format('DD.MM.YYYY')}
+            {periodMeta.cycle_index === periodMeta.current_cycle_index ? ' (текущий)' : ''}
+          </span>
+          <Button size="small" disabled={!periodMeta.has_next} onClick={() => setPeriodOffset((o) => Math.min(0, o + 1))}>След. период →</Button>
+          {periodOffset !== 0 && (
+            <Button size="small" type="link" onClick={() => setPeriodOffset(0)}>К текущему</Button>
+          )}
+        </div>
+      )}
 
       <TableCard>
         {loading && acts.length === 0 ? (
@@ -473,7 +508,7 @@ const Acts: React.FC = () => {
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label="Клиент">{detail.act.client_name || '—'}</Descriptions.Item>
               <Descriptions.Item label="Договор">
-                {contractNumber(detail.act.contract_id)}
+                {contractNumber(detail.act.contract_id, detail.act.contract_number)}
                 {detail.act.contract_title ? ` · ${detail.act.contract_title}` : ''}
               </Descriptions.Item>
               <Descriptions.Item label="Тип">
@@ -519,6 +554,20 @@ const Acts: React.FC = () => {
                   : (detail.act.description || '—')}
               </Descriptions.Item>
             </Descriptions>
+            {detailAttachments.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Приложенные фото ({detailAttachments.length})</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {detailAttachments.map((att) => (
+                    <a key={att.id} href={getAuthenticatedUrl(att.file_url)} target="_blank" rel="noreferrer">
+                      {String(att.mime_type || '').startsWith('image/')
+                        ? <img src={getAuthenticatedUrl(att.file_url)} alt={att.name || 'фото'} style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', border: '1px solid var(--color-border)', borderRadius: 8 }}><PaperClipOutlined />{att.name || 'файл'}</span>}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
             <Space wrap>
               {detail.act.status === 'draft' && !editMode && (
                 <Button icon={<EditOutlined />} onClick={() => setEditMode(true)}>Редактировать</Button>
@@ -591,7 +640,7 @@ const Acts: React.FC = () => {
               optionFilterProp="label"
               options={contracts.map((c) => ({
                 value: c.id,
-                label: `${contractNumber(c.id)} · ${c.client_name || ''} · ${c.title || ''}`,
+                label: `${contractNumber(c.id, c.contract_number)} · ${c.client_name || ''} · ${c.title || ''}`,
               }))}
             />
             <div style={{ color: 'var(--color-muted)', fontSize: 12, marginTop: 4 }}>
@@ -680,6 +729,20 @@ const Acts: React.FC = () => {
                 ? 'Опишите выполненную работу и за что взята сумма'
                 : 'Какой пакет документов был подготовлен и выдан клиенту'}
             />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4 }}>Фото документов (акт) *</label>
+            <Upload
+              multiple
+              listType="picture"
+              accept="image/*,.pdf"
+              beforeUpload={(file) => { setCreateFiles((prev) => [...prev, file as unknown as File]); return false; }}
+              onRemove={(file) => { setCreateFiles((prev) => prev.filter((_, i) => String(i) !== file.uid)); }}
+              fileList={createFiles.map((f, i) => ({ uid: String(i), name: (f as any).name || ('фото ' + (i + 1)), status: 'done' as const }))}
+            >
+              <Button icon={<UploadOutlined />}>Прикрепить фото</Button>
+            </Upload>
+            <div style={{ color: 'var(--color-muted)', fontSize: 12, marginTop: 4 }}>Обязательно приложите фотографии документов (акт).</div>
           </div>
         </Space>
       </Modal>

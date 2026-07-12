@@ -317,6 +317,8 @@ CREATE TABLE `clients` (
   `last_name` varchar(128) DEFAULT NULL,
   `middle_name` varchar(128) DEFAULT NULL,
   `acting_for` varchar(255) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `deleted_by` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_clients_office` (`office_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=33 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -463,6 +465,8 @@ CREATE TABLE `employees` (
   `passport_issued_by` varchar(255) DEFAULT NULL,
   `passport_issue_date` date DEFAULT NULL,
   `passport_department_code` varchar(10) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `deleted_by` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_employees_office` (`office_id`),
   CONSTRAINT `employees_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE SET NULL
@@ -494,6 +498,8 @@ CREATE TABLE `expenses` (
   `title` varchar(255) NOT NULL,
   `description` text,
   `spent_on` date NOT NULL,
+  `expense_type` varchar(50) DEFAULT NULL,
+  `is_auto` tinyint(1) DEFAULT '0',
   `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -707,6 +713,8 @@ CREATE TABLE `users` (
   `office_id` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` datetime DEFAULT NULL,
+  `deleted_by` int DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `login` (`login`),
@@ -772,3 +780,19 @@ CREATE TABLE IF NOT EXISTS applications (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_app_office (office_id)
 );
+
+--- user_offices (added for test parity with production) ---
+DROP TABLE IF EXISTS `user_offices`;
+CREATE TABLE `user_offices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `office_id` int NOT NULL,
+  `assigned_by` int DEFAULT NULL,
+  `assigned_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_office` (`user_id`,`office_id`),
+  KEY `idx_user_offices_user` (`user_id`),
+  KEY `idx_user_offices_office` (`office_id`),
+  CONSTRAINT `fk_uo_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_uo_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

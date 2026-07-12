@@ -1,5 +1,4 @@
 import React from 'react';
-import { useThemeMode } from '../shared/ui/AntThemeProvider';
 
 const card: React.CSSProperties = {
   background: 'var(--color-bg-elevated)',
@@ -29,7 +28,6 @@ const desc: React.CSSProperties = { fontSize: 13, color: 'var(--color-text-secon
 const val: React.CSSProperties = { fontSize: 14, color: 'var(--color-text-secondary)' };
 
 const Settings: React.FC = () => {
-  const { mode, toggle } = useThemeMode();
   return (
     <div className="viktor-settings" style={{ maxWidth: 720, width: '100%' }}>
       <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
@@ -38,28 +36,7 @@ const Settings: React.FC = () => {
 
       <div style={card}>
         <h2 style={sectionTitle}>Общие настройки</h2>
-        <div style={item}>
-          <div>
-            <div style={label}>Тема оформления</div>
-            <div style={desc}>Выберите светлую или тёмную тему</div>
-          </div>
-          <button
-            onClick={toggle}
-            style={{
-              background: 'var(--color-primary)',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: 8,
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {mode === 'dark' ? 'Тёмная' : 'Светлая'}
-          </button>
-        </div>
+
         <div style={itemLast}>
           <div>
             <div style={label}>Язык интерфейса</div>

@@ -1,4 +1,4 @@
-import { Button, Form, Input, message, Select, Tabs } from 'antd';
+import { Button, Form, Input, message } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { buildApiUrl } from '../shared/utils/apiUtils';
@@ -9,25 +9,46 @@ interface LoginFormValues {
   password: string;
 }
 
+type UserType = 'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
+
 interface RegisterFormValues {
   name: string;
   email: string;
   password: string;
-  userType: 'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
+  userType: UserType;
   officeType?: 'new' | 'existing' | '';
   officeId?: string;
   officeName?: string;
 }
 
+const REMEMBER_KEY = 'rememberedLogin';
+
+const USER_TYPES: { value: UserType; label: string }[] = [
+  { value: 'office', label: 'Юридический офис' },
+  { value: 'lawyer', label: 'Частный юрист' },
+  { value: 'manager', label: 'Менеджер' },
+  { value: 'okk', label: 'Руководитель' },
+  { value: 'expert', label: 'Эксперт' },
+  { value: 'representative', label: 'Представитель' },
+  { value: 'admin', label: 'Администратор' },
+];
+
 const AuthPage = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'register' | 'login'>('login');
-  const [userType, setUserType] = useState<RegisterFormValues['userType'] | ''>('');
+  const [userType, setUserType] = useState<UserType | ''>('');
   const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
+  const [userTypeError, setUserTypeError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
+  const [loginError, setLoginError] = useState(false);
   const [form] = Form.useForm();
+  const [verifyStep, setVerifyStep] = useState(false);
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Если уже авторизован — на CRM
+  // Если уже авторизован - на CRM
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) navigate('/crm', { replace: true });
@@ -35,9 +56,44 @@ const AuthPage = () => {
 
   useEffect(() => {
     localStorage.removeItem('useAbsoluteUrls');
-  }, []);
+    const savedLogin = localStorage.getItem(REMEMBER_KEY);
+    if (savedLogin) {
+      form.setFieldsValue({ login: savedLogin });
+      setRemember(true);
+    }
+  }, [form]);
 
-  const handleRegisterSubmit = async (values: RegisterFormValues) => {
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const persistSession = (data: { token: string; refreshToken?: string; user?: unknown }) => {
+    localStorage.setItem('token', data.token);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+    if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+  };
+
+  const selectUserType = (v: UserType) => {
+    setUserType(v);
+    setUserTypeError(false);
+    if (v !== 'office') setOfficeType('');
+  };
+
+  const switchMode = (m: 'register' | 'login') => {
+    setMode(m);
+    setLoginError(false);
+    setUserTypeError(false);
+  };
+
+  const handleRegisterSubmit = async (raw: Omit<RegisterFormValues, 'userType' | 'officeType'>) => {
+    if (!userType) {
+      setUserTypeError(true);
+      message.error('Выберите тип пользователя');
+      return;
+    }
+    const values: RegisterFormValues = { ...raw, userType, officeType: officeType || '' };
     setLoading(true);
     try {
       const response = await fetch(buildApiUrl('/auth/register'), {
@@ -54,15 +110,15 @@ const AuthPage = () => {
         throw new Error(err || `Ошибка: ${response.statusText}`);
       }
       const data = await response.json();
-      localStorage.setItem('token', data.token);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
+      if (data.requiresVerification) {
+        setVerifyEmail(data.email || values.email);
+        setVerifyCode('');
+        setVerifyStep(true);
+        message.success('Мы отправили код подтверждения на ' + (data.email || values.email), 6);
+        return;
       }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
+      persistSession(data);
       message.success('Регистрация выполнена. Добро пожаловать!');
-      // Директор — на создание офиса, остальные — в CRM
       if (data.user?.needs_office_setup || data.user?.role === 'director') {
         navigate('/welcome');
       } else {
@@ -86,6 +142,7 @@ const AuthPage = () => {
 
   const handleLoginSubmit = async (values: LoginFormValues) => {
     setLoading(true);
+    setLoginError(false);
     try {
       const response = await fetch(buildApiUrl('/auth/login'), {
         method: 'POST',
@@ -93,28 +150,33 @@ const AuthPage = () => {
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       });
       if (!response.ok) {
-        let err = '';
-        try { err = (await response.json()).error || ''; } catch { /* noop */ }
+        let body: { error?: string; code?: string; email?: string } = {};
+        try { body = await response.json(); } catch { /* noop */ }
+        if (response.status === 403 && body.code === 'EMAIL_NOT_VERIFIED') {
+          setVerifyEmail(body.email || values.login);
+          setVerifyCode('');
+          setVerifyStep(true);
+          message.info('Подтвердите email - мы отправили код на вашу почту', 6);
+          return;
+        }
+        setLoginError(true);
         if (response.status === 401) throw new Error('Неверный логин или пароль');
         if (response.status >= 500) throw new Error('Ошибка сервера. Попробуйте позже');
-        throw new Error(err || `Ошибка: ${response.statusText}`);
+        throw new Error(body.error || `Ошибка: ${response.statusText}`);
       }
       const data = await response.json();
-      localStorage.setItem('token', data.token);
-      if (data.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+      persistSession(data);
+      if (remember) {
+        localStorage.setItem(REMEMBER_KEY, values.login);
+      } else {
+        localStorage.removeItem(REMEMBER_KEY);
       }
       message.success('Вход выполнен');
-      // Директор без офисов — на создание
       if (data.user?.needs_office_setup) {
         navigate('/welcome');
       } else {
         navigate('/crm');
       }
-      form.resetFields();
     } catch (e) {
       if (e instanceof TypeError && e.message.includes('fetch')) {
         message.error('Не удалось подключиться к серверу', 5);
@@ -128,210 +190,247 @@ const AuthPage = () => {
     }
   };
 
+  const handleVerifySubmit = async () => {
+    if (verifyCode.trim().length < 6) {
+      message.error('Введите 6-значный код из письма');
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(buildApiUrl('/auth/verify-code'), {
+        method: 'POST',
+        body: JSON.stringify({ email: verifyEmail, code: verifyCode.trim() }),
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (data.code === 'ALREADY_VERIFIED') {
+          message.info('Email уже подтверждён, войдите');
+          setVerifyStep(false);
+          setMode('login');
+          return;
+        }
+        throw new Error(data.message || 'Неверный код подтверждения');
+      }
+      persistSession(data);
+      message.success('Email подтверждён. Добро пожаловать!');
+      if (data.user?.needs_office_setup || data.user?.role === 'director') {
+        navigate('/welcome');
+      } else {
+        navigate('/crm');
+      }
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Ошибка подтверждения', 5);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await fetch(buildApiUrl('/auth/resend-verification'), {
+        method: 'POST',
+        body: JSON.stringify({ email: verifyEmail }),
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      });
+      message.success('Новый код отправлен');
+      setResendCooldown(60);
+    } catch {
+      message.error('Не удалось отправить код');
+    }
+  };
+
   return (
     <div className="auth-shell">
-      <div className="auth-shell__bg" aria-hidden>
-        <div className="auth-shell__grid" />
+      {/* фирменные гравюры лендинга */}
+      <div className="auth-illus left" aria-hidden>
+        <img src={mode === 'register' ? '/auth-media/reg-left.jpg' : '/auth-media/illus-left.jpg'} alt="" width={768} height={1376} decoding="async" />
+      </div>
+      <div className="auth-illus right" aria-hidden>
+        <img src={mode === 'register' ? '/auth-media/reg-right.jpg' : '/auth-media/illus-right.jpg'} alt="" width={768} height={1376} decoding="async" />
       </div>
 
-      <aside className="auth-brand">
-        <Link to="/" className="auth-brand__logo" aria-label="На главную">
-          <span className="auth-brand__logo-mark">L</span>
-          <span>LawTech</span>
+      <div className="auth-top">
+        <Link to="/" className="auth-logo" aria-label="На главную">
+          LAW.TECH<small>JURIDICAL CRM</small>
         </Link>
+      </div>
 
-        <div className="auth-brand__hero">
-          <div className="auth-brand__eyebrow">
-            Контроль офиса в реальном времени
-          </div>
-          <h1 className="auth-brand__title">
-            CRM для <em>юридических</em> компаний
-          </h1>
-          <p className="auth-brand__lead">
-            Контролируйте лиды, консультации, договоры, сотрудников, зарплаты
-            и кассу офиса в одной системе.
-          </p>
-          <div className="auth-brand__chips">
-            <span className="auth-brand__chip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Полный контроль
-            </span>
-            <span className="auth-brand__chip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-              Аналитика в реальном времени
-            </span>
-            <span className="auth-brand__chip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Безопасность данных
-            </span>
-          </div>
-
-          <div className="auth-brand__mockup" aria-hidden>
-            <div className="auth-brand__mockup-glow" />
-            <div className="auth-brand__mockup-head">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 21V9"/></svg>
-              Сегодня в LawTech
-            </div>
-            <div className="auth-brand__mockup-row">
-              <span>Активные дела</span>
-              <span>
-                <b>1 248</b> <span className="delta">↑ 12,4%</span>
-              </span>
-            </div>
-            <div className="auth-brand__mockup-row">
-              <span>Договоров подписано</span>
-              <span>
-                <b>34</b> <span className="delta">сегодня</span>
-              </span>
-            </div>
-            <div className="auth-brand__mockup-row">
-              <span>Конверсия лидов</span>
-              <span>
-                <b>62%</b> <span className="delta">за месяц</span>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="auth-brand__footer">
-          <Link to="/" className="auth-brand__back">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-            На главную
-          </Link>
-          <span>© {new Date().getFullYear()} LawTech</span>
-        </div>
-      </aside>
-
-      <section className="auth-card-wrap">
-        <div className="auth-card">
-          <div className="auth-card__header">
-            <h2 className="auth-card__title">
-              {mode === 'login' ? 'С возвращением' : 'Создать аккаунт'}
-            </h2>
-            <p className="auth-card__subtitle">
-              {mode === 'login' ? 'Войдите в свой рабочий кабинет' : 'Зарегистрируйтесь за 30 секунд'}
+      <div className="auth-center">
+        {!verifyStep && (
+          <>
+            <div className="auth-eyebrow">CRM для юридических компаний</div>
+            <h1 className="auth-title">
+              {mode === 'login' ? (
+                <>С <em>возвращением</em></>
+              ) : (
+                <>Создать <em>аккаунт</em></>
+              )}
+            </h1>
+            <div className="auth-rule" aria-hidden><span /></div>
+            <p className="auth-subtitle">
+              {mode === 'login' ? 'Войдите в свой рабочий кабинет' : 'Присоединяйтесь к LawTech'}
             </p>
-          </div>
+          </>
+        )}
 
-          <Tabs
-            activeKey={mode}
-            onChange={(k) => setMode(k as 'register' | 'login')}
-            centered
-            className="auth-tabs"
-            items={[
-              { key: 'login', label: 'Вход' },
-              { key: 'register', label: 'Регистрация' },
-            ]}
-          />
-
-          {mode === 'login' ? (
-            <Form key="login" form={form} layout="vertical" className="auth-form" onFinish={handleLoginSubmit}>
-              <Form.Item
-                label="Логин"
-                name="login"
-                rules={[{ required: true, message: 'Введите логин' }]}
-              >
-                <Input autoComplete="username" placeholder="Ваш логин" />
-              </Form.Item>
-              <Form.Item
-                label="Пароль"
-                name="password"
-                rules={[{ required: true, message: 'Введите пароль' }]}
-              >
-                <Input.Password autoComplete="current-password" placeholder="••••••••" />
-              </Form.Item>
-              <Form.Item>
-                <Button htmlType="submit" block loading={loading} className="auth-submit">
-                  Войти
-                </Button>
-              </Form.Item>
-
-            </Form>
-          ) : (
-            <Form key="register" form={form} layout="vertical" className="auth-form" onFinish={handleRegisterSubmit}>
-              <Form.Item
-                label="Ваше имя"
-                name="name"
-                rules={[{ required: true, message: 'Введите имя' }]}
-              >
-                <Input placeholder="Как к вам обращаться" autoComplete="name" />
-              </Form.Item>
-              <Form.Item
-                label="Электронная почта"
-                name="email"
-                rules={[{ required: true, message: 'Введите почту', type: 'email' }]}
-              >
-                <Input autoComplete="email" placeholder="you@example.com" />
-              </Form.Item>
-              <Form.Item
-                label="Пароль"
-                name="password"
-                rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]}
-              >
-                <Input.Password autoComplete="new-password" placeholder="Минимум 6 символов" />
-              </Form.Item>
-              <Form.Item
-                label="Тип пользователя"
-                name="userType"
-                rules={[{ required: true, message: 'Выберите тип' }]}
-              >
-                <Select
-                  placeholder="Выберите, кто вы"
-                  onChange={(v) => setUserType(v)}
-                  options={[
-                    { value: 'office', label: 'Юридический офис / фирма' },
-                    { value: 'lawyer', label: 'Частный юрист' },
-                    { value: 'manager', label: 'Менеджер' },
-                    { value: 'okk', label: 'ОКК' },
-                    { value: 'expert', label: 'Эксперт' },
-                    { value: 'representative', label: 'Представитель' },
-                    { value: 'admin', label: 'Администратор' },
-                  ]}
+        <div className="auth-card">
+          {verifyStep ? (
+            <div key="verify">
+              <h1 className="auth-title" style={{ fontSize: 30, marginTop: 0, textAlign: 'center' }}>Подтвердите <em>email</em></h1>
+              <p className="auth-subtitle" style={{ textAlign: 'center', fontSize: 15, marginBottom: 18 }}>
+                Мы отправили 6-значный код на <b>{verifyEmail}</b>
+              </p>
+              <div className="auth-verify-code">
+                <Input
+                  value={verifyCode}
+                  onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  onPressEnter={handleVerifySubmit}
+                  placeholder="000000"
+                  maxLength={6}
+                  inputMode="numeric"
+                  autoFocus
                 />
-              </Form.Item>
-              {userType === 'office' && (
-                <Form.Item
-                  label="Тип офиса"
-                  name="officeType"
-                  rules={[{ required: true, message: 'Выберите тип офиса' }]}
-                >
-                  <Select
-                    placeholder="Новый или существующий"
-                    onChange={(v) => setOfficeType(v)}
-                    options={[
-                      { value: 'new', label: 'Создать новый офис' },
-                      { value: 'existing', label: 'Присоединиться к существующему' },
-                    ]}
+              </div>
+              <Button block loading={loading} className="auth-submit" style={{ marginTop: 18 }} onClick={handleVerifySubmit}>
+                Подтвердить email
+              </Button>
+              <div className="auth-verify-actions">
+                <button type="button" onClick={() => { setVerifyStep(false); setMode('login'); }}>← Назад ко входу</button>
+                <button type="button" disabled={resendCooldown > 0} onClick={handleResend}>
+                  {resendCooldown > 0 ? `Отправить снова (${resendCooldown})` : 'Отправить код снова'}
+                </button>
+              </div>
+            </div>
+          ) : mode === 'login' ? (
+            <Form key="login" form={form} layout="vertical" onFinish={handleLoginSubmit} requiredMark={false}>
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="login">Логин</label>
+                <Form.Item name="login" rules={[{ required: true, message: 'Введите логин' }]} style={{ marginBottom: 0 }}>
+                  <Input
+                    id="login"
+                    autoComplete="username"
+                    placeholder="Введите логин"
+                    autoFocus
+                    status={loginError ? 'error' : ''}
+                    onChange={() => loginError && setLoginError(false)}
                   />
                 </Form.Item>
+              </div>
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="password">Пароль</label>
+                <Form.Item name="password" rules={[{ required: true, message: 'Введите пароль' }]} style={{ marginBottom: 0 }}>
+                  <Input.Password
+                    id="password"
+                    autoComplete="current-password"
+                    placeholder="Введите пароль"
+                    status={loginError ? 'error' : ''}
+                    onChange={() => loginError && setLoginError(false)}
+                  />
+                </Form.Item>
+              </div>
+
+              <div className="auth-row">
+                <label className="auth-remember">
+                  <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  Запомнить меня
+                </label>
+                <button type="button" className="auth-forgot" onClick={() => message.info('Для сброса пароля обратитесь к руководителю или администратору вашего офиса', 6)}>
+                  Забыли пароль?
+                </button>
+              </div>
+
+              <Button htmlType="submit" block loading={loading} className="auth-submit">Войти</Button>
+
+              <div className="auth-switch">
+                Нет аккаунта?<button type="button" onClick={() => switchMode('register')}>Создать</button>
+              </div>
+            </Form>
+          ) : (
+            <Form key="register" form={form} layout="vertical" onFinish={handleRegisterSubmit} requiredMark={false}>
+              <div className="auth-field">
+                <label className="auth-label">Ваше имя</label>
+                <Form.Item name="name" rules={[{ required: true, message: 'Введите имя' }]} style={{ marginBottom: 0 }}>
+                  <Input placeholder="Как к вам обращаться" autoComplete="name" autoFocus />
+                </Form.Item>
+              </div>
+              <div className="auth-field">
+                <label className="auth-label">Электронная почта</label>
+                <Form.Item name="email" rules={[{ required: true, message: 'Введите почту', type: 'email' }]} style={{ marginBottom: 0 }}>
+                  <Input autoComplete="email" placeholder="you@example.com" />
+                </Form.Item>
+              </div>
+              <div className="auth-field">
+                <label className="auth-label">Пароль</label>
+                <Form.Item name="password" rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]} style={{ marginBottom: 0 }}>
+                  <Input.Password autoComplete="new-password" placeholder="Минимум 6 символов" />
+                </Form.Item>
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-label">Тип пользователя</label>
+                <div className={`auth-pills${userTypeError ? ' has-error' : ''}`}>
+                  {USER_TYPES.map((t) => (
+                    <button
+                      type="button"
+                      key={t.value}
+                      className={`auth-pill${userType === t.value ? ' active' : ''}`}
+                      onClick={() => selectUserType(t.value)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                {userTypeError && <div className="auth-pill-error">Выберите тип пользователя</div>}
+              </div>
+
+              {userType === 'office' && (
+                <div className="auth-field">
+                  <label className="auth-label">Тип офиса</label>
+                  <div className="auth-pills">
+                    <button type="button" className={`auth-pill${officeType === 'new' ? ' active' : ''}`} onClick={() => setOfficeType('new')}>Создать новый</button>
+                    <button type="button" className={`auth-pill${officeType === 'existing' ? ' active' : ''}`} onClick={() => setOfficeType('existing')}>Присоединиться</button>
+                  </div>
+                </div>
               )}
               {userType === 'office' && officeType === 'new' && (
-                <Form.Item
-                  label="Название офиса"
-                  name="officeName"
-                  rules={[{ required: true, message: 'Введите название офиса' }]}
-                >
-                  <Input placeholder='Например, "Право и Партнёры"' />
-                </Form.Item>
+                <div className="auth-field">
+                  <label className="auth-label">Название офиса</label>
+                  <Form.Item name="officeName" rules={[{ required: true, message: 'Введите название офиса' }]} style={{ marginBottom: 0 }}>
+                    <Input placeholder='Например, "Право и Партнёры"' />
+                  </Form.Item>
+                </div>
               )}
               {userType === 'office' && officeType === 'existing' && (
-                <Form.Item
-                  label="ID офиса"
-                  name="officeId"
-                  rules={[{ required: true, message: 'Введите ID офиса' }]}
-                >
-                  <Input placeholder="ID офиса" />
-                </Form.Item>
+                <div className="auth-field">
+                  <label className="auth-label">ID офиса</label>
+                  <Form.Item name="officeId" rules={[{ required: true, message: 'Введите ID офиса' }]} style={{ marginBottom: 0 }}>
+                    <Input placeholder="ID офиса" />
+                  </Form.Item>
+                </div>
               )}
-              <Form.Item>
-                <Button htmlType="submit" block loading={loading} className="auth-submit">
-                  Создать аккаунт
-                </Button>
-              </Form.Item>
+              <Button htmlType="submit" block loading={loading} className="auth-submit" style={{ marginTop: 8 }}>
+                Создать аккаунт
+              </Button>
+              <div className="auth-switch">
+                Уже есть аккаунт?<button type="button" onClick={() => switchMode('login')}>Войти</button>
+              </div>
             </Form>
           )}
         </div>
-      </section>
+      </div>
+
+      {!verifyStep && (
+        <div className="auth-foot">
+          <div className="safe">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Ваши данные под защитой
+          </div>
+          <div className="safe-sub">Мы используем современные технологии для обеспечения безопасности вашей информации.</div>
+          <div className="brand-bottom">LawTech</div>
+        </div>
+      )}
     </div>
   );
 };

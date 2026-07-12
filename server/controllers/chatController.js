@@ -28,6 +28,24 @@ function hasChannelAccess(role, channel) {
   return allowed.includes(role);
 }
 
+const MEMBER_CREATOR_ROLES = ['director', 'manager', 'okk'];
+const CAN_MANAGE_MEMBERS = ['director', 'manager', 'okk', 'admin', 'owner', 'administrator'];
+
+async function isChannelMember(officeId, userId, channel) {
+  try {
+    const [rows] = await db.query(
+      'SELECT 1 FROM chat_channel_members WHERE office_id = ? AND channel = ? AND user_id = ? LIMIT 1',
+      [officeId, channel, userId]
+    );
+    return rows.length > 0;
+  } catch (e) { return false; }
+}
+
+async function canAccessChannel(officeId, user, channel) {
+  if (hasChannelAccess(user.role, channel)) return true;
+  return await isChannelMember(officeId, user.id, channel);
+}
+
 // Multer config for chat file uploads
 const chatUploadDir = path.join(config.paths?.uploads || '/app/uploads', 'chat');
 if (!fs.existsSync(chatUploadDir)) {
@@ -63,6 +81,13 @@ const chatController = {
       if (hasChannelAccess(role, 'reception'))   channels.push({ key: 'reception', label: 'Ресепшен' });
       if (hasChannelAccess(role, 'call_center')) channels.push({ key: 'call_center', label: 'Колл-центр' });
       if (hasChannelAccess(role, 'cc_internal')) channels.push({ key: 'cc_internal', label: 'Внутренний чат КЦ' });
+      try {
+        const [mrows] = await db.query('SELECT DISTINCT channel FROM chat_channel_members WHERE user_id = ?', [req.user.id]);
+        const LABELS = { reception: 'Приёмная', call_center: 'Колл-центр', cc_internal: 'Внутренний КЦ' };
+        for (const r of mrows) {
+          if (!channels.find(ch => ch.key === r.channel)) channels.push({ key: r.channel, label: LABELS[r.channel] || r.channel });
+        }
+      } catch (e) { /* ignore */ }
       return res.json({ channels });
     } catch (error) {
       console.error('getAvailableChannels error:', error);
@@ -74,9 +99,8 @@ const chatController = {
     try {
       const { officeId } = req.params;
       const channel = req.query.channel || 'reception';
-      const role = req.user.role;
 
-      if (!hasChannelAccess(role, channel))
+      if (!(await canAccessChannel(officeId, req.user, channel)))
         return res.status(403).json({ success: false, message: 'Нет доступа к каналу' });
 
       const messages = await Message.getByOfficeAndChannel(officeId, channel);
@@ -104,9 +128,8 @@ const chatController = {
     try {
       const { officeId } = req.params;
       const { text, channel = 'reception' } = req.body;
-      const role = req.user.role;
 
-      if (!hasChannelAccess(role, channel))
+      if (!(await canAccessChannel(officeId, req.user, channel)))
         return res.status(403).json({ success: false, message: 'Нет доступа к каналу' });
 
       const hasFile = !!req.file;
@@ -228,18 +251,21 @@ const chatController = {
   async getChannelParticipants(req, res) {
     try {
       const { officeId, channel = 'reception' } = req.query;
-      const allowedRoles = CHANNEL_ACCESS[channel] || [];
+      const allowedRoles = CHANNEL_ACCESS[channel] || ['__none__'];
 
-      if (!officeId || allowedRoles.length === 0) {
+      if (!officeId) {
         return res.json({ participants: [] });
       }
 
       const [users] = await db.query(
-        `SELECT id, first_name, last_name, role, is_active
-         FROM users
-         WHERE office_id = ? AND role IN (?) AND is_active = 1
+        `SELECT id, first_name, last_name, role, is_active FROM users
+           WHERE office_id = ? AND role IN (?) AND is_active = 1
+         UNION
+         SELECT u.id, u.first_name, u.last_name, u.role, u.is_active FROM users u
+           JOIN chat_channel_members m ON m.user_id = u.id
+           WHERE m.office_id = ? AND m.channel = ? AND u.is_active = 1
          ORDER BY first_name ASC`,
-        [officeId, allowedRoles]
+        [officeId, allowedRoles, officeId, channel]
       );
 
       const result = users.map(u => ({
@@ -263,6 +289,74 @@ const chatController = {
       return res.json({ success: true });
     } catch (error) {
       console.error('deleteMessage error:', error);
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+  },
+  async getChannelCandidates(req, res) {
+    try {
+      const { officeId, channel = 'reception' } = req.query;
+      if (!officeId) return res.json({ candidates: [] });
+      if (!CAN_MANAGE_MEMBERS.includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Нет прав добавлять участников' });
+      }
+      const allowedRoles = CHANNEL_ACCESS[channel] || ['__none__'];
+      const [rows] = await db.query(
+        `SELECT u.id, u.first_name, u.last_name, u.role
+           FROM users u JOIN users c ON c.id = u.created_by
+          WHERE u.office_id = ? AND u.is_active = 1 AND c.role IN (?)
+            AND u.role NOT IN (?)
+            AND u.id NOT IN (SELECT user_id FROM chat_channel_members WHERE office_id = ? AND channel = ?)
+          ORDER BY u.first_name ASC`,
+        [officeId, MEMBER_CREATOR_ROLES, allowedRoles, officeId, channel]
+      );
+      return res.json({ candidates: rows.map(u => ({ id: u.id, name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Сотрудник', role: u.role })) });
+    } catch (error) {
+      console.error('getChannelCandidates error:', error);
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+  },
+
+  async addChannelMember(req, res) {
+    try {
+      const { officeId, channel = 'reception', userId } = req.body;
+      if (!CAN_MANAGE_MEMBERS.includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Нет прав добавлять участников' });
+      }
+      if (!officeId || !userId) {
+        return res.status(400).json({ success: false, message: 'Не указан офис или сотрудник' });
+      }
+      const [chk] = await db.query(
+        `SELECT u.id FROM users u JOIN users c ON c.id = u.created_by
+          WHERE u.id = ? AND u.office_id = ? AND c.role IN (?) LIMIT 1`,
+        [userId, officeId, MEMBER_CREATOR_ROLES]
+      );
+      if (chk.length === 0) {
+        return res.status(400).json({ success: false, message: 'Этого сотрудника нельзя добавить' });
+      }
+      await db.query(
+        'INSERT IGNORE INTO chat_channel_members (office_id, channel, user_id, added_by) VALUES (?, ?, ?, ?)',
+        [officeId, channel, userId, req.user.id]
+      );
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('addChannelMember error:', error);
+      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+  },
+
+  async removeChannelMember(req, res) {
+    try {
+      const { officeId, channel = 'reception', userId } = req.body;
+      if (!CAN_MANAGE_MEMBERS.includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Нет прав' });
+      }
+      await db.query(
+        'DELETE FROM chat_channel_members WHERE office_id = ? AND channel = ? AND user_id = ?',
+        [officeId, channel, userId]
+      );
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('removeChannelMember error:', error);
       return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
   },

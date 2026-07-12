@@ -7,6 +7,7 @@ import {
 
   FaChartLine,
   FaMoneyBillWave,
+  FaRubleSign,
   FaUserTie,
   FaPhoneAlt,
   FaRobot,
@@ -91,7 +92,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
-      expenses: { key: 'Баланс', icon: <FaMoneyBillWave />, label: 'Баланс' },
+      expenses: { key: 'Баланс', icon: <FaRubleSign />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <FaUserTie />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },

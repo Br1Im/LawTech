@@ -72,6 +72,8 @@ import {
   CalendarOutlined,
   EyeOutlined,
   FileImageOutlined,
+  PlusOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import {
   clientsApi,
@@ -93,6 +95,7 @@ import {
 import apiInstance from '../shared/api/instance';
 import Documents from './Documents';
 import { useAuth } from '../shared/lib/hooks/useAuth';
+import AdminContractRegister from './AdminContractRegister';
 import { buildApiUrl, getAuthHeaders, getAuthenticatedUrl } from '../shared/utils/apiUtils';
 
 interface ClientsProps {
@@ -149,9 +152,9 @@ const formatMoney = (value?: string | number | null) => {
   return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(n);
 };
 
-const CONTRACT_PREFIX = 'ДОГ-';
+const CONTRACT_PREFIX = '№';
 const contractNumber = (id: number, cn?: string | null) =>
-  cn || `${CONTRACT_PREFIX}${String(id).padStart(8, '0')}`;
+  `${CONTRACT_PREFIX}${cn || String(id).padStart(8, '0')}`;
 
 const extractTopic = (c: CrmContract): string => {
   const raw = c.title || c.description || '';
@@ -212,7 +215,81 @@ const Clients: React.FC<ClientsProps> = () => {
   const { user } = useAuth();
   const canAssignRep = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
+  const [newContractOpen, setNewContractOpen] = useState(false);
   const isLawyer = user?.role === 'lawyer';
+  const isManagementRole = ['director', 'manager', 'okk'].includes(user?.role || '');
+
+  // --- Payment tracking state ---
+  interface ContractPayment {
+    id: number;
+    contract_id: number;
+    amount: string;
+    payment_date: string;
+    payment_method: 'cash' | 'noncash';
+    comment: string | null;
+    created_by: number;
+    created_by_name: string;
+    created_at: string;
+    confirmed: number;
+    confirmed_by: number | null;
+    confirmed_by_name: string | null;
+    confirmed_at: string | null;
+  }
+  const [contractPayments, setContractPayments] = useState<ContractPayment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({ amount: null as number | null, date: dayjs(), method: 'cash' as 'cash' | 'noncash', comment: '' });
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+
+  const loadPayments = useCallback(async (contractId: number) => {
+    setPaymentsLoading(true);
+    try {
+      const resp = await apiInstance.get(`/contracts/${contractId}/payments`);
+      setContractPayments(resp.data?.data || []);
+    } catch { setContractPayments([]); }
+    finally { setPaymentsLoading(false); }
+  }, []);
+
+  const handleAddPayment = async (contractId: number) => {
+    if (!paymentFormData.amount || paymentFormData.amount <= 0) { message.warning('Укажите сумму доплаты'); return; }
+    setPaymentSubmitting(true);
+    try {
+      await apiInstance.post(`/contracts/${contractId}/payments`, {
+        amount: paymentFormData.amount,
+        payment_date: paymentFormData.date.format('YYYY-MM-DD'),
+        payment_method: paymentFormData.method,
+        comment: paymentFormData.comment || null,
+      });
+      message.success('Доплата добавлена');
+      setShowPaymentForm(false);
+      setPaymentFormData({ amount: null, date: dayjs(), method: 'cash', comment: '' });
+      await loadPayments(contractId);
+      load();
+      const updated = await contractsApi.getById(contractId);
+      setDetailContract(updated);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+    finally { setPaymentSubmitting(false); }
+  };
+
+  const handleConfirmPayment = async (contractId: number, paymentId: number) => {
+    try {
+      await apiInstance.patch(`/contracts/${contractId}/payments/${paymentId}/confirm`);
+      message.success('Платёж подтверждён');
+      await loadPayments(contractId);
+      load();
+      const updated = await contractsApi.getById(contractId);
+      setDetailContract(updated);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+  };
+
+  const handleDeletePayment = async (contractId: number, paymentId: number) => {
+    try {
+      await apiInstance.delete(`/contracts/${contractId}/payments/${paymentId}`);
+      message.success('Платёж удалён');
+      await loadPayments(contractId);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+  };
+
   const [data, setData] = useState<CrmClient[]>([]);
   const [contracts, setContracts] = useState<CrmContract[]>([]);
   const [loading, setLoading] = useState(false);
@@ -250,6 +327,8 @@ const Clients: React.FC<ClientsProps> = () => {
   const [savingLawyers, setSavingLawyers] = useState(false);
   const [detailClient, setDetailClient] = useState<CrmClient | null>(null);
   const [detailTab, setDetailTab] = useState('info');
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
 
   // Document types for the contract info tab
   const DOCUMENT_TYPE_OPTIONS = [
@@ -313,6 +392,14 @@ const Clients: React.FC<ClientsProps> = () => {
     refund_deadline: dayjs.Dayjs | null;
   }>({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
   const [terminating, setTerminating] = useState(false);
+  const [editingTermination, setEditingTermination] = useState(false);
+  const [editTermForm, setEditTermForm] = useState<{
+    terminated_at: dayjs.Dayjs;
+    termination_reason: string;
+    refund_amount: number;
+    refund_deadline: dayjs.Dayjs | null;
+  }>({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
+  const [savingTermination, setSavingTermination] = useState(false);
   const canConfirmRefund = ['director', 'manager', 'okk'].includes(user?.role || '');
   const canTerminate = ['director', 'manager', 'okk'].includes(user?.role || '');
 
@@ -383,6 +470,32 @@ const Clients: React.FC<ClientsProps> = () => {
       setContractActsLoading(false);
     }
   }, []);
+
+  const handleSaveTerminationData = async () => {
+    if (!detailContract) return;
+    setSavingTermination(true);
+    try {
+      await apiInstance.patch(`/contracts/${detailContract.id}/terminate-data`, {
+        terminated_at: editTermForm.terminated_at.format('YYYY-MM-DD'),
+        termination_reason: editTermForm.termination_reason || null,
+        refund_amount: editTermForm.refund_amount || 0,
+        refund_deadline: editTermForm.refund_deadline?.format('YYYY-MM-DD') || null,
+      });
+      message.success('Данные расторжения обновлены');
+      setEditingTermination(false);
+      // Refresh contract data
+      try {
+        const updated = await contractsApi.getById(detailContract.id);
+        if (updated) setDetailContract(updated);
+      } catch {}
+      if (view === 'terminated') loadTerminated();
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Ошибка при сохранении');
+    } finally {
+      setSavingTermination(false);
+    }
+  };
 
   const handleTerminate = async () => {
     if (!detailContract) return;
@@ -673,7 +786,7 @@ const Clients: React.FC<ClientsProps> = () => {
           return ['lawyer', 'manager', 'okk'].includes(role);
         })
         .map((e) => {
-          const roleLbl = { manager: 'менеджер', okk: 'ОКК', lawyer: 'юрист' }[String(e.user_role || '').toLowerCase()] || '';
+          const roleLbl = { manager: 'менеджер', okk: 'Руководитель', lawyer: 'юрист' }[String(e.user_role || '').toLowerCase()] || '';
           const name = `${e.last_name || ''} ${e.first_name || ''}`.trim() || String(e.id);
           return { id: e.id, name: roleLbl ? `${name} (${roleLbl})` : name };
         }));
@@ -716,6 +829,23 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   };
 
+  const handleSaveClientPhone = async () => {
+    const clientId = detailClient?.id ?? detailContract?.id_client;
+    const value = phoneDraft.trim();
+    if (!clientId || !value) { message.warning('Введите номер телефона'); return; }
+    setSavingPhone(true);
+    try {
+      const base = detailClient || ({ id: clientId } as any);
+      const updated = await clientsApi.update(Number(clientId), { ...base, phone: value });
+      setDetailClient(updated);
+      message.success('Телефон сохранён');
+    } catch {
+      message.error('Не удалось сохранить телефон');
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
   const openDetail = (contract: CrmContract, client: CrmClient | null) => {
     setDetailContract(contract);
     setDetailClient(client);
@@ -746,6 +876,7 @@ const Clients: React.FC<ClientsProps> = () => {
     else setCaseActions([]);
     loadContractMaterials(contract.id);
     loadContractActs(contract.id);
+    loadPayments(contract.id);
     // Initialize doc types
     const dtRaw = (contract as any).document_types;
     try {
@@ -778,7 +909,7 @@ const Clients: React.FC<ClientsProps> = () => {
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
     const isAssignedEmployee = user?.id != null && (contract as any).id_employee === user.id;
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
-    const canEditCard = isOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
+    const canEditCard = !isAdmin && (isOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     if (canEditCard) loadExperts();
   };
 
@@ -837,15 +968,6 @@ const Clients: React.FC<ClientsProps> = () => {
         return <span>{label}</span>;
       },
     },
-    ...(!isAdmin ? [{
-      title: 'Эксперт',
-      key: 'expert',
-      render: (_: unknown, r: ContractRow) => {
-        const name = r.contract.expert_full_name;
-        if (!name) return <Tag color="default">не назначен</Tag>;
-        return <span>{shortName(name)}</span>;
-      },
-    }] : []),
     {
       title: 'Сумма',
       key: 'amount',
@@ -1081,11 +1203,6 @@ const Clients: React.FC<ClientsProps> = () => {
       },
     },
     {
-      title: 'Эксперт',
-      key: 'expert',
-      render: (_, r) => shortName(r.contract.expert_full_name),
-    },
-    {
       title: 'Статус',
       key: 'status',
       width: 140,
@@ -1186,12 +1303,16 @@ const Clients: React.FC<ClientsProps> = () => {
     if (!detailContract) return null;
     const c = detailContract;
     const cl = detailClient;
-    const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
+    const pendingPaymentsSum = contractPayments
+      .filter(p => !p.confirmed)
+      .reduce((s, p) => s + parseFloat(String(p.amount || 0)), 0);
+    const totalPaidWithPending = parseFloat(String(c.paid_amount || 0)) + pendingPaymentsSum;
+    const remaining = (parseFloat(String(c.amount || 0)) - totalPaidWithPending);
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
     const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
-    const canEditCard = isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
+    const canEditCard = !isAdmin && (isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
     const canEditLawyers = ['director', 'manager', 'okk'].includes(user?.role || '');
     const lawyerOptions = officeLawyers.filter((l) => l.id !== c.id_employee);
@@ -1261,6 +1382,7 @@ const Clients: React.FC<ClientsProps> = () => {
 
         <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
           <Descriptions.Item label="ФИО клиента">{cl?.name || c.client_name || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Телефон">{(cl?.phone || (c as any).client_phone) ? (cl?.phone || (c as any).client_phone) : (<span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><Input value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} placeholder="Введите номер телефона" size="small" style={{ maxWidth: 220 }} /><Button size="small" type="primary" loading={savingPhone} onClick={handleSaveClientPhone}>Сохранить</Button></span>)}</Descriptions.Item>
           <Descriptions.Item label="Тема">
             {canEditCard ? (
               <Input
@@ -1286,7 +1408,14 @@ const Clients: React.FC<ClientsProps> = () => {
             <span style={{ fontWeight: 600, fontSize: 15 }}>{formatMoney(c.amount)}</span>
           </Descriptions.Item>
           <Descriptions.Item label="Внесено">
-            <span style={{ color: '#3aa56b', fontWeight: 600 }}>{formatMoney(c.paid_amount)}</span>
+            <span style={{ color: '#3aa56b', fontWeight: 600 }}>
+              {formatMoney(totalPaidWithPending)}
+              {pendingPaymentsSum > 0 && (
+                <span style={{ fontSize: 11, color: '#888', fontWeight: 400, marginLeft: 6 }}>
+                  (из них {formatMoney(pendingPaymentsSum)} на подтверждении)
+                </span>
+              )}
+            </span>
           </Descriptions.Item>
           <Descriptions.Item label="Остаток">
             <span style={{ color: remaining > 0 ? '#e74c3c' : '#3aa56b', fontWeight: 600 }}>
@@ -1649,20 +1778,99 @@ const Clients: React.FC<ClientsProps> = () => {
           </>
         )}
 
-        {/* ── Кнопка подтверждения оплаты остатка (только админ) ── */}
-        {isAdmin && !c.remainder_confirmed && (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0))) > 0 && (c as any).additional_payment_date && (
+        {/* ── Журнал платежей ── */}
+        {(remaining > 0 || contractPayments.length > 0) && (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
-            <Popconfirm
-              title="Подтвердить оплату остатка?"
-              description={`Сумма остатка: ${formatMoney(parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)))} будет помечена как оплаченная.`}
-              okText="Да, оплачено"
-              cancelText="Отмена"
-              onConfirm={() => handleConfirmRemainder(c.id)}
-            >
-              <Button type="primary" icon={<DollarOutlined />} size="large" block>
-                Подтвердить оплату остатка
-              </Button>
-            </Popconfirm>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>💳 Платежи</span>
+              {isAdmin && remaining > 0 && (
+                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setShowPaymentForm(!showPaymentForm)}>
+                  {showPaymentForm ? 'Отмена' : 'Внести доплату'}
+                </Button>
+              )}
+            </div>
+
+            {/* Форма добавления доплаты */}
+            {showPaymentForm && isAdmin && (
+              <div style={{ background: 'var(--color-bg-alt, #f9fafb)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 120px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Сумма *</div>
+                  <InputNumber
+                    value={paymentFormData.amount}
+                    onChange={(v) => setPaymentFormData(p => ({ ...p, amount: v }))}
+                    min={1} max={parseFloat(String(c.amount || 0))}
+                    style={{ width: '100%' }}
+                    placeholder="10 000"
+                    formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''}
+                    parser={(v) => v ? Number(v.replace(/\s/g, '')) : 0}
+                  />
+                </div>
+                <div style={{ flex: '1 1 120px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Дата</div>
+                  <DatePicker value={paymentFormData.date} onChange={(d) => d && setPaymentFormData(p => ({ ...p, date: d }))} style={{ width: '100%' }} />
+                </div>
+                <div style={{ flex: '1 1 100px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Способ</div>
+                  <Select value={paymentFormData.method} onChange={(v) => setPaymentFormData(p => ({ ...p, method: v }))} style={{ width: '100%' }}
+                    options={[{ value: 'cash', label: 'Наличные' }, { value: 'noncash', label: 'Безналичный' }]} />
+                </div>
+                <div style={{ flex: '2 1 160px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Комментарий</div>
+                  <Input value={paymentFormData.comment} onChange={(e) => setPaymentFormData(p => ({ ...p, comment: e.target.value }))} placeholder="Необязательно" />
+                </div>
+                <Button type="primary" loading={paymentSubmitting} onClick={() => handleAddPayment(c.id)} style={{ height: 32 }}>
+                  Сохранить
+                </Button>
+              </div>
+            )}
+
+            {/* Список платежей */}
+            {paymentsLoading ? <Spin size="small" /> : (
+              contractPayments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {contractPayments.map((p) => (
+                    <div key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                      borderRadius: 8, border: '1px solid var(--color-border)',
+                      background: p.confirmed ? 'var(--color-bg-alt, #f0fdf4)' : 'var(--color-bg-alt, #fffbeb)',
+                    }}>
+                      <span style={{ fontSize: 16 }}>{p.confirmed ? '✅' : '⏳'}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          +{formatMoney(p.amount)}
+                          <Tag color={p.payment_method === 'cash' ? 'green' : 'blue'} style={{ marginLeft: 6, fontSize: 11 }}>
+                            {p.payment_method === 'cash' ? 'Нал' : 'Безнал'}
+                          </Tag>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+                          {new Date(p.payment_date).toLocaleDateString('ru-RU')} · {p.created_by_name}
+                          {p.comment && <> · {p.comment}</>}
+                          {p.confirmed && p.confirmed_by_name && (
+                            <> · Подтвердил: {p.confirmed_by_name}</>
+                          )}
+                        </div>
+                      </div>
+                      {!p.confirmed && isManagementRole && (
+                        <Popconfirm title={`Подтвердить платёж ${formatMoney(p.amount)}?`} okText="Да" cancelText="Отмена"
+                          onConfirm={() => handleConfirmPayment(c.id, p.id)}>
+                          <Button size="small" type="primary">Подтвердить</Button>
+                        </Popconfirm>
+                      )}
+                      {!p.confirmed && (isAdmin || isManagementRole) && (
+                        <Popconfirm title="Удалить платёж?" okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }}
+                          onConfirm={() => handleDeletePayment(c.id, p.id)}>
+                          <Button size="small" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--color-muted)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: 8 }}>
+                  Доплат ещё не вносилось
+                </div>
+              )
+            )}
           </div>
         )}
 
@@ -2272,6 +2480,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const c = detailContract;
     const isAlreadyTerminated = c.status === 'terminated';
 
+    const isManagementForEdit = ['director', 'manager', 'okk'].includes(user?.role || '');
+
     if (isAlreadyTerminated) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -2280,22 +2490,102 @@ const Clients: React.FC<ClientsProps> = () => {
             title="Договор расторгнут"
             subTitle={c.terminated_at ? `Дата расторжения: ${new Date(c.terminated_at).toLocaleDateString('ru-RU')}` : undefined}
           />
-          <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
-            {c.termination_reason && (
-              <Descriptions.Item label="Причина">{c.termination_reason}</Descriptions.Item>
-            )}
-            <Descriptions.Item label="Сумма возврата">
-              <span style={{ fontWeight: 600, color: '#e74c3c' }}>{formatMoney(c.refund_amount)}</span>
-            </Descriptions.Item>
-            {c.refund_deadline && (
-              <Descriptions.Item label="Срок возврата">{new Date(c.refund_deadline).toLocaleDateString('ru-RU')}</Descriptions.Item>
-            )}
-            <Descriptions.Item label="Статус возврата">
-              {c.refund_confirmed
-                ? <Tag color="green">Деньги возвращены{c.refund_confirmed_by_name ? ` (${c.refund_confirmed_by_name})` : ''}</Tag>
-                : <Tag color="red">Ожидает возврата</Tag>}
-            </Descriptions.Item>
-          </Descriptions>
+
+          {/* Режим редактирования для руководства */}
+          {editingTermination && isManagementForEdit ? (
+            <InfoBlock>
+              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <EditOutlined />
+                Редактирование данных расторжения
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата расторжения</div>
+                  <DatePicker
+                    value={editTermForm.terminated_at}
+                    onChange={(d) => setEditTermForm((f) => ({ ...f, terminated_at: d || dayjs() }))}
+                    format="DD.MM.YYYY"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Сумма возврата клиенту</div>
+                  <InputNumber
+                    value={editTermForm.refund_amount}
+                    onChange={(v) => setEditTermForm((f) => ({ ...f, refund_amount: v || 0 }))}
+                    min={0}
+                    style={{ width: '100%' }}
+                    formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                    addonAfter="₽"
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Срок возврата</div>
+                  <DatePicker
+                    value={editTermForm.refund_deadline}
+                    onChange={(d) => setEditTermForm((f) => ({ ...f, refund_deadline: d }))}
+                    format="DD.MM.YYYY"
+                    style={{ width: '100%' }}
+                    placeholder="Выберите дату"
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Причина расторжения</div>
+                  <Input.TextArea
+                    value={editTermForm.termination_reason}
+                    onChange={(e) => setEditTermForm((f) => ({ ...f, termination_reason: e.target.value }))}
+                    rows={3}
+                    placeholder="Укажите причину расторжения"
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <Button type="primary" loading={savingTermination} onClick={handleSaveTerminationData}>
+                  Сохранить
+                </Button>
+                <Button onClick={() => setEditingTermination(false)}>
+                  Отмена
+                </Button>
+              </div>
+            </InfoBlock>
+          ) : (
+            <>
+              <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
+                {c.termination_reason && (
+                  <Descriptions.Item label="Причина">{c.termination_reason}</Descriptions.Item>
+                )}
+                <Descriptions.Item label="Сумма возврата">
+                  <span style={{ fontWeight: 600, color: '#e74c3c' }}>{formatMoney(c.refund_amount)}</span>
+                </Descriptions.Item>
+                {c.refund_deadline && (
+                  <Descriptions.Item label="Срок возврата">{new Date(c.refund_deadline).toLocaleDateString('ru-RU')}</Descriptions.Item>
+                )}
+                <Descriptions.Item label="Статус возврата">
+                  {c.refund_confirmed
+                    ? <Tag color="green">Деньги возвращены{c.refund_confirmed_by_name ? ` (${c.refund_confirmed_by_name})` : ''}</Tag>
+                    : <Tag color="red">Ожидает возврата</Tag>}
+                </Descriptions.Item>
+              </Descriptions>
+
+              {isManagementForEdit && (
+                <Button
+                  type="dashed"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setEditTermForm({
+                      terminated_at: c.terminated_at ? dayjs(c.terminated_at) : dayjs(),
+                      termination_reason: c.termination_reason || '',
+                      refund_amount: parseFloat(String(c.refund_amount || 0)),
+                      refund_deadline: c.refund_deadline ? dayjs(c.refund_deadline) : null,
+                    });
+                    setEditingTermination(true);
+                  }}
+                >
+                  Редактировать данные расторжения
+                </Button>
+              )}
+            </>
+          )}
 
           {!c.refund_confirmed && canConfirmRefund && parseFloat(String(c.refund_amount || 0)) > 0 && (
             <Popconfirm
@@ -2502,6 +2792,7 @@ const Clients: React.FC<ClientsProps> = () => {
           </div>
         </Space>
         <Space>
+          {isAdmin && view === 'contracts' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNewContractOpen(true)}>Новый договор</Button>}
           {!isAdmin && view === 'contracts' && <Documents headless />}
         </Space>
       </ToolRow>
@@ -2867,6 +3158,12 @@ const Clients: React.FC<ClientsProps> = () => {
         )}
       </Modal>
 
+      <AdminContractRegister
+        open={newContractOpen}
+        onClose={() => setNewContractOpen(false)}
+        onSuccess={() => { setNewContractOpen(false); load(); }}
+        appointmentData={null}
+      />
     </Page>
   );
 };

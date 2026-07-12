@@ -197,7 +197,7 @@ const MyCases: React.FC = () => {
       render: (_: unknown, r: CourtCase) => (
         <div style={{ lineHeight: 1.25 }}>
           <div style={{ fontVariantNumeric: 'tabular-nums', fontSize: 12, color: 'var(--color-muted, #888)' }}>
-            ДОГ-{String(r.id).padStart(8, '0')}
+            №{String(r.id).padStart(8, '0')}
           </div>
           <div style={{ fontWeight: 500 }}>{r.title || r.customer_goal || '—'}</div>
         </div>
@@ -266,7 +266,7 @@ const MyCases: React.FC = () => {
       const name = (c.client_name || '').toLowerCase();
       const phone = (c.client_phone || '').replace(/\D/g, '');
       const id = String(c.id).padStart(8, '0');
-      const fullNum = ('дог-' + id);
+      const fullNum = ('№' + id);
       const title = (c.title || '').toLowerCase();
       const dateRu = c.contract_date ? dayjs(c.contract_date).format('DD.MM.YYYY') : '';
       const dateIso = c.contract_date || '';
@@ -373,7 +373,7 @@ const MyCases: React.FC = () => {
                 const rows: [string, React.ReactNode][] = [
                   ['Клиент', <span style={{ fontWeight: 500 }}>{c.client_name || '—'}</span>],
                   ['Телефон', <span style={{ fontFamily: 'inherit' }}>{fmtPhone(c.client_phone)}</span>],
-                  ['Номер договора', <span style={{ fontVariantNumeric: 'tabular-nums' }}>ДОГ-{String(c.id).padStart(8, '0')}</span>],
+                  ['Номер договора', <span style={{ fontVariantNumeric: 'tabular-nums' }}>№{String(c.id).padStart(8, '0')}</span>],
                   ['Дата договора', fmtDate(c.contract_date)],
                   ['Тема', <span style={{ fontWeight: 500 }}>{c.title || '—'}</span>],
                   ['Статус', <Tag color={STATUS_COLORS[c.status] || 'default'} style={{ margin: 0 }}>{

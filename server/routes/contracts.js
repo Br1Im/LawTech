@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const contractController = require('../controllers/contractController');
+const paymentController = require('../controllers/paymentController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Все маршруты требуют аутентификации
@@ -35,6 +36,9 @@ router.post('/:id/confirm-refund', contractController.confirmRefund);
 
 // Подтвердить оплату остатка
 router.post('/:id/confirm-remainder', contractController.confirmRemainder);
+
+// Обновить данные расторжения (директор/менеджер/ОКК)
+router.patch('/:id/terminate-data', contractController.updateTerminationData);
 
 // Создать новый договор
 router.post('/', contractController.createContract);
@@ -142,5 +146,11 @@ router.put('/:id', contractController.updateContract);
 
 // Удалить договор
 router.delete('/:id', contractController.deleteContract);
+
+// Платежи по договору
+router.get('/:id/payments', paymentController.getPayments);
+router.post('/:id/payments', paymentController.addPayment);
+router.patch('/:id/payments/:paymentId/confirm', paymentController.confirmPayment);
+router.delete('/:id/payments/:paymentId', paymentController.deletePayment);
 
 module.exports = router;

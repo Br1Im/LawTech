@@ -188,6 +188,7 @@ const Office = () => {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   // Смещение периода офиса для просмотра предыдущих периодов (0 = текущий, -1 = предыдущий).
   const [planCycleOffset, setPlanCycleOffset] = useState<number>(0);
+  const [dayOffset, setDayOffset] = useState<number>(0);
   const [customFrom, setCustomFrom] = useState<string>(() => {
     const d = new Date(); d.setDate(d.getDate() - 13); return d.toISOString().slice(0, 10);
   });
@@ -431,6 +432,11 @@ const Office = () => {
         if (period === 'plan' && planCycleOffset !== 0) {
           params.set('cycle_offset', String(planCycleOffset));
         }
+        if (dayOffset !== 0) {
+          const d = new Date();
+          d.setDate(d.getDate() + dayOffset);
+          params.set('day', d.toISOString().slice(0, 10));
+        }
         const res = await fetch(buildApiUrl(`/office/${selectedOffice.id}/dashboard?${params.toString()}`), {
           headers: getAuthHeaders(),
         });
@@ -446,7 +452,7 @@ const Office = () => {
       }
     };
     fetchDashboard();
-  }, [selectedOffice?.id, period, customFrom, customTo, planCycleOffset]);
+  }, [selectedOffice?.id, period, customFrom, customTo, planCycleOffset, dayOffset]);
 
   const isCcRole = ['cc_manager', 'cc_operator'].includes(userRole);
 
@@ -601,12 +607,15 @@ const Office = () => {
     if (!selectedOffice?.id) return;
     const fetchConsultationStats = async () => {
       try {
-        const res = await apiInstance.get('/visits/consultation-stats');
+        const pFrom = dashboard?.period?.from;
+        const pTo = dashboard?.period?.to;
+        const qs = (pFrom && pTo) ? `?from=${pFrom}&to=${pTo}` : '';
+        const res = await apiInstance.get(`/visits/consultation-stats${qs}`);
         setConsultationStats(res.data?.data || []);
       } catch { /* ignore */ }
     };
     fetchConsultationStats();
-  }, [selectedOffice?.id]);
+  }, [selectedOffice?.id, period, dashboard?.period?.from, dashboard?.period?.to]);
 
   useEffect(() => {
     if (selectedOffice) {
@@ -996,7 +1005,7 @@ const Office = () => {
 
   // ===== Аналитика по сотрудникам (консультации) =====
   const roleLabel = (role: string) => {
-    const map: Record<string, string> = { director: 'Директор', manager: 'Менеджер', okk: 'ОКК', lawyer: 'Юрист', admin: 'Администратор' };
+    const map: Record<string, string> = { director: 'Директор', manager: 'Менеджер', okk: 'Руководитель', lawyer: 'Юрист', admin: 'Администратор' };
     return map[role] || role;
   };
 
@@ -1106,7 +1115,9 @@ const Office = () => {
         const fmt = (v: number) => `${Math.round(v).toLocaleString('ru-RU')} ₽`;
 
         const today = new Date();
-        const dayLabel = `${today.getDate()} ${today.toLocaleDateString('ru-RU', { month: 'long' }).replace(/^./, c => c.toLowerCase())}`;
+        const selectedDay = new Date();
+        selectedDay.setDate(selectedDay.getDate() + dayOffset);
+        const dayLabel = `${selectedDay.getDate()} ${selectedDay.toLocaleDateString('ru-RU', { month: 'long' }).replace(/^./, c => c.toLowerCase())}`;
         const periodLabel = dashboard?.plan?.period_start && dashboard?.plan?.period_end
           ? `${new Date(dashboard.plan.period_start).toLocaleDateString('ru-RU')} – ${new Date(dashboard.plan.period_end).toLocaleDateString('ru-RU')}`
           : '';
@@ -1162,13 +1173,44 @@ const Office = () => {
             </div>
             <div className="plan-fact-grid-v2">
               <div className="plan-fact-card-v2">
-                <div className="plan-fact-card-label">ПЛАН НА ДЕНЬ — {dayLabel}</div>
+                <div className="plan-fact-card-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <button
+                    onClick={() => setDayOffset(o => o - 1)}
+                    style={{
+                      background: 'none', border: '1px solid var(--color-border)', borderRadius: 6,
+                      padding: '2px 8px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                      color: 'var(--color-text)', lineHeight: 1,
+                    }}
+                    title="Предыдущий день"
+                  >‹</button>
+                  <span style={{ flex: 1, textAlign: 'center' }}>
+                    КАССА ЗА ДЕНЬ — {dayLabel}
+                    {dayOffset !== 0 && <span style={{ fontSize: 10, color: 'var(--color-muted)', marginLeft: 4 }}>(не сегодня)</span>}
+                  </span>
+                  <button
+                    onClick={() => { if (dayOffset < 0) setDayOffset(o => o + 1); }}
+                    disabled={dayOffset >= 0}
+                    style={{
+                      background: 'none', border: '1px solid var(--color-border)', borderRadius: 6,
+                      padding: '2px 8px', cursor: dayOffset < 0 ? 'pointer' : 'not-allowed', fontSize: 13,
+                      fontWeight: 600, color: dayOffset < 0 ? 'var(--color-text)' : 'var(--color-muted)',
+                      opacity: dayOffset < 0 ? 1 : 0.4, lineHeight: 1,
+                    }}
+                    title="Следующий день"
+                  >›</button>
+                </div>
                 <div className="plan-fact-card-value">
                   <span className="pf-fact">{fmt(dayFact)}</span>
                   <span className="pf-sep"> / </span>
                   <span className="pf-plan">{dayPlan > 0 ? fmt(dayPlan) : '—'}</span>
                 </div>
                 <div className="plan-fact-card-pct">{dayPct !== null ? `${dayPct.toFixed(0)}%` : '0%'}</div>
+                {dayOffset !== 0 && (
+                  <div
+                    onClick={() => setDayOffset(0)}
+                    style={{ fontSize: 11, color: '#1677ff', cursor: 'pointer', marginTop: 4, textAlign: 'center' }}
+                  >↩ Сегодня</div>
+                )}
               </div>
               <div className="plan-fact-card-v2">
                 <div className="plan-fact-card-label">
@@ -1324,7 +1366,7 @@ const Office = () => {
                   <th className="num">Заключено</th>
                   <th className="num">Конверсия</th>
                   <th>Рейтинг</th>
-                  <th className="num">Касса сегодня</th>
+                  <th className="num">{dayOffset === 0 ? 'Касса сегодня' : `Касса за ${(() => { const d = new Date(); d.setDate(d.getDate() + dayOffset); return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }); })()}`}</th>
                   <th className="num">Касса за период</th>
                 </tr>
               </thead>
@@ -1702,7 +1744,7 @@ const Office = () => {
                   </div>
                 </div>
                 <div className="lawyer-summary-cell">
-                  <div className="cell-label">Касса сегодня</div>
+                  <div className="cell-label">{dayOffset === 0 ? 'Касса сегодня' : 'Касса за день'}</div>
                   <div className="cell-value">{cash ? `${Math.round(cash.today).toLocaleString('ru-RU')} \u20BD` : '0 \u20BD'}</div>
                 </div>
                 <div className="lawyer-summary-cell">
