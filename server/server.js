@@ -293,6 +293,7 @@ server.listen(PORT, '0.0.0.0', async () => {
     console.error('❌ Gainnet init error:', error);
   }
   
+  try { require('./services/deadlineNotifications').startScheduler(); } catch (e) { console.error('deadline scheduler:', e.message); }
   console.log('✅ Server is ready to accept requests');
 });
 

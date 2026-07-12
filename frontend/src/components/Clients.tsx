@@ -19,7 +19,7 @@ function getDeadlineInfo(deadline?: string | null): DeadlineInfo | null {
   }
   if (diff === 0) return { key: 'orange', color: '#ea580c', bg: '#fff7ed', label: 'Сегодня', icon: '🟠' };
   if (diff === 1) return { key: 'yellow', color: '#ca8a04', bg: '#fefce8', label: 'Завтра', icon: '🟡' };
-  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: `До ${d.format('DD.MM.YYYY')}`, icon: '🟢' };
+  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: 'В срок', icon: '🟢' };
 }
 import {
   Table,
@@ -27,7 +27,6 @@ import {
   Button,
   Space,
   Tooltip,
-  Popover,
   App,
   Empty,
   Tag,
@@ -41,6 +40,7 @@ import {
   Descriptions,
   Spin,
   DatePicker,
+  TimePicker,
   InputNumber,
   Result,
   Select,
@@ -352,6 +352,9 @@ const Clients: React.FC<ClientsProps> = () => {
   const [cardLegalCostComp, setCardLegalCostComp] = useState<string>('');
   const [cardMoralComp, setCardMoralComp] = useState<string>('');
   const [cardSaving, setCardSaving] = useState(false);
+  const [cardDeadlineDate, setCardDeadlineDate] = useState<dayjs.Dayjs | null>(null);
+  const [cardDeadlineTime, setCardDeadlineTime] = useState<dayjs.Dayjs | null>(null);
+  const [cardDeadlineComment, setCardDeadlineComment] = useState('');
 
   // Expert documents (inside detail drawer)
   const [docsList, setDocsList] = useState<ContractDocument[]>([]);
@@ -904,6 +907,9 @@ const Clients: React.FC<ClientsProps> = () => {
     );
     setCardExpertId(contract.expert_id || null);
     setCardTitle(contract.title || '');
+    setCardDeadlineDate((contract as any).expert_deadline ? dayjs((contract as any).expert_deadline) : null);
+    setCardDeadlineTime((contract as any).expert_deadline_time ? dayjs(`1970-01-01 ${(contract as any).expert_deadline_time}`) : null);
+    setCardDeadlineComment((contract as any).expert_deadline_comment || '');
     setNewCustomDoc('');
     setCardDataChanged(false);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
@@ -1014,12 +1020,11 @@ const Clients: React.FC<ClientsProps> = () => {
         const info = getDeadlineInfo(r.contract.expert_deadline);
         if (!info) return <span style={{ color: 'var(--color-muted)' }}>—</span>;
         const exact = dayjs(r.contract.expert_deadline).format('DD.MM.YYYY');
+        const cmt = (r.contract as any).expert_deadline_comment || undefined;
         return (
-          <Popover trigger="click" content={<span style={{ fontWeight: 600 }}>Сдать документы до: {exact}</span>}>
-            <span onClick={(ev) => ev.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: info.bg, color: info.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>
-            {info.icon} {info.label}
+          <span title={cmt} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: info.bg, color: info.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {info.icon} {info.label} · {exact}
           </span>
-          </Popover>
         );
       },
     }] : []),
@@ -1268,6 +1273,7 @@ const Clients: React.FC<ClientsProps> = () => {
 
   const saveCardData = async () => {
     if (!detailContract) return;
+    if ((cardDeadlineTime || cardDeadlineComment) && !cardDeadlineDate) { message.error('Укажите дату выполнения дедлайна'); return; }
     setCardSaving(true);
     try {
       await apiInstance.patch(`/contracts/${detailContract.id}/card-data`, {
@@ -1279,6 +1285,9 @@ const Clients: React.FC<ClientsProps> = () => {
         customer_goal: cardCustomerGoal,
         legal_cost_comp: cardLegalCostComp === '' ? null : Number(cardLegalCostComp),
         moral_comp: cardMoralComp === '' ? null : Number(cardMoralComp),
+        expert_deadline: cardDeadlineDate ? cardDeadlineDate.format('YYYY-MM-DD') : null,
+        expert_deadline_time: cardDeadlineTime ? cardDeadlineTime.format('HH:mm:ss') : null,
+        expert_deadline_comment: cardDeadlineComment || null,
       });
       message.success('Данные сохранены');
       setDocTypesChanged(false);
@@ -1626,6 +1635,27 @@ const Clients: React.FC<ClientsProps> = () => {
                     </div>
                   )}
                 </div>
+
+                {/* ── Дедлайн подготовки документов ── */}
+                {canAssignExpert && (
+                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>Дедлайн подготовки документов</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Дата выполнения <span style={{ color: '#dc2626' }}>*</span></div>
+                      <DatePicker value={cardDeadlineDate} onChange={(d) => { setCardDeadlineDate(d); setCardDataChanged(true); }} format="DD.MM.YYYY" style={{ width: '100%' }} placeholder="Выберите дату" />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Время (необязательно)</div>
+                      <TimePicker value={cardDeadlineTime} onChange={(t) => { setCardDeadlineTime(t); setCardDataChanged(true); }} format="HH:mm" style={{ width: '100%' }} placeholder="—" />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Комментарий (необязательно)</div>
+                    <Input.TextArea value={cardDeadlineComment} onChange={(ev) => { setCardDeadlineComment(ev.target.value); setCardDataChanged(true); }} rows={2} maxLength={1000} placeholder="Например: подготовить исковое заявление" />
+                  </div>
+                </div>
+                )}
 
                 {/* ── Цель и возмещения ── */}
                 <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -2954,10 +2984,26 @@ const Clients: React.FC<ClientsProps> = () => {
             </div>
           ) : (
             <TableCard>
+              {dealType === 'docs' && (() => {
+                const withDl = filtered.filter((r) => r.contract.expert_deadline);
+                let ontime = 0, today = 0, overdue = 0;
+                withDl.forEach((r) => { const i = getDeadlineInfo(r.contract.expert_deadline); if (!i) return; if (i.key === 'red') overdue++; else if (i.key === 'orange') today++; else ontime++; });
+                const chip = (bg: string, color: string, text: string) => (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: bg, color, fontSize: 13, fontWeight: 600 }}>{text}</div>
+                );
+                return (
+                  <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {chip('#f0fdf4', '#16a34a', `🟢 В срок — ${ontime}`)}
+                    {chip('#fff7ed', '#ea580c', `🟠 Сегодня дедлайн — ${today}`)}
+                    {chip('#fef2f2', '#dc2626', `🔴 Просрочено — ${overdue}`)}
+                  </div>
+                );
+              })()}
               <Table<ContractRow>
                 rowKey="key"
                 dataSource={filtered}
                 columns={dealType === 'docs' ? docsColumns : courtColumns}
+                showSorterTooltip={false}
                 rowClassName={(r) => { const i = getDeadlineInfo(r.contract.expert_deadline); return i ? `deadline-row deadline-${i.key}` : ''; }}
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
