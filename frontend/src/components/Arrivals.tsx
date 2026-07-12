@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { Table, Select, Button, Space, App, Input, Tabs, DatePicker } from 'antd';
+import { Table, Select, Button, Space, App, Input, Tabs, DatePicker, TimePicker, Modal } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled, LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
@@ -9,6 +9,7 @@ import 'dayjs/locale/ru';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import AdminContractRegister from './AdminContractRegister';
+import { formatRussianPhone } from '../shared/lib/phone';
 import './Appointments.css';
 
 dayjs.locale('ru');
@@ -130,6 +131,7 @@ interface PrimaryVisit {
   linked_contract_type: 'docs' | 'court_rep' | null;
   linked_contract_number: string | null;
   linked_needs_input: number;
+  linked_contracts: Array<{ id: number; contract_type: 'docs' | 'court_rep'; contract_number: string; needs_lawyer_input: number }>;
 }
 
 interface ExistingVisit {
@@ -179,7 +181,7 @@ const Arrivals: React.FC = () => {
   const { message } = App.useApp();
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const canSetResult = ['director', 'manager', 'okk'].includes(user?.role || '') || isAdmin;
-  // Назначать юриста(ов) могут только Директор / Менеджер / ОКК (НЕ администратор)
+  // Назначать юриста(ов) могут только Директор / Менеджер / Руководитель (НЕ администратор)
   const canAssignLawyer = ['director', 'manager', 'okk'].includes(user?.role || '');
 
   const [tab, setTab] = useState('primary');
@@ -199,6 +201,10 @@ const Arrivals: React.FC = () => {
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerAppointment, setRegisterAppointment] = useState<PrimaryVisit | null>(null);
+  // Новый первичный приход (новый клиент) — тот же функционал, что и "Новая запись"
+  const [newPrimaryModal, setNewPrimaryModal] = useState(false);
+  const [creatingPrimary, setCreatingPrimary] = useState(false);
+  const [newPrimary, setNewPrimary] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null as number | null });
 
   const fetchPrimary = useCallback(async () => { try { const r = await apiInstance.get('/visits/primary'); setPrimaryVisits(r.data?.data || []); } catch {} }, []);
   const fetchExisting = useCallback(async () => { try { const r = await apiInstance.get('/visits/existing'); setExistingVisits(r.data?.data || []); } catch {} }, []);
@@ -254,6 +260,31 @@ const Arrivals: React.FC = () => {
   /* ─── разграничение по дням (как во вкладке «Записи») ─── */
   const todayStr = dayjs().format('YYYY-MM-DD');
   const selectedDayKey = selectedDate.format('YYYY-MM-DD');
+  const handleCreatePrimary = async () => {
+    if (!newPrimary.client_name.trim()) { message.warning('Укажите ФИО клиента'); return; }
+    setCreatingPrimary(true);
+    try {
+      await apiInstance.post('/appointments', {
+        client_name: newPrimary.client_name,
+        client_phone: newPrimary.client_phone,
+        appointment_date: newPrimary.date.format('YYYY-MM-DD'),
+        appointment_time: newPrimary.time.format('HH:mm'),
+        comment: newPrimary.comment || null,
+        source: newPrimary.source || null,
+        assigned_lawyer_id: newPrimary.assigned_lawyer_id,
+      });
+      message.success('Приход добавлен');
+      setNewPrimaryModal(false);
+      setNewPrimary({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null });
+      fetchPrimary();
+      fetchStats();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось добавить приход');
+    } finally {
+      setCreatingPrimary(false);
+    }
+  };
+
   const primaryByDay = useMemo(
     () => primaryVisits.filter(v => toDayKey(v.appointment_date) === selectedDayKey),
     [primaryVisits, selectedDayKey]
@@ -370,20 +401,36 @@ const Arrivals: React.FC = () => {
       },
     },
     {
-      title: 'Договор', key: 'contract', width: 180,
+      title: 'Договор', key: 'contract', width: 200,
       render: (_: unknown, row: PrimaryVisit) => {
         if (row.consultation_result !== 'contract_signed') return <span style={{ color: 'var(--color-muted)' }}>—</span>;
-        if (row.linked_contract_id) {
+        const contracts = row.linked_contracts || [];
+        if (contracts.length > 0) {
           return (
-            <Space direction="vertical" size={2}>
-              <BadgeStatic
-                bg={row.linked_contract_type === 'docs' ? '#EFF6FF' : '#F5F3FF'}
-                border={row.linked_contract_type === 'docs' ? '#3B82F6' : '#8B5CF6'}
-                color={row.linked_contract_type === 'docs' ? '#2563EB' : '#7C3AED'}
-              >
-                {row.linked_contract_type === 'docs' ? 'Документы' : 'Представление'}
-              </BadgeStatic>
-              <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>№{row.linked_contract_number || row.linked_contract_id}</span>
+            <Space direction="vertical" size={4}>
+              {contracts.map((c) => (
+                <Space key={c.id} direction="vertical" size={0}>
+                  <BadgeStatic
+                    bg={c.contract_type === 'docs' ? '#EFF6FF' : '#F5F3FF'}
+                    border={c.contract_type === 'docs' ? '#3B82F6' : '#8B5CF6'}
+                    color={c.contract_type === 'docs' ? '#2563EB' : '#7C3AED'}
+                  >
+                    {c.contract_type === 'docs' ? 'Документы' : 'Представление'}
+                  </BadgeStatic>
+                  <span style={{ fontSize: 11, color: 'var(--color-muted)' }}>№{c.contract_number || c.id}</span>
+                </Space>
+              ))}
+              {isAdmin && (
+                <Button
+                  size="small"
+                  type="dashed"
+                  icon={<PlusOutlined />}
+                  onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}
+                  style={{ fontSize: 12, padding: '0 8px', height: 24 }}
+                >
+                  Ещё договор
+                </Button>
+              )}
             </Space>
           );
         }
@@ -450,6 +497,12 @@ const Arrivals: React.FC = () => {
 
       {/* ─── Primary ─── */}
       {tab === 'primary' && (
+        <>
+          <ToolRow>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setNewPrimaryModal(true)}>
+              Добавить приход
+            </Button>
+          </ToolRow>
         <TableCard>
           {loading && primaryVisits.length === 0 ? (
             <TableSkeleton rows={6} cols={primaryCols.length} />
@@ -473,6 +526,7 @@ const Arrivals: React.FC = () => {
             />
           )}
         </TableCard>
+        </>
       )}
 
       {/* ─── Existing ─── */}
@@ -534,6 +588,58 @@ const Arrivals: React.FC = () => {
           </TableCard>
         </>
       )}
+
+      {/* Новый первичный приход (новый клиент) */}
+      <Modal
+        title="Добавить приход"
+        open={newPrimaryModal}
+        onCancel={() => setNewPrimaryModal(false)}
+        onOk={handleCreatePrimary}
+        okText="Создать"
+        cancelText="Отмена"
+        confirmLoading={creatingPrimary}
+        destroyOnClose
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>ФИО клиента *</div>
+            <Input value={newPrimary.client_name} onChange={e => setNewPrimary(f => ({ ...f, client_name: e.target.value }))} placeholder="Иванов Иван Иванович" />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Телефон</div>
+            <Input value={newPrimary.client_phone} onChange={e => setNewPrimary(f => ({ ...f, client_phone: formatRussianPhone(e.target.value) }))} placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата</div>
+              <DatePicker value={newPrimary.date} onChange={d => setNewPrimary(f => ({ ...f, date: d || dayjs() }))} format="DD.MM.YYYY" style={{ width: '100%' }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Время</div>
+              <TimePicker value={newPrimary.time} onChange={t => setNewPrimary(f => ({ ...f, time: t || dayjs() }))} format="HH:mm" style={{ width: '100%' }} minuteStep={5} />
+            </div>
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Комментарий</div>
+            <Input.TextArea value={newPrimary.comment} onChange={e => setNewPrimary(f => ({ ...f, comment: e.target.value }))} placeholder="Тема консультации" rows={3} autoSize={{ minRows: 2, maxRows: 6 }} />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Источник</div>
+            <Input value={newPrimary.source} onChange={e => setNewPrimary(f => ({ ...f, source: e.target.value }))} placeholder="Правовед, Gainet и т.д." />
+          </div>
+          <div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Ответственный сотрудник</div>
+            <Select
+              allowClear
+              placeholder="Не указан"
+              value={newPrimary.assigned_lawyer_id}
+              onChange={v => setNewPrimary(f => ({ ...f, assigned_lawyer_id: v }))}
+              options={employees.map(e => ({ value: e.id, label: e.name }))}
+              style={{ width: '100%' }}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Contract Registration Modal */}
       <AdminContractRegister

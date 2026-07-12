@@ -84,25 +84,13 @@ const SettingsPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  });
   const navigate = useNavigate();
 
+  // Тёмная тема удалена из проекта — приложение всегда в светлой теме.
   useEffect(() => {
-    // Применяем тему при изменении состояния
-    const theme = isDarkTheme ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [isDarkTheme]);
-
-  const toggleTheme = () => {
-    setIsDarkTheme(!isDarkTheme);
-  };
+    document.documentElement.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -161,34 +149,7 @@ const SettingsPage: React.FC = () => {
           
           <SettingsSection>
             <SectionTitle>Общие настройки</SectionTitle>
-            <SettingItem>
-              <div>
-                <SettingLabel>Тема оформления</SettingLabel>
-                <SettingDescription>Выберите светлую или темную тему</SettingDescription>
-              </div>
-              <button
-                onClick={toggleTheme}
-                style={{
-                  background: 'var(--color-primary)',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  transition: 'background 0.15s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--color-accent-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--color-primary)';
-                }}
-              >
-                {isDarkTheme ? 'Темная' : 'Светлая'}
-              </button>
-            </SettingItem>
+
             <SettingItem>
               <div>
                 <SettingLabel>Язык интерфейса</SettingLabel>

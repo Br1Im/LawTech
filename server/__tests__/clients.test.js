@@ -6,7 +6,7 @@
  */
 const request = require('supertest');
 const { app } = require('./setup/app');
-const { registerLawyerWithOffice } = require('./setup/factories');
+const { registerLawyerWithOffice, registerDirectorWithOffice } = require('./setup/factories');
 const db = require('../db');
 
 async function fetchClient(id) {
@@ -151,8 +151,26 @@ describe('PUT /api/clients/:id', () => {
 });
 
 describe('DELETE /api/clients/:id', () => {
-  it('removes a client from the DB', async () => {
+  it('rejects deletion by a lawyer with 403 (clients are senior-only)', async () => {
     const { token } = await registerLawyerWithOffice(app);
+    const created = await request(app)
+      .post('/api/clients')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Protected' });
+    const id = created.body.data.id;
+
+    const res = await request(app)
+      .delete(`/api/clients/${id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(403);
+    const row = await fetchClient(id);
+    expect(row).toBeTruthy();
+    expect(row.deleted_at).toBeNull();
+  });
+
+  it('lets a director soft-delete: row stays but is hidden from the API', async () => {
+    const { token } = await registerDirectorWithOffice(app);
     const created = await request(app)
       .post('/api/clients')
       .set('Authorization', `Bearer ${token}`)
@@ -164,6 +182,14 @@ describe('DELETE /api/clients/:id', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(await fetchClient(id)).toBeUndefined();
+
+    const row = await fetchClient(id);
+    expect(row).toBeTruthy();
+    expect(row.deleted_at).not.toBeNull();
+
+    const list = await request(app)
+      .get('/api/clients')
+      .set('Authorization', `Bearer ${token}`);
+    expect(list.body.data.find((c) => c.id === id)).toBeUndefined();
   });
 });

@@ -1,4 +1,5 @@
 const Client = require('../models/client');
+const { canDelete } = require('../utils/deletePermissions');
 const { ensureUserOffice, checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 const db = require('../db');
 
@@ -183,6 +184,10 @@ const clientController = {
     try {
       const { id } = req.params;
 
+      if (!canDelete('clients', req.user && req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Недостаточно прав для удаления клиента' });
+      }
+
       const client = await Client.getById(id);
       
       if (!client) {
@@ -199,7 +204,7 @@ const clientController = {
         }
       }
 
-      await Client.delete(id);
+      await Client.delete(id, req.user && req.user.id);
       
       res.json({
         success: true,

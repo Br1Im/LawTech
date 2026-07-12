@@ -59,16 +59,18 @@ class Office {
 
     // Batch: сотрудники + их статистика (один JOIN)
     const [allEmployees] = await db.query(`
-      SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
-             e.office_id,
+      SELECT DISTINCT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
+             COALESCE(uo.office_id, e.office_id) AS office_id,
              COALESCE(SUM(es.revenue), 0) as revenue,
              COALESCE(SUM(es.orders), 0) as orders
       FROM employees e
+      LEFT JOIN users u ON u.id = e.id
+      LEFT JOIN user_offices uo ON uo.user_id = e.id AND uo.office_id IN (${placeholders})
       LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = 'month'
-      WHERE e.office_id IN (${placeholders})
-      GROUP BY e.id
+      WHERE (e.office_id IN (${placeholders}) OR uo.office_id IS NOT NULL) AND (u.is_active = 1 OR u.is_active IS NULL)
+      GROUP BY e.id, COALESCE(uo.office_id, e.office_id)
       ORDER BY e.last_name ASC
-    `, ids);
+    `, [...ids, ...ids]);
 
     // Batch: статистика офисов
     const [allStats] = await db.query(`
@@ -178,16 +180,18 @@ class Office {
   static async getEmployeesByOfficeId(officeId, period = 'month') {
     try {
       const [employees] = await db.query(`
-        SELECT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
+        SELECT DISTINCT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
                1 as is_active,
                COALESCE(SUM(es.revenue), 0) as revenue,
                COALESCE(SUM(es.orders), 0) as orders
         FROM employees e
+        LEFT JOIN users u ON u.id = e.id
+        LEFT JOIN user_offices uo ON uo.user_id = e.id AND uo.office_id = ?
         LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = ?
-        WHERE e.office_id = ?
+        WHERE (e.office_id = ? OR uo.office_id IS NOT NULL) AND (u.is_active = 1 OR u.is_active IS NULL)
         GROUP BY e.id
         ORDER BY e.last_name ASC
-      `, [period, officeId]);
+      `, [officeId, period, officeId]);
 
       for (const emp of employees) {
         emp.revenue = parseFloat(emp.revenue);

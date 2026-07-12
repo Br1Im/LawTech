@@ -218,7 +218,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
             ? new Date(contract.contract_date).toLocaleDateString('ru-RU')
             : new Date(contract.created_at).toLocaleDateString('ru-RU'),
           client: contract.client_name || 'Неизвестный клиент',
-          contractNumber: contract.contract_number || `ДОГ-${String(contract.id).padStart(8, '0')}`
+          contractNumber: contract.contract_number ? `№${contract.contract_number}` : `№${String(contract.id).padStart(8, '0')}`
         }));
         setDocuments(transformedDocuments);
         
@@ -746,7 +746,7 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
           ? new Date(createdContract.created_at).toLocaleDateString('ru-RU')
           : new Date().toLocaleDateString('ru-RU'),
         client: createdContract.client_name || newDocument.clientName,
-        contractNumber: createdContract.id ? `ДОГ-${String(createdContract.id).padStart(8, '0')}` : 'N/A'
+        contractNumber: createdContract.id ? `№${String(createdContract.id).padStart(8, '0')}` : 'N/A'
       };
       
       // Обновляем список в состоянии

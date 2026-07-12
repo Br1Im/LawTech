@@ -20,7 +20,7 @@ interface ExtendedMessage extends Message {
 const ROLE_LABELS: Record<string, string> = {
   admin: "Администратор",
   manager: "Менеджер",
-  okk: "Сотрудник ОКК",
+  okk: "Руководитель",
   cc_manager: "Нач. колл-центра",
   cc_operator: "Оператор КЦ",
   director: "Директор",
@@ -260,7 +260,7 @@ const Reception: React.FC = () => {
         <>
           <span className="participant-badge" style={{ background: ROLE_COLORS.admin }}>Администратор</span>
           <span className="participant-badge" style={{ background: ROLE_COLORS.manager }}>Менеджер</span>
-          <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>ОКК</span>
+          <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>Руководитель</span>
         </>
       );
     }
@@ -268,7 +268,7 @@ const Reception: React.FC = () => {
       <>
         <span className="participant-badge" style={{ background: ROLE_COLORS.cc_manager }}>Нач. колл-центра</span>
         <span className="participant-badge" style={{ background: ROLE_COLORS.manager }}>Менеджер</span>
-        <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>ОКК</span>
+        <span className="participant-badge" style={{ background: ROLE_COLORS.okk }}>Руководитель</span>
       </>
     );
   };

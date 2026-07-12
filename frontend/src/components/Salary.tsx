@@ -328,7 +328,7 @@ const Salary: React.FC = () => {
       ),
       filters: [
         { text: 'Юрист', value: 'lawyer' },
-        { text: 'ОКК', value: 'okk' },
+        { text: 'Руководитель', value: 'okk' },
         { text: 'Менеджер', value: 'manager' },
         { text: 'Представитель', value: 'representative' },
         { text: 'Администратор', value: 'reception' },
@@ -607,11 +607,11 @@ const Salary: React.FC = () => {
             <SettingField label="Юрист — порог кассы, ₽" suffix="₽" value={settingsForm.lawyer_bonus_threshold}
               onChange={(v) => setSettingsForm({ ...settingsForm, lawyer_bonus_threshold: v })} />
             <div />
-            <SettingField label="ОКК — % от актов" suffix="%" value={settingsForm.okk_percent}
+            <SettingField label="Руководитель — % от актов" suffix="%" value={settingsForm.okk_percent}
               onChange={(v) => setSettingsForm({ ...settingsForm, okk_percent: v })} />
-            <SettingField label="ОКК — % при кассе ниже порога" suffix="%" value={settingsForm.okk_bonus_percent}
+            <SettingField label="Руководитель — % при кассе ниже порога" suffix="%" value={settingsForm.okk_bonus_percent}
               onChange={(v) => setSettingsForm({ ...settingsForm, okk_bonus_percent: v })} />
-            <SettingField label="ОКК — порог кассы, ₽" suffix="₽" value={settingsForm.okk_bonus_threshold}
+            <SettingField label="Руководитель — порог кассы, ₽" suffix="₽" value={settingsForm.okk_bonus_threshold}
               onChange={(v) => setSettingsForm({ ...settingsForm, okk_bonus_threshold: v })} />
             <div />
             <SettingField label="Менеджер — % от общей кассы" suffix="%" value={settingsForm.manager_office_percent}

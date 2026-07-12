@@ -1655,36 +1655,47 @@ const callCenterController = {
            CONCAT(s.first_name, ' ', s.last_name) AS signed_by_name,
            CONCAT(l.first_name, ' ', l.last_name) AS assigned_lawyer_name,
            CONCAT(l2.first_name, ' ', l2.last_name) AS assigned_lawyer_name_2,
-           con.id AS linked_contract_id,
-           con.contract_type AS linked_contract_type,
-           con.contract_number AS linked_contract_number,
-           con.needs_lawyer_input AS linked_needs_input
+           (SELECT JSON_ARRAYAGG(
+              JSON_OBJECT('id', con.id, 'contract_type', con.contract_type,
+                          'contract_number', con.contract_number,
+                          'needs_lawyer_input', COALESCE(con.needs_lawyer_input, 0))
+            ) FROM contracts con WHERE con.appointment_id = a.id
+           ) AS linked_contracts_json
          FROM appointments a
          LEFT JOIN users u ON u.id = a.operator_id
          LEFT JOIN users s ON s.id = a.contract_signed_by
          LEFT JOIN users l ON l.id = a.assigned_lawyer_id
          LEFT JOIN users l2 ON l2.id = a.assigned_lawyer_id_2
-         LEFT JOIN contracts con ON con.appointment_id = a.id
          WHERE a.office_id = ? AND a.status = 'arrived'
+         GROUP BY a.id
          ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
         [req.user.office_id]
       );
 
       res.json({
         success: true,
-        data: rows.map(r => ({
-          ...r,
-          operator_name: r.operator_name || r.operator_full_name || 'Оператор',
-          signed_by_name: r.signed_by_name || null,
-          assigned_lawyer_id: r.assigned_lawyer_id || null,
-          assigned_lawyer_name: r.assigned_lawyer_name || null,
-          assigned_lawyer_id_2: r.assigned_lawyer_id_2 || null,
-          assigned_lawyer_name_2: r.assigned_lawyer_name_2 || null,
-          linked_contract_id: r.linked_contract_id || null,
-          linked_contract_type: r.linked_contract_type || null,
-          linked_contract_number: r.linked_contract_number || null,
-          linked_needs_input: r.linked_needs_input || 0,
-        }))
+        data: rows.map(r => {
+          const linkedContracts = r.linked_contracts_json
+            ? (typeof r.linked_contracts_json === 'string' ? JSON.parse(r.linked_contracts_json) : r.linked_contracts_json)
+            : [];
+          // Backwards-compat: first contract as linked_contract_id/type/number
+          const first = linkedContracts[0] || null;
+          return {
+            ...r,
+            operator_name: r.operator_name || r.operator_full_name || 'Оператор',
+            signed_by_name: r.signed_by_name || null,
+            assigned_lawyer_id: r.assigned_lawyer_id || null,
+            assigned_lawyer_name: r.assigned_lawyer_name || null,
+            assigned_lawyer_id_2: r.assigned_lawyer_id_2 || null,
+            assigned_lawyer_name_2: r.assigned_lawyer_name_2 || null,
+            linked_contract_id: first ? first.id : null,
+            linked_contract_type: first ? first.contract_type : null,
+            linked_contract_number: first ? first.contract_number : null,
+            linked_needs_input: first ? first.needs_lawyer_input : 0,
+            linked_contracts: linkedContracts,
+            linked_contracts_json: undefined,
+          };
+        })
       });
     } catch (error) {
       console.error('Error getting primary visits:', error);
@@ -1741,8 +1752,8 @@ const callCenterController = {
   async assignLawyer(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
 
-    // Назначать юристов могут только Директор / Менеджер / ОКК. Администратор НЕ редактирует.
-    const canAssign = ['manager', 'okk', 'director'].includes(req.user.role);
+    // Назначать сотрудника на консультацию могут Администратор / Директор / Менеджер / ОКК.
+    const canAssign = ['admin', 'administrator', 'director', 'manager', 'okk'].includes(req.user.role);
     if (!canAssign) {
       return res.status(403).json({ success: false, message: 'Нет прав для назначения сотрудника' });
     }
@@ -1780,6 +1791,13 @@ const callCenterController = {
     if (!await ensureOfficeAccess(req, res)) return;
 
     try {
+      const __from = (req.query.from || '').toString().slice(0, 10);
+      const __to = (req.query.to || '').toString().slice(0, 10);
+      const __hasRange = /^\d{4}-\d{2}-\d{2}$/.test(__from) && /^\d{4}-\d{2}-\d{2}$/.test(__to);
+      const __dateFilter = __hasRange ? ' AND a.appointment_date BETWEEN ? AND ?' : '';
+      const __params = __hasRange
+        ? [req.user.office_id, __from, __to, req.user.office_id]
+        : [req.user.office_id, req.user.office_id];
       const [rows] = await db.query(
         `SELECT
            u.id,
@@ -1790,12 +1808,12 @@ const callCenterController = {
            SUM(CASE WHEN a.consultation_result = 'not_signed' THEN 1 ELSE 0 END) AS contracts_not_signed,
            SUM(CASE WHEN a.consultation_result IS NULL THEN 1 ELSE 0 END) AS pending
          FROM users u
-         LEFT JOIN appointments a ON a.assigned_lawyer_id = u.id AND a.office_id = ? AND a.status = 'arrived'
+         LEFT JOIN appointments a ON a.assigned_lawyer_id = u.id AND a.office_id = ?${__dateFilter} AND a.status = 'arrived'
          WHERE u.office_id = ? AND u.is_active = 1
            AND u.role IN ('manager', 'okk', 'lawyer')
          GROUP BY u.id, u.first_name, u.last_name, u.role
          ORDER BY FIELD(u.role, 'manager', 'okk', 'lawyer'), u.last_name, u.first_name`,
-        [req.user.office_id, req.user.office_id]
+        __params
       );
 
       res.json({
@@ -1922,7 +1940,7 @@ const callCenterController = {
       const [rows] = await db.query(
         `SELECT id, first_name, last_name, role
          FROM users
-         WHERE office_id = ? AND role NOT IN ('cc_manager', 'cc_operator')
+         WHERE office_id = ? AND is_active = 1 AND role NOT IN ('cc_manager', 'cc_operator')
          ORDER BY last_name, first_name`,
         [req.user.office_id]
       );

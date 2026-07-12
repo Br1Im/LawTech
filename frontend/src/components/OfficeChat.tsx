@@ -10,7 +10,7 @@ import './OfficeChat.css';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор', administrator: 'Администратор', manager: 'Менеджер',
-  okk: 'ОКК', director: 'Директор', lawyer: 'Юрист', expert: 'Эксперт',
+  okk: 'Руководитель', director: 'Директор', lawyer: 'Юрист', expert: 'Эксперт',
   cc_manager: 'Начальник КЦ', cc_operator: 'Оператор',
 };
 
@@ -62,6 +62,7 @@ const OfficeChat: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMsgCountRef = useRef(0);
+  const lastChannelRef = useRef<string>('');
 
   const formatMsgTime = (createdAt?: string, fallback?: string): string => {
     if (!createdAt) return fallback || '';
@@ -80,9 +81,17 @@ const OfficeChat: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (messages.length > prevMsgCountRef.current) scrollToBottom(true);
+    const channelChanged = lastChannelRef.current !== String(activeChannel);
+    const wasEmpty = prevMsgCountRef.current === 0;
+    if (channelChanged || wasEmpty) {
+      // При загрузке / смене канала — сразу к последним сообщениям, без анимации
+      scrollToBottom(false);
+    } else if (messages.length > prevMsgCountRef.current) {
+      scrollToBottom(true);
+    }
     prevMsgCountRef.current = messages.length;
-  }, [messages, scrollToBottom]);
+    lastChannelRef.current = String(activeChannel);
+  }, [messages, activeChannel, scrollToBottom]);
 
   // Fetch channels
   useEffect(() => {
@@ -430,9 +439,6 @@ const OfficeChat: React.FC = () => {
           <div className="tg-header-actions">
             <button className="tg-icon-btn" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); setSearchResults([]); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            </button>
-            <button className="tg-icon-btn" onClick={() => fileInputRef.current?.click()}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
             </button>
             <button className="tg-icon-btn" onClick={() => setShowParticipants(!showParticipants)}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>

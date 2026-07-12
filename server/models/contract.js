@@ -97,7 +97,7 @@ class Contract {
    */
   static async generateContractNumber(officeId, contractDate) {
     const d = new Date(contractDate);
-    const dd = String(d.getDate()).padStart(2, '0');
+    const dd = String(d.getDate()); // Task4: day without leading zero
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const yy = String(d.getFullYear()).slice(-2);
 
@@ -124,9 +124,9 @@ class Contract {
 
     const [countRows] = await db.query(
       `SELECT COUNT(*) as cnt FROM contracts
-       WHERE office_id = ? AND contract_date >= ? AND contract_date < ?
+       WHERE office_id = ? AND DATE(contract_date) = ?
        AND contract_number IS NOT NULL`,
-      [officeId, periodStart, periodEndStr]
+      [officeId, `${d.getFullYear()}-${mm}-${String(d.getDate()).padStart(2, '0')}`]
     );
 
     const seq = (countRows[0].cnt || 0) + 1;

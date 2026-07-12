@@ -4,6 +4,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../db');
+const { canDelete } = require('../utils/deletePermissions');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
 
 // Иерархия: кто кого может создавать
@@ -172,12 +173,13 @@ const getEmployees = async (req, res) => {
         FROM users u
         LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
         WHERE (u.office_id = ? OR uo.office_id IS NOT NULL)
+          AND u.deleted_at IS NULL
       `;
       params.push(officeId, officeId);
     } else {
       query = `
         SELECT id, first_name, last_name, middle_name, login, phone, email, role, office_id, is_active, created_by, created_at
-        FROM users WHERE 1=1
+        FROM users WHERE 1=1 AND deleted_at IS NULL
       `;
     }
 
@@ -284,7 +286,8 @@ const resetPassword = async (req, res) => {
     }
 
     const target = users[0];
-    if (target.created_by !== creator.id && creator.role !== 'director') {
+    const __privileged = ['director', 'admin', 'owner'].includes(String(creator.role || '').toLowerCase());
+    if (target.created_by !== creator.id && !__privileged) {
       return res.status(403).json({ success: false, message: 'Нет прав для смены пароля' });
     }
 
@@ -705,12 +708,50 @@ const setStaffOffices = async (req, res) => {
   }
 };
 
+
+// Мягкое удаление сотрудника (soft delete). Права: director/owner/manager/okk.
+const deleteEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const actor = req.user;
+
+    if (!canDelete('employees', actor && actor.role)) {
+      return res.status(403).json({ success: false, message: 'Недостаточно прав для удаления сотрудника' });
+    }
+    if (String(actor.id) === String(id)) {
+      return res.status(400).json({ success: false, message: 'Нельзя удалить самого себя' });
+    }
+
+    const [rows] = await db.query('SELECT id, role, office_id, deleted_at FROM users WHERE id = ?', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+    const target = rows[0];
+    if (target.deleted_at) {
+      return res.json({ success: true, message: 'Сотрудник уже удалён', id: Number(id) });
+    }
+    if (['director', 'owner'].includes(String(target.role))) {
+      return res.status(403).json({ success: false, message: 'Нельзя удалить генерального директора' });
+    }
+    // Удаление в рамках своего офиса (кроме director/owner, которым доступны все)
+    if (!['director', 'owner'].includes(String(actor.role)) && actor.office_id && target.office_id && String(actor.office_id) !== String(target.office_id)) {
+      return res.status(403).json({ success: false, message: 'Сотрудник другого офиса' });
+    }
+
+    await db.query('UPDATE users SET deleted_at = NOW(), deleted_by = ?, is_active = 0 WHERE id = ? AND deleted_at IS NULL', [actor.id, id]);
+    return res.json({ success: true, message: 'Сотрудник удалён', id: Number(id) });
+  } catch (error) {
+    console.error('Ошибка при удалении сотрудника:', error);
+    return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+};
 module.exports = {
   createEmployee,
   getEmployees,
   updateEmployee,
   resetPassword,
   deactivateEmployee,
+  deleteEmployee,
   changeOwnPassword,
   getAllowedRoles,
   changeRole,
