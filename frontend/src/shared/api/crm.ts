@@ -153,6 +153,8 @@ export interface CrmContract {
   contract_type?: 'docs' | 'court_rep' | string | null;
   expert_id?: number | null;
   docs_status?: 'pending' | 'ready' | string | null;
+  expert_deadline?: string | null;
+  expert_deadline_days?: number | null;
   lawyer_full_name?: string | null;
   lawyer_short?: string | null;
   // Совместный договор (два юриста, деление 50/50)

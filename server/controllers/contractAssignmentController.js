@@ -68,7 +68,7 @@ const contractAssignmentController = {
       const { contractId } = req.params;
       const {
         title, description, customer_goal, situation_description,
-        expert_id, expert_deadline_days, legal_cost_comp, moral_comp,
+        expert_id, expert_deadline_days, expert_deadline, legal_cost_comp, moral_comp,
         custom_documents, circumstances,
       } = req.body;
 
@@ -89,7 +89,22 @@ const contractAssignmentController = {
       if (customer_goal !== undefined) { sets.push('customer_goal = ?'); params.push(customer_goal); }
       if (situation_description !== undefined) { sets.push('situation_description = ?'); params.push(situation_description); }
       if (expert_id !== undefined) { sets.push('expert_id = ?'); params.push(expert_id || null); }
-      if (expert_deadline_days !== undefined) { sets.push('expert_deadline_days = ?'); params.push(expert_deadline_days); }
+      // Срок выполнения: явная дата имеет приоритет, иначе считаем от сегодня + кол-во дней
+      let deadlineHandled = false;
+      if (expert_deadline !== undefined) {
+        sets.push('expert_deadline = ?'); params.push(expert_deadline || null);
+        deadlineHandled = true;
+      }
+      if (expert_deadline_days !== undefined) {
+        sets.push('expert_deadline_days = ?'); params.push(expert_deadline_days);
+        if (!deadlineHandled) {
+          if (expert_deadline_days !== null && expert_deadline_days !== '') {
+            sets.push('expert_deadline = DATE_ADD(CURDATE(), INTERVAL ? DAY)'); params.push(Number(expert_deadline_days));
+          } else {
+            sets.push('expert_deadline = NULL');
+          }
+        }
+      }
       if (legal_cost_comp !== undefined) { sets.push('legal_cost_comp = ?'); params.push(legal_cost_comp); }
       if (moral_comp !== undefined) { sets.push('moral_comp = ?'); params.push(moral_comp); }
       if (req.body.document_types !== undefined) { sets.push('document_types = ?'); params.push(JSON.stringify(req.body.document_types)); }

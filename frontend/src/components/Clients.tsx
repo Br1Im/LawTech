@@ -5,6 +5,22 @@ import MobileMaterialUpload from './ui/MobileMaterialUpload';
 import { useIsMobile } from '../shared/lib/useIsMobile';
 import 'dayjs/locale/ru';
 dayjs.locale('ru');
+
+type DeadlineInfo = { key: 'green' | 'yellow' | 'orange' | 'red'; color: string; bg: string; label: string; icon: string };
+function getDeadlineInfo(deadline?: string | null): DeadlineInfo | null {
+  if (!deadline) return null;
+  const d = dayjs(deadline).startOf('day');
+  if (!d.isValid()) return null;
+  const diff = d.diff(dayjs().startOf('day'), 'day');
+  if (diff < 0) {
+    const n = Math.abs(diff);
+    const w = (n % 10 === 1 && n % 100 !== 11) ? 'день' : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'дня' : 'дней');
+    return { key: 'red', color: '#dc2626', bg: '#fef2f2', label: `Просрочено (${n} ${w})`, icon: '🔴' };
+  }
+  if (diff === 0) return { key: 'orange', color: '#ea580c', bg: '#fff7ed', label: 'Сегодня', icon: '🟠' };
+  if (diff === 1) return { key: 'yellow', color: '#ca8a04', bg: '#fefce8', label: 'Завтра', icon: '🟡' };
+  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: `До ${d.format('DD.MM.YYYY')}`, icon: '🟢' };
+}
 import {
   Table,
   Input,
@@ -110,6 +126,12 @@ const TableCard = styled.div`
   .ant-table-thead > tr > th { background: var(--color-bg-alt) !important; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border); }
   .ant-table-tbody > tr > td { background: var(--color-bg-elevated) !important; border-bottom: 1px solid var(--color-border); }
   .ant-table-tbody > tr:hover > td { background: var(--color-bg-hover) !important; }
+
+  /* Цветовая индикация срока (роль Эксперт) */
+  .ant-table-tbody > tr.deadline-green > td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
+  .ant-table-tbody > tr.deadline-yellow > td:first-child { box-shadow: inset 3px 0 0 #eab308; }
+  .ant-table-tbody > tr.deadline-orange > td:first-child { box-shadow: inset 3px 0 0 #f97316; }
+  .ant-table-tbody > tr.deadline-red > td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
 `;
 
 const InfoBlock = styled.div`
@@ -855,6 +877,26 @@ const Clients: React.FC<ClientsProps> = () => {
         );
       },
     },
+    ...(!isAdmin ? [{
+      title: 'Срок выполнения',
+      key: 'expert_deadline',
+      width: 170,
+      align: 'center' as const,
+      sorter: (a: ContractRow, b: ContractRow) => {
+        const va = a.contract.expert_deadline ? dayjs(a.contract.expert_deadline).valueOf() : Number.POSITIVE_INFINITY;
+        const vb = b.contract.expert_deadline ? dayjs(b.contract.expert_deadline).valueOf() : Number.POSITIVE_INFINITY;
+        return va - vb;
+      },
+      render: (_: unknown, r: ContractRow) => {
+        const info = getDeadlineInfo(r.contract.expert_deadline);
+        if (!info) return <span style={{ color: 'var(--color-muted)' }}>—</span>;
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: info.bg, color: info.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {info.icon} {info.label}
+          </span>
+        );
+      },
+    }] : []),
     ...(!isAdmin ? [{
       title: 'Статус документов',
       key: 'docs_status',
@@ -2621,6 +2663,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 rowKey="key"
                 dataSource={filtered}
                 columns={dealType === 'docs' ? docsColumns : courtColumns}
+                rowClassName={(r) => { const i = getDeadlineInfo(r.contract.expert_deadline); return i ? `deadline-row deadline-${i.key}` : ''; }}
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
                 locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
