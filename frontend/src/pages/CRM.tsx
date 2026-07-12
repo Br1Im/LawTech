@@ -93,40 +93,16 @@ const SRM = () => {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const unreadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'Новый документ',
-      message: 'Получен новый договор от клиента ООО "Рога и копыта"',
-      type: 'info' as const,
-      timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 минут назад
-      read: false
-    },
-    {
-      id: '2',
-      title: 'Задача выполнена',
-      message: 'Анализ договора №123 завершен успешно',
-      type: 'success' as const,
-      timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 минут назад
-      read: false
-    },
-    {
-      id: '3',
-      title: 'Требуется внимание',
-      message: 'В договоре №456 обнаружены потенциальные риски',
-      type: 'warning' as const,
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 часа назад
-      read: true
-    },
-    {
-      id: '4',
-      title: 'Ошибка системы',
-      message: 'Не удалось загрузить документ. Попробуйте позже',
-      type: 'error' as const,
-      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 день назад
-      read: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const reloadNotifications = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notifications', { headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } });
+      const json = await res.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
+      setNotifications(list.map((n) => ({ id: String(n.id), title: n.title, message: n.message || '', type: (n.type === 'error' || n.type === 'warning' || n.type === 'success') ? n.type : 'info', timestamp: new Date(n.created_at), read: !!n.is_read })));
+    } catch { /* noop */ }
+  }, []);
+  useEffect(() => { reloadNotifications(); const t = setInterval(reloadNotifications, 60000); return () => clearInterval(t); }, [reloadNotifications]);
 
   // Определение мобильного вида при изменении размера окна
   useEffect(() => {
@@ -193,19 +169,13 @@ const SRM = () => {
   };
 
   const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    fetch(`/api/notifications/${id}/read`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } }).catch(() => {});
   };
 
   const handleMarkAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    fetch('/api/notifications/read-all', { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` } }).catch(() => {});
   };
 
   const toggleMobileSidebar = () => {
@@ -332,6 +302,26 @@ const SRM = () => {
         </Content>
       </div>
       
+      <button
+        onClick={handleNotificationClick}
+        title="Уведомления"
+        style={{ position: 'fixed', top: 14, right: 18, zIndex: 1000, width: 40, height: 40, borderRadius: '50%', border: '1px solid var(--color-border)', background: 'var(--color-bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
+      >
+        <BellOutlined style={{ fontSize: 18, color: 'var(--color-text)' }} />
+        {notifications.filter((n) => !n.read).length > 0 && (
+          <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {notifications.filter((n) => !n.read).length}
+          </span>
+        )}
+      </button>
+      <NotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onClose={handleCloseNotificationPanel}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+      />
+
       {showChangePassword && (
         <ChangePasswordModal onDone={() => setShowChangePassword(false)} />
       )}
