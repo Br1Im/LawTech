@@ -460,8 +460,12 @@ const Clients: React.FC<ClientsProps> = () => {
     });
   }, [rows, searchText]);
 
-  const toggleDocsReady = async (c: CrmContract) => {
-    const next = (c.docs_status === 'ready') ? 'pending' : 'ready';
+  const setDocsStatus = async (c: CrmContract, next: 'pending' | 'ready') => {
+    if ((c.docs_status || 'pending') === next) return;
+    const prevStatus = c.docs_status;
+    // Оптимистично меняем статус в UI сразу, чтобы значение обновлялось без перезагрузки страницы
+    setContracts((list) => list.map((x) => (x.id === c.id ? { ...x, docs_status: next } : x)));
+    setDetailContract((dc) => (dc && dc.id === c.id ? { ...dc, docs_status: next } : dc));
     try {
       await contractsApi.update(c.id, {
         id_client: c.id_client,
@@ -473,8 +477,10 @@ const Clients: React.FC<ClientsProps> = () => {
         docs_status: next,
       });
       message.success(next === 'ready' ? 'Документы отмечены как готовые' : 'Документы отмечены как ожидающие');
-      load();
     } catch (e: any) {
+      // При ошибке откатываем оптимистичное изменение
+      setContracts((list) => list.map((x) => (x.id === c.id ? { ...x, docs_status: prevStatus } : x)));
+      setDetailContract((dc) => (dc && dc.id === c.id ? { ...dc, docs_status: prevStatus } : dc));
       message.error(e?.response?.data?.message || 'Не удалось обновить статус документов');
     }
   };
@@ -857,17 +863,17 @@ const Clients: React.FC<ClientsProps> = () => {
       render: (_: unknown, r: ContractRow) => {
         const ready = r.contract.docs_status === 'ready';
         return (
-          <Tooltip title={ready ? 'Документы готовы (нажмите, чтобы вернуть в «Ожидание»)' : 'Документы ещё не готовы (нажмите, чтобы отметить готовыми)'}>
-            <Button
-              type="text"
-              onClick={(e) => { e.stopPropagation(); toggleDocsReady(r.contract); }}
-              icon={ready
-                ? <CheckCircleFilled style={{ color: '#059669', fontSize: 18 }} />
-                : <ClockCircleOutlined style={{ color: '#D97706', fontSize: 18 }} />}
-            >
-              <span style={{ padding: '2px 8px', borderRadius: 999, background: ready ? '#F0FDF4' : '#FFF7ED', color: ready ? '#059669' : '#D97706', fontSize: 12, fontWeight: 500 }}>{ready ? 'Готовы' : 'Ожидание'}</span>
-            </Button>
-          </Tooltip>
+          <Select
+            size="small"
+            value={ready ? 'ready' : 'pending'}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(val) => setDocsStatus(r.contract, val as 'pending' | 'ready')}
+            style={{ width: 168 }}
+            options={[
+              { value: 'pending', label: <span style={{ color: '#D97706', fontWeight: 500 }}>⏳ Ожидание</span> },
+              { value: 'ready', label: <span style={{ color: '#059669', fontWeight: 500 }}>✓ Документы готовы</span> },
+            ]}
+          />
         );
       },
     }] : []),

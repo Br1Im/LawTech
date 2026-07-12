@@ -123,7 +123,15 @@ async function getUserOfficeIds(user) {
     [user.id]
   );
   if (uoRows.length > 0) {
-    return uoRows.map(r => Number(r.office_id));
+    const allowedOffices = uoRows.map(r => Number(r.office_id));
+    // Если активный офис (из X-Office-Id) входит в список доступных —
+    // ограничиваемся им, чтобы переключение офиса реально меняло данные
+    // (раньше мульти-офисный сотрудник всегда видел все офисы сразу).
+    const activeOfficeId = Number(user.office_id);
+    if (activeOfficeId && allowedOffices.includes(activeOfficeId)) {
+      return [activeOfficeId];
+    }
+    return allowedOffices;
   }
 
   // Fallback: users.office_id

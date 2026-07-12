@@ -176,7 +176,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         return [allItems.myCases, allItems.acts];
 
       case 'expert':
-        return [allItems.employees, allItems.clients];
+        return [allItems.clients, allItems.employees];
 
       case 'lawyer':
         return [allItems.office, allItems.clients, allItems.acts, allItems.salary];
