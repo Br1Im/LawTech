@@ -562,6 +562,8 @@ const Clients: React.FC<ClientsProps> = () => {
       .filter((c) => {
         const t = (c.contract_type || 'docs').toString();
         if (t !== dealType) return false;
+        // Расторгнутые договоры не попадают в рабочий список (они в отдельной вкладке «Расторжение»)
+        if ((c.status || '').toString() === 'terminated') return false;
         // Юрист видит свои договоры (включая совместные, где он второй юрист)
         if (isLawyer && user?.id && c.id_employee !== user.id
             && !(c.is_joint && c.second_employee_id === user.id)) return false;
@@ -1322,7 +1324,7 @@ const Clients: React.FC<ClientsProps> = () => {
     const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
     const canEditCard = !isAdmin && (isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
-    const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
+    const canAssignExpert = ['director', 'manager', 'okk', 'lawyer'].includes(user?.role || '');
     const canEditLawyers = ['director', 'manager', 'okk'].includes(user?.role || '');
     const lawyerOptions = officeLawyers.filter((l) => l.id !== c.id_employee);
     const lawyersComposChanged = (editJoint ? 1 : 0) !== (c.is_joint ? 1 : 0)
