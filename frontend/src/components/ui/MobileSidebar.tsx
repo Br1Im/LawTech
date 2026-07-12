@@ -17,13 +17,11 @@ import {
   FaSignOutAlt,
   FaComments,
   FaExchangeAlt,
-  FaSun,
-  FaMoon,
+
 } from 'react-icons/fa';
 
 import './MobileSidebar.css';
 import { buildApiUrl, getAuthHeaders } from '../../shared/utils/apiUtils';
-import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 
 interface MobileSidebarProps {
   isOpen: boolean;
@@ -49,7 +47,6 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   user
 }) => {
   const navigate = useNavigate();
-  const { mode, toggle } = useThemeMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [offices, setOffices] = useState<{id: number; name: string}[]>([]);
@@ -224,18 +221,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
         </nav>
 
         <div className="mobile-sidebar-footer">
-          <button
-            className="mobile-sidebar-item mobile-sidebar-theme-toggle"
-            onClick={toggle}
-            aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-          >
-            <span className="mobile-sidebar-icon">
-              {mode === 'dark' ? <FaSun /> : <FaMoon />}
-            </span>
-            <span className="mobile-sidebar-label">
-              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            </span>
-          </button>
+
 
           <div className="mobile-sidebar-user-menu" ref={userMenuRef}>
             <button

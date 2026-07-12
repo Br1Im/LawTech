@@ -1,7 +1,6 @@
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import ThemeToggle from '../../components/ui/ThemeToggle';
 
 const HeaderBar = styled.header`
   height: 64px;
@@ -80,14 +79,6 @@ const HeaderActions = styled.div`
   z-index: 20;
 `;
 
-const HeaderToggleSlot = styled.div`
-  display: flex;
-  align-items: center;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
 
 const NavLink = styled.a`
   font-size: 14px;
@@ -189,9 +180,7 @@ const Header = () => {
       </Nav>
 
       <HeaderActions>
-        <HeaderToggleSlot>
-          <ThemeToggle />
-        </HeaderToggleSlot>
+
         <Burger $open={open} onClick={() => setOpen(!open)} aria-label="Меню">
           <span /><span /><span />
         </Burger>

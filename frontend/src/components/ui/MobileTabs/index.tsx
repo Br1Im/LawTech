@@ -11,7 +11,6 @@ import {
   RobotOutlined,
   UserOutlined,
   LogoutOutlined,
-  BulbOutlined,
   CalendarOutlined,
   BankOutlined,
   AuditOutlined,
@@ -36,24 +35,9 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
   isMobile,
   user,
 }) => {
-  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const theme = isDarkTheme ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [isDarkTheme]);
 
-  const toggleTheme = () => {
-    setIsDarkTheme(!isDarkTheme);
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -112,12 +96,6 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
   const tabNames = user?.role ? getTabNamesByRole(user.role) : allTabNames;
 
   const accountTabs = [
-    { 
-      name: isDarkTheme ? "Светлая" : "Темная", 
-      key: "theme", 
-      icon: <BulbOutlined />,
-      onClick: toggleTheme 
-    },
     { 
       name: "Профиль", 
       key: "profile", 
