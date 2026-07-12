@@ -7,6 +7,7 @@ import {
 
   FaChartLine,
   FaMoneyBillWave,
+  FaRubleSign,
   FaUserTie,
   FaPhoneAlt,
   FaRobot,
@@ -94,7 +95,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       appointments: { key: 'Записи', icon: <FaClock />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <FaUsers />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <FaChartLine />, label: 'Приходы' },
-      expenses: { key: 'Баланс', icon: <FaMoneyBillWave />, label: 'Баланс' },
+      expenses: { key: 'Баланс', icon: <FaRubleSign />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <FaUserTie />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
@@ -224,18 +225,6 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
         </nav>
 
         <div className="mobile-sidebar-footer">
-          <button
-            className="mobile-sidebar-item mobile-sidebar-theme-toggle"
-            onClick={toggle}
-            aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-          >
-            <span className="mobile-sidebar-icon">
-              {mode === 'dark' ? <FaSun /> : <FaMoon />}
-            </span>
-            <span className="mobile-sidebar-label">
-              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            </span>
-          </button>
 
           <div className="mobile-sidebar-user-menu" ref={userMenuRef}>
             <button

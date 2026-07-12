@@ -1,6 +1,6 @@
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
-const { resolveRollingWindow } = require('../utils/planPeriod');
+const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
 
 /**
  * Office dashboard controller
@@ -20,10 +20,26 @@ function isoDay(d) {
   return d.toISOString().slice(0, 10);
 }
 
+// Per-office timezone (pilot). Returns IANA tz string, or null if not configured.
+async function getOfficeTz(officeId) {
+  const id = Number(officeId);
+  if (!id) return null;
+  try {
+    const [rows] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [id]);
+    return rows[0] && rows[0].timezone ? rows[0].timezone : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 async function resolvePeriod(req) {
   const period = (req.query.period || 'plan').toString().toLowerCase();
-  const today = new Date();
-  const todayIso = isoDay(today);
+  // Per-office timezone (pilot): if the office has a configured timezone,
+  // "today" (and thus the rolling plan window) is computed in that timezone
+  // instead of UTC. Offices without a timezone keep the previous UTC behaviour.
+  const officeTz = await getOfficeTz(req.params.officeId);
+  const todayIso = officeTz ? todayIsoInTz(officeTz) : isoDay(new Date());
+  const today = new Date(`${todayIso}T12:00:00Z`);
   if (period === 'custom') {
     const from = (req.query.from || todayIso).toString().slice(0, 10);
     const to = (req.query.to || todayIso).toString().slice(0, 10);
@@ -139,37 +155,59 @@ const officeDashboardController = {
       const allowed = await assertOfficeAccess(req.user, officeId);
       if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещён' });
 
-      const { from, to, today, label, cycle_index, current_cycle_index, duration_days } = await resolvePeriod(req);
+      const { from, to, today: periodToday, label, cycle_index, current_cycle_index, duration_days } = await resolvePeriod(req);
+      // Optional `day` param: view daily fact for a specific date (e.g. ?day=2026-06-10)
+      const dayParam = (req.query.day || '').toString().slice(0, 10);
+      const today = dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : periodToday;
 
-      // Все 5 запросов независимы между собой — гоняем параллельно через Promise.all,
-      // чтобы суммарный latency был ~max(query), а не sum(query).
+      // 7 параллельных запросов: начальная оплата, доплаты, возвраты, план, юристы, доплаты юристов, возвраты юристов
       const [
-        [factRows],
+        [initialRows],
+        [paymentsRows],
         [refundRows],
         [planRows],
         [lawyersRows],
+        [lawyerPaymentRows],
         [lawyerRefundRows],
       ] = await Promise.all([
-        // Fact: paid_amount sum on contract_date — only "оплаченные" договоры (paid_amount > 0).
+        // 1. Начальный взнос = paid_amount минус подтверждённые доплаты (на дату договора)
         db.query(
           `SELECT
-             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount ELSE 0 END), 0) AS day_fact,
-             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount ELSE 0 END), 0) AS period_fact
+             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0)) * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+             ELSE 0 END), 0) AS day_initial,
+             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0)) * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+             ELSE 0 END), 0) AS period_initial
            FROM contracts c
+           LEFT JOIN (
+             SELECT contract_id, SUM(amount) AS confirmed_total
+             FROM contract_payments WHERE confirmed = 1
+             GROUP BY contract_id
+           ) cp_sum ON cp_sum.contract_id = c.id
            WHERE c.office_id = ? AND c.paid_amount > 0`,
           [today, from, to, officeId]
         ),
-        // Confirmed refunds: subtract from fact on the day/period when refund was confirmed
+        // 2. Подтверждённые доплаты — на дату платежа (payment_date)
         db.query(
           `SELECT
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
-           FROM contracts c
-           WHERE c.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0`,
+             COALESCE(SUM(CASE WHEN cp.payment_date = ? THEN cp.amount ELSE 0 END), 0) AS day_payments,
+             COALESCE(SUM(CASE WHEN cp.payment_date BETWEEN ? AND ? THEN cp.amount ELSE 0 END), 0) AS period_payments
+           FROM contract_payments cp
+           JOIN contracts c ON c.id = cp.contract_id
+           WHERE c.office_id = ? AND cp.confirmed = 1`,
           [today, from, to, officeId]
         ),
-        // Plan: the canonical recurring plan (latest already-started period). Must match
-        // the row resolvePeriod() rolls forward, so dates and amounts stay consistent.
+        // 3. Возвраты — на дату возврата (refund_deadline)
+        db.query(
+          `SELECT
+             COALESCE(SUM(CASE WHEN c.refund_deadline = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
+             COALESCE(SUM(CASE WHEN c.refund_deadline BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
+           FROM contracts c
+           WHERE c.office_id = ? AND c.refund_amount > 0 AND c.refund_deadline IS NOT NULL`,
+          [today, from, to, officeId]
+        ),
+        // 4. План офиса
         db.query(
           `SELECT id, daily_plan_weekday, daily_plan_weekend, period_plan_amount, period_start, period_end
            FROM office_plans
@@ -178,18 +216,30 @@ const officeDashboardController = {
            LIMIT 1`,
           [officeId, today]
         ),
-        // Lawyers cash table — менеджеры, ОКК, юристы/адвокаты/представители, только paid_amount > 0
+        // 5. Юристы — начальный взнос по дате договора (paid_amount минус подтверждённые доплаты)
         db.query(
           `SELECT
              e.id,
              TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) AS full_name,
              e.position,
-             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN c.paid_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS today_cash,
-             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN c.paid_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_cash
+             COALESCE(SUM(CASE WHEN c.contract_date = ? THEN
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0))
+               * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+             ELSE 0 END), 0) AS today_cash,
+             COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0))
+               * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+             ELSE 0 END), 0) AS period_cash
            FROM employees e
            LEFT JOIN users u ON u.email = e.email
            LEFT JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id)) AND c.paid_amount > 0
-           WHERE e.office_id = ?
+           LEFT JOIN (
+             SELECT contract_id, SUM(amount) AS confirmed_total
+             FROM contract_payments WHERE confirmed = 1
+             GROUP BY contract_id
+           ) cp_sum ON cp_sum.contract_id = c.id
+           WHERE e.office_id = ? AND e.deleted_at IS NULL
+             AND (u.is_active = 1 OR u.is_active IS NULL)
              AND (
                LOWER(e.position) LIKE '%юрист%'
                OR LOWER(e.position) LIKE '%адвокат%'
@@ -203,23 +253,45 @@ const officeDashboardController = {
            ORDER BY period_cash DESC, today_cash DESC, e.last_name ASC`,
           [today, from, to, officeId]
         ),
-        // Per-employee confirmed refunds for lawyers_cash subtraction (split 50/50 for joint)
+        // 6. Подтверждённые доплаты — по юристам (на дату платежа)
         db.query(
           `SELECT
              e.id AS id_employee,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_refund,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
+             COALESCE(SUM(CASE WHEN cp.payment_date = ? THEN cp.amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_payment,
+             COALESCE(SUM(CASE WHEN cp.payment_date BETWEEN ? AND ? THEN cp.amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_payment
            FROM employees e
            JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id))
-           WHERE c.office_id = ? AND c.refund_confirmed = 1 AND c.refund_amount > 0
+           JOIN contract_payments cp ON cp.contract_id = c.id AND cp.confirmed = 1
+           WHERE c.office_id = ?
+           GROUP BY e.id`,
+          [today, from, to, officeId]
+        ),
+        // 7. Возвраты — по юристам (на дату refund_deadline)
+        db.query(
+          `SELECT
+             e.id AS id_employee,
+             COALESCE(SUM(CASE WHEN c.refund_deadline = ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_refund,
+             COALESCE(SUM(CASE WHEN c.refund_deadline BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
+           FROM employees e
+           JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id))
+           WHERE c.office_id = ? AND c.refund_amount > 0 AND c.refund_deadline IS NOT NULL
            GROUP BY e.id`,
           [today, from, to, officeId]
         ),
       ]);
 
-      const day_fact = Number(factRows[0]?.day_fact || 0) - Number(refundRows[0]?.day_refund || 0);
-      const period_fact = Number(factRows[0]?.period_fact || 0) - Number(refundRows[0]?.period_refund || 0);
+      const day_fact = Number(initialRows[0]?.day_initial || 0)
+                     + Number(paymentsRows[0]?.day_payments || 0)
+                     - Number(refundRows[0]?.day_refund || 0);
+      const period_fact = Number(initialRows[0]?.period_initial || 0)
+                        + Number(paymentsRows[0]?.period_payments || 0)
+                        - Number(refundRows[0]?.period_refund || 0);
       const plan = planRows[0] || null;
+      const paymentByEmp = new Map();
+      lawyerPaymentRows.forEach(r => paymentByEmp.set(r.id_employee, {
+        day: Number(r.day_payment || 0),
+        period: Number(r.period_payment || 0),
+      }));
       const refundByEmp = new Map();
       lawyerRefundRows.forEach(r => refundByEmp.set(r.id_employee, {
         day: Number(r.day_refund || 0),
@@ -251,13 +323,14 @@ const officeDashboardController = {
               }
             : null,
           lawyers_cash: lawyersRows.map(r => {
+            const pay = paymentByEmp.get(r.id) || { day: 0, period: 0 };
             const ref = refundByEmp.get(r.id) || { day: 0, period: 0 };
             return {
               id: r.id,
               full_name: r.full_name,
               position: r.position || '',
-              today: Number(r.today_cash) - ref.day,
-              period: Number(r.period_cash) - ref.period,
+              today: Number(r.today_cash) + pay.day - ref.day,
+              period: Number(r.period_cash) + pay.period - ref.period,
             };
           }),
         },

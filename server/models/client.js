@@ -20,6 +20,7 @@ class Client {
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         WHERE ${officeFilter}
+          AND cl.deleted_at IS NULL
       `;
       const selectFields = `
         SELECT cl.*,
@@ -60,6 +61,7 @@ class Client {
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         WHERE cl.id = ?
+          AND cl.deleted_at IS NULL
         GROUP BY cl.id
       `;
       const [clients] = await db.query(query, [id]);
@@ -110,7 +112,7 @@ class Client {
     }
   }
 
-  static async delete(id) {
+  static async delete(id, deletedBy = null) {
     try {
       const [contracts] = await db.query(
         'SELECT COUNT(*) as count FROM contracts WHERE id_client = ? AND status = "active"',
@@ -121,7 +123,7 @@ class Client {
         throw new Error('Cannot delete client with active contracts');
       }
 
-      await db.query('DELETE FROM clients WHERE id = ?', [id]);
+      await db.query('UPDATE clients SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL', [deletedBy, id]);
       return true;
     } catch (error) {
       console.error('Error deleting client:', error);
@@ -138,6 +140,7 @@ class Client {
         FROM clients cl
         LEFT JOIN contracts c ON cl.id = c.id_client
         WHERE cl.office_id = ?
+        AND cl.deleted_at IS NULL
         AND (
           cl.name LIKE ? OR 
           cl.phone LIKE ? OR 

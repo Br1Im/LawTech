@@ -20,6 +20,7 @@
  */
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { resolveRollingWindow } = require('../utils/planPeriod');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -160,8 +161,35 @@ const getBalance = async (req, res) => {
 
     // Бежим от стартовой даты до конца запрошенного периода (или сегодня),
     // чтобы корректно перенести остатки, но показываем только запрошенный диапазон.
-    const reqFrom = dstr(req.query.date_from) || startDate;
-    const reqTo = dstr(req.query.date_to) || today();
+    // Period by office plan (same as Office tab): rolling cycle + cycle_offset for past periods.
+    let periodInfo = null;
+    let reqFrom, reqTo;
+    const explicitFrom = dstr(req.query.date_from);
+    const explicitTo = dstr(req.query.date_to);
+    const usePlan = req.query.period === 'plan' || (!explicitFrom && !explicitTo);
+    if (usePlan) {
+      const cycleOffset = Number(req.query.cycle_offset || 0);
+      try {
+        const [prows] = await db.query(
+          `SELECT DATE_FORMAT(period_start, '%Y-%m-%d') AS period_start,
+                  DATE_FORMAT(period_end, '%Y-%m-%d') AS period_end
+             FROM office_plans WHERE office_id = ?
+             ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC
+             LIMIT 1`,
+          [officeId, today()]
+        );
+        if (prows[0] && prows[0].period_start && prows[0].period_end) {
+          const win = resolveRollingWindow(prows[0].period_start, prows[0].period_end, today(), cycleOffset);
+          periodInfo = {
+            label: 'plan', from: win.from, to: win.to, today: today(),
+            cycle_index: win.cycle_index, current_cycle_index: win.current_cycle_index,
+            duration_days: win.duration_days,
+          };
+        }
+      } catch (_) { /* fallback below */ }
+    }
+    reqFrom = periodInfo ? periodInfo.from : (explicitFrom || startDate);
+    reqTo = periodInfo ? periodInfo.to : (explicitTo || today());
     const calcTo = reqTo;
 
     const incomeMap = await loadIncome(officeId, startDate, calcTo);
@@ -221,6 +249,7 @@ const getBalance = async (req, res) => {
       current,
       current_total: current.cash + current.noncash + current.bank,
       totals,
+      period: periodInfo,
       days: days.reverse(), // свежие сверху
     });
   } catch (e) {
@@ -238,6 +267,7 @@ const getDayDetail = async (req, res) => {
 
     const [contractRows] = await db.query(
       `SELECT c.id, c.contract_number, c.payment_method, c.paid_amount amount,
+              TIME_FORMAT(c.created_at, '%H:%i') AS t,
               CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) AS lawyer_name,
               cl.name AS client_name
          FROM contracts c
@@ -248,12 +278,12 @@ const getDayDetail = async (req, res) => {
       [officeId, date]
     );
     const [manualIncome] = await db.query(
-      `SELECT id, payment_method, amount, title, description FROM office_income
+      `SELECT id, payment_method, amount, title, description, TIME_FORMAT(created_at, '%H:%i') AS t FROM office_income
         WHERE office_id = ? AND income_date = ? ORDER BY id`,
       [officeId, date]
     );
     const [expenseRows] = await db.query(
-      `SELECT id, category, payment_method, amount, title, description, is_auto, expense_type
+      `SELECT id, category, payment_method, amount, title, description, is_auto, expense_type, TIME_FORMAT(created_at, '%H:%i') AS t
          FROM expenses WHERE office_id = ? AND spent_on = ? ORDER BY id`,
       [officeId, date]
     );
@@ -266,16 +296,19 @@ const getDayDetail = async (req, res) => {
           amount: num(r.amount), title: `Договор ${r.contract_number || r.id}`,
           client_name: (r.client_name || '').trim() || null,
           lawyer_name: (r.lawyer_name || '').trim() || null,
+          time: r.t || null,
         })),
         manual: manualIncome.map(r => ({
           id: r.id, type: 'manual', payment_method: normBucket(r.payment_method),
           amount: num(r.amount), title: r.title || 'Поступление', description: r.description || null,
+          time: r.t || null,
         })),
       },
       expenses: expenseRows.map(r => ({
         id: r.id, category: r.category, payment_method: normBucket(r.payment_method),
         amount: num(r.amount), title: r.title, description: r.description || null,
         is_auto: !!r.is_auto, expense_type: r.expense_type,
+        time: r.t || null,
       })),
     });
   } catch (e) {

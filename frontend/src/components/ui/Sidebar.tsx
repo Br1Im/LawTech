@@ -29,6 +29,13 @@ import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 const ICON_SIZE = 20;
 const ICON_STROKE = 1.5;
 
+const RubleIcon = ({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidth?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21V3h5a4 4 0 0 1 0 8H6" />
+    <path d="M6 15h8" />
+  </svg>
+);
+
 interface OfficeItem {
   id: number;
   name: string;
@@ -162,7 +169,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       appointments: { key: 'Записи', icon: <Clock size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Записи' },
       employees: { key: 'Сотрудники', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Сотрудники' },
       revenue: { key: 'Приходы', icon: <TrendingUp size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Приходы' },
-      expenses: { key: 'Баланс', icon: <Wallet size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Баланс' },
+      expenses: { key: 'Баланс', icon: <RubleIcon size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <Phone size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Колл-центр' },
       materials: { key: 'Материалы', icon: <Package size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Материалы' },
@@ -176,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         return [allItems.myCases, allItems.acts];
 
       case 'expert':
-        return [allItems.employees, allItems.clients];
+        return [allItems.clients, allItems.employees];
 
       case 'lawyer':
         return [allItems.office, allItems.clients, allItems.acts, allItems.salary];
@@ -187,12 +194,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       case 'director':
         return [
           allItems.office,
+          allItems.employees,
           allItems.clients,
+          allItems.appointments,
+          allItems.revenue,
           allItems.acts,
           allItems.salary,
-          allItems.appointments,
-          allItems.employees,
-          allItems.revenue,
           allItems.expenses,
           allItems.reception,
         ];
@@ -211,12 +218,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       case 'okk':
         return [
           allItems.office,
+          allItems.employees,
           allItems.clients,
+          allItems.appointments,
+          allItems.revenue,
           allItems.acts,
           allItems.salary,
-          allItems.appointments,
-          allItems.employees,
-          allItems.revenue,
           allItems.expenses,
           allItems.reception,
         ];
@@ -224,12 +231,12 @@ const Sidebar: React.FC<SidebarProps> = ({
       default:
         return [
           allItems.office,
+          allItems.employees,
           allItems.clients,
+          allItems.appointments,
+          allItems.revenue,
           allItems.acts,
           allItems.salary,
-          allItems.appointments,
-          allItems.employees,
-          allItems.revenue,
           allItems.expenses,
           allItems.reception,
         ];
@@ -294,7 +301,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
 
-      {offices.length > 1 && (
+      {offices.length > 1 && user?.role !== 'director' && (
         <div className="sidebar-office-switcher" ref={officeSwitcherRef}>
           <button
             className="sidebar-item sidebar-office-btn"
@@ -366,23 +373,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="sidebar-footer">
-        <button
-          className="sidebar-item sidebar-theme-toggle"
-          onClick={toggle}
-          title={collapsed ? (mode === 'dark' ? 'Светлая тема' : 'Тёмная тема') : ''}
-          aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-        >
-          <span className="sidebar-icon">
-            {mode === 'dark'
-              ? <Sun size={ICON_SIZE} strokeWidth={ICON_STROKE} />
-              : <Moon size={ICON_SIZE} strokeWidth={ICON_STROKE} />}
-          </span>
-          {!collapsed && (
-            <span className="sidebar-label">
-              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            </span>
-          )}
-        </button>
 
         <div className="sidebar-user-menu" ref={userMenuRef}>
           <button

@@ -112,13 +112,7 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
   const tabNames = user?.role ? getTabNamesByRole(user.role) : allTabNames;
 
   const accountTabs = [
-    { 
-      name: isDarkTheme ? "Светлая" : "Темная", 
-      key: "theme", 
-      icon: <BulbOutlined />,
-      onClick: toggleTheme 
-    },
-    { 
+        { 
       name: "Профиль", 
       key: "profile", 
       icon: <UserOutlined />,

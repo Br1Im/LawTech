@@ -32,7 +32,7 @@ interface AllowedRole {
 const ROLE_LABELS: Record<string, string> = {
   director: 'Генеральный директор',
   manager: 'Менеджер',
-  okk: 'ОКК',
+  okk: 'Руководитель',
   cc_manager: 'Начальник КЦ',
   cc_operator: 'Оператор КЦ',
   expert: 'Эксперт',
@@ -51,22 +51,47 @@ const getFullName = (s: StaffMember): string => {
   return [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(' ').trim() || 'Сотрудник';
 };
 
-const copyToClipboard = (text: string) => {
-  const fallback = () => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); } catch (_) { /* ignore */ }
-    document.body.removeChild(ta);
+const copyToClipboard = async (text: string): Promise<boolean> => {
+  const fallback = (): boolean => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '0';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      const okExec = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return okExec;
+    } catch (_) {
+      return false;
+    }
   };
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    navigator.clipboard.writeText(text).catch(fallback);
+  try {
+    if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_) { /* fall through */ }
+  return fallback();
+};
+
+const generateStrongPassword = (length = 12): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let pwd = '';
+  const cryptoObj = (typeof window !== 'undefined' && window.crypto) ? window.crypto : undefined;
+  if (cryptoObj && cryptoObj.getRandomValues) {
+    const arr = new Uint32Array(length);
+    cryptoObj.getRandomValues(arr);
+    for (let i = 0; i < length; i++) pwd += chars[arr[i] % chars.length];
   } else {
-    fallback();
+    for (let i = 0; i < length; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
   }
+  return pwd;
 };
 
 // ===== Карточка сотрудника =====
@@ -114,12 +139,14 @@ const StaffDetailModal = ({
   const [customPassword, setCustomPassword] = useState('');
   const [passwordMode, setPasswordMode] = useState<'choose' | 'custom' | 'loading'>('choose');
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRoleChange, setShowRoleChange] = useState(false);
   const [changeableRoles, setChangeableRoles] = useState<AllowedRole[]>([]);
   const [selectedNewRole, setSelectedNewRole] = useState<string>(staff.role);
   const [changingRole, setChangingRole] = useState(false);
   const { user } = useAuth();
   const isGeneralDirector = user?.role === 'director';
+  const canDeleteEmp = ['director', 'owner', 'manager', 'okk'].includes(user?.role || '') && staff.role !== 'director' && staff.role !== 'owner';
   const [showOfficeTransfer, setShowOfficeTransfer] = useState(false);
   const [myOffices, setMyOffices] = useState<{ id: number; name: string }[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<string>('');
@@ -274,7 +301,7 @@ const StaffDetailModal = ({
         headers: getAuthHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.error || 'Ошибка'); }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || b.error || 'Не удалось сменить пароль'); }
       const data = await res.json();
       setResetCreds({ login: data.login, password: data.password });
       setShowPasswordChange(false);
@@ -283,6 +310,21 @@ const StaffDetailModal = ({
     } catch (e) { setError((e as Error).message); setPasswordMode('choose'); }
   };
 
+
+  const handleDeleteStaff = async () => {
+    setError(null);
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}`), {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || b.error || 'Ошибка удаления'); }
+      setSuccess('Сотрудник удалён');
+      setConfirmDelete(false);
+      onUpdated();
+      onClose();
+    } catch (e) { setError((e as Error).message); }
+  };
   const handleToggleActive = async () => {
     setError(null);
     try {
@@ -344,6 +386,15 @@ const StaffDetailModal = ({
                     onChange={(e) => setCustomPassword(e.target.value)}
                     style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid #d9d9d9', fontSize: '14px' }}
                   />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setCustomPassword(generateStrongPassword())}
+                    title="Сгенерировать надёжный пароль"
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    🎲
+                  </button>
                   <button
                     className="btn-primary"
                     onClick={() => handleChangePassword(true)}
@@ -503,6 +554,15 @@ const StaffDetailModal = ({
                     {staff.is_active === 0 ? <><FaCheck /> Активировать</> : <><FaBan /> Деактивировать</>}
                   </button>
                 )}
+                {canDeleteEmp && (confirmDelete ? (
+                  <div className="delete-confirm">
+                    <span>Удалить сотрудника безвозвратно из списка?</span>
+                    <button className="btn-danger" onClick={handleDeleteStaff}>Да, удалить</button>
+                    <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Отмена</button>
+                  </div>
+                ) : (
+                  <button className="btn-danger" onClick={() => setConfirmDelete(true)}><FaBan /> Удалить</button>
+                ))}
               </>
             )}
           </div>

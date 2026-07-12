@@ -196,6 +196,7 @@ export interface CrmContract {
 
 export const contractsApi = {
   list: () => unwrap<CrmContract[]>(apiInstance.get('/contracts')),
+  getById: (id: number) => unwrap<CrmContract>(apiInstance.get(`/contracts/${id}`)),
   create: (payload: Record<string, unknown>) =>
     unwrap<CrmContract>(apiInstance.post('/contracts', payload)),
   update: (id: number, payload: Partial<CrmContract>) =>
@@ -383,6 +384,18 @@ export interface CrmAct {
   client_phone?: string | null;
   client_email?: string | null;
   responsible_full_name?: string | null;
+  contract_number?: string | null;
+  attachments?: ActAttachment[];
+}
+
+export interface ActAttachment {
+  id: number;
+  act_id: number;
+  name?: string | null;
+  file_url: string;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  created_at?: string | null;
 }
 
 export interface ActsFilters {
@@ -394,14 +407,36 @@ export interface ActsFilters {
   status?: 'draft' | 'confirmed';
   contract_id?: number;
   q?: string;
+  cycle_offset?: number;
+}
+
+export interface ActsPeriodMeta {
+  from: string;
+  to: string;
+  cycle_index: number;
+  current_cycle_index: number;
+  duration_days?: number;
+  has_prev: boolean;
+  has_next: boolean;
 }
 
 export const actsApi = {
   list: (filters: ActsFilters = {}) =>
     unwrap<CrmAct[]>(apiInstance.get('/acts', { params: filters })),
+  listRaw: (filters: ActsFilters = {}) =>
+    apiInstance.get('/acts', { params: filters }).then(
+      (r) => (r as { data: { success: boolean; data: CrmAct[]; period?: ActsPeriodMeta } }).data
+    ),
   get: (id: number) => unwrap<CrmAct>(apiInstance.get(`/acts/${id}`)),
-  createForContract: (contractId: number, payload: Partial<CrmAct>) =>
-    unwrap<CrmAct>(apiInstance.post(`/contracts/${contractId}/acts`, payload)),
+  createForContract: (contractId: number, payload: { amount: number; act_date: string; description: string }, files: File[] = []) => {
+    const fd = new FormData();
+    fd.append('amount', String(payload.amount));
+    fd.append('act_date', payload.act_date);
+    fd.append('description', payload.description || '');
+    files.forEach((f) => fd.append('photos', f));
+    return unwrap<CrmAct>(apiInstance.post(`/contracts/${contractId}/acts`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }));
+  },
+  getAttachments: (id: number) => unwrap<ActAttachment[]>(apiInstance.get(`/acts/${id}/attachments`)),
   listForContract: (contractId: number) =>
     unwrap<CrmAct[]>(apiInstance.get(`/contracts/${contractId}/acts`)),
   update: (id: number, payload: Partial<CrmAct>) =>

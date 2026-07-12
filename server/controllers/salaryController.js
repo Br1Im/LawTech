@@ -18,6 +18,7 @@
  */
 const db = require('../db');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
+const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
 const { createAutoExpense } = require('./expensesController');
 
 const ok = (res, data) => res.json({ success: true, data });
@@ -272,7 +273,8 @@ const listShifts = async (req, res) => {
              e.position
         FROM shifts s
         LEFT JOIN employees e ON e.id = s.employee_id
-       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        LEFT JOIN users u ON u.id = s.employee_id
+       ${where.length ? 'WHERE ' + where.join(' AND ') + ' AND (u.is_active = 1 OR u.is_active IS NULL)' : 'WHERE (u.is_active = 1 OR u.is_active IS NULL)'}
        ORDER BY s.shift_date DESC, s.id DESC`;
     const [rows] = await db.query(sql, params);
     return ok(res, rows);
@@ -341,9 +343,53 @@ const calculate = async (req, res) => {
     }
     if (!officeId) return bad(res, 400, 'Не указан офис');
 
-    const dateFrom = req.query.date_from || null;
-    const dateTo = req.query.date_to || null;
+    let dateFrom = req.query.date_from || null;
+    let dateTo = req.query.date_to || null;
+    let periodLabel = (dateFrom && dateTo) ? 'custom' : 'plan';
     const settings = await getOrCreateSettings(officeId);
+
+    // Per-office timezone (pilot). When set, confirmed acts are bound to the
+    // salary period by their CONFIRMATION date (confirmed_at) converted to the
+    // office timezone — an act counts in the period when it was confirmed.
+    // Offices without a timezone keep legacy behaviour (bind by act_date).
+    let officeTz = null;
+    try {
+      const [[tzRow]] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [officeId]);
+      officeTz = tzRow && tzRow.timezone ? tzRow.timezone : null;
+    } catch (e) {
+      officeTz = null;
+    }
+
+    // Salary period binding. Explicit date_from + date_to => manual range
+    // (reports). Otherwise bind to the office's ESTABLISHED plan period
+    // (office_plans), rolled to the active cycle, computed in office tz.
+    // `cycle_offset` lets the UI page through previous/next periods.
+    if (!(dateFrom && dateTo)) {
+      const todayIso = officeTz ? todayIsoInTz(officeTz) : new Date().toISOString().slice(0, 10);
+      const cycleOffset = Number(req.query.cycle_offset || 0);
+      try {
+        const [planRows] = await db.query(
+          `SELECT DATE_FORMAT(period_start, '%Y-%m-%d') AS period_start,
+                  DATE_FORMAT(period_end, '%Y-%m-%d') AS period_end
+             FROM office_plans
+            WHERE office_id = ?
+            ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC
+            LIMIT 1`,
+          [officeId, todayIso]
+        );
+        if (planRows[0] && planRows[0].period_start && planRows[0].period_end) {
+          const win = resolveRollingWindow(planRows[0].period_start, planRows[0].period_end, todayIso, cycleOffset);
+          dateFrom = win.from;
+          dateTo = win.to;
+          periodLabel = 'plan';
+        }
+      } catch (e) { /* fall back to provided values (legacy) */ }
+    }
+
+    // Expression that buckets an act into the salary period.
+    const actDateCol = officeTz
+      ? "DATE(CONVERT_TZ(COALESCE(a.confirmed_at, a.act_date), '+00:00', ?))"
+      : 'a.act_date';
 
     // 1. Сотрудники офиса (с ролью пользователя, чтобы выделить директора).
     const [employees] = await db.query(
@@ -353,7 +399,7 @@ const calculate = async (req, res) => {
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
          LEFT JOIN users u ON u.id = e.id
-        WHERE e.office_id = ?`,
+        WHERE e.office_id = ? AND e.deleted_at IS NULL AND (u.is_active = 1 OR u.is_active IS NULL)`,
       [officeId]
     );
 
@@ -363,7 +409,8 @@ const calculate = async (req, res) => {
               es.custom_percent, es.custom_shift_rate, es.custom_per_doc
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
-        WHERE e.position LIKE '%ксперт%'`
+         LEFT JOIN users u ON u.id = e.id
+        WHERE e.position LIKE '%ксперт%' AND e.deleted_at IS NULL AND (u.is_active = 1 OR u.is_active IS NULL)`
     );
     const expertsById = new Map(allExperts.map((e) => [e.id, e]));
 
@@ -397,8 +444,8 @@ const calculate = async (req, res) => {
     // 4. Подтверждённые акты офиса за период по ответственному.
     const actWhere = ['a.status = "confirmed"', 'a.office_id = ?'];
     const actParams = [officeId];
-    if (dateFrom) { actWhere.push('a.act_date >= ?'); actParams.push(dateFrom); }
-    if (dateTo) { actWhere.push('a.act_date <= ?'); actParams.push(dateTo); }
+    if (dateFrom) { actWhere.push(`${actDateCol} >= ?`); if (officeTz) actParams.push(officeTz); actParams.push(dateFrom); }
+    if (dateTo) { actWhere.push(`${actDateCol} <= ?`); if (officeTz) actParams.push(officeTz); actParams.push(dateTo); }
     // Совместные договоры: акт, ответственным по которому указан один из двух юристов
     // договора, делится 50/50 по СУММЕ между обоими юристами; КОЛИЧЕСТВО учитывается
     // полностью каждому. Прочие акты (в т.ч. экспертные) — как раньше, по responsible_id.
@@ -467,8 +514,8 @@ const calculate = async (req, res) => {
     // 5. Подтверждённые акты по экспертам — могут быть в любом офисе.
     const expertActWhere = ['a.status = "confirmed"', 'a.responsible_id IS NOT NULL'];
     const expertActParams = [];
-    if (dateFrom) { expertActWhere.push('a.act_date >= ?'); expertActParams.push(dateFrom); }
-    if (dateTo) { expertActWhere.push('a.act_date <= ?'); expertActParams.push(dateTo); }
+    if (dateFrom) { expertActWhere.push(`${actDateCol} >= ?`); if (officeTz) expertActParams.push(officeTz); expertActParams.push(dateFrom); }
+    if (dateTo) { expertActWhere.push(`${actDateCol} <= ?`); if (officeTz) expertActParams.push(officeTz); expertActParams.push(dateTo); }
     const [expertActs] = await db.query(
       `SELECT a.responsible_id, a.type, COUNT(*) AS cnt, COALESCE(SUM(a.amount), 0) AS sum_amount
          FROM acts a
@@ -686,6 +733,7 @@ const calculate = async (req, res) => {
       office_id: officeId,
       date_from: dateFrom,
       date_to: dateTo,
+      period_label: periodLabel,
       office_cash: officeCash,
       office_expenses: officeExpenses,
       office_profit: officeProfit,

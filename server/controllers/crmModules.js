@@ -3,6 +3,7 @@
  * Единый стиль: все эндпоинты {success, data|message}
  */
 const db = require('../db');
+const { canDelete } = require('../utils/deletePermissions');
 
 // ========== helpers ==========
 function ok(res, data, extra = {}) {
@@ -278,12 +279,14 @@ const employees = {
     try {
       const officeId = req.params.officeId || req.user.office_id;
       const [rows] = await db.query(
-        `SELECT e.*, u.role AS user_role
+        `SELECT DISTINCT e.*, u.role AS user_role, u.is_active
          FROM employees e
          LEFT JOIN users u ON u.email = e.email
-         WHERE e.office_id = ?
+         LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
+         WHERE e.deleted_at IS NULL AND (e.office_id = ? OR uo.office_id IS NOT NULL)
+           AND (u.is_active = 1 OR u.is_active IS NULL)
          ORDER BY e.created_at DESC`,
-        [officeId]
+        [officeId, officeId]
       );
       return ok(res, rows);
     } catch (e) { return bad(res, 500, 'Ошибка получения сотрудников', e); }
@@ -334,10 +337,10 @@ const employees = {
   async remove(req, res) {
     try {
       const userRole = (req.user?.role || '').toLowerCase();
-      if (!['director', 'manager'].includes(userRole)) {
-        return bad(res, 403, 'Только директор или менеджер может удалить сотрудника');
+      if (!canDelete('employees', userRole)) {
+        return bad(res, 403, 'Недостаточно прав для удаления сотрудника');
       }
-      await db.query('DELETE FROM employees WHERE id = ?', [req.params.id]);
+      await db.query('UPDATE employees SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND deleted_at IS NULL', [req.user && req.user.id, req.params.id]);
       return ok(res, { id: req.params.id });
     } catch (e) { return bad(res, 500, 'Ошибка удаления сотрудника', e); }
   }

@@ -61,6 +61,11 @@ services:
       - CORS_ORIGIN=*
       - UPLOAD_DIR=/app/uploads
       - MAX_FILE_SIZE=10485760
+      - SMTP_HOST=smtp.yandex.ru
+      - SMTP_PORT=465
+      - SMTP_USER=lawtech.rf@yandex.com
+      - SMTP_PASS=atnlwmmadilurmjf
+      - MAIL_FROM=Law.Tech <lawtech.rf@yandex.com>
     depends_on:
       - db
       - faiss-service

@@ -540,7 +540,73 @@ const contractController = {
         message: 'Ошибка при получении статистики'
       });
     }
-  }
+  },
+
+  /**
+   * Обновить данные расторжения (директор/менеджер/ОКК)
+   */
+  async updateTerminationData(req, res) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      const ALLOWED_ROLES = ['director', 'manager', 'okk'];
+
+      if (!ALLOWED_ROLES.includes(String(user.role || '').toLowerCase())) {
+        return res.status(403).json({ success: false, message: 'Только директор, менеджер или ОКК может редактировать данные расторжения' });
+      }
+
+      const contract = await Contract.getById(id);
+      if (!contract) {
+        return res.status(404).json({ success: false, message: 'Договор не найден' });
+      }
+      if (contract.status !== 'terminated') {
+        return res.status(400).json({ success: false, message: 'Договор не расторгнут' });
+      }
+
+      const allowed = await checkOfficeAccess(user, contract.office_id);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Доступ запрещен' });
+      }
+
+      const { terminated_at, termination_reason, refund_amount, refund_deadline } = req.body;
+      const db = require('../db');
+
+      const sets = [];
+      const params = [];
+
+      if (terminated_at !== undefined) {
+        sets.push('terminated_at = ?');
+        params.push(terminated_at);
+      }
+      if (termination_reason !== undefined) {
+        sets.push('termination_reason = ?');
+        params.push(termination_reason || null);
+      }
+      if (refund_amount !== undefined) {
+        sets.push('refund_amount = ?');
+        params.push(refund_amount || 0);
+      }
+      if (refund_deadline !== undefined) {
+        sets.push('refund_deadline = ?');
+        params.push(refund_deadline || null);
+      }
+
+      if (sets.length === 0) {
+        return res.status(400).json({ success: false, message: 'Нет данных для обновления' });
+      }
+
+      params.push(id);
+      await db.query(
+        `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,
+        params
+      );
+
+      res.json({ success: true, message: 'Данные расторжения обновлены' });
+    } catch (error) {
+      console.error('Error updating termination data:', error);
+      res.status(500).json({ success: false, message: 'Ошибка при обновлении данных расторжения' });
+    }
+  },
 };
 
 module.exports = contractController;

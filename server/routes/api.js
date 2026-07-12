@@ -105,6 +105,7 @@ router.use('/offices', authenticateToken, officeRoutes);
 
 // Управление сотрудниками (иерархическая система)
 router.get('/staff', authenticateToken, employeeManagement.getEmployees);
+router.delete('/staff/:id', authenticateToken, employeeManagement.deleteEmployee);
 router.post('/staff', authenticateToken, employeeManagement.createEmployee);
 router.get('/staff/allowed-roles', authenticateToken, employeeManagement.getAllowedRoles);
 router.put('/staff/:id', authenticateToken, employeeManagement.updateEmployee);
@@ -153,10 +154,11 @@ router.delete('/shifts/:id', authenticateToken, salaryController.removeShift);
 const actsController = require('../controllers/actsController');
 router.get('/acts', authenticateToken, actsController.list);
 router.get('/acts/:id', authenticateToken, actsController.getOne);
+router.get('/acts/:id/attachments', authenticateToken, actsController.getAttachments);
 router.put('/acts/:id', authenticateToken, actsController.update);
 router.post('/acts/:id/confirm', authenticateToken, actsController.confirm);
 router.delete('/acts/:id', authenticateToken, actsController.remove);
-router.post('/contracts/:id/acts', authenticateToken, actsController.createForContract);
+router.post('/contracts/:id/acts', authenticateToken, actsController.uploadMiddleware, actsController.createForContract);
 router.get('/contracts/:id/acts', authenticateToken, (req, res, next) => {
   req.query.contract_id = req.params.id;
   return actsController.list(req, res, next);
@@ -199,6 +201,9 @@ router.put('/office/:officeId/plan', authenticateToken, officeDashboardControlle
 // Роуты для чата
 router.get('/chat/channels', authenticateToken, chatController.getAvailableChannels);
 router.get('/chat/participants', authenticateToken, chatController.getChannelParticipants);
+router.get('/chat/candidates', authenticateToken, chatController.getChannelCandidates);
+router.post('/chat/members', authenticateToken, chatController.addChannelMember);
+router.delete('/chat/members', authenticateToken, chatController.removeChannelMember);
 router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
 router.get('/offices/:officeId/messages/unread', authenticateToken, chatController.getUnreadCounts);
 router.get('/offices/:officeId/messages/search', authenticateToken, chatController.searchMessages);
@@ -245,15 +250,19 @@ router.get('/employees', authenticateToken, async (req, res) => {
   try {
     const db = require('../db');
     const officeId = req.query.office_id || req.user.office_id;
+    console.log('[DEBUG /employees] officeId=', officeId, 'user.office_id=', req.user.office_id);
     if (!officeId) return res.json({ success: true, data: [] });
     const [rows] = await db.query(
-      `SELECT e.*, u.role AS user_role
+      `SELECT DISTINCT e.*, u.role AS user_role, u.is_active
        FROM employees e
        LEFT JOIN users u ON u.email = e.email
-       WHERE e.office_id = ?
+       LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
+       WHERE (e.office_id = ? OR uo.office_id IS NOT NULL)
+         AND (u.is_active = 1 OR u.is_active IS NULL)
        ORDER BY e.last_name, e.first_name`,
-      [officeId]
+      [officeId, officeId]
     );
+    console.log('[DEBUG /employees] returned', rows.length, 'rows, ids:', rows.map(r => r.id));
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('Error fetching employees:', err);
@@ -265,12 +274,14 @@ router.get('/office/:officeId/employees', authenticateToken, async (req, res) =>
     const db = require('../db');
     const officeId = req.params.officeId;
     const [rows] = await db.query(
-      `SELECT e.*, u.role AS user_role
+      `SELECT DISTINCT e.*, u.role AS user_role, u.is_active
        FROM employees e
        LEFT JOIN users u ON u.email = e.email
-       WHERE e.office_id = ?
+       LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
+       WHERE (e.office_id = ? OR uo.office_id IS NOT NULL)
+         AND (u.is_active = 1 OR u.is_active IS NULL)
        ORDER BY e.last_name, e.first_name`,
-      [officeId]
+      [officeId, officeId]
     );
     res.json({ success: true, data: rows });
   } catch (err) {
