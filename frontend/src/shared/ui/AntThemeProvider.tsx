@@ -5,9 +5,10 @@ import ruRU from 'antd/locale/ru_RU';
 export type ThemeMode = 'light' | 'dark';
 
 function readInitialTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
-  const saved = localStorage.getItem('theme');
-  if (saved === 'dark' || saved === 'light') return saved;
+  // Тёмная тема удалена из проекта — приложение всегда в светлой теме.
+  if (typeof window !== 'undefined') {
+    try { localStorage.setItem('theme', 'light'); } catch { /* noop */ }
+  }
   return 'light';
 }
 
@@ -60,7 +61,7 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const toggle = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'));
+  const toggle = () => {}; // тёмная тема удалена из проекта
 
   const tokens = {
     colorPrimary: mode === 'dark' ? '#7C5CFF' : '#1E40AF',

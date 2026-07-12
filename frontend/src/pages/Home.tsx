@@ -11,7 +11,6 @@ import {
   TrendingUp, Globe2, Layers, GitBranch, MessageSquare, Bell, AlertTriangle,
   ChevronLeft, PlayCircle, ListChecks, BookOpenCheck, Gauge, LineChart,
 } from 'lucide-react';
-import ThemeToggle from '../components/ui/ThemeToggle';
 
 /* =========================================================================
    LawTech — Premium Landing v2
@@ -1782,7 +1781,6 @@ export default function Home() {
             <NavA href="#faq">FAQ</NavA>
           </NavList>
           <HeaderActions>
-            <ThemeToggle />
             <TextLink href="/auth">Войти</TextLink>
             <PrimaryBtn to="/auth?signup=1">
               Начать <ArrowRight />

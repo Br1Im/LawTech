@@ -5,29 +5,12 @@ import MobileMaterialUpload from './ui/MobileMaterialUpload';
 import { useIsMobile } from '../shared/lib/useIsMobile';
 import 'dayjs/locale/ru';
 dayjs.locale('ru');
-
-type DeadlineInfo = { key: 'green' | 'yellow' | 'orange' | 'red'; color: string; bg: string; label: string; icon: string };
-function getDeadlineInfo(deadline?: string | null): DeadlineInfo | null {
-  if (!deadline) return null;
-  const d = dayjs(deadline).startOf('day');
-  if (!d.isValid()) return null;
-  const diff = d.diff(dayjs().startOf('day'), 'day');
-  if (diff < 0) {
-    const n = Math.abs(diff);
-    const w = (n % 10 === 1 && n % 100 !== 11) ? 'день' : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'дня' : 'дней');
-    return { key: 'red', color: '#dc2626', bg: '#fef2f2', label: `Просрочено (${n} ${w})`, icon: '🔴' };
-  }
-  if (diff === 0) return { key: 'orange', color: '#ea580c', bg: '#fff7ed', label: 'Сегодня', icon: '🟠' };
-  if (diff === 1) return { key: 'yellow', color: '#ca8a04', bg: '#fefce8', label: 'Завтра', icon: '🟡' };
-  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: `До ${d.format('DD.MM.YYYY')}`, icon: '🟢' };
-}
 import {
   Table,
   Input,
   Button,
   Space,
   Tooltip,
-  Popover,
   App,
   Empty,
   Tag,
@@ -72,6 +55,8 @@ import {
   CalendarOutlined,
   EyeOutlined,
   FileImageOutlined,
+  PlusOutlined,
+  EditOutlined,
 } from '@ant-design/icons';
 import {
   clientsApi,
@@ -127,12 +112,6 @@ const TableCard = styled.div`
   .ant-table-thead > tr > th { background: var(--color-bg-alt) !important; font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border); }
   .ant-table-tbody > tr > td { background: var(--color-bg-elevated) !important; border-bottom: 1px solid var(--color-border); }
   .ant-table-tbody > tr:hover > td { background: var(--color-bg-hover) !important; }
-
-  /* Цветовая индикация срока (роль Эксперт) */
-  .ant-table-tbody > tr.deadline-green > td:first-child { box-shadow: inset 3px 0 0 #16a34a; }
-  .ant-table-tbody > tr.deadline-yellow > td:first-child { box-shadow: inset 3px 0 0 #eab308; }
-  .ant-table-tbody > tr.deadline-orange > td:first-child { box-shadow: inset 3px 0 0 #f97316; }
-  .ant-table-tbody > tr.deadline-red > td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
 `;
 
 const InfoBlock = styled.div`
@@ -213,6 +192,79 @@ const Clients: React.FC<ClientsProps> = () => {
   const canAssignRep = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const isLawyer = user?.role === 'lawyer';
+  const isManagementRole = ['director', 'manager', 'okk'].includes(user?.role || '');
+
+  // --- Payment tracking state ---
+  interface ContractPayment {
+    id: number;
+    contract_id: number;
+    amount: string;
+    payment_date: string;
+    payment_method: 'cash' | 'noncash';
+    comment: string | null;
+    created_by: number;
+    created_by_name: string;
+    created_at: string;
+    confirmed: number;
+    confirmed_by: number | null;
+    confirmed_by_name: string | null;
+    confirmed_at: string | null;
+  }
+  const [contractPayments, setContractPayments] = useState<ContractPayment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({ amount: null as number | null, date: dayjs(), method: 'cash' as 'cash' | 'noncash', comment: '' });
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+
+  const loadPayments = useCallback(async (contractId: number) => {
+    setPaymentsLoading(true);
+    try {
+      const resp = await apiInstance.get(`/contracts/${contractId}/payments`);
+      setContractPayments(resp.data?.data || []);
+    } catch { setContractPayments([]); }
+    finally { setPaymentsLoading(false); }
+  }, []);
+
+  const handleAddPayment = async (contractId: number) => {
+    if (!paymentFormData.amount || paymentFormData.amount <= 0) { message.warning('Укажите сумму доплаты'); return; }
+    setPaymentSubmitting(true);
+    try {
+      await apiInstance.post(`/contracts/${contractId}/payments`, {
+        amount: paymentFormData.amount,
+        payment_date: paymentFormData.date.format('YYYY-MM-DD'),
+        payment_method: paymentFormData.method,
+        comment: paymentFormData.comment || null,
+      });
+      message.success('Доплата добавлена');
+      setShowPaymentForm(false);
+      setPaymentFormData({ amount: null, date: dayjs(), method: 'cash', comment: '' });
+      await loadPayments(contractId);
+      load();
+      const updated = await contractsApi.getById(contractId);
+      setDetailContract(updated);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+    finally { setPaymentSubmitting(false); }
+  };
+
+  const handleConfirmPayment = async (contractId: number, paymentId: number) => {
+    try {
+      await apiInstance.patch(`/contracts/${contractId}/payments/${paymentId}/confirm`);
+      message.success('Платёж подтверждён');
+      await loadPayments(contractId);
+      load();
+      const updated = await contractsApi.getById(contractId);
+      setDetailContract(updated);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+  };
+
+  const handleDeletePayment = async (contractId: number, paymentId: number) => {
+    try {
+      await apiInstance.delete(`/contracts/${contractId}/payments/${paymentId}`);
+      message.success('Платёж удалён');
+      await loadPayments(contractId);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Ошибка'); }
+  };
+
   const [data, setData] = useState<CrmClient[]>([]);
   const [contracts, setContracts] = useState<CrmContract[]>([]);
   const [loading, setLoading] = useState(false);
@@ -313,6 +365,14 @@ const Clients: React.FC<ClientsProps> = () => {
     refund_deadline: dayjs.Dayjs | null;
   }>({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
   const [terminating, setTerminating] = useState(false);
+  const [editingTermination, setEditingTermination] = useState(false);
+  const [editTermForm, setEditTermForm] = useState<{
+    terminated_at: dayjs.Dayjs;
+    termination_reason: string;
+    refund_amount: number;
+    refund_deadline: dayjs.Dayjs | null;
+  }>({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
+  const [savingTermination, setSavingTermination] = useState(false);
   const canConfirmRefund = ['director', 'manager', 'okk'].includes(user?.role || '');
   const canTerminate = ['director', 'manager', 'okk'].includes(user?.role || '');
 
@@ -383,6 +443,32 @@ const Clients: React.FC<ClientsProps> = () => {
       setContractActsLoading(false);
     }
   }, []);
+
+  const handleSaveTerminationData = async () => {
+    if (!detailContract) return;
+    setSavingTermination(true);
+    try {
+      await apiInstance.patch(`/contracts/${detailContract.id}/terminate-data`, {
+        terminated_at: editTermForm.terminated_at.format('YYYY-MM-DD'),
+        termination_reason: editTermForm.termination_reason || null,
+        refund_amount: editTermForm.refund_amount || 0,
+        refund_deadline: editTermForm.refund_deadline?.format('YYYY-MM-DD') || null,
+      });
+      message.success('Данные расторжения обновлены');
+      setEditingTermination(false);
+      // Refresh contract data
+      try {
+        const updated = await contractsApi.getById(detailContract.id);
+        if (updated) setDetailContract(updated);
+      } catch {}
+      if (view === 'terminated') loadTerminated();
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Ошибка при сохранении');
+    } finally {
+      setSavingTermination(false);
+    }
+  };
 
   const handleTerminate = async () => {
     if (!detailContract) return;
@@ -483,12 +569,8 @@ const Clients: React.FC<ClientsProps> = () => {
     });
   }, [rows, searchText]);
 
-  const setDocsStatus = async (c: CrmContract, next: 'pending' | 'ready') => {
-    if ((c.docs_status || 'pending') === next) return;
-    const prevStatus = c.docs_status;
-    // Оптимистично меняем статус в UI сразу, чтобы значение обновлялось без перезагрузки страницы
-    setContracts((list) => list.map((x) => (x.id === c.id ? { ...x, docs_status: next } : x)));
-    setDetailContract((dc) => (dc && dc.id === c.id ? { ...dc, docs_status: next } : dc));
+  const toggleDocsReady = async (c: CrmContract) => {
+    const next = (c.docs_status === 'ready') ? 'pending' : 'ready';
     try {
       await contractsApi.update(c.id, {
         id_client: c.id_client,
@@ -500,10 +582,8 @@ const Clients: React.FC<ClientsProps> = () => {
         docs_status: next,
       });
       message.success(next === 'ready' ? 'Документы отмечены как готовые' : 'Документы отмечены как ожидающие');
+      load();
     } catch (e: any) {
-      // При ошибке откатываем оптимистичное изменение
-      setContracts((list) => list.map((x) => (x.id === c.id ? { ...x, docs_status: prevStatus } : x)));
-      setDetailContract((dc) => (dc && dc.id === c.id ? { ...dc, docs_status: prevStatus } : dc));
       message.error(e?.response?.data?.message || 'Не удалось обновить статус документов');
     }
   };
@@ -746,6 +826,7 @@ const Clients: React.FC<ClientsProps> = () => {
     else setCaseActions([]);
     loadContractMaterials(contract.id);
     loadContractActs(contract.id);
+    loadPayments(contract.id);
     // Initialize doc types
     const dtRaw = (contract as any).document_types;
     try {
@@ -778,7 +859,7 @@ const Clients: React.FC<ClientsProps> = () => {
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
     const isAssignedEmployee = user?.id != null && (contract as any).id_employee === user.id;
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
-    const canEditCard = isOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
+    const canEditCard = !isAdmin && (isOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     if (canEditCard) loadExperts();
   };
 
@@ -862,7 +943,7 @@ const Clients: React.FC<ClientsProps> = () => {
       render: (_, r) => <span>{formatMoney(r.contract.paid_amount)}</span>,
       sorter: (a, b) => parseFloat(String(a.contract.paid_amount || 0)) - parseFloat(String(b.contract.paid_amount || 0)),
     },
-    ...(user?.role !== 'expert' ? [{
+    {
       title: '',
       key: 'needs_input',
       width: 140,
@@ -877,30 +958,7 @@ const Clients: React.FC<ClientsProps> = () => {
           </Tag>
         );
       },
-    }] : []),
-    ...(!isAdmin ? [{
-      title: 'Срок выполнения',
-      key: 'expert_deadline',
-      width: 170,
-      align: 'center' as const,
-      sorter: (a: ContractRow, b: ContractRow) => {
-        const va = a.contract.expert_deadline ? dayjs(a.contract.expert_deadline).valueOf() : Number.POSITIVE_INFINITY;
-        const vb = b.contract.expert_deadline ? dayjs(b.contract.expert_deadline).valueOf() : Number.POSITIVE_INFINITY;
-        return va - vb;
-      },
-      render: (_: unknown, r: ContractRow) => {
-        const info = getDeadlineInfo(r.contract.expert_deadline);
-        if (!info) return <span style={{ color: 'var(--color-muted)' }}>—</span>;
-        const exact = dayjs(r.contract.expert_deadline).format('DD.MM.YYYY');
-        return (
-          <Popover trigger="click" content={<span style={{ fontWeight: 600 }}>Сдать документы до: {exact}</span>}>
-            <span onClick={(ev) => ev.stopPropagation()} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: info.bg, color: info.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' }}>
-            {info.icon} {info.label}
-          </span>
-          </Popover>
-        );
-      },
-    }] : []),
+    },
     ...(!isAdmin ? [{
       title: 'Статус документов',
       key: 'docs_status',
@@ -909,17 +967,17 @@ const Clients: React.FC<ClientsProps> = () => {
       render: (_: unknown, r: ContractRow) => {
         const ready = r.contract.docs_status === 'ready';
         return (
-          <Select
-            size="small"
-            value={ready ? 'ready' : 'pending'}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(val) => setDocsStatus(r.contract, val as 'pending' | 'ready')}
-            style={{ width: 168 }}
-            options={[
-              { value: 'pending', label: <span style={{ color: '#D97706', fontWeight: 500 }}>⏳ Ожидание</span> },
-              { value: 'ready', label: <span style={{ color: '#059669', fontWeight: 500 }}>✓ Документы готовы</span> },
-            ]}
-          />
+          <Tooltip title={ready ? 'Документы готовы (нажмите, чтобы вернуть в «Ожидание»)' : 'Документы ещё не готовы (нажмите, чтобы отметить готовыми)'}>
+            <Button
+              type="text"
+              onClick={(e) => { e.stopPropagation(); toggleDocsReady(r.contract); }}
+              icon={ready
+                ? <CheckCircleFilled style={{ color: '#059669', fontSize: 18 }} />
+                : <ClockCircleOutlined style={{ color: '#D97706', fontSize: 18 }} />}
+            >
+              <span style={{ padding: '2px 8px', borderRadius: 999, background: ready ? '#F0FDF4' : '#FFF7ED', color: ready ? '#059669' : '#D97706', fontSize: 12, fontWeight: 500 }}>{ready ? 'Готовы' : 'Ожидание'}</span>
+            </Button>
+          </Tooltip>
         );
       },
     }] : []),
@@ -1186,12 +1244,16 @@ const Clients: React.FC<ClientsProps> = () => {
     if (!detailContract) return null;
     const c = detailContract;
     const cl = detailClient;
-    const remaining = (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)));
+    const pendingPaymentsSum = contractPayments
+      .filter(p => !p.confirmed)
+      .reduce((s, p) => s + parseFloat(String(p.amount || 0)), 0);
+    const totalPaidWithPending = parseFloat(String(c.paid_amount || 0)) + pendingPaymentsSum;
+    const remaining = (parseFloat(String(c.amount || 0)) - totalPaidWithPending);
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
     const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
-    const canEditCard = isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement;
+    const canEditCard = !isAdmin && (isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     const canAssignExpert = ['director', 'manager', 'okk'].includes(user?.role || '');
     const canEditLawyers = ['director', 'manager', 'okk'].includes(user?.role || '');
     const lawyerOptions = officeLawyers.filter((l) => l.id !== c.id_employee);
@@ -1286,7 +1348,14 @@ const Clients: React.FC<ClientsProps> = () => {
             <span style={{ fontWeight: 600, fontSize: 15 }}>{formatMoney(c.amount)}</span>
           </Descriptions.Item>
           <Descriptions.Item label="Внесено">
-            <span style={{ color: '#3aa56b', fontWeight: 600 }}>{formatMoney(c.paid_amount)}</span>
+            <span style={{ color: '#3aa56b', fontWeight: 600 }}>
+              {formatMoney(totalPaidWithPending)}
+              {pendingPaymentsSum > 0 && (
+                <span style={{ fontSize: 11, color: '#888', fontWeight: 400, marginLeft: 6 }}>
+                  (из них {formatMoney(pendingPaymentsSum)} на подтверждении)
+                </span>
+              )}
+            </span>
           </Descriptions.Item>
           <Descriptions.Item label="Остаток">
             <span style={{ color: remaining > 0 ? '#e74c3c' : '#3aa56b', fontWeight: 600 }}>
@@ -1649,20 +1718,99 @@ const Clients: React.FC<ClientsProps> = () => {
           </>
         )}
 
-        {/* ── Кнопка подтверждения оплаты остатка (только админ) ── */}
-        {isAdmin && !c.remainder_confirmed && (parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0))) > 0 && (c as any).additional_payment_date && (
+        {/* ── Журнал платежей ── */}
+        {(remaining > 0 || contractPayments.length > 0) && (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
-            <Popconfirm
-              title="Подтвердить оплату остатка?"
-              description={`Сумма остатка: ${formatMoney(parseFloat(String(c.amount || 0)) - parseFloat(String(c.paid_amount || 0)))} будет помечена как оплаченная.`}
-              okText="Да, оплачено"
-              cancelText="Отмена"
-              onConfirm={() => handleConfirmRemainder(c.id)}
-            >
-              <Button type="primary" icon={<DollarOutlined />} size="large" block>
-                Подтвердить оплату остатка
-              </Button>
-            </Popconfirm>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>💳 Платежи</span>
+              {isAdmin && remaining > 0 && (
+                <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setShowPaymentForm(!showPaymentForm)}>
+                  {showPaymentForm ? 'Отмена' : 'Внести доплату'}
+                </Button>
+              )}
+            </div>
+
+            {/* Форма добавления доплаты */}
+            {showPaymentForm && isAdmin && (
+              <div style={{ background: 'var(--color-bg-alt, #f9fafb)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ flex: '1 1 120px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Сумма *</div>
+                  <InputNumber
+                    value={paymentFormData.amount}
+                    onChange={(v) => setPaymentFormData(p => ({ ...p, amount: v }))}
+                    min={1} max={parseFloat(String(c.amount || 0))}
+                    style={{ width: '100%' }}
+                    placeholder="10 000"
+                    formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''}
+                    parser={(v) => v ? Number(v.replace(/\s/g, '')) : 0}
+                  />
+                </div>
+                <div style={{ flex: '1 1 120px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Дата</div>
+                  <DatePicker value={paymentFormData.date} onChange={(d) => d && setPaymentFormData(p => ({ ...p, date: d }))} style={{ width: '100%' }} />
+                </div>
+                <div style={{ flex: '1 1 100px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Способ</div>
+                  <Select value={paymentFormData.method} onChange={(v) => setPaymentFormData(p => ({ ...p, method: v }))} style={{ width: '100%' }}
+                    options={[{ value: 'cash', label: 'Наличные' }, { value: 'noncash', label: 'Безналичный' }]} />
+                </div>
+                <div style={{ flex: '2 1 160px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Комментарий</div>
+                  <Input value={paymentFormData.comment} onChange={(e) => setPaymentFormData(p => ({ ...p, comment: e.target.value }))} placeholder="Необязательно" />
+                </div>
+                <Button type="primary" loading={paymentSubmitting} onClick={() => handleAddPayment(c.id)} style={{ height: 32 }}>
+                  Сохранить
+                </Button>
+              </div>
+            )}
+
+            {/* Список платежей */}
+            {paymentsLoading ? <Spin size="small" /> : (
+              contractPayments.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {contractPayments.map((p) => (
+                    <div key={p.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                      borderRadius: 8, border: '1px solid var(--color-border)',
+                      background: p.confirmed ? 'var(--color-bg-alt, #f0fdf4)' : 'var(--color-bg-alt, #fffbeb)',
+                    }}>
+                      <span style={{ fontSize: 16 }}>{p.confirmed ? '✅' : '⏳'}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                          +{formatMoney(p.amount)}
+                          <Tag color={p.payment_method === 'cash' ? 'green' : 'blue'} style={{ marginLeft: 6, fontSize: 11 }}>
+                            {p.payment_method === 'cash' ? 'Нал' : 'Безнал'}
+                          </Tag>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
+                          {new Date(p.payment_date).toLocaleDateString('ru-RU')} · {p.created_by_name}
+                          {p.comment && <> · {p.comment}</>}
+                          {p.confirmed && p.confirmed_by_name && (
+                            <> · Подтвердил: {p.confirmed_by_name}</>
+                          )}
+                        </div>
+                      </div>
+                      {!p.confirmed && isManagementRole && (
+                        <Popconfirm title={`Подтвердить платёж ${formatMoney(p.amount)}?`} okText="Да" cancelText="Отмена"
+                          onConfirm={() => handleConfirmPayment(c.id, p.id)}>
+                          <Button size="small" type="primary">Подтвердить</Button>
+                        </Popconfirm>
+                      )}
+                      {!p.confirmed && (isAdmin || isManagementRole) && (
+                        <Popconfirm title="Удалить платёж?" okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }}
+                          onConfirm={() => handleDeletePayment(c.id, p.id)}>
+                          <Button size="small" danger icon={<DeleteOutlined />} />
+                        </Popconfirm>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--color-muted)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: 8 }}>
+                  Доплат ещё не вносилось
+                </div>
+              )
+            )}
           </div>
         )}
 
@@ -2272,6 +2420,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const c = detailContract;
     const isAlreadyTerminated = c.status === 'terminated';
 
+    const isManagementForEdit = ['director', 'manager', 'okk'].includes(user?.role || '');
+
     if (isAlreadyTerminated) {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -2280,22 +2430,102 @@ const Clients: React.FC<ClientsProps> = () => {
             title="Договор расторгнут"
             subTitle={c.terminated_at ? `Дата расторжения: ${new Date(c.terminated_at).toLocaleDateString('ru-RU')}` : undefined}
           />
-          <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
-            {c.termination_reason && (
-              <Descriptions.Item label="Причина">{c.termination_reason}</Descriptions.Item>
-            )}
-            <Descriptions.Item label="Сумма возврата">
-              <span style={{ fontWeight: 600, color: '#e74c3c' }}>{formatMoney(c.refund_amount)}</span>
-            </Descriptions.Item>
-            {c.refund_deadline && (
-              <Descriptions.Item label="Срок возврата">{new Date(c.refund_deadline).toLocaleDateString('ru-RU')}</Descriptions.Item>
-            )}
-            <Descriptions.Item label="Статус возврата">
-              {c.refund_confirmed
-                ? <Tag color="green">Деньги возвращены{c.refund_confirmed_by_name ? ` (${c.refund_confirmed_by_name})` : ''}</Tag>
-                : <Tag color="red">Ожидает возврата</Tag>}
-            </Descriptions.Item>
-          </Descriptions>
+
+          {/* Режим редактирования для руководства */}
+          {editingTermination && isManagementForEdit ? (
+            <InfoBlock>
+              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <EditOutlined />
+                Редактирование данных расторжения
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата расторжения</div>
+                  <DatePicker
+                    value={editTermForm.terminated_at}
+                    onChange={(d) => setEditTermForm((f) => ({ ...f, terminated_at: d || dayjs() }))}
+                    format="DD.MM.YYYY"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Сумма возврата клиенту</div>
+                  <InputNumber
+                    value={editTermForm.refund_amount}
+                    onChange={(v) => setEditTermForm((f) => ({ ...f, refund_amount: v || 0 }))}
+                    min={0}
+                    style={{ width: '100%' }}
+                    formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                    addonAfter="₽"
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Срок возврата</div>
+                  <DatePicker
+                    value={editTermForm.refund_deadline}
+                    onChange={(d) => setEditTermForm((f) => ({ ...f, refund_deadline: d }))}
+                    format="DD.MM.YYYY"
+                    style={{ width: '100%' }}
+                    placeholder="Выберите дату"
+                  />
+                </div>
+                <div>
+                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Причина расторжения</div>
+                  <Input.TextArea
+                    value={editTermForm.termination_reason}
+                    onChange={(e) => setEditTermForm((f) => ({ ...f, termination_reason: e.target.value }))}
+                    rows={3}
+                    placeholder="Укажите причину расторжения"
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <Button type="primary" loading={savingTermination} onClick={handleSaveTerminationData}>
+                  Сохранить
+                </Button>
+                <Button onClick={() => setEditingTermination(false)}>
+                  Отмена
+                </Button>
+              </div>
+            </InfoBlock>
+          ) : (
+            <>
+              <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
+                {c.termination_reason && (
+                  <Descriptions.Item label="Причина">{c.termination_reason}</Descriptions.Item>
+                )}
+                <Descriptions.Item label="Сумма возврата">
+                  <span style={{ fontWeight: 600, color: '#e74c3c' }}>{formatMoney(c.refund_amount)}</span>
+                </Descriptions.Item>
+                {c.refund_deadline && (
+                  <Descriptions.Item label="Срок возврата">{new Date(c.refund_deadline).toLocaleDateString('ru-RU')}</Descriptions.Item>
+                )}
+                <Descriptions.Item label="Статус возврата">
+                  {c.refund_confirmed
+                    ? <Tag color="green">Деньги возвращены{c.refund_confirmed_by_name ? ` (${c.refund_confirmed_by_name})` : ''}</Tag>
+                    : <Tag color="red">Ожидает возврата</Tag>}
+                </Descriptions.Item>
+              </Descriptions>
+
+              {isManagementForEdit && (
+                <Button
+                  type="dashed"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setEditTermForm({
+                      terminated_at: c.terminated_at ? dayjs(c.terminated_at) : dayjs(),
+                      termination_reason: c.termination_reason || '',
+                      refund_amount: parseFloat(String(c.refund_amount || 0)),
+                      refund_deadline: c.refund_deadline ? dayjs(c.refund_deadline) : null,
+                    });
+                    setEditingTermination(true);
+                  }}
+                >
+                  Редактировать данные расторжения
+                </Button>
+              )}
+            </>
+          )}
 
           {!c.refund_confirmed && canConfirmRefund && parseFloat(String(c.refund_amount || 0)) > 0 && (
             <Popconfirm
@@ -2667,7 +2897,6 @@ const Clients: React.FC<ClientsProps> = () => {
                 rowKey="key"
                 dataSource={filtered}
                 columns={dealType === 'docs' ? docsColumns : courtColumns}
-                rowClassName={(r) => { const i = getDeadlineInfo(r.contract.expert_deadline); return i ? `deadline-row deadline-${i.key}` : ''; }}
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
                 locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}

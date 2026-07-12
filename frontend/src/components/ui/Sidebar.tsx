@@ -19,12 +19,10 @@ import {
   MessageSquare,
   Briefcase,
   ChevronDown,
-  Sun,
-  Moon,
+
 } from 'lucide-react';
 import './Sidebar.css';
 import apiClient from '../../shared/api/apiClient';
-import { useThemeMode } from '../../shared/ui/AntThemeProvider';
 
 const ICON_SIZE = 20;
 const ICON_STROKE = 1.5;
@@ -65,7 +63,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   user
 }) => {
   const navigate = useNavigate();
-  const { mode, toggle } = useThemeMode();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const [offices, setOffices] = useState<OfficeItem[]>([]);
@@ -366,23 +363,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="sidebar-footer">
-        <button
-          className="sidebar-item sidebar-theme-toggle"
-          onClick={toggle}
-          title={collapsed ? (mode === 'dark' ? 'Светлая тема' : 'Тёмная тема') : ''}
-          aria-label={mode === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-        >
-          <span className="sidebar-icon">
-            {mode === 'dark'
-              ? <Sun size={ICON_SIZE} strokeWidth={ICON_STROKE} />
-              : <Moon size={ICON_SIZE} strokeWidth={ICON_STROKE} />}
-          </span>
-          {!collapsed && (
-            <span className="sidebar-label">
-              {mode === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-            </span>
-          )}
-        </button>
+
 
         <div className="sidebar-user-menu" ref={userMenuRef}>
           <button
