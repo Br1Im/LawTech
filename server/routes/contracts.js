@@ -185,13 +185,11 @@ router.patch('/:id/docs-status', async (req, res) => {
     const allowed = await checkOfficeAccess(user, c.office_id);
     if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещен' });
     const role = String(user.role || '').toLowerCase();
-    const canEdit =
-      ['director', 'manager', 'okk', 'lawyer'].includes(role) ||
-      (role === 'expert' && Number(c.expert_id) === Number(user.id)) ||
-      Number(c.id_employee) === Number(user.id) ||
-      Number(c.registered_by) === Number(user.id);
-    if (!canEdit) return res.status(403).json({ success: false, message: 'Нет прав на изменение статуса' });
+    // Только назначенный эксперт меняет статус документов.
+    const canEdit = (role === 'expert' && Number(c.expert_id) === Number(user.id));
+    if (!canEdit) return res.status(403).json({ success: false, message: 'Статус документов может менять только эксперт' });
     await db.query('UPDATE contracts SET docs_status = ? WHERE id = ?', [next, contractId]);
+    if (next === 'ready') { try { require('../services/workflowEngine').handleEvent('docs_ready', Number(contractId), user.id); } catch (e) { console.error('wf docs_ready:', e.message); } }
     res.json({ success: true, id: Number(contractId), docs_status: next });
   } catch (error) {
     console.error('Error updating docs_status:', error);

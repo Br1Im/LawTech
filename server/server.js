@@ -294,6 +294,7 @@ server.listen(PORT, '0.0.0.0', async () => {
   }
   
   try { require('./services/deadlineNotifications').startScheduler(); } catch (e) { console.error('deadline scheduler:', e.message); }
+  try { require('./services/workflowEngine').startScheduler(); } catch (e) { console.error('workflow scheduler:', e.message); }
   console.log('✅ Server is ready to accept requests');
 });
 

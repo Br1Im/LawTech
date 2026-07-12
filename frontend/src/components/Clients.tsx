@@ -1029,6 +1029,11 @@ const Clients: React.FC<ClientsProps> = () => {
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         const ready = r.contract.docs_status === 'ready';
+        if (user?.role !== 'expert') {
+          return ready
+            ? <span style={{ padding: '2px 10px', borderRadius: 999, background: '#F0FDF4', color: '#059669', fontSize: 12, fontWeight: 500 }}>Готовы</span>
+            : <span style={{ padding: '2px 10px', borderRadius: 999, background: '#FFF7ED', color: '#D97706', fontSize: 12, fontWeight: 500 }}>Ожидание</span>;
+        }
         return (
           <Select
             size="small"
