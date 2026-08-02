@@ -63,7 +63,38 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.mobile-sidebar-logo .logo-emblem {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--brand-blue, var(--color-primary));
+  color: #fff;
+  font: 700 11px/1 var(--font-sans);
+  letter-spacing: .06em;
+  box-shadow: 0 5px 12px rgba(67, 56, 202, .22);
+}
+.mobile-sidebar-logo .logo-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1;
+}
+.mobile-sidebar-logo .logo-text {
+  color: var(--brand-ink, var(--color-text));
+  font: 700 16px/1 var(--font-display);
+  letter-spacing: .16em;
+}
+.mobile-sidebar-logo .logo-dot { color: var(--brand-blue, var(--color-primary)); }
+.mobile-sidebar-logo .logo-subtitle {
+  margin-top: 5px;
+  color: var(--color-text-secondary);
+  font: 600 7px/1 var(--font-sans);
+  letter-spacing: .22em;
 }
 
 .mobile-sidebar-close {

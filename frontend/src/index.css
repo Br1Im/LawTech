@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Onest:wght@300;400;500;600;700;800&display=swap');
 
 :root {
   /* Backgrounds */
-  --color-bg:          #FFFFFF;
-  --color-bg-alt:      #FAFAFA;
+  --color-bg:          #F8F9FC;
+  --color-bg-alt:      #F4F6FB;
   --color-bg-elevated: #FFFFFF;
   --color-bg-hover:    rgba(30, 64, 175, 0.04);
   --color-table-head-bg: #FAFAFA;
@@ -24,20 +24,20 @@
   --color-border-strong: #D1D5DB;
 
   /* Brand */
-  --color-primary:       #1E40AF;
-  --color-primary-light: #EFF6FF;
+  --color-primary:       #4338CA;
+  --color-primary-light: #EEF2FF;
 
   /* Accent: muted gold — ONLY for logo and minimal branding */
-  --color-accent:           #1E40AF;
-  --color-accent-hover:     #1E3A8A;
-  --color-accent-dark:      #1E3A8A;
-  --color-accent-light:     rgba(30, 64, 175, 0.06);
-  --color-accent-secondary: #DBEAFE;
+  --color-accent:           #4338CA;
+  --color-accent-hover:     #3730A3;
+  --color-accent-dark:      #312E81;
+  --color-accent-light:     rgba(67, 56, 202, 0.08);
+  --color-accent-secondary: #E0E7FF;
 
   /* Gradients — no gradients on functional elements */
-  --gradient-gold:       #1E40AF;
-  --gradient-gold-soft:  #1E40AF;
-  --gradient-primary:    #1E40AF;
+  --gradient-gold:       #4338CA;
+  --gradient-gold-soft:  #4338CA;
+  --gradient-primary:    #4338CA;
   --gradient-hero:       none;
 
   /* Status */
@@ -79,8 +79,14 @@
   --transition: all 0.15s var(--ease-out);
 
   /* Fonts */
-  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans:    'Onest', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-dashboard: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: Georgia, 'Times New Roman', serif;
+
+  /* Law.Tech brand tokens shared by the CRM shell and landing language. */
+  --brand-ink: #1E2357;
+  --brand-blue: #4338CA;
+  --brand-blue-soft: #EEF2FF;
 }
 
 :root[data-theme='dark'] {

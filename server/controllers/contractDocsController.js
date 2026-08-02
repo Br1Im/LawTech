@@ -11,6 +11,7 @@ const fs = require('fs');
 const multer = require('multer');
 const db = require('../db');
 const config = require('../config');
+const { decodeUploadedFilename } = require('../utils/filename');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -34,6 +35,7 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename(_req, file, cb) {
+    file.originalname = decodeUploadedFilename(file.originalname);
     const safe = file.originalname.replace(/[^\p{L}\p{N}._-]+/gu, '_');
     cb(null, `${Date.now()}-${safe}`);
   },
@@ -43,6 +45,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
   fileFilter(_req, file, cb) {
+    file.originalname = decodeUploadedFilename(file.originalname);
     const ext = path.extname(file.originalname).toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
       return cb(new Error('Только файлы .doc или .docx'));

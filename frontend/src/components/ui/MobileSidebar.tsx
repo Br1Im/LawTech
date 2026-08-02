@@ -95,6 +95,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       expenses: { key: 'Баланс', icon: <FaRubleSign />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <FaUserTie />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <FaPhoneAlt />, label: 'Колл-центр' },
+      connections: { key: 'Подключения', icon: <FaPhoneAlt />, label: 'Подключения' },
       materials: { key: 'Материалы', icon: <FaBox />, label: 'Материалы' },
       ai: { key: 'AI инструменты', icon: <FaRobot />, label: 'AI инструменты' },
       officeChat: { key: 'Чат', icon: <FaComments />, label: 'Чат' },
@@ -110,9 +111,17 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
         return [allItems.employees, allItems.clients];
       case 'lawyer':
         return [allItems.office, allItems.clients];
+      case 'administrator':
       case 'admin':
-        return [allItems.clients, allItems.revenue, allItems.cashRegister, allItems.reception, allItems.appointments];
+        return [allItems.appointments, allItems.revenue, allItems.cashRegister, allItems.clients, allItems.reception];
       case 'cc_manager':
+        return [
+          allItems.office,
+          allItems.callCenter,
+          allItems.connections,
+          allItems.employees,
+          allItems.reception,
+        ];
       case 'cc_operator':
         // Колл-центр: Офис, Колл-центр, Сотрудники, Чат
         return [
@@ -187,7 +196,9 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
       <div className={`mobile-sidebar ${isOpen ? 'open' : ''}`}>
         <div className="mobile-sidebar-header">
           <div className="mobile-sidebar-logo">
-            <span className="logo-text">LawTech CRM</span>
+            <span className="logo-lockup">
+              <span className="logo-text">Law<span className="logo-dot">.</span>Tech</span>
+            </span>
           </div>
           <button className="mobile-sidebar-close" onClick={onClose} aria-label="Закрыть меню">
             ✕

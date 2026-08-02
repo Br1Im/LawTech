@@ -25,9 +25,30 @@ interface Props {
   appointmentData?: AppointmentInfo | null;
 }
 
+type PaymentMethod = 'cash' | 'noncash' | 'bank' | 'sbp';
+interface PaymentRow {
+  id: string;
+  payment_method: PaymentMethod;
+  amount: number | null;
+}
+
+const PAYMENT_OPTIONS = [
+  { value: 'cash', label: 'Наличные' },
+  { value: 'noncash', label: 'Банковская карта (терминал)' },
+  { value: 'bank', label: 'Банковский перевод' },
+  { value: 'sbp', label: 'СБП' },
+];
+
+const makePaymentRow = (): PaymentRow => ({
+  id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  payment_method: 'cash',
+  amount: null,
+});
+
 const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appointmentData }) => {
   const { message } = App.useApp();
   const [saving, setSaving] = useState(false);
+  const [payments, setPayments] = useState<PaymentRow[]>([makePaymentRow()]);
 
   const [form, setForm] = useState({
     lastName: '',
@@ -40,10 +61,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
     title: '',
     contractType: 'docs' as 'docs' | 'court_rep',
     amount: null as number | null,
-    paidAmount: null as number | null,
-    paymentMethod: 'cash' as 'cash' | 'noncash' | 'bank',
     additionalPaymentDate: null as dayjs.Dayjs | null,
-    additionalPaymentAmount: null as number | null,
     signedById: null as number | null,
     isJoint: false,
     secondLawyerId: null as number | null,
@@ -110,10 +128,11 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         clientPhone: presetPhone,
         onBehalfOf: '',
         contractDate: today, contractNumber: '', title: presetTitle,
-        contractType: 'docs', signedById: presetSigner, amount: null, paidAmount: null,
-        paymentMethod: 'cash', additionalPaymentDate: null, additionalPaymentAmount: null,
+        contractType: 'docs', signedById: presetSigner, amount: null,
+        additionalPaymentDate: null,
         isJoint: !!presetSecond, secondLawyerId: presetSecond,
       });
+      setPayments([makePaymentRow()]);
       generateNumber(today);
     }
     if (!open) {
@@ -121,17 +140,28 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
     }
   }, [open, loadSigners, generateNumber, appointmentData]);
 
-  const needAdditionalPayment = form.amount !== null && form.paidAmount !== null
-    && form.amount > 0 && form.paidAmount > 0 && form.paidAmount < form.amount;
+  const totalPaid = Math.round(
+    payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) * 100
+  ) / 100;
+  const remaining = Math.max(0, Number(form.amount || 0) - totalPaid);
+  const needAdditionalPayment = Number(form.amount || 0) > 0 && remaining > 0;
 
   const handleSave = async () => {
     if (!form.lastName.trim()) { message.warning('Укажите фамилию клиента'); return; }
     if (!form.firstName.trim()) { message.warning('Укажите имя клиента'); return; }
     if (!form.signedById) { message.warning('Юрист не назначен. Назначение выполняет Директор / Менеджер / Руководитель во вкладке «Приёмы».'); return; }
     if (!form.amount || form.amount <= 0) { message.warning('Укажите сумму договора'); return; }
-    if (!form.paidAmount && form.paidAmount !== 0) { message.warning('Укажите сумму внесения'); return; }
     if (form.isJoint && !form.secondLawyerId) { message.warning('Укажите второго юриста'); return; }
     if (form.isJoint && form.secondLawyerId === form.signedById) { message.warning('Второй юрист должен отличаться от первого'); return; }
+    const filledPayments = payments.filter((payment) => payment.amount !== null);
+    if (filledPayments.some((payment) => !payment.amount || payment.amount <= 0)) {
+      message.warning('Сумма каждого платежа должна быть больше 0.');
+      return;
+    }
+    if (totalPaid > Number(form.amount)) {
+      message.error('Общая сумма платежей превышает сумму договора.');
+      return;
+    }
 
     const clientName = [form.lastName.trim(), form.firstName.trim(), form.middleName.trim()].filter(Boolean).join(' ');
 
@@ -150,16 +180,19 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         title: form.title || undefined,
         contract_type: form.contractType,
         amount: form.amount,
-        paid_amount: form.paidAmount,
-        payment_method: form.paymentMethod,
+        payments: filledPayments.map((payment) => ({
+          amount: payment.amount,
+          payment_method: payment.payment_method,
+          payment_date: form.contractDate.format('YYYY-MM-DD'),
+        })),
         on_behalf_of: form.onBehalfOf || undefined,
         additional_payment_date: needAdditionalPayment && form.additionalPaymentDate
           ? form.additionalPaymentDate.format('YYYY-MM-DD') : undefined,
-        additional_payment_amount: needAdditionalPayment ? form.additionalPaymentAmount : undefined,
+        additional_payment_amount: needAdditionalPayment ? remaining : undefined,
         status: 'registered',
         appointment_id: appointmentData?.id || undefined,
       });
-      message.success('Договор зарегистрирован, запись в кассу создана');
+      message.success('Договор зарегистрирован, платежи учтены в балансе');
       onSuccess();
       onClose();
     } catch (e: unknown) {
@@ -179,7 +212,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
       open={open}
       onCancel={onClose}
       destroyOnClose
-      width={560}
+      width={720}
       footer={[
         <Button key="cancel" onClick={onClose}>Отмена</Button>,
         <Button key="save" type="primary" loading={saving} onClick={handleSave}>
@@ -309,70 +342,144 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
 
         <Divider style={{ margin: '4px 0' }} />
 
-        <Space wrap>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Сумма договора *</div>
-            <InputNumber
-              value={form.amount}
-              onChange={(v) => set('amount', v)}
-              min={0}
-              style={{ width: 180 }}
-              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-              addonAfter="₽"
-            />
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Сумма внесения *</div>
-            <InputNumber
-              value={form.paidAmount}
-              onChange={(v) => set('paidAmount', v)}
-              min={0}
-              style={{ width: 180 }}
-              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-              addonAfter="₽"
-            />
-          </div>
-        </Space>
-
         <div>
-          <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Способ оплаты</div>
-          <Radio.Group
-            value={form.paymentMethod}
-            onChange={(e) => set('paymentMethod', e.target.value)}
+          <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Сумма договора *</div>
+          <InputNumber
+            value={form.amount}
+            onChange={(v) => set('amount', v)}
+            min={0}
+            style={{ width: 220 }}
+            formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+            addonAfter="₽"
+          />
+        </div>
+
+        <div style={{
+          padding: 14,
+          border: '1px solid var(--color-border)',
+          borderRadius: 12,
+          background: 'var(--color-bg-alt)',
+        }}>
+          <div style={{ fontWeight: 650, fontSize: 14, marginBottom: 10 }}>Оплата договора</div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.5fr) minmax(120px, 1fr) 36px',
+            gap: 8,
+            marginBottom: 6,
+            fontSize: 11,
+            color: 'var(--color-muted)',
+            textTransform: 'uppercase',
+          }}>
+            <span>Способ оплаты</span>
+            <span>Сумма платежа</span>
+            <span />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {payments.map((payment) => (
+              <div
+                key={payment.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1.5fr) minmax(120px, 1fr) 36px',
+                  gap: 8,
+                  alignItems: 'center',
+                }}
+              >
+                <Select
+                  value={payment.payment_method}
+                  options={PAYMENT_OPTIONS}
+                  onChange={(value: PaymentMethod) => {
+                    setPayments((rows) => rows.map((row) => (
+                      row.id === payment.id ? { ...row, payment_method: value } : row
+                    )));
+                  }}
+                />
+                <InputNumber
+                  value={payment.amount}
+                  onChange={(value) => {
+                    setPayments((rows) => rows.map((row) => (
+                      row.id === payment.id ? { ...row, amount: value } : row
+                    )));
+                  }}
+                  min={0}
+                  style={{ width: '100%' }}
+                  formatter={(v) => `${v ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
+                  addonAfter="₽"
+                />
+                <Button
+                  type="text"
+                  danger
+                  aria-label="Удалить платёж"
+                  onClick={() => setPayments((rows) => rows.filter((row) => row.id !== payment.id))}
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            type="dashed"
+            onClick={() => setPayments((rows) => [...rows, makePaymentRow()])}
+            style={{ marginTop: 10 }}
           >
-            <Radio.Button value="cash">Наличные</Radio.Button>
-            <Radio.Button value="noncash">Безнал</Radio.Button>
-            <Radio.Button value="bank">Расчётный счёт</Radio.Button>
-          </Radio.Group>
+            + Добавить платёж
+          </Button>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 8,
+            marginTop: 14,
+          }}>
+            {[
+              ['Общая сумма договора', Number(form.amount || 0)],
+              ['Оплачено', totalPaid],
+              ['Остаток к оплате', remaining],
+            ].map(([label, value]) => (
+              <div key={String(label)} style={{
+                padding: '10px 12px',
+                borderRadius: 9,
+                background: 'var(--color-bg-elevated)',
+                border: '1px solid var(--color-border)',
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 3 }}>{label}</div>
+                <strong style={{ fontSize: 14 }}>
+                  {new Intl.NumberFormat('ru-RU', {
+                    style: 'currency',
+                    currency: 'RUB',
+                    maximumFractionDigits: 0,
+                  }).format(Number(value))}
+                </strong>
+              </div>
+            ))}
+          </div>
+
+          {totalPaid > Number(form.amount || 0) && (
+            <div style={{ color: '#dc2626', fontSize: 12, marginTop: 10 }}>
+              Общая сумма платежей превышает сумму договора.
+            </div>
+          )}
         </div>
 
         {needAdditionalPayment && (
           <div style={{ background: 'rgba(217,119,6,0.04)', padding: 12, borderRadius: 8, border: '1px solid rgba(217,119,6,0.15)' }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: '#D97706' }}>
-              Доплата: {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format((form.amount || 0) - (form.paidAmount || 0))}
+              Остаток к оплате: {new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(remaining)}
             </div>
-            <Space wrap>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Дата доплаты</div>
-                <DatePicker
-                  value={form.additionalPaymentDate}
-                  onChange={(d) => set('additionalPaymentDate', d)}
-                  format="DD.MM.YYYY"
-                  style={{ width: 150 }}
-                />
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>
+                Плановая дата следующей оплаты
               </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Сумма доплаты</div>
-                <InputNumber
-                  value={form.additionalPaymentAmount ?? ((form.amount || 0) - (form.paidAmount || 0))}
-                  onChange={(v) => set('additionalPaymentAmount', v)}
-                  min={0}
-                  style={{ width: 160 }}
-                  formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                  addonAfter="₽"
-                />
-              </div>
-            </Space>
+              <DatePicker
+                value={form.additionalPaymentDate}
+                onChange={(d) => set('additionalPaymentDate', d)}
+                format="DD.MM.YYYY"
+                style={{ width: 190 }}
+                placeholder="Не указана"
+              />
+            </div>
           </div>
         )}
       </div>

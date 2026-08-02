@@ -37,6 +37,16 @@ const officeController = {
       if (user && user.role === 'director') {
         const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ?', [user.id]);
         officeIds = offices.map(o => o.id);
+      } else if (user && ['cc_manager', 'cc_operator'].includes(user.role)) {
+        const [connected] = await db.query(
+          `SELECT o.*
+             FROM call_center_members ccm
+             JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
+             JOIN offices o ON o.id = occ.office_id
+            WHERE ccm.user_id = ? ORDER BY o.name`,
+          [user.id]
+        );
+        offices = connected;
       } else if (user && user.office_id) {
         officeIds = [user.office_id];
       }
@@ -107,6 +117,18 @@ const officeController = {
 
       const [dbUser] = await db.query('SELECT role FROM users WHERE id = ?', [user.id]);
       const role = dbUser[0]?.role || user.role;
+
+      if (['cc_manager', 'cc_operator'].includes(role)) {
+        const [offices] = await db.query(
+          `SELECT o.id, o.name, o.address
+             FROM call_center_members ccm
+             JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
+             JOIN offices o ON o.id = occ.office_id
+            WHERE ccm.user_id = ? ORDER BY o.name`,
+          [user.id]
+        );
+        return res.json({ success: true, data: offices });
+      }
 
       if (role !== 'director') {
         // Для не-директоров возвращаем их единственный офис

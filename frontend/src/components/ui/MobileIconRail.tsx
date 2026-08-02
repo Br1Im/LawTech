@@ -11,6 +11,7 @@ const allItems: Record<string, NavItem> = {
   office: { key: 'Офис', icon: <Briefcase size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Офис' },
   clients: { key: 'Клиенты', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Клиенты' },
   appointments: { key: 'Записи', icon: <Calendar size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Записи' },
+  revenue: { key: 'Приходы', icon: <BarChart3 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Приходы' },
   cases: { key: 'Мои дела', icon: <ClipboardList size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Дела' },
   employees: { key: 'Сотрудники', icon: <Users size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Кадры' },
   salary: { key: 'Зарплата', icon: <BarChart3 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'ЗП' },
@@ -26,13 +27,15 @@ function itemsByRole(role?: string): NavItem[] {
   const r = (role || '').toLowerCase();
   const A = allItems;
   switch (r) {
-    case 'admin': return [A.office, A.clients, A.appointments, A.documents, A.cashRegister, A.chat];
+    case 'administrator':
+    case 'admin': return [A.appointments, A.revenue, A.cashRegister, A.clients, A.chat];
     case 'director': case 'manager': return [A.office, A.clients, A.appointments, A.employees, A.salary, A.expenses, A.chat];
     case 'okk': return [A.office, A.clients, A.appointments, A.employees, A.chat];
     case 'lawyer': return [A.office, A.clients, A.acts, A.salary];
     case 'expert': return [A.clients, A.documents];
     case 'representative': return [A.cases, A.acts];
-    case 'cc_operator': case 'cc_manager': return [A.callcenter, A.appointments, A.chat];
+    case 'cc_manager': return [A.callcenter, { key: 'Подключения', icon: <PhoneCall size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Связи' }, A.appointments, A.chat];
+    case 'cc_operator': return [A.callcenter, A.appointments, A.chat];
     case 'reception': return [A.appointments, A.clients, A.chat];
     default: return [A.office, A.clients, A.chat];
   }

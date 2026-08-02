@@ -35,6 +35,40 @@ ALL_TARGETS.forEach(s => { STATUS_TRANSITIONS[s] = ALL_TARGETS.filter(t => t !==
 const ACTIVE_STATUSES = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED'];  // BOOKED excluded — lead processed
 const OPERATOR_ROLES = ['cc_operator', 'cc_manager'];
 
+/**
+ * Resolve a source from the unified directory. Legacy integrations may still
+ * send a text source, so we keep the text column and connect it to source_id.
+ */
+const resolveAppointmentSource = async (connection, sourceId, sourceName, { create = false } = {}) => {
+  const id = Number(sourceId || 0);
+  const name = String(sourceName || '').replace(/\s+/g, ' ').trim();
+  let rows = [];
+  if (id) {
+    [rows] = await connection.query(
+      'SELECT id, name, is_active FROM appointment_sources WHERE id = ? LIMIT 1',
+      [id]
+    );
+  } else if (name) {
+    [rows] = await connection.query(
+      'SELECT id, name, is_active FROM appointment_sources WHERE name = ? LIMIT 1',
+      [name]
+    );
+  }
+  if (!rows.length && create && name) {
+    await connection.query(
+      'INSERT IGNORE INTO appointment_sources (name) VALUES (?)',
+      [name.slice(0, 100)]
+    );
+    [rows] = await connection.query(
+      'SELECT id, name, is_active FROM appointment_sources WHERE name = ? LIMIT 1',
+      [name.slice(0, 100)]
+    );
+  }
+  if (!rows.length) return null;
+  if (!rows[0].is_active && !id) return null;
+  return rows[0];
+};
+
 const normalizePhone = (value = '') => value.replace(/\D/g, '');
 
 const clampScore = (score) => Math.max(0, Math.min(100, Math.round(score)));
@@ -359,6 +393,8 @@ const callCenterController = {
         office_id,
         officeId,
         source,
+        source_id,
+        sourceId,
         external_id,
         externalId,
         name,
@@ -379,6 +415,15 @@ const callCenterController = {
       }
 
       await connection.beginTransaction();
+
+      // API integrations keep working with their text source, while new
+      // records are connected to the shared directory automatically.
+      const sourceRecord = await resolveAppointmentSource(
+        connection,
+        source_id || sourceId,
+        source,
+        { create: true }
+      );
 
       const duplicateLead = await findDuplicateLead(connection, {
         officeId: targetOfficeId,
@@ -436,11 +481,12 @@ const callCenterController = {
       const score = computeLeadScore({ source, description, created_at });
       const [result] = await connection.query(
         `INSERT INTO call_center_leads (
-          office_id, source, external_id, name, phone, email, description, status, score, metadata, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+          office_id, source, source_id, external_id, name, phone, email, description, status, score, metadata, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'NEW', ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
         [
           targetOfficeId,
           source,
+          sourceRecord?.id || null,
           external_id || externalId || null,
           name,
           phone || null,
@@ -1111,14 +1157,18 @@ const callCenterController = {
       // Get operators
       const [operators] = await db.query(
         `SELECT u.id, CONCAT(u.first_name, ' ', u.last_name) AS name, u.email, u.role,
-                u.office_id, o.name AS office_name,
+                ? AS office_id, o.name AS office_name,
                 COALESCE(s.is_online, 0) AS is_online
-         FROM users u
-         LEFT JOIN call_center_operator_status s ON s.user_id = u.id AND s.office_id = u.office_id
-         LEFT JOIN offices o ON o.id = u.office_id
-         WHERE u.office_id = ? AND u.role IN ('cc_manager', 'cc_operator') AND u.is_active = 1
+         FROM office_call_centers occ
+         JOIN call_center_members member ON member.call_center_id = occ.call_center_id
+         JOIN users u ON u.id = member.user_id
+         LEFT JOIN call_center_operator_status s ON s.user_id = u.id AND s.office_id = ?
+         LEFT JOIN offices o ON o.id = ?
+         WHERE occ.office_id = ? AND occ.is_active = 1
+           AND u.role IN ('cc_manager', 'cc_operator')
+           AND u.is_active = 1 AND u.deleted_at IS NULL
          ORDER BY u.last_name, u.first_name`,
-        [officeId]
+        [officeId, officeId, officeId, officeId]
       );
 
       const stats = [];
@@ -1345,10 +1395,8 @@ const callCenterController = {
       let effectiveOfficeId = req.user.office_id;
       if (target_office_id && Number(target_office_id) !== req.user.office_id) {
         const targetId = Number(target_office_id);
-        // Проверяем что целевой офис принадлежит тому же владельцу
-        const [myOff] = await connection.query('SELECT owner_id FROM offices WHERE id = ?', [req.user.office_id]);
-        const [targetOff] = await connection.query('SELECT owner_id FROM offices WHERE id = ?', [targetId]);
-        if (!myOff.length || !targetOff.length || myOff[0].owner_id !== targetOff[0].owner_id) {
+        const allowed = await checkOfficeAccess(req.user, targetId);
+        if (!allowed) {
           connection.release();
           return res.status(403).json({ success: false, message: 'Нет доступа к выбранному офису' });
         }
@@ -1381,14 +1429,15 @@ const callCenterController = {
 
       // Создаём запись (appointment)
       const [appointmentResult] = await connection.query(
-        `INSERT INTO appointments (office_id, lead_id, client_name, client_phone, source, appointment_date, appointment_time, comment, operator_id, operator_name, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
+        `INSERT INTO appointments (office_id, lead_id, client_name, client_phone, source, source_id, appointment_date, appointment_time, comment, operator_id, operator_name, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
         [
           effectiveOfficeId,
           lead.id,
           client_name.trim(),
           lead.phone || '',
           lead.source || null,
+          lead.source_id || null,
           appointment_date,
           appointment_time,
           appointmentComment,
@@ -1488,57 +1537,70 @@ const callCenterController = {
   // --- Создание записи напрямую (без лида) ---
   async createDirectAppointment(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
-
+    const connection = await db.getClient();
     try {
-      const { client_name, client_phone, appointment_date, appointment_time, comment, source, assigned_lawyer_id } = req.body;
+      const { client_name, client_phone, appointment_date, appointment_time,
+        comment, source, source_id, assigned_lawyer_id } = req.body;
       if (!client_name || !client_name.trim()) {
-        return res.status(400).json({ success: false, message: 'ФИО клиента обязательно' });
+        return res.status(400).json({ success: false, message: 'Имя клиента обязательно' });
       }
-      if (!appointment_date) {
-        return res.status(400).json({ success: false, message: 'Дата обязательна' });
+      if (!appointment_date || !appointment_time) {
+        return res.status(400).json({ success: false, message: 'Дата и время обязательны' });
       }
-      if (!appointment_time) {
-        return res.status(400).json({ success: false, message: 'Время обязательно' });
+      const sourceRecord = await resolveAppointmentSource(connection, source_id, source);
+      if (!sourceRecord || !sourceRecord.is_active) {
+        return res.status(400).json({ success: false, message: 'Выберите активный источник записи' });
       }
+      const phone = String(client_phone || '').trim();
+      if (!phone) return res.status(400).json({ success: false, message: 'Телефон клиента обязателен' });
 
-      const [userRows] = await db.query(
+      await connection.beginTransaction();
+      const [userRows] = await connection.query(
         "SELECT CONCAT(first_name, ' ', last_name) AS full_name FROM users WHERE id = ?",
         [req.user.id]
       );
-      const operatorName = userRows[0]?.full_name || 'Оператор';
+      const operatorName = userRows[0]?.full_name || 'Администратор';
 
-      const [result] = await db.query(
-        `INSERT INTO appointments (office_id, lead_id, client_name, client_phone, source, appointment_date, appointment_time, comment, operator_id, operator_name, assigned_lawyer_id, status)
-         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
-        [
-          req.user.office_id,
-          client_name.trim(),
-          client_phone || '',
-          source || null,
-          appointment_date,
-          appointment_time,
-          comment || null,
-          req.user.id,
-          operatorName,
-          assigned_lawyer_id || null,
-        ]
+      // Любое прямое обращение (рекомендация, 2ГИС, Яндекс Карты и т.д.)
+      // является лидом общей воронки, но не является лидом обработки колл-центра.
+      const [leadResult] = await connection.query(
+        `INSERT INTO call_center_leads
+          (office_id, source, source_id, name, phone, description, status,
+           assigned_to, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, 'BOOKED', ?, ?)`,
+        [req.user.office_id, sourceRecord.name, sourceRecord.id,
+         client_name.trim(), phone, comment || null, req.user.id,
+         JSON.stringify({ created_from: 'direct_appointment', bypassed_call_center: true })]
       );
+      const leadId = leadResult.insertId;
 
+      const [result] = await connection.query(
+        `INSERT INTO appointments
+          (office_id, lead_id, client_name, client_phone, source, source_id,
+           appointment_date, appointment_time, comment, operator_id,
+           operator_name, assigned_lawyer_id, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
+        [req.user.office_id, leadId, client_name.trim(), phone,
+         sourceRecord.name, sourceRecord.id, appointment_date, appointment_time,
+         comment || null, req.user.id, operatorName, assigned_lawyer_id || null]
+      );
+      await connection.query(
+        `INSERT INTO call_center_history (lead_id, action, user_id, details)
+         VALUES (?, 'DIRECT_APPOINTMENT_CREATED', ?, ?)`,
+        [leadId, req.user.id, JSON.stringify({ appointment_id: result.insertId, bypassed_call_center: true })]
+      );
+      await connection.commit();
       socketEmitter.emitAppointmentNew(req.user.office_id, {
-        id: result.insertId,
-        client_name: client_name.trim(),
-        date: appointment_date,
-        time: appointment_time,
+        id: result.insertId, lead_id: leadId, client_name: client_name.trim(),
+        date: appointment_date, time: appointment_time,
       });
-
-      res.status(201).json({
-        success: true,
-        message: 'Запись создана',
-        data: { id: result.insertId }
-      });
+      res.status(201).json({ success: true, message: 'Запись создана', data: { id: result.insertId, lead_id: leadId } });
     } catch (error) {
+      try { await connection.rollback(); } catch (_) {}
       console.error('Error creating appointment:', error);
       res.status(500).json({ success: false, message: 'Ошибка при создании записи' });
+    } finally {
+      connection.release();
     }
   },
 
@@ -1966,6 +2028,18 @@ const callCenterController = {
     if (!await ensureOfficeAccess(req, res)) return;
 
     try {
+      if (['cc_manager', 'cc_operator'].includes(String(req.user.role || '').toLowerCase())) {
+        const [connected] = await db.query(
+          `SELECT o.id, o.name
+             FROM call_center_members ccm
+             JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
+             JOIN offices o ON o.id = occ.office_id
+            WHERE ccm.user_id = ? ORDER BY o.name`,
+          [req.user.id]
+        );
+        return res.json({ success: true, data: connected });
+      }
+
       // Находим владельца офиса оператора
       const [myOffice] = await db.query(
         'SELECT owner_id FROM offices WHERE id = ?',

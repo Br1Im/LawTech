@@ -388,8 +388,11 @@ const Materials: React.FC = () => {
 
 
   return (
-    <div className="materials-container">
-      <h2 className="materials-title">Материалы дела</h2>
+    <div className="materials-container lt-page lt-page-materials">
+      <div className="lt-page-heading">
+        <h1>Материалы дела</h1>
+        <p>Документы, технические задания и материалы по клиентским делам</p>
+      </div>
 
       {error && <div className="error-message">{error}</div>}
 

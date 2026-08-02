@@ -30,6 +30,22 @@ async function ensureUserOffice(user) {
     return row.office_id;
   }
 
+  if (['cc_manager', 'cc_operator'].includes(String(row.role || '').toLowerCase())) {
+    const [offices] = await db.query(
+      `SELECT occ.office_id
+         FROM call_center_members ccm
+         JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
+        WHERE ccm.user_id = ?
+        ORDER BY occ.connected_at LIMIT 1`,
+      [user.id]
+    );
+    if (offices.length) {
+      user.office_id = offices[0].office_id;
+      return Number(offices[0].office_id);
+    }
+    return null;
+  }
+
   // Директор должен создать офис вручную
   if (row.role === 'director') {
     return null;
@@ -79,6 +95,18 @@ async function checkOfficeAccess(user, officeId) {
     return offices.length > 0;
   }
 
+  if (['cc_manager', 'cc_operator'].includes(role)) {
+    const [rows] = await db.query(
+      `SELECT 1
+         FROM call_center_members ccm
+         JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id
+        WHERE ccm.user_id = ? AND occ.office_id = ? AND occ.is_active = 1
+        LIMIT 1`,
+      [user.id, numOfficeId]
+    );
+    return rows.length > 0;
+  }
+
   // Остальные роли — проверяем user_offices (включает основной офис)
   const [uoRows] = await db.query(
     'SELECT 1 FROM user_offices WHERE user_id = ? AND office_id = ? LIMIT 1',
@@ -115,6 +143,20 @@ async function getUserOfficeIds(user) {
       if (rows[0]) userOfficeId = rows[0].office_id;
     }
     return userOfficeId ? [Number(userOfficeId)] : [];
+  }
+
+  if (['cc_manager', 'cc_operator'].includes(role)) {
+    const [rows] = await db.query(
+      `SELECT occ.office_id
+         FROM call_center_members ccm
+         JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id
+        WHERE ccm.user_id = ? AND occ.is_active = 1
+        ORDER BY occ.connected_at`,
+      [user.id]
+    );
+    const allowed = rows.map((row) => Number(row.office_id));
+    const activeOfficeId = Number(user.office_id);
+    return activeOfficeId && allowed.includes(activeOfficeId) ? [activeOfficeId] : allowed;
   }
 
   // Остальные роли: все офисы из user_offices

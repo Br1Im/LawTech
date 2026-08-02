@@ -1,5 +1,5 @@
 import React from 'react';
-import { BellOutlined, CloseOutlined, CheckCircleOutlined, InfoCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { BellOutlined, CloseOutlined, CheckCircleOutlined, InfoCircleOutlined, ExclamationCircleOutlined, SoundOutlined, SoundFilled } from '@ant-design/icons';
 
 interface Notification {
   id: string;
@@ -16,6 +16,8 @@ interface NotificationPanelProps {
   notifications: Notification[];
   onMarkAsRead: (id: string) => void;
   onMarkAllAsRead: () => void;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
 }
 
 const NotificationPanel: React.FC<NotificationPanelProps> = ({
@@ -23,7 +25,9 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
   onClose,
   notifications,
   onMarkAsRead,
-  onMarkAllAsRead
+  onMarkAllAsRead,
+  soundEnabled = true,
+  onToggleSound
 }) => {
   if (!isOpen) return null;
 
@@ -60,17 +64,18 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      backgroundColor: window.innerWidth <= 768 ? 'rgba(0, 0, 0, 0.45)' : 'transparent',
       zIndex: 1500,
       display: 'flex',
       justifyContent: window.innerWidth <= 768 ? 'center' : 'flex-end',
       alignItems: window.innerWidth <= 768 ? 'flex-start' : 'flex-start',
       paddingTop: window.innerWidth <= 768 ? '70px' : '70px',
       paddingRight: window.innerWidth <= 768 ? '0' : '24px',
-      paddingBottom: window.innerWidth <= 768 ? '0' : '0',
+      paddingBottom: '0',
+      pointerEvents: 'none',
     } satisfies React.CSSProperties,
     panel: {
-      width: window.innerWidth <= 768 ? '100%' : '400px',
+      width: window.innerWidth <= 768 ? '100%' : 'min(400px, calc(100vw - 24px))',
       maxWidth: window.innerWidth <= 768 ? '100vw' : '400px',
       maxHeight: window.innerWidth <= 768 ? 'calc(100vh - 70px)' : '80vh',
       backgroundColor: 'var(--color-bg)',
@@ -78,6 +83,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
       border: '1px solid var(--color-border)',
       overflow: 'hidden',
+      boxSizing: 'border-box' as const,
+      pointerEvents: 'auto',
       animation: window.innerWidth <= 768 ? 'slideDown 0.3s ease-out' : 'slideIn 0.3s ease-out',
     } satisfies React.CSSProperties,
     header: {
@@ -217,6 +224,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                 </span>
               )}
             </h3>
+            {onToggleSound && (
+              <button
+                aria-label="???? ???????????"
+                title={soundEnabled ? '????????? ???? ???????????' : '???????? ???? ???????????'}
+                style={{ ...styles.closeButton, marginLeft: 'auto', marginRight: '8px' }}
+                onClick={onToggleSound}
+              >
+                {soundEnabled ? <SoundFilled /> : <SoundOutlined />}
+              </button>
+            )}
             <button
               style={styles.closeButton}
               onClick={onClose}

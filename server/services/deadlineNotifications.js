@@ -65,7 +65,7 @@ async function runDeadlineSweep() {
          LEFT JOIN clients cl ON cl.id = c.id_client
         WHERE c.expert_id IS NOT NULL
           AND c.expert_deadline IS NOT NULL
-          AND (c.docs_status IS NULL OR c.docs_status <> "ready")
+          AND (c.docs_status IS NULL OR c.docs_status NOT IN ("ready", "completed"))
           AND (c.status IS NULL OR c.status <> "terminated")`
     );
     const todayKey = fmtDate(new Date());

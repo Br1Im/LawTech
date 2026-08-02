@@ -239,7 +239,26 @@
 }
 .plan-fact-card-pct {
   font-size: 13px;
-  color: #8B8FA3;
+  color: #16A34A;
+  font-weight: 600;
+  margin-top: 8px;
+}
+.plan-fact-progress-v2 {
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #EEF1F6;
+}
+.plan-fact-progress-v2 > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-blue, #4338CA);
+  transition: width .35s ease;
+}
+.plan-fact-card-pct.is-complete {
+  color: #15803D;
 }
 
 /* ── V2: Lawyers section (full-width card) ─── */
@@ -647,6 +666,7 @@
 [data-theme="dark"] .office-add-card:hover .office-add-circle { border-color: #7C5CFF; color: #7C5CFF; }
 
 [data-theme="dark"] .plan-fact-card-v2 { background: #1D2230; border-color: #2A2F3D; }
+[data-theme="dark"] .plan-fact-progress-v2 { background: #2A2F3D; }
 [data-theme="dark"] .pf-fact { color: #E6E8EF; }
 [data-theme="dark"] .pf-sep { color: #5A5E72; }
 [data-theme="dark"] .plan-edit-btn-v2 { background: #1D2230; border-color: #7C5CFF; color: #7C5CFF; }

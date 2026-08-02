@@ -146,6 +146,10 @@ const createExpense = async (req, res) => {
 const updateExpense = async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const [[protectedExpense]] = await db.query('SELECT source_type FROM expenses WHERE id=?',[id]);
+    if (protectedExpense && protectedExpense.source_type === 'salary_payment') {
+      return bad(res,409,'Выплаты зарплаты изменяются только через безопасную отмену');
+    }
     const { category, amount, title, description, spent_on, expense_type, payment_method } = req.body;
 
     const updates = [];
@@ -173,11 +177,18 @@ const updateExpense = async (req, res) => {
 // ─── DELETE /api/expenses/:id ───
 const deleteExpense = async (req, res) => {
   try {
-    const id = Number(req.params.id);
+    const { id } = req.params;
+    const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [id]);
+    if (!row) return res.status(404).json({ success: false, message: 'Расход не найден' });
+    if (row.source_type === 'salary_payment') {
+      return res.status(409).json({ success: false, message: 'Выплату зарплаты нельзя удалить в Балансе. Используйте безопасную отмену во вкладке Зарплата.' });
+    }
+    if (!await checkOfficeAccess(req.user, row.office_id)) return res.status(403).json({ success: false, message: 'Нет доступа' });
     await db.query('DELETE FROM expenses WHERE id = ?', [id]);
-    return ok(res, { id, message: 'Расход удалён' });
-  } catch (e) {
-    return bad(res, 500, 'Ошибка удаления расхода', e);
+    return res.json({ success: true, data: { id: Number(id) } });
+  } catch (error) {
+    console.error('Error deleting expense:', error);
+    return res.status(500).json({ success: false, message: 'Ошибка удаления расхода' });
   }
 };
 

@@ -349,7 +349,13 @@ const Acts: React.FC = () => {
   ];
 
   return (
-    <Page>
+    <Page className="lt-page lt-page-acts">
+      <div className="lt-page-heading">
+        <div>
+          <h1>Акты</h1>
+          <p>Выполненные работы и исполнение обязательств по договорам</p>
+        </div>
+      </div>
       <ToolRow>
         <Space size={12} wrap>
           <Input

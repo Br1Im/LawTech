@@ -1,12 +1,89 @@
 const db = require('../db');
+const { checkOfficeAccess } = require('../utils/ensureOffice');
+
+const PAYMENT_METHODS = new Set(['cash', 'noncash', 'bank', 'sbp']);
+const PAYMENT_ROLES = new Set(['admin', 'administrator', 'director', 'manager', 'okk']);
+
+const roundMoney = (value) => Math.round(Number(value || 0) * 100) / 100;
+
+async function getAccessibleContract(req, connection = db, lock = false) {
+  const suffix = lock ? ' FOR UPDATE' : '';
+  const [rows] = await connection.query(
+    `SELECT id, office_id, id_client, id_employee, contract_number, contract_date,
+            amount, paid_amount, registered_by, title
+       FROM contracts
+      WHERE id = ?${suffix}`,
+    [req.params.id]
+  );
+  const contract = rows[0];
+  if (!contract) return { error: [404, 'Договор не найден'] };
+  if (!await checkOfficeAccess(req.user, contract.office_id)) {
+    return { error: [403, 'Доступ запрещён'] };
+  }
+  return { contract };
+}
+
+async function syncPaidAmount(connection, contractId) {
+  const [[row]] = await connection.query(
+    `SELECT COALESCE(ROUND(SUM(amount), 2), 0) AS total
+       FROM contract_payments
+      WHERE contract_id = ? AND confirmed = 1`,
+    [contractId]
+  );
+  const total = roundMoney(row?.total);
+  await connection.query(
+    `UPDATE contracts
+        SET paid_amount = ?,
+            payment_date = CASE WHEN ? > 0 THEN CURRENT_DATE() ELSE payment_date END
+      WHERE id = ?`,
+    [total, total, contractId]
+  );
+  return total;
+}
+
+async function createCashRegisterEntry(connection, contract, payment, userId) {
+  const bucket = payment.payment_method === 'sbp' ? 'bank' : payment.payment_method;
+  const [[client]] = await connection.query(
+    'SELECT name FROM clients WHERE id = ?',
+    [contract.id_client]
+  );
+  const [[employee]] = await connection.query(
+    `SELECT TRIM(CONCAT_WS(' ', last_name, first_name, middle_name)) AS full_name
+       FROM employees WHERE id = ?`,
+    [contract.id_employee]
+  );
+  await connection.query(
+    `INSERT INTO cash_register (
+       office_id, entry_date, client_name, contract_number, action,
+       lawyer_name, employee_id, cash_amount, noncash_amount,
+       bank_amount, expense_amount, comment, created_by
+     ) VALUES (?, ?, ?, ?, 'Оплата договора', ?, ?, ?, ?, ?, 0, ?, ?)`,
+    [
+      contract.office_id,
+      payment.payment_date,
+      client?.name || null,
+      contract.contract_number || `ДОГ-${String(contract.id).padStart(8, '0')}`,
+      employee?.full_name || null,
+      contract.id_employee,
+      bucket === 'cash' ? payment.amount : 0,
+      bucket === 'noncash' ? payment.amount : 0,
+      bucket === 'bank' ? payment.amount : 0,
+      payment.comment || null,
+      userId || null,
+    ]
+  );
+}
 
 /**
  * GET /contracts/:id/payments
- * Все платежи по договору
+ * Неизменяемый журнал всех оплат по договору.
  */
 async function getPayments(req, res) {
   try {
-    const contractId = req.params.id;
+    const access = await getAccessibleContract(req);
+    if (access.error) {
+      return res.status(access.error[0]).json({ success: false, message: access.error[1] });
+    }
     const [payments] = await db.query(
       `SELECT
          p.*,
@@ -16,8 +93,8 @@ async function getPayments(req, res) {
        LEFT JOIN users cu ON cu.id = p.created_by
        LEFT JOIN users cb ON cb.id = p.confirmed_by
        WHERE p.contract_id = ?
-       ORDER BY p.payment_date ASC, p.created_at ASC`,
-      [contractId]
+       ORDER BY p.payment_date DESC, p.created_at DESC, p.id DESC`,
+      [req.params.id]
     );
     res.json({ success: true, data: payments });
   } catch (error) {
@@ -28,130 +105,185 @@ async function getPayments(req, res) {
 
 /**
  * POST /contracts/:id/payments
- * Добавить доплату (admin/administrator)
+ * Добавляет подтверждённую оплату, обновляет долг и сразу включает её в баланс.
  */
 async function addPayment(req, res) {
+  const role = String(req.user.role || '').toLowerCase();
+  if (!PAYMENT_ROLES.has(role)) {
+    return res.status(403).json({ success: false, message: 'Нет прав для внесения оплаты' });
+  }
+
+  const amount = roundMoney(req.body.amount);
+  const paymentMethod = String(req.body.payment_method || '');
+  const paymentDate = req.body.payment_date || new Date().toISOString().slice(0, 10);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return res.status(400).json({ success: false, message: 'Сумма каждого платежа должна быть больше 0.' });
+  }
+  if (!PAYMENT_METHODS.has(paymentMethod)) {
+    return res.status(400).json({ success: false, message: 'Выберите корректный способ оплаты.' });
+  }
+
+  const connection = await db.getClient();
   try {
-    const contractId = req.params.id;
-    const role = String(req.user.role || '').toLowerCase();
-    
-    // Только админ, директор, менеджер
-    if (!['admin', 'administrator', 'director', 'manager'].includes(role)) {
-      return res.status(403).json({ success: false, message: 'Нет прав для внесения доплаты' });
+    await connection.beginTransaction();
+    const access = await getAccessibleContract(req, connection, true);
+    if (access.error) {
+      await connection.rollback();
+      return res.status(access.error[0]).json({ success: false, message: access.error[1] });
+    }
+    const contract = access.contract;
+    const [[current]] = await connection.query(
+      `SELECT COALESCE(ROUND(SUM(amount), 2), 0) AS total
+         FROM contract_payments
+        WHERE contract_id = ? AND confirmed = 1`,
+      [contract.id]
+    );
+    const newTotal = roundMoney(current.total) + amount;
+    if (newTotal > roundMoney(contract.amount)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Общая сумма платежей превышает сумму договора.',
+      });
     }
 
-    const { amount, payment_date, payment_method, comment } = req.body;
-    
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ success: false, message: 'Укажите сумму доплаты' });
-    }
-    if (!payment_date) {
-      return res.status(400).json({ success: false, message: 'Укажите дату доплаты' });
-    }
-
-    // Проверяем что договор существует
-    const [contracts] = await db.query('SELECT id, amount, paid_amount FROM contracts WHERE id = ?', [contractId]);
-    if (!contracts.length) {
-      return res.status(404).json({ success: false, message: 'Договор не найден' });
-    }
-
-    const [result] = await db.query(
-      `INSERT INTO contract_payments (contract_id, amount, payment_date, payment_method, comment, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [contractId, amount, payment_date, payment_method || 'cash', comment || null, req.user.id]
+    const payment = {
+      amount,
+      payment_method: paymentMethod,
+      payment_date: paymentDate,
+      comment: req.body.comment || null,
+    };
+    const [result] = await connection.query(
+      `INSERT INTO contract_payments (
+         contract_id, amount, payment_date, payment_method, payment_type,
+         comment, created_by, confirmed, confirmed_by, confirmed_at
+       ) VALUES (?, ?, ?, ?, 'additional', ?, ?, 1, ?, NOW())`,
+      [
+        contract.id,
+        payment.amount,
+        payment.payment_date,
+        payment.payment_method,
+        payment.comment,
+        req.user.id || null,
+        req.user.id || null,
+      ]
     );
 
-    res.json({ success: true, data: { id: result.insertId }, message: 'Доплата добавлена' });
+    const totalPaid = await syncPaidAmount(connection, contract.id);
+    await createCashRegisterEntry(connection, contract, payment, req.user.id);
+    await connection.commit();
+    res.status(201).json({
+      success: true,
+      data: {
+        id: result.insertId,
+        paid_amount: totalPaid,
+        remaining_amount: Math.max(0, roundMoney(contract.amount) - totalPaid),
+      },
+      message: 'Оплата добавлена и учтена в балансе',
+    });
   } catch (error) {
+    try { await connection.rollback(); } catch (_) {}
     console.error('Error adding payment:', error);
-    res.status(500).json({ success: false, message: 'Ошибка при добавлении доплаты' });
+    res.status(500).json({ success: false, message: 'Ошибка при добавлении оплаты' });
+  } finally {
+    connection.release();
   }
 }
 
 /**
  * PATCH /contracts/:id/payments/:paymentId/confirm
- * Подтвердить платёж (director/manager/okk)
+ * Оставлено для подтверждения старых ожидающих платежей.
  */
 async function confirmPayment(req, res) {
-  try {
-    const { id: contractId, paymentId } = req.params;
-    const role = String(req.user.role || '').toLowerCase();
-    
-    if (!['director', 'manager', 'okk'].includes(role)) {
-      return res.status(403).json({ success: false, message: 'Только руководство может подтвердить платёж' });
-    }
+  const role = String(req.user.role || '').toLowerCase();
+  if (!['director', 'manager', 'okk'].includes(role)) {
+    return res.status(403).json({ success: false, message: 'Только руководство может подтвердить платёж' });
+  }
 
-    // Получаем платёж
-    const [payments] = await db.query(
-      'SELECT * FROM contract_payments WHERE id = ? AND contract_id = ?',
-      [paymentId, contractId]
+  const connection = await db.getClient();
+  try {
+    await connection.beginTransaction();
+    const access = await getAccessibleContract(req, connection, true);
+    if (access.error) {
+      await connection.rollback();
+      return res.status(access.error[0]).json({ success: false, message: access.error[1] });
+    }
+    const contract = access.contract;
+    const [[payment]] = await connection.query(
+      `SELECT * FROM contract_payments
+        WHERE id = ? AND contract_id = ? FOR UPDATE`,
+      [req.params.paymentId, contract.id]
     );
-    if (!payments.length) {
+    if (!payment) {
+      await connection.rollback();
       return res.status(404).json({ success: false, message: 'Платёж не найден' });
     }
-    if (payments[0].confirmed) {
+    if (payment.confirmed) {
+      await connection.rollback();
       return res.status(400).json({ success: false, message: 'Платёж уже подтверждён' });
     }
-
-    const conn = await db.getClient();
-    try {
-      await conn.beginTransaction();
-
-      // Подтверждаем платёж
-      await conn.query(
-        `UPDATE contract_payments SET confirmed = 1, confirmed_by = ?, confirmed_at = NOW() WHERE id = ?`,
-        [req.user.id, paymentId]
-      );
-
-      // Увеличиваем paid_amount договора
-      await conn.query(
-        `UPDATE contracts SET paid_amount = COALESCE(paid_amount, 0) + ? WHERE id = ?`,
-        [payments[0].amount, contractId]
-      );
-
-      await conn.commit();
-      res.json({ success: true, message: 'Платёж подтверждён' });
-    } catch (e) {
-      await conn.rollback();
-      throw e;
-    } finally {
-      conn.release();
+    const [[current]] = await connection.query(
+      `SELECT COALESCE(ROUND(SUM(amount), 2), 0) AS total
+         FROM contract_payments
+        WHERE contract_id = ? AND confirmed = 1`,
+      [contract.id]
+    );
+    if (roundMoney(current.total) + roundMoney(payment.amount) > roundMoney(contract.amount)) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Общая сумма платежей превышает сумму договора.',
+      });
     }
+    await connection.query(
+      `UPDATE contract_payments
+          SET confirmed = 1, confirmed_by = ?, confirmed_at = NOW()
+        WHERE id = ?`,
+      [req.user.id, payment.id]
+    );
+    await syncPaidAmount(connection, contract.id);
+    await createCashRegisterEntry(connection, contract, payment, req.user.id);
+    await connection.commit();
+    res.json({ success: true, message: 'Платёж подтверждён и учтён в балансе' });
   } catch (error) {
+    try { await connection.rollback(); } catch (_) {}
     console.error('Error confirming payment:', error);
     res.status(500).json({ success: false, message: 'Ошибка при подтверждении платежа' });
+  } finally {
+    connection.release();
   }
 }
 
 /**
  * DELETE /contracts/:id/payments/:paymentId
- * Удалить неподтверждённый платёж
+ * Подтверждённые записи журнала неизменяемы.
  */
 async function deletePayment(req, res) {
   try {
-    const { id: contractId, paymentId } = req.params;
-    const role = String(req.user.role || '').toLowerCase();
-
-    const [payments] = await db.query(
+    const access = await getAccessibleContract(req);
+    if (access.error) {
+      return res.status(access.error[0]).json({ success: false, message: access.error[1] });
+    }
+    const [[payment]] = await db.query(
       'SELECT * FROM contract_payments WHERE id = ? AND contract_id = ?',
-      [paymentId, contractId]
+      [req.params.paymentId, access.contract.id]
     );
-    if (!payments.length) {
+    if (!payment) {
       return res.status(404).json({ success: false, message: 'Платёж не найден' });
     }
-    if (payments[0].confirmed) {
-      return res.status(400).json({ success: false, message: 'Нельзя удалить подтверждённый платёж' });
+    if (payment.confirmed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Подтверждённый платёж является частью финансового журнала и не может быть удалён.',
+      });
     }
-
-    // Удалить может создатель или руководство
-    const isCreator = payments[0].created_by === req.user.id;
-    const isManagement = ['director', 'manager', 'okk', 'admin', 'administrator'].includes(role);
-    if (!isCreator && !isManagement) {
-      return res.status(403).json({ success: false, message: 'Нет прав для удаления' });
+    const role = String(req.user.role || '').toLowerCase();
+    const isCreator = Number(payment.created_by) === Number(req.user.id);
+    if (!isCreator && !PAYMENT_ROLES.has(role)) {
+      return res.status(403).json({ success: false, message: 'Нет прав для удаления платежа' });
     }
-
-    await db.query('DELETE FROM contract_payments WHERE id = ?', [paymentId]);
-    res.json({ success: true, message: 'Платёж удалён' });
+    await db.query('DELETE FROM contract_payments WHERE id = ?', [payment.id]);
+    res.json({ success: true, message: 'Ожидающий платёж удалён' });
   } catch (error) {
     console.error('Error deleting payment:', error);
     res.status(500).json({ success: false, message: 'Ошибка при удалении платежа' });

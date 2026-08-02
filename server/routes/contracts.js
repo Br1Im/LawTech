@@ -169,7 +169,7 @@ router.post('/:id/payments', paymentController.addPayment);
 router.patch('/:id/payments/:paymentId/confirm', paymentController.confirmPayment);
 router.delete('/:id/payments/:paymentId', paymentController.deletePayment);
 
-// Изменить только статус документов (Ожидание/Готово). Не трогает остальные поля договора.
+// Цепочка документов: эксперт Ожидание ↔ Готово; руководство Готово → Исполнено.
 router.patch('/:id/docs-status', async (req, res) => {
   try {
     const db = require('../db');
@@ -177,17 +177,42 @@ router.patch('/:id/docs-status', async (req, res) => {
     const user = req.user;
     const contractId = req.params.id;
     const next = String(req.body.docs_status || '').toLowerCase();
-    if (next !== 'pending' && next !== 'ready') {
+    if (!['pending', 'ready', 'completed'].includes(next)) {
       return res.status(400).json({ success: false, message: 'Неверный статус документов' });
     }
-    const [[c]] = await db.query('SELECT id, office_id, expert_id, id_employee, registered_by FROM contracts WHERE id = ?', [contractId]);
+    const [[c]] = await db.query('SELECT id, office_id, expert_id, id_employee, registered_by, docs_status FROM contracts WHERE id = ?', [contractId]);
     if (!c) return res.status(404).json({ success: false, message: 'Договор не найден' });
     const allowed = await checkOfficeAccess(user, c.office_id);
     if (!allowed) return res.status(403).json({ success: false, message: 'Доступ запрещен' });
     const role = String(user.role || '').toLowerCase();
     // Только назначенный эксперт меняет статус документов.
-    const canEdit = (role === 'expert' && Number(c.expert_id) === Number(user.id));
-    if (!canEdit) return res.status(403).json({ success: false, message: 'Статус документов может менять только эксперт' });
+    let expertEmployeeId = null;
+    if (role === 'expert' && user.email) {
+      const [[employee]] = await db.query(
+        'SELECT id FROM employees WHERE email = ? LIMIT 1',
+        [user.email]
+      );
+      expertEmployeeId = employee ? Number(employee.id) : null;
+    }
+    const isAssignedToCurrentExpert = c.expert_id != null && (
+      Number(c.expert_id) === Number(user.id) ||
+      (expertEmployeeId != null && Number(c.expert_id) === expertEmployeeId)
+    );
+    const current = String(c.docs_status || 'pending').toLowerCase();
+    const isManagement = ['director', 'manager', 'okk'].includes(role);
+    const expertCanEdit = role === 'expert'
+      && current !== 'completed'
+      && ['pending', 'ready'].includes(next)
+      && (c.expert_id == null || isAssignedToCurrentExpert);
+    const managementCanComplete = isManagement && current === 'ready' && next === 'completed';
+    if (!expertCanEdit && !managementCanComplete) {
+      return res.status(403).json({
+        success: false,
+        message: isManagement
+          ? 'Руководство может изменить только статус «Готово» на «Исполнено»'
+          : 'Статусы «Ожидание» и «Готово» может менять только назначенный эксперт',
+      });
+    }
     await db.query('UPDATE contracts SET docs_status = ? WHERE id = ?', [next, contractId]);
     if (next === 'ready') { try { require('../services/workflowEngine').handleEvent('docs_ready', Number(contractId), user.id); } catch (e) { console.error('wf docs_ready:', e.message); } }
     res.json({ success: true, id: Number(contractId), docs_status: next });

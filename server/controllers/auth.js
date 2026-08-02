@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const config = require('../config');
 const db = require('../db');
+const { generateUniqueConnectionCode } = require('../utils/callCenterCode');
 
 /**
  * Генерирует пару access + refresh токенов
@@ -21,8 +22,9 @@ function generateTokens(payload) {
 
 // Обработчик для регистрации новых пользователей
 const register = async (req, res) => {
+    const connection = await db.getClient();
     try {
-        const { name, email, password, userType, officeType, officeId } = req.body;
+        const { name, email, password, userType, officeType, officeId, callCenterName, phone } = req.body;
 
         if (!name || !email || !password || !userType) {
             return res.status(400).json({ 
@@ -30,8 +32,15 @@ const register = async (req, res) => {
             });
         }
 
+        const isCallCenter = userType === 'call_center';
+        if (isCallCenter && (!callCenterName || !phone)) {
+            return res.status(400).json({
+                success: false, message: 'Укажите название колл-центра и телефон'
+            });
+        }
+
         // Проверка, есть ли уже пользователь с таким email
-        const [existingUsers] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
+        const [existingUsers] = await connection.query('SELECT id FROM users WHERE email = ?', [email]);
         if (existingUsers.length > 0) {
             return res.status(409).json({ 
                 success: false, message: 'Пользователь с таким email уже существует' 
@@ -44,7 +53,7 @@ const register = async (req, res) => {
         // Для директора (userType === 'office') — НЕ привязываем к офису.
         // Он создаст офис(ы) на следующем шаге.
         const isDirector = userType === 'office';
-        const role = isDirector ? 'director' : userType;
+        const role = isDirector ? 'director' : (isCallCenter ? 'cc_manager' : userType);
 
         let finalOfficeId = null;
         if (!isDirector && officeType === 'existing' && officeId) {
@@ -52,16 +61,44 @@ const register = async (req, res) => {
         }
 
         // Создаем нового пользователя в БД
-        const [result] = await db.query(`
+        await connection.beginTransaction();
+        const [result] = await connection.query(`
             INSERT INTO users (first_name, last_name, email, password, office_id, role, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
         `, [name, '', email, hashedPassword, finalOfficeId, role]);
 
         const newUserId = result.insertId;
+        let callCenter = null;
+
+        if (isCallCenter) {
+            const connectionCode = await generateUniqueConnectionCode(connection);
+            const [centerResult] = await connection.query(
+                `INSERT INTO call_centers
+                   (name, phone, owner_user_id, connection_code)
+                 VALUES (?, ?, ?, ?)`,
+                [String(callCenterName).trim(), String(phone).trim(), newUserId, connectionCode]
+            );
+            const callCenterId = centerResult.insertId;
+            const publicId = `CC-${String(callCenterId).padStart(6, '0')}`;
+            await connection.query('UPDATE call_centers SET public_id = ? WHERE id = ?', [publicId, callCenterId]);
+            await connection.query(
+                `INSERT INTO call_center_members (call_center_id, user_id, member_role)
+                 VALUES (?, ?, 'chief')`,
+                [callCenterId, newUserId]
+            );
+            callCenter = {
+                id: callCenterId,
+                public_id: publicId,
+                name: String(callCenterName).trim(),
+                connection_code: connectionCode
+            };
+        }
+
+        await connection.commit();
 
         // Генерируем пару токенов
         const { accessToken, refreshToken } = generateTokens({
-            id: newUserId, email, role
+            id: newUserId, email, role, call_center_id: callCenter?.id || null
         });
 
         const newUser = {
@@ -71,7 +108,8 @@ const register = async (req, res) => {
             email: email,
             role: role,
             office_id: finalOfficeId,
-            needs_office_setup: isDirector
+            needs_office_setup: isDirector,
+            call_center: callCenter
         };
 
         res.status(201).json({
@@ -82,10 +120,13 @@ const register = async (req, res) => {
         });
 
     } catch (error) {
+        try { await connection.rollback(); } catch { /* noop */ }
         console.error('Ошибка при регистрации:', error);
         res.status(500).json({ 
             success: false, message: 'Внутренняя ошибка сервера' 
         });
+    } finally {
+        connection.release();
     }
 };
 
@@ -103,7 +144,7 @@ const login = async (req, res) => {
 
         // Поиск пользователя по логину или email
         const [users] = await db.query(
-            'SELECT id, first_name, last_name, email, login, password, role, office_id, must_change_password FROM users WHERE login = ? OR email = ?', 
+            'SELECT id, first_name, last_name, email, login, password, role, office_id, must_change_password, is_active, deleted_at FROM users WHERE login = ? OR email = ?', 
             [identifier, identifier]
         );
 
@@ -115,6 +156,14 @@ const login = async (req, res) => {
 
         const user = users[0];
 
+        if (Number(user.is_active) !== 1 || user.deleted_at) {
+            return res.status(401).json({
+                success: false,
+                message: 'Доступ к аккаунту прекращён',
+                code: 'ACCOUNT_DISABLED'
+            });
+        }
+
         // Проверяем пароль
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
@@ -123,13 +172,44 @@ const login = async (req, res) => {
             });
         }
 
+        let callCenter = null;
+        let connectedOffices = [];
+        if (['cc_manager', 'cc_operator'].includes(user.role)) {
+            const [centers] = await db.query(
+                `SELECT cc.id, cc.public_id, cc.name, ccm.member_role
+                   FROM call_center_members ccm
+                   JOIN call_centers cc ON cc.id = ccm.call_center_id
+                  WHERE ccm.user_id = ? AND cc.is_active = 1 LIMIT 1`,
+                [user.id]
+            );
+            callCenter = centers[0] || null;
+            if (callCenter) {
+                const [offices] = await db.query(
+                    `SELECT o.id, o.name, o.address
+                       FROM office_call_centers occ
+                       JOIN offices o ON o.id = occ.office_id
+                      WHERE occ.call_center_id = ? AND occ.is_active = 1
+                      ORDER BY o.name`,
+                    [callCenter.id]
+                );
+                connectedOffices = offices;
+                if (!user.office_id && offices.length) user.office_id = offices[0].id;
+            }
+        }
+
         // Генерируем пару токенов
         const { accessToken, refreshToken } = generateTokens({
             id: user.id, email: user.email, login: user.login,
-            role: user.role, office_id: user.office_id
+            role: user.role, office_id: user.office_id,
+            call_center_id: callCenter?.id || null
         });
 
         const { password: _, ...userWithoutPassword } = user;
+
+        if (callCenter) {
+            userWithoutPassword.call_center = callCenter;
+            userWithoutPassword.offices = connectedOffices;
+        }
 
         // Для директора — добавляем список его офисов
         if (user.role === 'director') {
@@ -181,7 +261,7 @@ const refresh = async (req, res) => {
 
         // Проверяем, что пользователь ещё существует в БД
         const [users] = await db.query(
-            'SELECT id, email, login, role, office_id FROM users WHERE id = ?',
+            'SELECT id, email, login, role, office_id, is_active, deleted_at FROM users WHERE id = ?',
             [payload.id]
         );
 
@@ -193,10 +273,40 @@ const refresh = async (req, res) => {
 
         const user = users[0];
 
+        if (Number(user.is_active) !== 1 || user.deleted_at) {
+            return res.status(401).json({
+                success: false,
+                message: 'Доступ к аккаунту прекращён',
+                code: 'ACCOUNT_DISABLED'
+            });
+        }
+
+        if (['cc_manager', 'cc_operator'].includes(user.role)) {
+            const [memberships] = await db.query(
+                `SELECT ccm.call_center_id
+                   FROM call_center_members ccm
+                   JOIN call_centers cc ON cc.id = ccm.call_center_id AND cc.is_active = 1
+                  WHERE ccm.user_id = ? LIMIT 1`,
+                [user.id]
+            );
+            if (memberships.length) {
+                user.call_center_id = memberships[0].call_center_id;
+                if (!user.office_id) {
+                    const [offices] = await db.query(
+                        `SELECT office_id FROM office_call_centers
+                          WHERE call_center_id = ? AND is_active = 1 ORDER BY connected_at LIMIT 1`,
+                        [user.call_center_id]
+                    );
+                    if (offices.length) user.office_id = offices[0].office_id;
+                }
+            }
+        }
+
         // Генерируем новую пару токенов (rolling refresh)
         const tokens = generateTokens({
             id: user.id, email: user.email, login: user.login,
-            role: user.role, office_id: user.office_id
+            role: user.role, office_id: user.office_id,
+            call_center_id: user.call_center_id || null
         });
 
         res.json({
@@ -238,6 +348,31 @@ const getCurrentUser = async (req, res) => {
             ...user,
             officeId: user.office_id
         };
+
+        if (['cc_manager', 'cc_operator'].includes(user.role)) {
+            const [centers] = await db.query(
+                `SELECT cc.id, cc.public_id, cc.name, ccm.member_role
+                   FROM call_center_members ccm
+                   JOIN call_centers cc ON cc.id = ccm.call_center_id
+                  WHERE ccm.user_id = ? AND cc.is_active = 1 LIMIT 1`,
+                [user.id]
+            );
+            if (centers.length) {
+                userResponse.call_center = centers[0];
+                const [offices] = await db.query(
+                    `SELECT o.id, o.name, o.address
+                       FROM office_call_centers occ
+                       JOIN offices o ON o.id = occ.office_id
+                      WHERE occ.call_center_id = ? AND occ.is_active = 1 ORDER BY o.name`,
+                    [centers[0].id]
+                );
+                userResponse.offices = offices;
+                if (!userResponse.office_id && offices.length) {
+                    userResponse.office_id = offices[0].id;
+                    userResponse.officeId = offices[0].id;
+                }
+            }
+        }
 
         // Для директора — добавляем список его офисов
         if (user.role === 'director') {

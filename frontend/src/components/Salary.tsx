@@ -28,12 +28,14 @@ import {
   PlusOutlined,
   DeleteOutlined,
   CalculatorOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
 import {
   salaryApi,
   employeesApi,
   type SalaryCalcResult,
   type SalaryRow,
+  type SalaryPayment,
   type SalarySettings,
   type EmployeeSalary,
   type CrmEmployee,
@@ -142,6 +144,7 @@ const Salary: React.FC = () => {
   const { message } = App.useApp();
   const isDirector = ['director', 'admin', 'owner'].includes(String(user?.role || '').toLowerCase());
   const isManagerOrAbove = ['director', 'admin', 'owner', 'manager'].includes(String(user?.role || '').toLowerCase());
+  const canPaySalary = ['director', 'manager', 'okk'].includes(String(user?.role || '').toLowerCase());
   const isLawyer = String(user?.role || '').toLowerCase() === 'lawyer';
   const isMobile = useIsMobile();
 
@@ -163,6 +166,11 @@ const Salary: React.FC = () => {
   const [shiftForm, setShiftForm] = useState<{ employee_id?: number; shift_date: Dayjs; note: string }>(
     { employee_id: undefined, shift_date: dayjs(), note: '' }
   );
+  const [paymentMethods, setPaymentMethods] = useState<Record<number, 'cash' | 'noncash' | 'bank'>>({});
+  const [payingEmployeeId, setPayingEmployeeId] = useState<number | null>(null);
+  const [cancelPaymentId, setCancelPaymentId] = useState<number | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelConfirmation, setCancelConfirmation] = useState('');
 
   const range = useMemo<[string, string]>(() => {
     const today = dayjs();
@@ -313,6 +321,20 @@ const Salary: React.FC = () => {
     [employees]
   );
 
+  const paymentMethodLabel = (method?: string) => ({ cash: 'Наличные', noncash: 'Безналичный', bank: 'Расчётный счёт' } as Record<string,string>)[method || ''] || method || '—';
+  const payEmployee = (row: SalaryRow) => { if (!data) return; const paymentMethod = paymentMethods[row.employee_id] || 'cash'; Modal.confirm({ title: `Выплатить ${formatMoney(row.total)}?`, content: `${shortName(row.full_name)} · ${paymentMethodLabel(paymentMethod)} · период ${range[0]} — ${range[1]}. После подтверждения сумма появится расходом в Балансе.`, okText: 'Выплатить', cancelText: 'Отмена', onOk: async () => { setPayingEmployeeId(row.employee_id); try { await salaryApi.pay({ office_id: data.office_id, employee_id: row.employee_id, period_from: range[0], period_to: range[1], payment_method: paymentMethod }); message.success('Зарплата выплачена и добавлена в Баланс'); await load(); } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось провести выплату'); } finally { setPayingEmployeeId(null); } } }); };
+  const cancelPayment = async () => { if (!cancelPaymentId || cancelReason.trim().length < 5 || cancelConfirmation.trim().toUpperCase() !== 'ОТМЕНИТЬ') { message.warning('Укажите причину отмены минимум из 5 символов'); return; } try { await salaryApi.cancelPayment(cancelPaymentId, cancelReason.trim()); message.success('Выплата отменена, деньги возвращены в соответствующий остаток Баланса'); setCancelPaymentId(null); setCancelReason(''); setCancelConfirmation(''); await load(); } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось отменить выплату'); } };
+  const renderPaymentActions = (row: SalaryRow) => {
+    const cancelled = (row.salary_payments || []).filter(payment => payment.status === 'cancelled');
+    const history = cancelled.length ? <div style={{ marginTop: 4, fontSize: 11, color: 'var(--color-muted)', maxWidth: 330 }}>
+      Ранее отменено: {cancelled.map(payment => `${formatMoney(payment.amount)} · ${paymentMethodLabel(payment.payment_method)}${payment.cancellation_reason ? ` · ${payment.cancellation_reason}` : ''}`).join('; ')}
+    </div> : null;
+    if (!canPaySalary) return <>{row.active_payment ? <Tag color="green">Выплачено</Tag> : null}{history}</>;
+    if (row.active_payment) return <><Space size={6} wrap><Tag color="green">Выплачено · {paymentMethodLabel(row.active_payment.payment_method)}</Tag><Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => { setCancelPaymentId(row.active_payment!.id); setCancelReason(''); setCancelConfirmation(''); }}>Отменить</Button></Space>{history}</>;
+    if (Number(row.total || 0) <= 0) return <>{<Tag>Нет начисления</Tag>}{history}</>;
+    return <><Space size={6} wrap><Select size="small" style={{ width: 145 }} value={paymentMethods[row.employee_id] || 'cash'} onChange={(value) => setPaymentMethods(prev => ({ ...prev, [row.employee_id]: value }))} options={[{value:'cash',label:'Наличные'},{value:'noncash',label:'Безналичный'},{value:'bank',label:'Расчётный счёт'}]}/><Button size="small" type="primary" shape="circle" title="Выплатить зарплату" aria-label="Выплатить зарплату" loading={payingEmployeeId===row.employee_id} onClick={() => payEmployee(row)}><span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1, fontWeight: 500 }}>₽</span></Button></Space>{history}</>;
+  };
+
   const columns: ColumnsType<SalaryRow> = [
     { title: 'Сотрудник', dataIndex: 'full_name', key: 'name', render: (v) => shortName(v) },
     {
@@ -382,12 +404,8 @@ const Salary: React.FC = () => {
     {
       title: 'Действия',
       key: 'actions',
-      width: 110,
-      render: (_, r) => (
-        <Button size="small" icon={<EditOutlined />} disabled={!isManagerOrAbove} onClick={() => openSalaryEditor(r)}>
-          Настроить
-        </Button>
-      ),
+      width: 330,
+      render: (_, r) => <Space direction="vertical" size={6} align="end">{renderPaymentActions(r)}<Button size="small" icon={<EditOutlined />} disabled={!isManagerOrAbove} onClick={() => openSalaryEditor(r)}>Настроить расчёт</Button></Space>,
     },
   ];
 
@@ -395,13 +413,24 @@ const Salary: React.FC = () => {
   const visibleRows = isLawyer && user?.id
     ? (data?.rows || []).filter(r => r.employee_id === user.id)
     : (data?.rows || []);
+  const paymentHistory = useMemo(() =>
+    visibleRows.flatMap(row => (row.salary_payments || []).map(payment => ({ ...payment, employee_name: row.full_name })))
+      .sort((a, b) => dayjs(b.paid_at).valueOf() - dayjs(a.paid_at).valueOf()),
+    [visibleRows]
+  );
 
   // ФОТ — сумма зарплат всех сотрудников офиса
   const totalPayroll = visibleRows
     .reduce((acc, r) => acc + (Number(r.total) || 0), 0);
 
   return (
-    <Page>
+    <Page className="lt-page lt-page-salary">
+      <div className="lt-page-heading">
+        <div>
+          <h1>Зарплата</h1>
+          <p>Начисления, смены и настройки оплаты сотрудников</p>
+        </div>
+      </div>
       <ToolRow>
         <Space size={8} wrap align="center">
           <Tooltip title="Предыдущий период">
@@ -531,6 +560,7 @@ const Salary: React.FC = () => {
                       >
                         Настроить
                       </Button>
+                       <div style={{ marginTop: 8 }}>{renderPaymentActions(r)}</div>
                     </div>
                   ))}
                 </SalaryCards>
@@ -581,6 +611,30 @@ const Salary: React.FC = () => {
                   />
                 </TableCard>
               </Space>
+            ),
+          }] : []),
+          ...(!isLawyer ? [{
+            key: 'payment-history',
+            label: 'История выплат',
+            children: (
+              <TableCard>
+                <Table<any>
+                  rowKey="id"
+                  size="small"
+                  dataSource={paymentHistory}
+                  pagination={{ pageSize: 15 }}
+                  locale={{ emptyText: <Empty description="Выплат за период пока нет" /> }}
+                  columns={[
+                    { title: 'Сотрудник', dataIndex: 'employee_name', render: (v) => shortName(v) },
+                    { title: 'Сумма', dataIndex: 'amount', align: 'right' as const, render: (v) => <b>{formatMoney(v)}</b> },
+                    { title: 'Способ', dataIndex: 'payment_method', render: (v) => paymentMethodLabel(v) },
+                    { title: 'Статус', dataIndex: 'status', render: (v) => v === 'paid' ? <Tag color="green">Выплачено</Tag> : <Tag color="red">Отменено</Tag> },
+                    { title: 'Выплачено', dataIndex: 'paid_at', render: (v) => dayjs(v).format('DD.MM.YYYY HH:mm') },
+                    { title: 'Кем', dataIndex: 'paid_by_name' },
+                    { title: 'Причина отмены', dataIndex: 'cancellation_reason', render: (v) => v || '—' },
+                  ]}
+                />
+              </TableCard>
             ),
           }] : []),
 
@@ -701,6 +755,21 @@ const Salary: React.FC = () => {
             </Space>
           );
         })()}
+      </Modal>
+
+      <Modal
+        title="Отмена ошибочной выплаты"
+        open={!!cancelPaymentId}
+        onCancel={() => { setCancelPaymentId(null); setCancelReason(''); setCancelConfirmation(''); }}
+        onOk={cancelPayment}
+        okText="Отменить выплату"
+        cancelText="Назад"
+        okButtonProps={{ danger: true, disabled: cancelReason.trim().length < 5 || cancelConfirmation.trim().toUpperCase() !== 'ОТМЕНИТЬ' }}
+      >
+        <p>Исходная выплата останется в истории со статусом «Отменена». В Балансе появится связанная возвратная операция на ту же сумму и тот же способ выплаты.</p>
+        <Input.TextArea rows={4} value={cancelReason} onChange={e => setCancelReason(e.target.value)} placeholder="Обязательная причина отмены" maxLength={500} showCount />
+        <p style={{ marginTop: 12, marginBottom: 4, fontWeight: 600 }}>Для подтверждения введите ОТМЕНИТЬ</p>
+        <Input value={cancelConfirmation} onChange={e => setCancelConfirmation(e.target.value)} placeholder="ОТМЕНИТЬ" status={cancelConfirmation && cancelConfirmation.trim().toUpperCase() !== 'ОТМЕНИТЬ' ? 'error' : undefined} />
       </Modal>
 
       {/* Добавление смены */}

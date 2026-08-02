@@ -149,10 +149,35 @@ class Contract {
         registered_by, payment_method, on_behalf_of,
         appointment_id, signed_by,
         is_joint, second_employee_id,
+        payments,
       } = contractData;
 
-      // Используем paid_amount, если указан, иначе amount
-      const paidAmountValue = paid_amount !== undefined ? paid_amount : amount;
+      const allowedPaymentMethods = new Set(['cash', 'noncash', 'bank', 'sbp']);
+      const hasPaymentList = Array.isArray(payments);
+      const normalizedPayments = hasPaymentList
+        ? payments.map((payment) => ({
+            amount: Number(payment.amount),
+            payment_method: allowedPaymentMethods.has(payment.payment_method)
+              ? payment.payment_method
+              : 'cash',
+            payment_date: payment.payment_date || contract_date,
+            comment: payment.comment || null,
+          }))
+        : (Number(paid_amount !== undefined ? paid_amount : amount) > 0
+          ? [{
+              amount: Number(paid_amount !== undefined ? paid_amount : amount),
+              payment_method: allowedPaymentMethods.has(payment_method) ? payment_method : 'cash',
+              payment_date: contract_date,
+              comment: null,
+            }]
+          : []);
+      const paidAmountValue = Math.round(
+        normalizedPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100
+      ) / 100;
+      const paymentMethods = [...new Set(normalizedPayments.map((payment) => payment.payment_method))];
+      const paymentMethodValue = paymentMethods.length > 1
+        ? 'mixed'
+        : (paymentMethods[0] || payment_method || 'cash');
       const ctype = (contract_type || 'docs').toString();
       const expertVal = expert_id ? Number(expert_id) : null;
       const dStatus = (docs_status || 'pending').toString();
@@ -188,12 +213,30 @@ class Contract {
           status || 'active', title || null, description || null, contractOfficeId,
           contract_number || null, additional_payment_date || null,
           additional_payment_amount || null, registered_by || null,
-          signed_by || null, payment_method || null, on_behalf_of || null,
+          signed_by || null, paymentMethodValue, on_behalf_of || null,
           needsLawyerInput, appointment_id || null,
         ]
       );
 
       const contractId = result.insertId;
+
+      for (const payment of normalizedPayments) {
+        await connection.query(
+          `INSERT INTO contract_payments (
+             contract_id, amount, payment_date, payment_method, payment_type,
+             comment, created_by, confirmed, confirmed_by, confirmed_at
+           ) VALUES (?, ?, ?, ?, 'initial', ?, ?, 1, ?, NOW())`,
+          [
+            contractId,
+            payment.amount,
+            payment.payment_date,
+            payment.payment_method,
+            payment.comment,
+            registered_by || null,
+            registered_by || null,
+          ]
+        );
+      }
 
       // История: при создании совместного договора фиксируем второго юриста
       if (isJointVal && secondEmpVal) {
@@ -235,11 +278,7 @@ class Contract {
         );
 
         // Автозапись в кассу при регистрации через администратора
-        if (registered_by && payment_method) {
-          const cashAmount = payment_method === 'cash' ? paidAmountValue : 0;
-          const noncashAmount = payment_method === 'noncash' ? paidAmountValue : 0;
-          const bankAmount = payment_method === 'bank' ? paidAmountValue : 0;
-
+        if (registered_by && normalizedPayments.length > 0) {
           // Получаем имя юриста
           const [lawyerRows] = await connection.query(
             `SELECT TRIM(CONCAT_WS(' ', last_name, first_name, middle_name)) as full_name FROM employees WHERE id = ?`,
@@ -256,19 +295,25 @@ class Contract {
 
           const contractNum = contract_number || `ДОГ-${String(contractId).padStart(8, '0')}`;
 
-          await connection.query(
-            `INSERT INTO cash_register
-             (office_id, entry_date, client_name, contract_number, action,
-              lawyer_name, employee_id, cash_amount, noncash_amount,
-              bank_amount, expense_amount, comment, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
-            [
-              officeId, contract_date, clientName, contractNum,
-              'Регистрация договора', lawyerName, id_employee,
-              cashAmount, noncashAmount, bankAmount,
-              title ? `Тема: ${title}` : null, registered_by,
-            ]
-          );
+          for (const payment of normalizedPayments) {
+            const bucket = payment.payment_method === 'sbp' ? 'bank' : payment.payment_method;
+            const cashAmount = bucket === 'cash' ? payment.amount : 0;
+            const noncashAmount = bucket === 'noncash' ? payment.amount : 0;
+            const bankAmount = bucket === 'bank' ? payment.amount : 0;
+            await connection.query(
+              `INSERT INTO cash_register
+               (office_id, entry_date, client_name, contract_number, action,
+                lawyer_name, employee_id, cash_amount, noncash_amount,
+                bank_amount, expense_amount, comment, created_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+              [
+                officeId, payment.payment_date, clientName, contractNum,
+                'Оплата договора', lawyerName, id_employee,
+                cashAmount, noncashAmount, bankAmount,
+                payment.comment || (title ? `Тема: ${title}` : null), registered_by,
+              ]
+            );
+          }
         }
 
         // Авто-назначение договора сотрудникам по ролям
@@ -312,13 +357,16 @@ class Contract {
         is_joint, second_employee_id,
       } = contractData;
 
-      // Используем paid_amount, если указан, иначе amount
-      const paidAmountValue = paid_amount !== undefined ? paid_amount : amount;
-
-      // Если paid_amount УВЕЛИЧИЛСЯ — обновляем payment_date на сегодня (доплата)
       const oldPaid = Number(oldContract.paid_amount) || 0;
+      const paidAmountValue = paid_amount !== undefined ? Number(paid_amount) : oldPaid;
       const newPaid = Number(paidAmountValue) || 0;
       const paymentDateChanged = newPaid > oldPaid;
+      if (newPaid < oldPaid) {
+        throw new Error('Оплаченная сумма не может быть уменьшена. Платежи являются финансовым журналом.');
+      }
+      if (newPaid > Number(amount || oldContract.amount || 0)) {
+        throw new Error('Общая сумма платежей превышает сумму договора.');
+      }
 
       // Build dynamic SET so unspecified fields keep prior value (PATCH-style)
       const sets = [
@@ -369,6 +417,28 @@ class Contract {
         params
       );
 
+      if (paymentDateChanged) {
+        const method = ['cash', 'noncash', 'bank', 'sbp'].includes(contractData.payment_method)
+          ? contractData.payment_method
+          : (['cash', 'noncash', 'bank', 'sbp'].includes(oldContract.payment_method)
+            ? oldContract.payment_method
+            : 'cash');
+        await connection.query(
+          `INSERT INTO contract_payments (
+             contract_id, amount, payment_date, payment_method, payment_type,
+             comment, created_by, confirmed, confirmed_by, confirmed_at
+           ) VALUES (?, ?, CURRENT_DATE(), ?, 'additional', ?, ?, 1, ?, NOW())`,
+          [
+            id,
+            Math.round((newPaid - oldPaid) * 100) / 100,
+            method,
+            'Оплата при обновлении договора',
+            actor?.id || contractData.registered_by || null,
+            actor?.id || contractData.registered_by || null,
+          ]
+        );
+      }
+
       if (compositionChange) {
         await Contract.addHistory(connection, {
           contract_id: Number(id),
@@ -397,7 +467,7 @@ class Contract {
       }
 
       // Если изменилась сумма внесения или дата, обновляем статистику
-      const oldPaidAmount = oldContract.paid_amount || oldContract.amount;
+      const oldPaidAmount = Number(oldContract.paid_amount ?? 0);
       if (oldPaidAmount !== paidAmountValue || oldContract.contract_date !== contract_date) {
         // Сначала вычитаем старую сумму из старой даты
         await this.updateOfficeStatsOnDelete(connection, oldContract.office_id, oldPaidAmount, oldContract.contract_date);
@@ -787,16 +857,35 @@ class Contract {
    * Подтвердить оплату остатка по договору
    */
   static async confirmRemainder(id, userId) {
+    const connection = await db.getClient();
     try {
-      const contract = await this.getById(id);
+      await connection.beginTransaction();
+      const [[contract]] = await connection.query(
+        `SELECT * FROM contracts WHERE id = ? FOR UPDATE`,
+        [id]
+      );
       if (!contract) throw new Error('Договор не найден');
       if (contract.remainder_confirmed) throw new Error('Оплата остатка уже подтверждена');
 
       const remaining = parseFloat(contract.amount || 0) - parseFloat(contract.paid_amount || 0);
       if (remaining <= 0) throw new Error('Нет остатка по договору');
 
-      // Подтверждаем и обновляем paid_amount
-      await db.query(
+      await connection.query(
+        `INSERT INTO contract_payments (
+           contract_id, amount, payment_date, payment_method, payment_type,
+           comment, created_by, confirmed, confirmed_by, confirmed_at
+         ) VALUES (?, ?, CURRENT_DATE(), ?, 'additional', 'Оплата остатка по договору', ?, 1, ?, NOW())`,
+        [
+          id,
+          Math.round(remaining * 100) / 100,
+          ['cash', 'noncash', 'bank', 'sbp'].includes(contract.payment_method)
+            ? contract.payment_method
+            : 'cash',
+          userId,
+          userId,
+        ]
+      );
+      await connection.query(
         `UPDATE contracts
          SET remainder_confirmed = 1,
              remainder_confirmed_by = ?,
@@ -806,10 +895,14 @@ class Contract {
         [userId, id]
       );
 
+      await connection.commit();
       return await this.getById(id);
     } catch (error) {
+      try { await connection.rollback(); } catch (_) {}
       console.error('Error confirming remainder:', error);
       throw error;
+    } finally {
+      connection.release();
     }
   }
 
