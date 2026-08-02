@@ -2,6 +2,8 @@ services:
   db:
     image: mysql:8.0
     container_name: lawtech-stg-db
+    mem_limit: 700m
+    memswap_limit: 1400m
     restart: unless-stopped
     ports:
       - "127.0.0.1:3308:3306"
@@ -21,6 +23,8 @@ services:
   faiss-service:
     build: { context: ./server/scripts, dockerfile: Dockerfile }
     container_name: lawtech-stg-faiss
+    mem_limit: 900m
+    memswap_limit: 1800m
     restart: unless-stopped
     environment: [ PYTHONUNBUFFERED=1, PORT=5000 ]
     networks: [ lawtech-stg-network ]
@@ -28,6 +32,8 @@ services:
   backend:
     build: { context: ./server, dockerfile: Dockerfile }
     container_name: lawtech-stg-backend
+    mem_limit: 256m
+    memswap_limit: 512m
     restart: unless-stopped
     ports:
       - "127.0.0.1:3002:3001"
@@ -53,6 +59,8 @@ services:
   frontend:
     build: { context: ./frontend, dockerfile: Dockerfile }
     container_name: lawtech-stg-frontend
+    mem_limit: 64m
+    memswap_limit: 128m
     restart: unless-stopped
     ports:
       - "127.0.0.1:8091:80"
