@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Устанавливаем зависимости
-RUN npm install
+RUN npm install --legacy-peer-deps
+RUN npm install --no-save --legacy-peer-deps typescript@5.6.3
 
 # Копируем исходный код
 COPY . .

@@ -83,11 +83,16 @@ const Applications: React.FC = () => {
   ];
 
   return (
-    <Page>
+    <Page className="lt-page lt-page-applications">
       <ToolRow>
         <Space size={12}>
           <FileTextOutlined style={{ fontSize: 20, color: 'var(--color-accent)' }} />
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Заявления</span>
+          <div className="lt-page-heading lt-page-heading-inline">
+            <div>
+              <h1>Заявления</h1>
+              <p>Подготовка и контроль процессуальных заявлений</p>
+            </div>
+          </div>
         </Space>
         <Space>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>Добавить</Button>

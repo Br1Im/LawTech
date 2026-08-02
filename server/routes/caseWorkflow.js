@@ -13,6 +13,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../db');
 const config = require('../config');
+const { decodeUploadedFilename } = require('../utils/filename');
 
 router.use(authenticateToken);
 
@@ -31,6 +32,7 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
+    file.originalname = decodeUploadedFilename(file.originalname);
     const safe = String(file.originalname || 'file')
       .replace(/[^\w.\-]+/g, '_')
       .slice(0, 200);

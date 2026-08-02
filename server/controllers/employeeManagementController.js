@@ -9,7 +9,7 @@ const { checkOfficeAccess } = require('../utils/ensureOffice');
 
 // Иерархия: кто кого может создавать
 const CREATION_HIERARCHY = {
-  director: ['manager', 'okk', 'cc_manager', 'expert'],
+  director: ['manager', 'okk', 'expert'],
   manager: ['lawyer', 'representative', 'admin'],
   okk: ['lawyer', 'representative', 'admin'],
   cc_manager: ['cc_operator'],
@@ -17,7 +17,7 @@ const CREATION_HIERARCHY = {
 
 // Иерархия: кто какие роли может назначать (повышение/понижение)
 const ROLE_CHANGE_HIERARCHY = {
-  director: ['manager', 'okk', 'cc_manager', 'cc_operator', 'expert', 'lawyer', 'representative', 'admin'],
+  director: ['manager', 'okk', 'expert', 'lawyer', 'representative', 'admin'],
   manager: ['lawyer', 'representative', 'admin'],
   okk: ['lawyer', 'representative', 'admin'],
   cc_manager: ['cc_operator'],
@@ -84,8 +84,21 @@ const createEmployee = async (req, res) => {
       });
     }
 
-    // Определяем office_id
-    let employeeOfficeId = office_id || creator.office_id;
+    const creatorIsCallCenter = ['cc_manager', 'cc_operator'].includes(String(creator.role || '').toLowerCase());
+    let creatorCallCenterId = null;
+    if (creatorIsCallCenter) {
+      const [memberships] = await db.query(
+        'SELECT call_center_id FROM call_center_members WHERE user_id = ? LIMIT 1',
+        [creator.id]
+      );
+      if (!memberships.length) {
+        return res.status(409).json({ success: false, message: 'Аккаунт не привязан к колл-центру' });
+      }
+      creatorCallCenterId = memberships[0].call_center_id;
+    }
+
+    // Для КЦ принадлежность определяется call_center_members, а не офисом юркомпании.
+    const employeeOfficeId = creatorIsCallCenter ? null : (office_id || creator.office_id);
 
     // Генерируем логин и пароль
     const login = await generateUniqueLogin(first_name, last_name);
@@ -99,14 +112,21 @@ const createEmployee = async (req, res) => {
 
     const newUserId = result.insertId;
 
-    // Синхронизируем user_offices (мульти-офис)
-    try {
+    if (creatorIsCallCenter) {
       await db.query(
-        'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
-        [newUserId, employeeOfficeId, creator.id]
+        `INSERT INTO call_center_members (call_center_id, user_id, member_role)
+         VALUES (?, ?, ?)`,
+        [creatorCallCenterId, newUserId, role === 'cc_manager' ? 'manager' : 'operator']
       );
-    } catch (uoErr) {
-      console.warn('[createEmployee] user_offices sync failed:', uoErr.message);
+    } else if (employeeOfficeId) {
+      try {
+        await db.query(
+          'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
+          [newUserId, employeeOfficeId, creator.id]
+        );
+      } catch (uoErr) {
+        console.warn('[createEmployee] user_offices sync failed:', uoErr.message);
+      }
     }
 
     // Автоматически создаём запись в employees (синхронизация users ↔ employees)
@@ -116,17 +136,19 @@ const createEmployee = async (req, res) => {
       cc_operator: 'Оператор КЦ', representative: 'Представитель',
       director: 'Генеральный директор',
     };
-    try {
-      await db.query(
-        `INSERT INTO employees (id, first_name, last_name, middle_name, email, phone, position, office_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE office_id = VALUES(office_id), position = VALUES(position)`,
-        [newUserId, first_name, last_name, middle_name || null,
-         `${login}@staff.local`, phone || null,
-         positionMap[role] || role, employeeOfficeId]
-      );
-    } catch (empErr) {
-      console.warn('[createEmployee] employees sync failed:', empErr.message);
+    if (!creatorIsCallCenter) {
+      try {
+        await db.query(
+          `INSERT INTO employees (id, first_name, last_name, middle_name, email, phone, position, office_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE office_id = VALUES(office_id), position = VALUES(position)`,
+          [newUserId, first_name, last_name, middle_name || null,
+           `${login}@staff.local`, phone || null,
+           positionMap[role] || role, employeeOfficeId]
+        );
+      } catch (empErr) {
+        console.warn('[createEmployee] employees sync failed:', empErr.message);
+      }
     }
 
     res.status(201).json({
@@ -156,17 +178,30 @@ const getEmployees = async (req, res) => {
     const user = req.user;
     const officeId = req.query.office_id || user.office_id;
 
-    if (officeId) {
+    const isCallCenterUser = ['cc_manager', 'cc_operator'].includes(String(user.role || '').toLowerCase());
+    let query = '';
+    const params = [];
+
+    if (isCallCenterUser) {
+      query = `
+        SELECT DISTINCT u.id, u.first_name, u.last_name, u.middle_name, u.login, u.phone,
+               u.email, u.role, u.office_id, u.is_active, u.created_by, u.created_at
+          FROM call_center_members mine
+          JOIN call_center_members member ON member.call_center_id = mine.call_center_id
+          JOIN users u ON u.id = member.user_id
+         WHERE mine.user_id = ? AND u.deleted_at IS NULL
+      `;
+      params.push(user.id);
+    } else if (officeId) {
       const allowed = await checkOfficeAccess(user, officeId);
       if (!allowed) {
         return res.status(403).json({ success: false, message: 'Доступ запрещен' });
       }
     }
 
-    let query = '';
-    const params = [];
-
-    if (officeId) {
+    if (isCallCenterUser) {
+      // Состав уже выбран выше по членству в колл-центре.
+    } else if (officeId) {
       // Показываем сотрудников основного офиса + мульти-офисных (назначенных через user_offices)
       query = `
         SELECT DISTINCT u.id, u.first_name, u.last_name, u.middle_name, u.login, u.phone, u.email, u.role, u.office_id, u.is_active, u.created_by, u.created_at
@@ -174,22 +209,16 @@ const getEmployees = async (req, res) => {
         LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
         WHERE (u.office_id = ? OR uo.office_id IS NOT NULL)
           AND u.deleted_at IS NULL
+          AND u.role NOT IN ('cc_manager', 'cc_operator')
       `;
       params.push(officeId, officeId);
     } else {
       query = `
         SELECT id, first_name, last_name, middle_name, login, phone, email, role, office_id, is_active, created_by, created_at
-        FROM users WHERE 1=1 AND deleted_at IS NULL
+        FROM users
+        WHERE 1=1 AND deleted_at IS NULL
+          AND role NOT IN ('cc_manager', 'cc_operator')
       `;
-    }
-
-    // Для КЦ ролей показываем только состав КЦ (начальник + операторы)
-    if (user.role === 'cc_manager') {
-      query += ' AND role IN (?, ?)';
-      params.push('cc_manager', 'cc_operator');
-    } else if (user.role === 'cc_operator') {
-      query += ' AND role IN (?, ?)';
-      params.push('cc_manager', 'cc_operator');
     }
 
     // Не показываем пароли и деактивированных (если не запрошены)
@@ -197,7 +226,7 @@ const getEmployees = async (req, res) => {
       query += ' AND is_active = 1';
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += isCallCenterUser ? ' ORDER BY u.created_at DESC' : ' ORDER BY created_at DESC';
 
     // Пагинация: page и page_size (опциональные)
     const page = parseInt(req.query.page, 10);
@@ -709,6 +738,292 @@ const setStaffOffices = async (req, res) => {
 };
 
 
+const DISMISSIBLE_ROLES = ['lawyer', 'expert', 'representative', 'admin', 'manager', 'okk'];
+const SUCCESSOR_ROLES = ['manager', 'okk', 'director'];
+
+const dismissalError = (statusCode, message) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const validateDismissalTarget = (actor, target) => {
+  if (!canDelete('employees', actor && actor.role)) {
+    throw dismissalError(403, 'Недостаточно прав для увольнения сотрудника');
+  }
+  if (String(actor.id) === String(target.id)) {
+    throw dismissalError(400, 'Нельзя уволить самого себя');
+  }
+  if (target.deleted_at) {
+    throw dismissalError(409, 'Сотрудник уже уволен');
+  }
+  if (!DISMISSIBLE_ROLES.includes(String(target.role))) {
+    throw dismissalError(400, 'Для этой роли требуется отдельный сценарий передачи обязанностей');
+  }
+  if (!target.office_id) {
+    throw dismissalError(400, 'У сотрудника не указан основной офис');
+  }
+};
+
+const getDismissalSuccessors = async (executor, officeId, employeeId) => {
+  const [rows] = await executor.query(
+    `SELECT DISTINCT u.id, u.first_name, u.last_name, u.middle_name, u.role, u.office_id
+       FROM users u
+       LEFT JOIN user_offices uo
+         ON uo.user_id = u.id AND uo.office_id = ?
+       LEFT JOIN offices o
+         ON o.id = ?
+      WHERE u.id <> ?
+        AND u.is_active = 1
+        AND u.deleted_at IS NULL
+        AND u.role IN ('manager', 'okk', 'director')
+        AND (u.office_id = ? OR uo.office_id IS NOT NULL OR o.owner_id = u.id)
+      ORDER BY FIELD(u.role, 'okk', 'manager', 'director'), u.last_name, u.first_name`,
+    [officeId, officeId, employeeId, officeId]
+  );
+  return rows;
+};
+
+const getDismissalWorkload = async (executor, employeeId) => {
+  const [contractsRows] = await executor.query(
+    `SELECT COUNT(DISTINCT id) AS count
+       FROM contracts
+      WHERE status <> 'terminated'
+        AND (id_employee = ? OR second_employee_id = ? OR expert_id = ? OR representative_id = ?)`,
+    [employeeId, employeeId, employeeId, employeeId]
+  );
+  const [casesRows] = await executor.query(
+    `SELECT COUNT(DISTINCT id) AS count
+       FROM cases
+      WHERE status NOT IN ('won', 'lost', 'closed')
+        AND (employee_id = ? OR manager_id = ? OR expert_id = ?)`,
+    [employeeId, employeeId, employeeId]
+  );
+  const [assignmentRows] = await executor.query(
+    `SELECT COUNT(*) AS count
+       FROM contract_assignments ca
+       JOIN contracts c ON c.id = ca.contract_id AND c.status <> 'terminated'
+      WHERE ca.user_id = ? AND ca.status IN ('pending', 'in_progress')`,
+    [employeeId]
+  );
+  const [appointmentRows] = await executor.query(
+    `SELECT COUNT(DISTINCT id) AS count
+       FROM appointments
+      WHERE status IN ('waiting', 'confirmed', 'rescheduled')
+        AND (assigned_lawyer_id = ? OR assigned_lawyer_id_2 = ?)`,
+    [employeeId, employeeId]
+  );
+  const [taskRows] = await executor.query(
+    `SELECT COUNT(*) AS count
+       FROM additional_tz
+      WHERE status NOT IN ('done', 'closed')
+        AND (expert_id = ? OR manager_id = ?)`,
+    [employeeId, employeeId]
+  );
+
+  return {
+    contracts: Number(contractsRows[0].count || 0),
+    cases: Number(casesRows[0].count || 0),
+    assignments: Number(assignmentRows[0].count || 0),
+    appointments: Number(appointmentRows[0].count || 0),
+    tasks: Number(taskRows[0].count || 0),
+  };
+};
+
+// Preview is intentionally separate: the manager sees what will be transferred
+// and explicitly chooses one responsible leader from the same office.
+const getDismissalPreview = async (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const [rows] = await db.query(
+      `SELECT id, first_name, last_name, middle_name, role, office_id, is_active, deleted_at
+         FROM users WHERE id = ? LIMIT 1`,
+      [employeeId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Сотрудник не найден' });
+    }
+    const target = rows[0];
+    validateDismissalTarget(req.user, target);
+    if (!(await checkOfficeAccess(req.user, target.office_id))) {
+      return res.status(403).json({ success: false, message: 'Сотрудник другого офиса' });
+    }
+
+    const [successors, workload] = await Promise.all([
+      getDismissalSuccessors(db, target.office_id, employeeId),
+      getDismissalWorkload(db, employeeId),
+    ]);
+    const actorAsSuccessor = successors.find(s => Number(s.id) === Number(req.user.id));
+
+    return res.json({
+      success: true,
+      employee: target,
+      successors,
+      suggested_successor_id: actorAsSuccessor?.id || successors[0]?.id || null,
+      workload,
+    });
+  } catch (error) {
+    console.error('Ошибка подготовки увольнения сотрудника:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Не удалось подготовить передачу дел',
+    });
+  }
+};
+
+const dismissEmployee = async (req, res) => {
+  const employeeId = Number(req.params.id);
+  const successorId = Number(req.body && req.body.successor_id);
+  const reason = String((req.body && req.body.reason) || '').trim().slice(0, 500) || null;
+  let connection;
+
+  try {
+    if (!successorId) {
+      return res.status(400).json({ success: false, message: 'Выберите руководителя, которому передаются дела' });
+    }
+
+    connection = await db.getClient();
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      `SELECT id, first_name, last_name, middle_name, role, office_id, is_active, deleted_at
+         FROM users WHERE id = ? FOR UPDATE`,
+      [employeeId]
+    );
+    if (!rows.length) throw dismissalError(404, 'Сотрудник не найден');
+    const target = rows[0];
+    validateDismissalTarget(req.user, target);
+    if (!(await checkOfficeAccess(req.user, target.office_id))) {
+      throw dismissalError(403, 'Сотрудник другого офиса');
+    }
+
+    const successors = await getDismissalSuccessors(connection, target.office_id, employeeId);
+    const successor = successors.find(item => Number(item.id) === successorId);
+    if (!successor || !SUCCESSOR_ROLES.includes(String(successor.role))) {
+      throw dismissalError(400, 'Выбранный руководитель недоступен или относится к другому офису');
+    }
+
+    const workload = await getDismissalWorkload(connection, employeeId);
+
+    // Primary and secondary responsibility on all non-terminated contracts.
+    await connection.query(
+      `UPDATE contracts SET id_employee = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id_employee = ? AND status <> 'terminated'`,
+      [successorId, employeeId]
+    );
+    await connection.query(
+      `UPDATE contracts SET second_employee_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE second_employee_id = ? AND status <> 'terminated'`,
+      [successorId, employeeId]
+    );
+
+    // Specialist assignments return to the leader's queue instead of pretending
+    // that a manager has the expert/representative role.
+    await connection.query(
+      `UPDATE contracts SET expert_id = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE expert_id = ? AND status <> 'terminated'`,
+      [employeeId]
+    );
+    await connection.query(
+      `UPDATE contracts SET representative_id = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE representative_id = ? AND status <> 'terminated'`,
+      [employeeId]
+    );
+
+    await connection.query(
+      `UPDATE cases SET employee_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE employee_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
+      [successorId, employeeId]
+    );
+    await connection.query(
+      `UPDATE cases SET manager_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE manager_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
+      [successorId, employeeId]
+    );
+    await connection.query(
+      `UPDATE cases
+          SET expert_id = NULL, manager_id = ?, workflow_status = 'with_manager', updated_at = CURRENT_TIMESTAMP
+        WHERE expert_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
+      [successorId, employeeId]
+    );
+
+    await connection.query(
+      `UPDATE additional_tz SET manager_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE manager_id = ? AND status NOT IN ('done', 'closed')`,
+      [successorId, employeeId]
+    );
+    await connection.query(
+      `UPDATE additional_tz
+          SET expert_id = NULL, manager_id = ?, status = 'with_manager', updated_at = CURRENT_TIMESTAMP
+        WHERE expert_id = ? AND status NOT IN ('done', 'closed')`,
+      [successorId, employeeId]
+    );
+
+    await connection.query(
+      `UPDATE appointments SET assigned_lawyer_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE assigned_lawyer_id = ? AND status IN ('waiting', 'confirmed', 'rescheduled')`,
+      [successorId, employeeId]
+    );
+    await connection.query(
+      `UPDATE appointments SET assigned_lawyer_id_2 = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE assigned_lawyer_id_2 = ? AND status IN ('waiting', 'confirmed', 'rescheduled')`,
+      [successorId, employeeId]
+    );
+
+    // Keep the former employee's assignment rows as completed history and create
+    // an active assignment for the successor where one does not already exist.
+    await connection.query(
+      `INSERT INTO contract_assignments
+         (contract_id, user_id, role, assignment_type, status, assigned_at)
+       SELECT ca.contract_id, ?, ?, 'manual', ca.status, CURRENT_TIMESTAMP
+         FROM contract_assignments ca
+         JOIN contracts c ON c.id = ca.contract_id AND c.status <> 'terminated'
+        WHERE ca.user_id = ? AND ca.status IN ('pending', 'in_progress')
+       ON DUPLICATE KEY UPDATE
+         status = IF(contract_assignments.status = 'completed', VALUES(status), contract_assignments.status)`,
+      [successorId, successor.role, employeeId]
+    );
+    await connection.query(
+      `UPDATE contract_assignments ca
+       JOIN contracts c ON c.id = ca.contract_id AND c.status <> 'terminated'
+          SET ca.status = 'completed'
+        WHERE ca.user_id = ? AND ca.status IN ('pending', 'in_progress')`,
+      [employeeId]
+    );
+
+    await connection.query(
+      `UPDATE users
+          SET is_active = 0, deleted_at = CURRENT_TIMESTAMP, deleted_by = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+      [req.user.id, employeeId]
+    );
+    await connection.query(
+      `INSERT INTO employee_dismissals
+         (employee_id, office_id, successor_id, dismissed_by, reason, transfer_summary)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [employeeId, target.office_id, successorId, req.user.id, reason, JSON.stringify(workload)]
+    );
+
+    await connection.commit();
+    return res.json({
+      success: true,
+      message: 'Доступ сотрудника закрыт, действующие дела переданы руководителю',
+      employee_id: employeeId,
+      successor_id: successorId,
+      workload,
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Ошибка увольнения сотрудника:', error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Не удалось уволить сотрудника и передать дела',
+    });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 // Мягкое удаление сотрудника (soft delete). Права: director/owner/manager/okk.
 const deleteEmployee = async (req, res) => {
   try {
@@ -751,6 +1066,8 @@ module.exports = {
   updateEmployee,
   resetPassword,
   deactivateEmployee,
+  getDismissalPreview,
+  dismissEmployee,
   deleteEmployee,
   changeOwnPassword,
   getAllowedRoles,

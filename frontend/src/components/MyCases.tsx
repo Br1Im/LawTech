@@ -286,7 +286,13 @@ const MyCases: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '0 4px' }}>
+    <div className="lt-page lt-page-my-cases" style={{ padding: '0 4px' }}>
+      <div className="lt-page-heading">
+        <div>
+          <h1>Мои дела</h1>
+          <p>Судебные дела, сроки и процессуальные действия</p>
+        </div>
+      </div>
       <div style={{ marginBottom: 12 }}>
         <Input.Search
           placeholder="Поиск: ФИО клиента, тема, номер договора (ДОГ-...), телефон, дата"

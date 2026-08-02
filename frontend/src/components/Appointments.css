@@ -120,8 +120,11 @@
   margin-bottom: 14px;
 }
 
-.apt-search-input {
-  max-width: 280px;
+.apt-toolbar .apt-search-input {
+  flex: 0 0 230px !important;
+  width: 230px !important;
+  min-width: 0 !important;
+  max-width: 230px !important;
 }
 
 .apt-filter-toggle {

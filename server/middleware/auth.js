@@ -36,7 +36,52 @@ const authenticateToken = (req, res, next) => {
         code: isExpired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID'
       });
     }
-    req.user = user;
+    try {
+      const [currentUsers] = await db.query(
+        `SELECT id, first_name, last_name, middle_name, email, login, phone,
+                role, office_id, is_active, deleted_at
+           FROM users
+          WHERE id = ?
+          LIMIT 1`,
+        [user.id]
+      );
+      const currentUser = currentUsers[0];
+      if (!currentUser || Number(currentUser.is_active) !== 1 || currentUser.deleted_at) {
+        return res.status(401).json({
+          success: false,
+          message: 'Доступ к аккаунту прекращён',
+          code: 'ACCOUNT_DISABLED'
+        });
+      }
+      // Use current DB values so role/office changes and dismissal take effect immediately,
+      // including for JWTs that were issued before the change.
+      user = { ...user, ...currentUser };
+      req.user = user;
+    } catch (error) {
+      console.error('[auth] Ошибка проверки состояния аккаунта:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Не удалось проверить доступ к аккаунту'
+      });
+    }
+
+    if (['cc_manager', 'cc_operator'].includes(String(user.role || '').toLowerCase()) && !user.office_id) {
+      try {
+        const [connected] = await db.query(
+          `SELECT occ.office_id, ccm.call_center_id
+             FROM call_center_members ccm
+             JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
+            WHERE ccm.user_id = ? ORDER BY occ.connected_at LIMIT 1`,
+          [user.id]
+        );
+        if (connected.length) {
+          req.user.office_id = connected[0].office_id;
+          req.user.call_center_id = connected[0].call_center_id;
+        }
+      } catch (error) {
+        console.error('[auth] Ошибка определения офиса колл-центра:', error);
+      }
+    }
 
     const xOfficeId = req.headers['x-office-id'];
     if (xOfficeId) {
@@ -58,6 +103,15 @@ const authenticateToken = (req, res, next) => {
                 `которым не владеет. Заголовок проигнорирован, используется office_id=${user.office_id}.`
               );
             }
+          } else if (['cc_manager', 'cc_operator'].includes(String(user.role || '').toLowerCase())) {
+            const [connections] = await db.query(
+              `SELECT 1
+                 FROM call_center_members ccm
+                 JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id
+                WHERE ccm.user_id = ? AND occ.office_id = ? AND occ.is_active = 1 LIMIT 1`,
+              [user.id, requestedOfficeId]
+            );
+            if (connections.length) req.user.office_id = requestedOfficeId;
           } else {
             // Мульти-офисный сотрудник — проверяем user_offices
             const [uoRows] = await db.query(

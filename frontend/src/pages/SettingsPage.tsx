@@ -134,7 +134,7 @@ const SettingsPage: React.FC = () => {
   if (isLoading) return null;
 
   return (
-    <SettingsLayout>
+    <SettingsLayout className="lt-settings-page">
       <Sidebar
         collapsed={collapsed}
         onCollapse={setCollapsed}
@@ -143,14 +143,14 @@ const SettingsPage: React.FC = () => {
         isMobile={isMobile}
         user={user}
       />
-      <SettingsContent style={{ marginLeft: collapsed ? '80px' : '200px' }} >
-        <SettingsContainer>
+      <SettingsContent style={{ marginLeft: collapsed ? '72px' : '232px' }} >
+        <SettingsContainer className="lt-settings-container">
           <SettingsTitle>Настройки</SettingsTitle>
           
-          <SettingsSection>
+          <SettingsSection className="lt-settings-section">
             <SectionTitle>Общие настройки</SectionTitle>
 
-            <SettingItem>
+            <SettingItem className="lt-settings-item">
               <div>
                 <SettingLabel>Язык интерфейса</SettingLabel>
                 <SettingDescription>Выберите язык для отображения интерфейса</SettingDescription>
@@ -159,16 +159,16 @@ const SettingsPage: React.FC = () => {
             </SettingItem>
           </SettingsSection>
 
-          <SettingsSection>
+          <SettingsSection className="lt-settings-section">
             <SectionTitle>Уведомления</SectionTitle>
-            <SettingItem>
+            <SettingItem className="lt-settings-item">
               <div>
                 <SettingLabel>Email уведомления</SettingLabel>
                 <SettingDescription>Получать уведомления на электронную почту</SettingDescription>
               </div>
               <div>Включено</div>
             </SettingItem>
-            <SettingItem>
+            <SettingItem className="lt-settings-item">
               <div>
                 <SettingLabel>Push уведомления</SettingLabel>
                 <SettingDescription>Получать push-уведомления в браузере</SettingDescription>
@@ -177,16 +177,16 @@ const SettingsPage: React.FC = () => {
             </SettingItem>
           </SettingsSection>
 
-          <SettingsSection>
+          <SettingsSection className="lt-settings-section">
             <SectionTitle>Безопасность</SectionTitle>
-            <SettingItem>
+            <SettingItem className="lt-settings-item">
               <div>
                 <SettingLabel>Двухфакторная аутентификация</SettingLabel>
                 <SettingDescription>Дополнительная защита вашего аккаунта</SettingDescription>
               </div>
               <div>Отключено</div>
             </SettingItem>
-            <SettingItem>
+            <SettingItem className="lt-settings-item">
               <div>
                 <SettingLabel>Сменить пароль</SettingLabel>
                 <SettingDescription>Обновить пароль для входа в систему</SettingDescription>

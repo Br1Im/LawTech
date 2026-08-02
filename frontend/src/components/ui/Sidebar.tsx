@@ -15,10 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ArrowLeftRight,
   MessageSquare,
   Briefcase,
-  ChevronDown,
+  Link2,
 
 } from 'lucide-react';
 import './Sidebar.css';
@@ -33,12 +32,6 @@ const RubleIcon = ({ size = 20, strokeWidth = 1.5 }: { size?: number; strokeWidt
     <path d="M6 15h8" />
   </svg>
 );
-
-interface OfficeItem {
-  id: number;
-  name: string;
-  address?: string;
-}
 
 interface SidebarProps {
   collapsed: boolean;
@@ -72,21 +65,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const [offices, setOffices] = useState<OfficeItem[]>([]);
   const [activeOfficeId, setActiveOfficeId] = useState<number | null>(null);
-  const [isOfficeSwitcherOpen, setIsOfficeSwitcherOpen] = useState(false);
-  const officeSwitcherRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedId = localStorage.getItem('activeOfficeId');
     if (storedId) setActiveOfficeId(Number(storedId));
 
-    if (user?.role === 'director') {
+    if (user?.role === 'director' || user?.role === 'cc_manager' || user?.role === 'cc_operator') {
       // Директор: загружаем все офисы
       apiClient.get('/offices/my')
         .then((res) => {
           const list = res.data?.data || [];
-          setOffices(list);
           if (list.length > 0 && !storedId) {
             setActiveOfficeId(list[0].id);
             localStorage.setItem('activeOfficeId', String(list[0].id));
@@ -98,7 +87,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       apiClient.get('/staff/my-offices')
         .then((res) => {
           const list = res.data?.offices || [];
-          setOffices(list);
           if (list.length > 0 && !storedId) {
             setActiveOfficeId(list[0].id);
             localStorage.setItem('activeOfficeId', String(list[0].id));
@@ -107,35 +95,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         .catch(() => {});
     }
   }, [user?.role]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (officeSwitcherRef.current && !officeSwitcherRef.current.contains(e.target as Node)) {
-        setIsOfficeSwitcherOpen(false);
-      }
-    };
-    if (isOfficeSwitcherOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOfficeSwitcherOpen]);
-
-  const handleSwitchOffice = async (officeId: number) => {
-    try {
-      if (user?.role === 'director') {
-        // Директор: переключаем через API (обновляет токен)
-        const res = await apiClient.post('/offices/switch', { officeId });
-        if (res.data?.token) {
-          localStorage.setItem('token', res.data.token);
-        }
-      }
-      // Для всех: сохраняем выбранный офис и перезагружаем
-      localStorage.setItem('activeOfficeId', String(officeId));
-      setActiveOfficeId(officeId);
-      setIsOfficeSwitcherOpen(false);
-      window.location.reload();
-    } catch (err) {
-      console.error('Ошибка переключения офиса:', err);
-    }
-  };
 
   const [chatUnread, setChatUnread] = useState<number>(0);
 
@@ -155,8 +114,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => { cancelled = true; clearInterval(t); };
   }, [activeOfficeId]);
 
-  const activeOffice = offices.find(o => o.id === activeOfficeId);
-
   const getMenuItemsByRole = (role?: string) => {
     const allItems = {
       office: { key: 'Офис', icon: <Building2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Офис' },
@@ -169,6 +126,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       expenses: { key: 'Баланс', icon: <RubleIcon size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Баланс' },
       reception: { key: 'Чат', icon: <MessageSquare size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Чат' },
       callCenter: { key: 'Колл-центр', icon: <Phone size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Колл-центр' },
+      connections: { key: 'Подключения', icon: <Link2 size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Подключения' },
       materials: { key: 'Материалы', icon: <Package size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Материалы' },
       ai: { key: 'AI инструменты', icon: <Bot size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'AI инструменты' },
       myCases: { key: 'Мои дела', icon: <Briefcase size={ICON_SIZE} strokeWidth={ICON_STROKE} />, label: 'Мои дела' },
@@ -185,8 +143,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       case 'lawyer':
         return [allItems.office, allItems.clients, allItems.acts, allItems.salary];
 
+      case 'administrator':
       case 'admin':
-        return [allItems.clients, allItems.revenue, allItems.cashRegister, allItems.reception, allItems.appointments];
+        return [allItems.appointments, allItems.revenue, allItems.cashRegister, allItems.clients, allItems.reception];
 
       case 'director':
         return [
@@ -202,6 +161,15 @@ const Sidebar: React.FC<SidebarProps> = ({
         ];
 
       case 'cc_manager':
+        return [
+          allItems.office,
+          allItems.callCenter,
+          allItems.connections,
+          allItems.appointments,
+          allItems.employees,
+          allItems.reception,
+        ];
+
       case 'cc_operator':
         return [
           allItems.office,
@@ -283,7 +251,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="sidebar-header">
         {!collapsed && (
           <div className="sidebar-logo">
-            <span className="logo-text">Law<span className="logo-dot">.</span>Tech</span>
+            <span className="logo-lockup">
+              <span className="logo-text">Law<span className="logo-dot">.</span>Tech</span>
+            </span>
           </div>
         )}
         <button
@@ -297,39 +267,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-
-      {offices.length > 1 && user?.role !== 'director' && (
-        <div className="sidebar-office-switcher" ref={officeSwitcherRef}>
-          <button
-            className="sidebar-item sidebar-office-btn"
-            onClick={() => setIsOfficeSwitcherOpen(!isOfficeSwitcherOpen)}
-            title={collapsed ? (activeOffice?.name || 'Офис') : ''}
-          >
-            <span className="sidebar-icon">
-              <ArrowLeftRight size={ICON_SIZE} strokeWidth={ICON_STROKE} />
-            </span>
-            {!collapsed && (
-              <span className="sidebar-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px' }}>
-                {activeOffice?.name || 'Выбрать офис'}
-                <ChevronDown size={12} style={{ opacity: 0.5 }} />
-              </span>
-            )}
-          </button>
-          {isOfficeSwitcherOpen && !collapsed && (
-            <div className="sidebar-office-dropdown">
-              {offices.map(o => (
-                <button
-                  key={o.id}
-                  className={`sidebar-office-option ${o.id === activeOfficeId ? 'active' : ''}`}
-                  onClick={() => handleSwitchOffice(o.id)}
-                >
-                  {o.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => (

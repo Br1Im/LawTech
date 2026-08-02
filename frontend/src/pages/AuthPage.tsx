@@ -9,7 +9,7 @@ interface LoginFormValues {
   password: string;
 }
 
-type UserType = 'lawyer' | 'office' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
+type UserType = 'lawyer' | 'office' | 'call_center' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
 
 interface RegisterFormValues {
   name: string;
@@ -19,12 +19,15 @@ interface RegisterFormValues {
   officeType?: 'new' | 'existing' | '';
   officeId?: string;
   officeName?: string;
+  callCenterName?: string;
+  phone?: string;
 }
 
 const REMEMBER_KEY = 'rememberedLogin';
 
 const USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'office', label: 'Юридический офис' },
+  { value: 'call_center', label: 'Колл-центр' },
   { value: 'lawyer', label: 'Частный юрист' },
   { value: 'manager', label: 'Менеджер' },
   { value: 'okk', label: 'Руководитель' },
@@ -350,7 +353,7 @@ const AuthPage = () => {
           ) : (
             <Form key="register" form={form} layout="vertical" onFinish={handleRegisterSubmit} requiredMark={false}>
               <div className="auth-field">
-                <label className="auth-label">Ваше имя</label>
+                <label className="auth-label">{userType === 'call_center' ? 'ФИО начальника' : 'Ваше имя'}</label>
                 <Form.Item name="name" rules={[{ required: true, message: 'Введите имя' }]} style={{ marginBottom: 0 }}>
                   <Input placeholder="Как к вам обращаться" autoComplete="name" autoFocus />
                 </Form.Item>
@@ -367,6 +370,23 @@ const AuthPage = () => {
                   <Input.Password autoComplete="new-password" placeholder="Минимум 6 символов" />
                 </Form.Item>
               </div>
+
+              {userType === 'call_center' && (
+                <>
+                  <div className="auth-field">
+                    <label className="auth-label">Название колл-центра</label>
+                    <Form.Item name="callCenterName" rules={[{ required: true, message: 'Введите название колл-центра' }]} style={{ marginBottom: 0 }}>
+                      <Input placeholder="Например, Контакт-центр Право" />
+                    </Form.Item>
+                  </div>
+                  <div className="auth-field">
+                    <label className="auth-label">Телефон</label>
+                    <Form.Item name="phone" rules={[{ required: true, message: 'Введите телефон' }]} style={{ marginBottom: 0 }}>
+                      <Input autoComplete="tel" placeholder="+7 999 000-00-00" />
+                    </Form.Item>
+                  </div>
+                </>
+              )}
 
               <div className="auth-field">
                 <label className="auth-label">Тип пользователя</label>

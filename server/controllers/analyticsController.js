@@ -1,356 +1,305 @@
 /**
- * Analytics Controller — Call-center analytics for the director's dashboard.
- * Endpoint: GET /analytics/call-center
+ * Управленческая аналитика записей.
+ *
+ * В отличие от старого отчёта call-center, этот endpoint считает все записи:
+ * созданные через API, вручную, импортом и сотрудниками CRM.
  */
 const db = require('../db');
-const { resolveRollingWindow } = require('../utils/planPeriod');
 
-const ARCHIVE_STATUSES = ['REJECTED', 'SPAM', 'DUPLICATE', 'NON_TARGET', 'UNREACHABLE', 'CLOSED'];
-const ACTIVE_STATUSES  = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED'];
+const MANAGEMENT_ROLES = new Set(['director', 'manager', 'okk', 'admin', 'administrator']);
 
-const ARCHIVE_LABELS = {
-  REJECTED:    'Отказ',
-  UNREACHABLE: 'Недозвон',
-  DUPLICATE:   'Дубль',
-  NON_TARGET:  'Нецелевой',
-  SPAM:        'Спам',
-  CLOSED:      'Закрыт',
+const iso = (value) => {
+  const text = String(value || '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+};
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+function monthStart(value) {
+  const d = new Date(`${value}T12:00:00Z`);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function defaultPeriod(req) {
+  const today = todayIso();
+  const explicitFrom = iso(req.query.date_from || req.query.from);
+  const explicitTo = iso(req.query.date_to || req.query.to);
+  if (explicitFrom && explicitTo) {
+    return explicitFrom <= explicitTo
+      ? { from: explicitFrom, to: explicitTo, label: 'custom' }
+      : { from: explicitTo, to: explicitFrom, label: 'custom' };
+  }
+
+  const preset = String(req.query.period || 'month').toLowerCase();
+  if (preset === 'today') return { from: today, to: today, label: 'today' };
+  const days = preset === '7d' || preset === 'week' ? 7 : preset === '14d' ? 14 : 30;
+  const fromDate = new Date(`${today}T12:00:00Z`);
+  fromDate.setUTCDate(fromDate.getUTCDate() - (days - 1));
+  return {
+    from: preset === 'month' ? monthStart(today) : fromDate.toISOString().slice(0, 10),
+    to: today,
+    label: preset,
+  };
+}
+
+async function resolveOfficeIds(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  const ownOffice = Number(req.user?.office_id || 0);
+  if (!ownOffice) return [];
+
+  // Managers and OКК are scoped to their current office.
+  if (role !== 'director' && role !== 'admin' && role !== 'administrator') return [ownOffice];
+
+  const [ownerRows] = await db.query('SELECT owner_id FROM offices WHERE id = ? LIMIT 1', [ownOffice]);
+  const ownerId = ownerRows[0]?.owner_id;
+  if (!ownerId) return [ownOffice];
+
+  const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ? ORDER BY id', [ownerId]);
+  const available = offices.map(row => Number(row.id));
+  const requested = String(req.query.office_id || '').toLowerCase();
+  if (requested && requested !== 'all') {
+    const requestedId = Number(requested);
+    if (available.includes(requestedId)) return [requestedId];
+    return [ownOffice];
+  }
+  return available.length ? available : [ownOffice];
+}
+
+function appointmentWhere(officeIds, from, to, sourceId) {
+  const officePlaceholders = officeIds.map(() => '?').join(',');
+  const conditions = [`a.office_id IN (${officePlaceholders})`, 'DATE(a.appointment_date) BETWEEN ? AND ?'];
+  const params = [...officeIds, from, to];
+  if (sourceId) {
+    conditions.push(
+      `(a.source_id = ? OR (a.source_id IS NULL AND a.source = (SELECT name FROM appointment_sources WHERE id = ? LIMIT 1)))`
+    );
+    params.push(sourceId, sourceId);
+  }
+  return { sql: conditions.join(' AND '), params };
+}
+
+function leadWhere(officeIds, from, to, sourceId) {
+  const officePlaceholders = officeIds.map(() => '?').join(',');
+  const conditions = [`l.office_id IN (${officePlaceholders})`, 'DATE(l.created_at) BETWEEN ? AND ?'];
+  const params = [...officeIds, from, to];
+  if (sourceId) {
+    conditions.push(
+      `(l.source_id = ? OR (l.source_id IS NULL AND l.source = (SELECT name FROM appointment_sources WHERE id = ? LIMIT 1)))`
+    );
+    params.push(sourceId, sourceId);
+  }
+  return { sql: conditions.join(' AND '), params };
+}
+
+function numeric(value) {
+  return Number(value || 0);
+}
+
+const LOSS_LABELS = {
+  no_contact: 'Не дозвонились',
+  cancelled: 'Отменили запись',
+  no_show: 'Не пришли',
+  refused: 'Отказ после консультации',
+  non_target: 'Нецелевые обращения',
+  other: 'Другие причины',
 };
 
 module.exports = {
   async getCallCenterAnalytics(req, res) {
     try {
-      const officeId = req.user.office_id;
-      if (!officeId) return res.status(400).json({ success: false, message: 'Нет офиса' });
-
-      // ── Resolve period ──
-      const cycleOffset = Number(req.query.cycle_offset || 0);
-      const todayIso = new Date().toISOString().slice(0, 10);
-
-      const [plans] = await db.query(
-        `SELECT period_start, period_end FROM office_plans WHERE office_id = ? ORDER BY period_start DESC LIMIT 1`,
-        [officeId]
-      );
-
-      let periodFrom, periodTo, prevFrom, prevTo;
-      let periodLabel = '';
-      let hasPlan = false;
-
-      if (plans.length > 0) {
-        hasPlan = true;
-        const toYmd = (v) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
-        const ps = toYmd(plans[0].period_start);
-        const pe = toYmd(plans[0].period_end);
-        const win = resolveRollingWindow(ps, pe, todayIso, cycleOffset);
-        periodFrom = win.from;
-        periodTo   = win.to;
-
-        // Previous period for comparison
-        const prevWin = resolveRollingWindow(ps, pe, todayIso, cycleOffset - 1);
-        // Only use previous if it's actually different
-        if (prevWin.cycle_index !== win.cycle_index) {
-          prevFrom = prevWin.from;
-          prevTo   = prevWin.to;
-        }
-
-        periodLabel = `${periodFrom} – ${periodTo}`;
-      } else {
-        // Fallback: current month
-        const d = new Date();
-        periodFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-        periodTo   = todayIso;
-        periodLabel = `${periodFrom} – ${periodTo}`;
+      const role = String(req.user?.role || '').toLowerCase();
+      if (!MANAGEMENT_ROLES.has(role)) {
+        return res.status(403).json({ success: false, message: 'Раздел доступен только руководству' });
       }
 
-      // ── KPI: leads by status (current period) ──
-      const [leadRows] = await db.query(
-        `SELECT
-           COUNT(*) AS total_leads,
-           SUM(CASE WHEN status = 'BOOKED' THEN 1 ELSE 0 END) AS booked,
-           SUM(CASE WHEN status IN ('REJECTED','SPAM','DUPLICATE','NON_TARGET','UNREACHABLE','CLOSED') THEN 1 ELSE 0 END) AS archived,
-           SUM(CASE WHEN status IN ('NEW','IN_PROGRESS','NO_ANSWER','CALL_BACK','INTERESTED') THEN 1 ELSE 0 END) AS in_progress
-         FROM call_center_leads
-         WHERE office_id = ? AND DATE(created_at) BETWEEN ? AND ?`,
-        [officeId, periodFrom, periodTo]
-      );
+      const officeIds = await resolveOfficeIds(req);
+      if (!officeIds.length) {
+        return res.status(400).json({ success: false, message: 'Пользователь не привязан к офису' });
+      }
 
-      const totalLeads = Number(leadRows[0]?.total_leads || 0);
-      const bookedLeads = Number(leadRows[0]?.booked || 0);
-      const archivedLeads = Number(leadRows[0]?.archived || 0);
-      const inProgressLeads = Number(leadRows[0]?.in_progress || 0);
+      const { from, to, label } = defaultPeriod(req);
+      const parsedSource = Number(req.query.source_id || 0);
+      const sourceId = parsedSource > 0 ? parsedSource : null;
+      const af = appointmentWhere(officeIds, from, to, sourceId);
+      const lf = leadWhere(officeIds, from, to, sourceId);
 
-      // ── Appointments (from leads created in this period) ──
-      const [apptRows] = await db.query(
+      const contractJoin = `
+        LEFT JOIN (
+          SELECT
+            c.appointment_id,
+            COUNT(DISTINCT c.id) AS contract_count,
+            COALESCE(SUM(CASE
+              WHEN p.confirmed = 1 AND DATE(p.payment_date) BETWEEN ? AND ?
+              THEN p.amount ELSE 0 END), 0) AS revenue
+          FROM contracts c
+          LEFT JOIN contract_payments p ON p.contract_id = c.id
+          WHERE c.appointment_id IS NOT NULL
+          GROUP BY c.appointment_id
+        ) cr ON cr.appointment_id = a.id
+      `;
+
+      const [kpiRows] = await db.query(
         `SELECT
-           COUNT(*) AS total_appointments,
-           SUM(CASE WHEN a.status = 'arrived' THEN 1 ELSE 0 END) AS arrived,
-           SUM(CASE WHEN a.status = 'no_show' THEN 1 ELSE 0 END) AS no_show,
-           SUM(CASE WHEN a.consultation_result = 'contract_signed' THEN 1 ELSE 0 END) AS contracts_signed
+           COUNT(DISTINCT a.id) AS total_records,
+           COUNT(DISTINCT CASE WHEN a.status = 'arrived' THEN a.id END) AS arrived,
+           COUNT(DISTINCT CASE WHEN a.status = 'no_show' THEN a.id END) AS no_show,
+           COUNT(DISTINCT CASE
+             WHEN a.consultation_result = 'contract_signed' OR COALESCE(cr.contract_count, 0) > 0
+             THEN a.id END) AS contracts_signed,
+           COALESCE(SUM(CASE
+             WHEN a.consultation_result = 'contract_signed' OR COALESCE(cr.contract_count, 0) > 0
+             THEN COALESCE(cr.revenue, 0) ELSE 0 END), 0) AS contract_revenue
          FROM appointments a
-         WHERE a.office_id = ? AND DATE(a.appointment_date) BETWEEN ? AND ?`,
-        [officeId, periodFrom, periodTo]
+         ${contractJoin}
+         WHERE ${af.sql}`,
+        [from, to, ...af.params]
       );
 
-      const totalAppointments = Number(apptRows[0]?.total_appointments || 0);
-      const arrived = Number(apptRows[0]?.arrived || 0);
-      const noShow = Number(apptRows[0]?.no_show || 0);
-      const contractsSigned = Number(apptRows[0]?.contracts_signed || 0);
+      const [leadKpiRows] = await db.query(
+        `SELECT COUNT(DISTINCT l.id) AS total_leads FROM call_center_leads l WHERE ${lf.sql}`,
+        lf.params
+      );
 
-      // Use the higher of booked or total_appointments as "Записано"
-      const recorded = Math.max(bookedLeads, totalAppointments);
+      const [leadSourceRows] = await db.query(
+        `SELECT COALESCE(s.name, NULLIF(TRIM(l.source), ''), 'Без источника') AS source_name,
+                COUNT(DISTINCT l.id) AS lead_count
+         FROM call_center_leads l
+         LEFT JOIN appointment_sources s ON s.id = l.source_id
+         WHERE ${lf.sql}
+         GROUP BY COALESCE(s.name, NULLIF(TRIM(l.source), ''), 'Без источника')`,
+        lf.params
+      );
 
-      // ── Previous period KPI for comparison ──
-      let prev = null;
-      if (prevFrom && prevTo) {
-        const [prevLeads] = await db.query(
-          `SELECT
-             COUNT(*) AS total_leads,
-             SUM(CASE WHEN status = 'BOOKED' THEN 1 ELSE 0 END) AS booked,
-             SUM(CASE WHEN status IN ('REJECTED','SPAM','DUPLICATE','NON_TARGET','UNREACHABLE','CLOSED') THEN 1 ELSE 0 END) AS archived
-           FROM call_center_leads
-           WHERE office_id = ? AND DATE(created_at) BETWEEN ? AND ?`,
-          [officeId, prevFrom, prevTo]
-        );
-        const [prevAppt] = await db.query(
-          `SELECT
-             COUNT(*) AS total_appointments,
-             SUM(CASE WHEN a.status = 'arrived' THEN 1 ELSE 0 END) AS arrived,
-             SUM(CASE WHEN a.consultation_result = 'contract_signed' THEN 1 ELSE 0 END) AS contracts_signed
-           FROM appointments a
-           WHERE a.office_id = ? AND DATE(a.appointment_date) BETWEEN ? AND ?`,
-          [officeId, prevFrom, prevTo]
-        );
-
-        const pTotal = Number(prevLeads[0]?.total_leads || 0);
-        const pBooked = Number(prevLeads[0]?.booked || 0);
-        const pArchived = Number(prevLeads[0]?.archived || 0);
-        const pAppts = Number(prevAppt[0]?.total_appointments || 0);
-        const pArrived = Number(prevAppt[0]?.arrived || 0);
-        const pContracts = Number(prevAppt[0]?.contracts_signed || 0);
-        const pRecorded = Math.max(pBooked, pAppts);
-
-        prev = {
-          total_leads: pTotal,
-          recorded: pRecorded,
-          arrived: pArrived,
-          contracts_signed: pContracts,
-          archived: pArchived,
-          conversion: pTotal > 0 ? Math.round(pContracts / pTotal * 100) : 0,
-          defect_rate: pTotal > 0 ? Math.round(pArchived / pTotal * 100) : 0,
-          period: `${prevFrom} – ${prevTo}`,
-        };
-      }
-
-      // ── Sources analytics ──
       const [sourceRows] = await db.query(
         `SELECT
-           ccl.source,
-           COUNT(DISTINCT ccl.id) AS total_leads,
-           COUNT(DISTINCT CASE WHEN ccl.status = 'BOOKED' THEN ccl.id END) AS booked,
+           COALESCE(s.name, NULLIF(TRIM(a.source), ''), 'Без источника') AS source_name,
+           COUNT(DISTINCT a.id) AS appointments_count,
            COUNT(DISTINCT CASE WHEN a.status = 'arrived' THEN a.id END) AS arrived,
-           COUNT(DISTINCT CASE WHEN a.consultation_result = 'contract_signed' THEN a.id END) AS contracts_signed,
-           COUNT(DISTINCT CASE WHEN ccl.status IN ('REJECTED','SPAM','DUPLICATE','NON_TARGET','UNREACHABLE','CLOSED') THEN ccl.id END) AS archived
-         FROM call_center_leads ccl
-         LEFT JOIN appointments a ON a.lead_id = ccl.id AND a.office_id = ccl.office_id
-         WHERE ccl.office_id = ? AND DATE(ccl.created_at) BETWEEN ? AND ?
-         GROUP BY ccl.source
-         ORDER BY total_leads DESC`,
-        [officeId, periodFrom, periodTo]
+           COUNT(DISTINCT CASE WHEN a.status = 'no_show' THEN a.id END) AS no_show,
+           COUNT(DISTINCT CASE
+             WHEN a.consultation_result = 'contract_signed' OR COALESCE(cr.contract_count, 0) > 0
+             THEN a.id END) AS contracts_signed,
+           COALESCE(SUM(CASE
+             WHEN a.consultation_result = 'contract_signed' OR COALESCE(cr.contract_count, 0) > 0
+             THEN COALESCE(cr.revenue, 0) ELSE 0 END), 0) AS revenue
+         FROM appointments a
+         LEFT JOIN appointment_sources s ON s.id = a.source_id
+         ${contractJoin}
+         WHERE ${af.sql}
+         GROUP BY COALESCE(s.name, NULLIF(TRIM(a.source), ''), 'Без источника')
+         ORDER BY contracts_signed DESC, revenue DESC, appointments_count DESC`,
+        [from, to, ...af.params]
       );
 
-      const sources = sourceRows.map(r => {
-        const total = Number(r.total_leads || 0);
-        const contracts = Number(r.contracts_signed || 0);
-        const archived = Number(r.archived || 0);
-        const conversion = total > 0 ? Math.round(contracts / total * 100) : 0;
-        const defectRate = total > 0 ? Math.round(archived / total * 100) : 0;
+      const [lossRows] = await db.query(
+        `SELECT reason, COUNT(*) AS count FROM (
+           SELECT 'no_contact' AS reason
+           FROM call_center_leads l
+           WHERE ${lf.sql} AND l.status IN ('NO_ANSWER', 'UNREACHABLE')
+           UNION ALL
+           SELECT 'non_target' AS reason
+           FROM call_center_leads l
+           WHERE ${lf.sql} AND l.status = 'NON_TARGET'
+           UNION ALL
+           SELECT 'other' AS reason
+           FROM call_center_leads l
+           WHERE ${lf.sql} AND l.status IN ('REJECTED', 'SPAM', 'DUPLICATE', 'CLOSED')
+           UNION ALL
+           SELECT 'cancelled' AS reason
+           FROM appointments a
+           WHERE ${af.sql} AND a.status = 'cancelled'
+           UNION ALL
+           SELECT 'no_show' AS reason
+           FROM appointments a
+           WHERE ${af.sql} AND a.status = 'no_show'
+           UNION ALL
+           SELECT 'refused' AS reason
+           FROM appointments a
+           WHERE ${af.sql} AND a.consultation_result = 'not_signed'
+         ) loss_rows
+         GROUP BY reason
+         ORDER BY count DESC`,
+        [...lf.params, ...lf.params, ...lf.params, ...af.params, ...af.params, ...af.params]
+      );
 
-        // Source quality rating (based on lawyer conversion thresholds from Office)
-        let quality = 'medium'; // yellow
-        if (conversion >= 15 && defectRate < 30) quality = 'good';      // green
-        if (conversion < 5 || defectRate > 50) quality = 'bad';         // red
-
+      const kpi = kpiRows[0] || {};
+      const totalLeads = numeric(leadKpiRows[0]?.total_leads);
+      const totalRecords = numeric(kpi.total_records);
+      const arrived = numeric(kpi.arrived);
+      const contractsSigned = numeric(kpi.contracts_signed);
+      const revenue = numeric(kpi.contract_revenue);
+      const leadMap = new Map(leadSourceRows.map(row => [row.source_name, numeric(row.lead_count)]));
+      const sourceNames = new Set([...sourceRows.map(row => row.source_name), ...leadSourceRows.map(row => row.source_name)]);
+      const sourceRanking = [...sourceNames].map(sourceName => {
+        const row = sourceRows.find(item => item.source_name === sourceName) || {};
+        const records = numeric(row.appointments_count);
+        const arrivedCount = numeric(row.arrived);
+        const signed = numeric(row.contracts_signed);
+        const rowRevenue = numeric(row.revenue);
         return {
-          source: r.source || 'Неизвестный',
-          total_leads: total,
-          booked: Number(r.booked || 0),
-          arrived: Number(r.arrived || 0),
-          contracts_signed: contracts,
-          archived,
-          conversion,
-          defect_rate: defectRate,
-          quality,
+          source: sourceName,
+          leads: leadMap.get(sourceName) || 0,
+          appointments: records,
+          arrived: arrivedCount,
+          contracts: signed,
+          conversion: arrivedCount ? Math.round((signed / arrivedCount) * 100) : 0,
+          average_check: signed ? Math.round(rowRevenue / signed) : 0,
+          revenue: rowRevenue,
+          no_show: numeric(row.no_show),
         };
-      });
+      }).sort((a, b) => b.contracts - a.contracts || b.leads - a.leads);
 
-      // Best/worst source (only meaningful if conversion > 0)
-      const sourcesWithData = sources.filter(s => s.total_leads >= 3);
-      let bestSource = null;
-      let worstSource = null;
-      if (sourcesWithData.length > 0) {
-        const candidate = sourcesWithData.reduce((a, b) => a.conversion > b.conversion ? a : b);
-        if (candidate.conversion > 0) bestSource = candidate;
-        const worstCandidate = sourcesWithData.reduce((a, b) => a.conversion < b.conversion ? a : b);
-        worstSource = worstCandidate;
-        if (bestSource && worstSource && bestSource.source === worstSource.source) worstSource = null;
-        if (!bestSource) worstSource = null; // no point showing worst if there's no best
-      }
-
-      // ── Operators analytics ──
-      const [operatorRows] = await db.query(
-        `SELECT
-           u.id,
-           CONCAT(COALESCE(u.last_name, ''), ' ', COALESCE(u.first_name, '')) AS name,
-           COUNT(DISTINCT ccl.id) AS total_leads,
-           COUNT(DISTINCT CASE WHEN ccl.status = 'BOOKED' THEN ccl.id END) AS booked,
-           COUNT(DISTINCT CASE WHEN a.status = 'arrived' THEN a.id END) AS arrived,
-           COUNT(DISTINCT CASE WHEN ccl.status IN ('REJECTED','SPAM','DUPLICATE','NON_TARGET','UNREACHABLE','CLOSED') THEN ccl.id END) AS archived
-         FROM call_center_leads ccl
-         JOIN users u ON u.id = ccl.assigned_to
-         LEFT JOIN appointments a ON a.lead_id = ccl.id AND a.office_id = ccl.office_id
-         WHERE ccl.office_id = ? AND DATE(ccl.created_at) BETWEEN ? AND ?
-           AND ccl.assigned_to IS NOT NULL
-         GROUP BY u.id, u.last_name, u.first_name
-         ORDER BY total_leads DESC`,
-        [officeId, periodFrom, periodTo]
-      );
-
-      const operators = operatorRows.map(r => {
-        const total = Number(r.total_leads || 0);
-        const booked = Number(r.booked || 0);
-        const arrivedOp = Number(r.arrived || 0);
-        const archivedOp = Number(r.archived || 0);
+      const lossCount = lossRows.reduce((sum, row) => sum + numeric(row.count), 0);
+      const losses = Object.keys(LOSS_LABELS).map(reason => {
+        const row = lossRows.find(item => item.reason === reason);
+        const count = numeric(row?.count);
         return {
-          id: r.id,
-          name: (r.name || '').trim() || `Оператор #${r.id}`,
-          total_leads: total,
-          booked,
-          arrived: arrivedOp,
-          arrival_rate: booked > 0 ? Math.round(arrivedOp / booked * 100) : 0,
-          archived: archivedOp,
-          defect_rate: total > 0 ? Math.round(archivedOp / total * 100) : 0,
+          reason,
+          label: LOSS_LABELS[reason],
+          count,
+          percentage: lossCount ? Math.round((count / lossCount) * 100) : 0,
         };
-      });
+      }).filter(item => item.count > 0);
 
-      // Totals row
-      const opTotals = {
-        total_leads: operators.reduce((s, o) => s + o.total_leads, 0),
-        booked: operators.reduce((s, o) => s + o.booked, 0),
-        arrived: operators.reduce((s, o) => s + o.arrived, 0),
-        archived: operators.reduce((s, o) => s + o.archived, 0),
-      };
-      opTotals.arrival_rate = opTotals.booked > 0 ? Math.round(opTotals.arrived / opTotals.booked * 100) : 0;
-      opTotals.defect_rate = opTotals.total_leads > 0 ? Math.round(opTotals.archived / opTotals.total_leads * 100) : 0;
-
-      // ── Archive by reason ──
-      const [archiveRows] = await db.query(
-        `SELECT status, COUNT(*) AS cnt
-         FROM call_center_leads
-         WHERE office_id = ? AND DATE(created_at) BETWEEN ? AND ?
-           AND status IN ('REJECTED','SPAM','DUPLICATE','NON_TARGET','UNREACHABLE','CLOSED')
-         GROUP BY status
-         ORDER BY cnt DESC`,
-        [officeId, periodFrom, periodTo]
-      );
-
-      const archiveReasons = archiveRows.map(r => ({
-        status: r.status,
-        label: ARCHIVE_LABELS[r.status] || r.status,
-        count: Number(r.cnt || 0),
-      }));
-
-      
-      // ── City stats (appointments by office, for directors with multiple offices) ──
-      let cityStats = [];
-      try {
-        const [ownerRow] = await db.query('SELECT owner_id FROM offices WHERE id = ?', [officeId]);
-        const ownerId = ownerRow[0]?.owner_id;
-        if (ownerId) {
-          const [cityRows] = await db.query(
-            `SELECT
-               o.id AS office_id,
-               o.name AS office_name,
-               COUNT(a.id) AS total_appointments,
-               SUM(CASE WHEN a.status = 'arrived' THEN 1 ELSE 0 END) AS arrived,
-               SUM(CASE WHEN a.status = 'no_show' THEN 1 ELSE 0 END) AS no_show,
-               SUM(CASE WHEN a.consultation_result = 'contract_signed' THEN 1 ELSE 0 END) AS contracts_signed
-             FROM offices o
-             LEFT JOIN appointments a ON a.office_id = o.id
-               AND DATE(a.appointment_date) BETWEEN ? AND ?
-             WHERE o.owner_id = ?
-             GROUP BY o.id, o.name
-             ORDER BY o.name`,
-            [periodFrom, periodTo, ownerId]
-          );
-
-          cityStats = cityRows.map(r => {
-            const total = Number(r.total_appointments || 0);
-            const arr = Number(r.arrived || 0);
-            const ns = Number(r.no_show || 0);
-            const contracts = Number(r.contracts_signed || 0);
-            return {
-              office_id: r.office_id,
-              office_name: r.office_name,
-              total_appointments: total,
-              arrived: arr,
-              no_show: ns,
-              contracts_signed: contracts,
-              conversion: arr > 0 ? Math.round(contracts / arr * 100) : 0,
-            };
-          });
-        }
-      } catch (e) {
-        console.error('Error getting city stats:', e.message);
-      }
-
-      // ── Response ──
-      const conversion = totalLeads > 0 ? Math.round(contractsSigned / totalLeads * 100) : 0;
-      const defectRate = totalLeads > 0 ? Math.round(archivedLeads / totalLeads * 100) : 0;
-
-      res.json({
+      const periodLabel = `${from} – ${to}`;
+      return res.json({
         success: true,
         data: {
-          period: {
-            from: periodFrom,
-            to: periodTo,
-            label: periodLabel,
-            has_plan: hasPlan,
-          },
+          period: { from, to, label: periodLabel, preset: label },
+          filters: { office_id: officeIds.length === 1 ? officeIds[0] : 'all', source_id: sourceId },
           kpi: {
-            total_leads: totalLeads,
-            recorded,
+            leads: totalLeads,
+            total_records: totalRecords,
             arrived,
-            no_show: noShow,
             contracts_signed: contractsSigned,
-            conversion,
-            defect_rate: defectRate,
-            archived: archivedLeads,
-            in_progress: inProgressLeads,
+            conversion: arrived ? Math.round((contractsSigned / arrived) * 100) : 0,
+            no_show: numeric(kpi.no_show),
+            attendance_rate: totalRecords ? Math.round((arrived / totalRecords) * 100) : 0,
+            average_check: contractsSigned ? Math.round(revenue / contractsSigned) : 0,
+            contract_revenue: revenue,
           },
           funnel: [
             { stage: 'Лиды', count: totalLeads, rate: 100 },
-            { stage: 'В работе', count: inProgressLeads, rate: totalLeads > 0 ? Math.round(inProgressLeads / totalLeads * 100) : 0 },
-            { stage: 'Записано', count: recorded, rate: totalLeads > 0 ? Math.round(recorded / totalLeads * 100) : 0 },
-            { stage: 'Пришло', count: arrived, rate: recorded > 0 ? Math.round(arrived / recorded * 100) : 0 },
-            { stage: 'Договоры', count: contractsSigned, rate: arrived > 0 ? Math.round(contractsSigned / arrived * 100) : 0 },
+            { stage: 'Записано', count: totalRecords, rate: totalLeads ? Math.round((totalRecords / totalLeads) * 100) : 0 },
+            { stage: 'Пришло', count: arrived, rate: totalRecords ? Math.round((arrived / totalRecords) * 100) : 0 },
+            { stage: 'Договоры', count: contractsSigned, rate: arrived ? Math.round((contractsSigned / arrived) * 100) : 0 },
           ],
-          sources,
-          best_source: bestSource ? { source: bestSource.source, conversion: bestSource.conversion } : null,
-          worst_source: worstSource ? { source: worstSource.source, conversion: worstSource.conversion } : null,
-          operators,
-          operator_totals: opTotals,
-          archive_reasons: archiveReasons,
-          losses: {
-            total: archivedLeads,
-            rate: defectRate,
+          source_ranking: sourceRanking,
+          losses: { total: lossCount, items: losses },
+          quality: {
+            total_records: totalRecords,
+            arrived,
+            attendance_rate: totalRecords ? Math.round((arrived / totalRecords) * 100) : 0,
+            contracts_signed: contractsSigned,
+            conversion: totalRecords ? Math.round((contractsSigned / totalRecords) * 100) : 0,
+            average_check: contractsSigned ? Math.round(revenue / contractsSigned) : 0,
+            revenue,
           },
-          previous_period: prev,
-          city_stats: cityStats.length > 1 ? cityStats : [],
         },
       });
     } catch (error) {
       console.error('Error in getCallCenterAnalytics:', error);
-      res.status(500).json({ success: false, message: 'Ошибка при получении аналитики' });
+      return res.status(500).json({ success: false, message: 'Ошибка получения аналитики' });
     }
   },
 };

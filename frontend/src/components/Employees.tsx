@@ -29,6 +29,26 @@ interface AllowedRole {
   label: string;
 }
 
+interface DismissalSuccessor {
+  id: number;
+  first_name: string;
+  last_name: string;
+  middle_name?: string;
+  role: string;
+}
+
+interface DismissalPreview {
+  successors: DismissalSuccessor[];
+  suggested_successor_id: number | null;
+  workload: {
+    contracts: number;
+    cases: number;
+    assignments: number;
+    appointments: number;
+    tasks: number;
+  };
+}
+
 const ROLE_LABELS: Record<string, string> = {
   director: 'Генеральный директор',
   manager: 'Менеджер',
@@ -139,14 +159,19 @@ const StaffDetailModal = ({
   const [customPassword, setCustomPassword] = useState('');
   const [passwordMode, setPasswordMode] = useState<'choose' | 'custom' | 'loading'>('choose');
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDismissal, setShowDismissal] = useState(false);
+  const [dismissalPreview, setDismissalPreview] = useState<DismissalPreview | null>(null);
+  const [dismissalLoading, setDismissalLoading] = useState(false);
+  const [dismissalSuccessorId, setDismissalSuccessorId] = useState<string>('');
+  const [dismissalReason, setDismissalReason] = useState('');
   const [showRoleChange, setShowRoleChange] = useState(false);
   const [changeableRoles, setChangeableRoles] = useState<AllowedRole[]>([]);
   const [selectedNewRole, setSelectedNewRole] = useState<string>(staff.role);
   const [changingRole, setChangingRole] = useState(false);
   const { user } = useAuth();
   const isGeneralDirector = user?.role === 'director';
-  const canDeleteEmp = ['director', 'owner', 'manager', 'okk'].includes(user?.role || '') && staff.role !== 'director' && staff.role !== 'owner';
+  const canDismissEmp = ['director', 'owner', 'manager', 'okk'].includes(user?.role || '')
+    && ['lawyer', 'expert', 'representative', 'admin', 'manager', 'okk'].includes(staff.role);
   const [showOfficeTransfer, setShowOfficeTransfer] = useState(false);
   const [myOffices, setMyOffices] = useState<{ id: number; name: string }[]>([]);
   const [selectedOffice, setSelectedOffice] = useState<string>('');
@@ -311,19 +336,51 @@ const StaffDetailModal = ({
   };
 
 
-  const handleDeleteStaff = async () => {
+  const openDismissal = async () => {
     setError(null);
+    setSuccess(null);
+    setShowDismissal(true);
+    setDismissalLoading(true);
+    setDismissalPreview(null);
     try {
-      const res = await fetch(buildApiUrl(`/staff/${staff.id}`), {
-        method: 'DELETE',
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/dismissal-preview`), {
         headers: getAuthHeaders(),
       });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.message || b.error || 'Ошибка удаления'); }
-      setSuccess('Сотрудник удалён');
-      setConfirmDelete(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Не удалось подготовить передачу дел');
+      setDismissalPreview(data);
+      setDismissalSuccessorId(data.suggested_successor_id ? String(data.suggested_successor_id) : '');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDismissalLoading(false);
+    }
+  };
+
+  const handleDismissStaff = async () => {
+    if (!dismissalSuccessorId) return;
+    setError(null);
+    setDismissalLoading(true);
+    try {
+      const res = await fetch(buildApiUrl(`/staff/${staff.id}/dismiss`), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          successor_id: Number(dismissalSuccessorId),
+          reason: dismissalReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Не удалось уволить сотрудника');
+      setSuccess(data.message || 'Сотрудник уволен, дела переданы');
+      setShowDismissal(false);
       onUpdated();
       onClose();
-    } catch (e) { setError((e as Error).message); }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDismissalLoading(false);
+    }
   };
   const handleToggleActive = async () => {
     setError(null);
@@ -520,6 +577,58 @@ const StaffDetailModal = ({
           </div>
         )}
 
+        {showDismissal && (
+          <div className="emp-modal-section dismissal-panel">
+            <h4><FaExchangeAlt /> Увольнение и передача дел</h4>
+            <p className="dismissal-note">
+              Доступ сотрудника будет закрыт сразу. Завершённые дела останутся в истории без изменений.
+            </p>
+            {dismissalLoading && !dismissalPreview ? (
+              <p className="dismissal-note">Проверяем действующие дела…</p>
+            ) : dismissalPreview ? (
+              <>
+                <div className="dismissal-workload">
+                  <span><b>{dismissalPreview.workload.contracts}</b> договоров</span>
+                  <span><b>{dismissalPreview.workload.cases}</b> дел</span>
+                  <span><b>{dismissalPreview.workload.tasks}</b> задач</span>
+                  <span><b>{dismissalPreview.workload.appointments}</b> записей</span>
+                </div>
+                {dismissalPreview.successors.length > 0 ? (
+                  <>
+                    <label className="dismissal-field">
+                      <span>Передать ответственному руководителю</span>
+                      <select value={dismissalSuccessorId} onChange={(e) => setDismissalSuccessorId(e.target.value)}>
+                        {dismissalPreview.successors.map(person => (
+                          <option key={person.id} value={String(person.id)}>
+                            {[person.last_name, person.first_name, person.middle_name].filter(Boolean).join(' ')} — {ROLE_LABELS[person.role] || person.role}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="dismissal-field">
+                      <span>Причина (необязательно)</span>
+                      <textarea
+                        value={dismissalReason}
+                        onChange={(e) => setDismissalReason(e.target.value)}
+                        maxLength={500}
+                        placeholder="Например: увольнение по собственному желанию"
+                      />
+                    </label>
+                    <div className="dismissal-actions">
+                      <button className="btn-danger" onClick={handleDismissStaff} disabled={dismissalLoading || !dismissalSuccessorId}>
+                        {dismissalLoading ? 'Передача…' : 'Подтвердить увольнение'}
+                      </button>
+                      <button className="btn-secondary" onClick={() => setShowDismissal(false)} disabled={dismissalLoading}>Отмена</button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-error">В этом офисе нет активного руководителя. Сначала назначьте или активируйте руководителя.</div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+
         {error && <div className="form-error">{error}</div>}
         {success && <div className="form-success">{success}</div>}
 
@@ -554,15 +663,9 @@ const StaffDetailModal = ({
                     {staff.is_active === 0 ? <><FaCheck /> Активировать</> : <><FaBan /> Деактивировать</>}
                   </button>
                 )}
-                {canDeleteEmp && (confirmDelete ? (
-                  <div className="delete-confirm">
-                    <span>Удалить сотрудника безвозвратно из списка?</span>
-                    <button className="btn-danger" onClick={handleDeleteStaff}>Да, удалить</button>
-                    <button className="btn-secondary" onClick={() => setConfirmDelete(false)}>Отмена</button>
-                  </div>
-                ) : (
-                  <button className="btn-danger" onClick={() => setConfirmDelete(true)}><FaBan /> Удалить</button>
-                ))}
+                {canDismissEmp && !showDismissal && (
+                  <button className="btn-danger" onClick={openDismissal}><FaBan /> Уволить и передать дела</button>
+                )}
               </>
             )}
           </div>

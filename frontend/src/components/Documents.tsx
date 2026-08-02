@@ -39,9 +39,10 @@ interface DocumentsProps {
    *  без заголовка/фильтров/таблицы. Нужно чтобы встраивать кнопку на другие
    *  страницы (например, в шапку вкладки «Клиенты»). */
   headless?: boolean;
+  canCreate?: boolean;
 }
 
-const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) => {
+const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false, canCreate = true }) => {
   const { notifications, removeNotification, showSuccess, showError, showWarning } = useNotification();
 
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -779,13 +780,13 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false }) =
 
 
   return (
-    <div className={headless ? 'documents-container documents-headless' : 'documents-container'}>
+    <div className={headless ? 'documents-container documents-headless' : 'documents-container lt-page lt-page-documents'}>
       {!headless && <h2 className="documents-title">Договоры</h2>}
 
       {!headless && error && <div className="error-message">{error}</div>}
 
       {headless ? (
-        !['expert','lawyer','representative'].includes(user?.role || '') ? <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button> : null
+        canCreate && !['expert','lawyer','representative'].includes(user?.role || '') ? <button className="new-document-btn" onClick={openNewDocumentModal}>Новый договор</button> : null
       ) : (
       <div className="documents-filters">
         <div className="search-container">

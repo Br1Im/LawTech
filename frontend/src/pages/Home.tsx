@@ -68,8 +68,32 @@ const Page = styled.div`
   color: var(--page-fg);
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
   font-feature-settings: 'ss01','cv11','cv05';
-  letter-spacing: -0.012em;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
+
+  /* Scroll-reveal, scoped to the landing. Falls back to fully visible
+     if JS is off or the user prefers reduced motion — text is never hidden. */
+  & [data-reveal] {
+    opacity: 0;
+    transform: translateY(22px);
+    transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1);
+    will-change: opacity, transform;
+  }
+  & [data-reveal].in {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & [data-reveal],
+    & [data-reveal].in {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
+    }
+  }
 `;
 
 const Shell = styled.div`
@@ -105,10 +129,11 @@ const Eyebrow = styled.div`
 
 const SectionTitle = styled.h2`
   margin: 0;
-  font-size: clamp(34px, 4.4vw, 60px);
-  line-height: 1.02;
-  letter-spacing: -0.055em;
+  font-size: clamp(32px, 4.4vw, 58px);
+  line-height: 1.08;
+  letter-spacing: -0.028em;
   font-weight: 900;
+  text-wrap: balance;
 
   em {
     font-style: normal;
@@ -123,13 +148,16 @@ const SectionLead = styled.p`
   margin: 18px 0 0;
   max-width: 640px;
   font-size: 17px;
-  line-height: 1.55;
+  line-height: 1.62;
   color: var(--page-muted);
+  text-wrap: pretty;
 `;
 
 const Section = styled.section`
   position: relative;
-  padding: clamp(80px, 9vw, 140px) 0;
+  padding: clamp(72px, 9vw, 140px) 0;
+  scroll-margin-top: 96px;
+  @media (max-width: 600px) { padding: 56px 0; }
 `;
 
 /* Reveal-on-scroll wrapper */
@@ -325,10 +353,11 @@ const HeroGrid = styled.div`
 `;
 const HeroHeadline = styled.h1`
   margin: 22px 0 0;
-  font-size: clamp(44px, 6.2vw, 84px);
-  line-height: 0.96;
-  letter-spacing: -0.065em;
+  font-size: clamp(38px, 6vw, 80px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
   font-weight: 950;
+  text-wrap: balance;
 
   em {
     font-style: normal;
@@ -343,8 +372,9 @@ const HeroSub = styled.p`
   margin: 22px 0 0;
   max-width: 560px;
   font-size: clamp(16px, 1.4vw, 19px);
-  line-height: 1.55;
+  line-height: 1.62;
   color: var(--page-muted);
+  text-wrap: pretty;
 
   b { color: var(--page-fg); font-weight: 700; }
 `;
@@ -622,6 +652,9 @@ const FloatCard = styled.div<{ top?: string; left?: string; right?: string; bott
 
   svg { width: 16px; height: 16px; color: var(--accent-2); }
   small { display: block; font-weight: 500; color: var(--page-muted); }
+
+  /* Декоративные плашки прячем на узких экранах, чтобы не загромождать. */
+  @media (max-width: 600px) { display: none; }
 `;
 
 /* ---------- TRUST BAR + LOGOS ---------- */
@@ -752,17 +785,19 @@ const ShowCopy = styled.div`
   z-index: 1;
   h3 {
     margin: 14px 0 0;
-    font-size: clamp(26px, 3vw, 40px);
-    line-height: 1.06;
-    letter-spacing: -0.05em;
+    font-size: clamp(25px, 3vw, 38px);
+    line-height: 1.14;
+    letter-spacing: -0.025em;
     font-weight: 900;
+    text-wrap: balance;
   }
   p {
     margin: 16px 0 0;
     color: var(--page-muted);
-    font-size: 16px;
-    line-height: 1.6;
-    max-width: 520px;
+    font-size: 16.5px;
+    line-height: 1.65;
+    max-width: 540px;
+    text-wrap: pretty;
   }
 `;
 const ShowChips = styled.div`
@@ -835,9 +870,10 @@ const Cell = styled.div<{ span?: number; tall?: boolean; dark?: boolean }>`
   }
   p {
     margin: 10px 0 0;
-    color: ${(p) => p.dark ? 'rgba(203,213,225,0.85)' : 'var(--page-muted)'};
-    font-size: 14px;
-    line-height: 1.55;
+    color: ${(p) => p.dark ? 'rgba(203,213,225,0.9)' : 'var(--page-muted)'};
+    font-size: 14.5px;
+    line-height: 1.62;
+    text-wrap: pretty;
   }
   @media (max-width: 1080px) {
     grid-column: span ${(p) => Math.min(p.span ?? 2, 4)};
@@ -905,16 +941,18 @@ const RoleCopy = styled.div`
   h3 {
     margin: 0;
     font-size: clamp(24px, 2.8vw, 36px);
-    line-height: 1.08;
-    letter-spacing: -0.045em;
+    line-height: 1.14;
+    letter-spacing: -0.025em;
     font-weight: 850;
+    text-wrap: balance;
   }
   p {
     margin: 14px 0 0;
     color: var(--page-muted);
-    font-size: 15.5px;
-    line-height: 1.6;
-    max-width: 520px;
+    font-size: 16px;
+    line-height: 1.65;
+    max-width: 540px;
+    text-wrap: pretty;
   }
 `;
 const RoleList = styled.ul`
@@ -1011,8 +1049,9 @@ const Step = styled.li`
   p {
     margin: 8px 0 0;
     color: var(--page-muted);
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 14.5px;
+    line-height: 1.62;
+    text-wrap: pretty;
   }
 `;
 
@@ -1047,9 +1086,10 @@ const ComparePane = styled.div<{ good?: boolean }>`
   h3 {
     margin: 4px 0 0;
     font-size: clamp(22px, 2.5vw, 30px);
-    letter-spacing: -0.04em;
-    line-height: 1.1;
+    letter-spacing: -0.022em;
+    line-height: 1.16;
     font-weight: 850;
+    text-wrap: balance;
   }
 `;
 const CompareList = styled.ul`
@@ -1433,10 +1473,11 @@ const FinalCta = styled.div`
   h2 {
     margin: 0;
     color: #ffffff;
-    font-size: clamp(36px, 5vw, 64px);
-    line-height: 1.02;
-    letter-spacing: -0.06em;
+    font-size: clamp(34px, 5vw, 62px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
     font-weight: 950;
+    text-wrap: balance;
     em {
       font-style: normal;
       background: linear-gradient(120deg, #c7d2fe, #a7f3d0);
@@ -1448,9 +1489,10 @@ const FinalCta = styled.div`
   p {
     margin: 18px auto 0;
     max-width: 580px;
-    color: rgba(226,232,240,0.85);
+    color: rgba(226,232,240,0.92);
     font-size: 17px;
-    line-height: 1.55;
+    line-height: 1.62;
+    text-wrap: pretty;
   }
 `;
 const FinalActions = styled.div`
@@ -1758,6 +1800,20 @@ export default function Home() {
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  /* Плавный скролл по якорям + отступ под фиксированный хедер,
+     чтобы заголовки секций не прятались под «плавающую» шапку. */
+  useEffect(() => {
+    const html = document.documentElement;
+    const prevBehavior = html.style.scrollBehavior;
+    const prevPad = html.style.scrollPaddingTop;
+    html.style.scrollBehavior = 'smooth';
+    html.style.scrollPaddingTop = '96px';
+    return () => {
+      html.style.scrollBehavior = prevBehavior;
+      html.style.scrollPaddingTop = prevPad;
+    };
   }, []);
 
   useRevealOnScroll();

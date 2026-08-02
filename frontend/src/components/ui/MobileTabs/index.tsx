@@ -73,11 +73,11 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
 
   // Фильтрация пунктов меню для администраторов
   const adminTabNames = [
-    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
     { name: "Приходы", key: "4", icon: <DollarOutlined /> },
     { name: "Касса", key: "12", icon: <BankOutlined /> },
-    { name: "Ресепшен", key: "6", icon: <BellOutlined /> },
-    { name: "Записи", key: "8", icon: <CalendarOutlined /> },
+    { name: "Клиенты", key: "9", icon: <ContactsOutlined /> },
+    { name: "Чат", key: "6", icon: <BellOutlined /> },
   ];
 
   const getTabNamesByRole = (role: string) => {
@@ -86,6 +86,7 @@ const MobileTabs: React.FC<MobileTabsProps> = ({
         return lawyerTabNames;
       case 'expert':
         return expertTabNames;
+      case 'administrator':
       case 'admin':
         return adminTabNames;
       default:

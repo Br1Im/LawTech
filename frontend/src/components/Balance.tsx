@@ -12,6 +12,8 @@ interface DayRow {
   opening: Bucket;
   income: Bucket;
   expense: Bucket;
+  transfer?: Bucket;
+  transfer_total?: number;
   closing: Bucket;
   tax: number;
 }
@@ -36,17 +38,19 @@ interface BalanceData {
   opening: Bucket;
   current: Bucket;
   current_total: number;
-  totals: { income: Bucket; expense: Bucket; tax: number };
+  totals: { income: Bucket; expense: Bucket; transfer: Bucket; tax: number };
   days: DayRow[];
   period?: PeriodInfo | null;
 }
 
 interface IncomeItem { id: number; payment_method: string; amount: number; title: string; client_name?: string | null; lawyer_name?: string | null; description?: string | null; time?: string | null; }
 interface ExpenseItem { id: number; category: string; payment_method: string; amount: number; title: string; description: string | null; is_auto: boolean; expense_type: string; time?: string | null; }
+interface TransferItem { id: number; source: string; destination: string; amount: number; comment?: string | null; time?: string | null; }
 interface DayDetail {
   date: string;
   income: { contracts: IncomeItem[]; manual: IncomeItem[]; };
   expenses: ExpenseItem[];
+  transfers: TransferItem[];
 }
 
 interface OfficeOption { id: string; name: string; }
@@ -56,12 +60,23 @@ const DEFAULT_CATEGORIES = [
   'Коммунальные услуги', 'Налоги', 'Интернет', 'Телефония', 'Техника', 'Прочее'
 ];
 
-const PM_LABEL: Record<string, string> = { cash: 'Наличные', noncash: 'Безнал', bank: 'Р/С' };
+const PM_LABEL: Record<string, string> = {
+  cash: 'Наличные',
+  noncash: 'Банковская карта',
+  bank: 'Банковский перевод',
+  sbp: 'СБП',
+};
+const TRANSFER_PM_OPTIONS = [
+  { value: 'cash', label: 'Наличные' },
+  { value: 'bank', label: 'Расчётный счёт' },
+  { value: 'noncash', label: 'Банковская карта' },
+];
 
 const fmt = (n: number) => (Number(n) || 0).toLocaleString('ru-RU');
 const fmtMoney = (n: number) => fmt(n) + ' ₽';
 const fmtSigned = (n: number) => (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + ' ₽';
 const todayStr = () => new Date().toISOString().slice(0, 10);
+const localDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
 const ruLongDate = (d: string) => { const [y,m,day] = d.split('-'); return `${day} ${MONTHS[+m-1]} ${y}`; };
 const ruShort = (d: string) => { const [y,m,day] = d.split('-'); return `${day}.${m}.${y}`; };
@@ -119,6 +134,8 @@ const Balance: React.FC = () => {
   const [incomeForm, setIncomeForm] = useState({ amount: '', payment_method: 'cash', comment: '' });
   const [showExpense, setShowExpense] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ amount: '', payment_method: 'bank', category: 'Аренда офиса', comment: '' });
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferForm, setTransferForm] = useState({ source: 'bank', destination: 'cash', amount: '', transfer_date: localDateStr(), comment: '' });
   const [saving, setSaving] = useState(false);
 
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -220,6 +237,28 @@ const Balance: React.FC = () => {
     finally { setSaving(false); }
   };
 
+  const addTransfer = async () => {
+    if (!transferForm.amount || transferForm.source === transferForm.destination) return;
+    setSaving(true);
+    try {
+      const res = await fetch(buildApiUrl(`/office/${selectedOfficeId}/transfers`), {
+        method: 'POST', headers: getAuthHeaders(),
+        body: JSON.stringify({
+          source: transferForm.source, destination: transferForm.destination,
+          amount: Number(transferForm.amount), transfer_date: transferForm.transfer_date,
+          comment: transferForm.comment.trim() || null,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message || 'Ошибка перевода средств');
+      setShowTransfer(false);
+      setTransferForm({ source: 'bank', destination: 'cash', amount: '', transfer_date: localDateStr(), comment: '' });
+      setDayDetail({});
+      await fetchBalance();
+    } catch (err) { setError((err as Error).message); }
+    finally { setSaving(false); }
+  };
+
   const delExpense = async (date: string, id: number) => {
     if (!window.confirm('Удалить расход?')) return;
     await fetch(buildApiUrl(`/expenses/${id}`), { method: 'DELETE', headers: getAuthHeaders() });
@@ -267,10 +306,10 @@ const Balance: React.FC = () => {
   };
 
   const cur = data?.current || ZERO;
-  const totals = data?.totals || { income: ZERO, expense: ZERO, tax: 0 };
-  const deltaCash = totals.income.cash - totals.expense.cash;
-  const deltaNoncash = totals.income.noncash - totals.expense.noncash;
-  const deltaBank = totals.income.bank - totals.expense.bank;
+  const totals = data?.totals || { income: ZERO, expense: ZERO, transfer: ZERO, tax: 0 };
+  const deltaCash = totals.income.cash - totals.expense.cash + totals.transfer.cash;
+  const deltaNoncash = totals.income.noncash - totals.expense.noncash + totals.transfer.noncash;
+  const deltaBank = totals.income.bank - totals.expense.bank + totals.transfer.bank;
   const deltaTotal = deltaCash + deltaNoncash + deltaBank;
 
   if (!canAccess) {
@@ -330,6 +369,7 @@ const Balance: React.FC = () => {
       <div className="bal2-actions">
         <button className="bal2-act bal2-act--income" onClick={() => { setShowIncome(true); setShowExpense(false); }}>+ Поступление</button>
         <button className="bal2-act bal2-act--expense" onClick={() => { setShowExpense(true); setShowIncome(false); }}>+ Расход</button>
+        <button className="bal2-act bal2-act--transfer" onClick={() => { setShowTransfer(true); setShowIncome(false); setShowExpense(false); }}>↔ Перевод средств</button>
       </div>
 
       {/* Навигация по периодам — как во вкладке Офис, опущена перед историей */}
@@ -368,6 +408,7 @@ const Balance: React.FC = () => {
           {(!data || data.days.length === 0) && <div className="bal2-empty">Нет движений за период</div>}
           {data && data.days.map(d => {
             const inc = sumB(d.income), exp = sumB(d.expense);
+            const transferTotal = Number(d.transfer_total || 0);
             const total = inc - exp - d.tax;
             const isToday = d.date === todayStr();
             const open = expanded === d.date;
@@ -383,6 +424,7 @@ const Balance: React.FC = () => {
                   <span className="bal2-day-metrics">
                     <span className="bal2-m"><i>Поступило</i><b className="pos">+ {fmt(inc)} ₽</b></span>
                     <span className="bal2-m"><i>Потрачено</i><b className="neg">{exp ? '− ' + fmt(exp) : '− 0'} ₽</b></span>
+                    {transferTotal > 0 && <span className="bal2-m"><i>Переводы</i><b className="transfer">↔ {fmt(transferTotal)} ₽</b></span>}
                     <span className="bal2-m"><i>Налог 11%</i><b className="amber">{d.tax ? fmt(d.tax) + ' ₽' : '—'}</b></span>
                     <span className="bal2-m"><i>Итого за день</i><b className="tot">+ {fmt(total)} ₽</b></span>
                   </span>
@@ -397,8 +439,12 @@ const Balance: React.FC = () => {
                         <div className="bal2-op" key={'i' + i}>
                           <span className="bal2-op-ic in"><IcDoc /></span>
                           <span className="bal2-op-main">
-                            <span className="bal2-op-title">{it.title}</span>
-                            {(it.client_name || it.description) && <span className="bal2-op-sub">{it.client_name || it.description}</span>}
+                            <span className="bal2-op-title" title={it.title}>{it.title}</span>
+                            {(it.client_name || it.description || it.lawyer_name) && (
+                              <span className="bal2-op-sub">
+                                {[it.client_name, it.lawyer_name, it.description].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
                           </span>
                           <span className="bal2-op-amt">{fmt(it.amount)} ₽</span>
                           <span className="bal2-op-pm">{PM_LABEL[it.payment_method] || it.payment_method}</span>
@@ -417,7 +463,7 @@ const Balance: React.FC = () => {
                         <div className="bal2-op" key={'e' + it.id}>
                           <span className="bal2-op-ic out"><IcBank /></span>
                           <span className="bal2-op-main">
-                            <span className="bal2-op-title">{it.title}</span>
+                            <span className="bal2-op-title" title={it.title}>{it.title}</span>
                             <span className="bal2-op-sub">{it.description || it.category}</span>
                           </span>
                           <span className="bal2-op-amt">{fmt(it.amount)} ₽</span>
@@ -430,6 +476,22 @@ const Balance: React.FC = () => {
                       {det && expAll.length > 2 && !showAllExp[d.date] && (
                         <button className="bal2-more" onClick={() => setShowAllExp(s => ({ ...s, [d.date]: true }))}>Показать все расходы ({expAll.length})</button>
                       )}
+                    </div>
+                    <div className="bal2-col bal2-col--transfer">
+                      <div className="bal2-col-h"><span className="bal2-col-ic transfer"><span>↔</span></span>Переводы средств</div>
+                      {!det && <div className="bal2-loading">загрузка…</div>}
+                      {det && det.transfers.map(it => (
+                        <div className="bal2-op bal2-op--transfer" key={'t' + it.id}>
+                          <span className="bal2-op-ic transfer">↔</span>
+                          <span className="bal2-op-main">
+                            <span className="bal2-op-title">Перевод средств</span>
+                            <span className="bal2-op-sub">{PM_LABEL[it.source] || it.source} → {PM_LABEL[it.destination] || it.destination}{it.comment ? ` · ${it.comment}` : ''}</span>
+                          </span>
+                          <span className="bal2-op-amt">{fmt(it.amount)} ₽</span>
+                          <span className="bal2-op-time">{it.time || ''}</span>
+                        </div>
+                      ))}
+                      {det && det.transfers.length === 0 && <div className="bal2-op-empty">нет переводов</div>}
                     </div>
                   </div>
                 )}
@@ -474,6 +536,37 @@ const Balance: React.FC = () => {
             <div className="bal2-modal-actions">
               <button className="bal2-btn-cancel" onClick={() => setShowExpense(false)}>Отмена</button>
               <button className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount}>Сохранить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTransfer && (
+        <div className="bal2-modal-bg" onClick={() => setShowTransfer(false)}>
+          <div className="bal2-modal" onClick={e => e.stopPropagation()}>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Перевод средств</h3><button className="bal2-modal-x" onClick={() => setShowTransfer(false)}>✕</button></div>
+            <div className="bal2-fld-b"><span>Откуда</span>
+              <select value={transferForm.source} onChange={e => setTransferForm(f => ({ ...f, source: e.target.value }))}>
+                {TRANSFER_PM_OPTIONS.map(o => <option key={o.value} value={o.value} disabled={o.value === transferForm.destination}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="bal2-fld-b"><span>Куда</span>
+              <select value={transferForm.destination} onChange={e => setTransferForm(f => ({ ...f, destination: e.target.value }))}>
+                {TRANSFER_PM_OPTIONS.map(o => <option key={o.value} value={o.value} disabled={o.value === transferForm.source}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="bal2-fld-b"><span>Сумма</span>
+              <input type="number" min="0.01" step="0.01" value={transferForm.amount} onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))} placeholder="50 000 ₽" autoFocus />
+            </div>
+            <div className="bal2-fld-b"><span>Дата</span>
+              <input type="date" value={transferForm.transfer_date} onChange={e => setTransferForm(f => ({ ...f, transfer_date: e.target.value }))} />
+            </div>
+            <div className="bal2-fld-b"><span>Комментарий <small>(необязательно)</small></span>
+              <input value={transferForm.comment} onChange={e => setTransferForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: внесение выручки в кассу" />
+            </div>
+            <div className="bal2-modal-actions">
+              <button className="bal2-btn-cancel" onClick={() => setShowTransfer(false)}>Отмена</button>
+              <button className="bal2-btn-ok bal2-btn-ok--transfer" onClick={addTransfer} disabled={saving || !transferForm.amount || transferForm.source === transferForm.destination}>Сохранить перевод</button>
             </div>
           </div>
         </div>

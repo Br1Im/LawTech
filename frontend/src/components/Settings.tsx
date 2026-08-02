@@ -29,10 +29,11 @@ const val: React.CSSProperties = { fontSize: 14, color: 'var(--color-text-second
 
 const Settings: React.FC = () => {
   return (
-    <div className="viktor-settings" style={{ maxWidth: 720, width: '100%' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 24, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
-        Настройки
-      </h1>
+    <div className="viktor-settings lt-page lt-page-settings" style={{ maxWidth: 820, width: '100%' }}>
+      <div className="lt-page-heading">
+        <h1>Настройки</h1>
+        <p>Параметры интерфейса, уведомлений и безопасности аккаунта</p>
+      </div>
 
       <div style={card}>
         <h2 style={sectionTitle}>Общие настройки</h2>

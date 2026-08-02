@@ -11,7 +11,7 @@
  *   Остаток на начало = остаток на конец предыдущего активного дня
  *
  * Источники данных (ничего не дублируем):
- *   Поступления = оплаты по договорам (contracts.paid_amount по payment_method, на contract_date)
+ *   Поступления = подтверждённые строки contract_payments по способу и дате платежа
  *               + ручные поступления (office_income)
  *   Расходы     = expenses.amount по payment_method, на spent_on (зарплаты/возвраты падают сюда авто)
  *   Стартовый остаток задаётся один раз (office_balance_opening).
@@ -33,7 +33,11 @@ const BUCKETS = ['cash', 'noncash', 'bank'];
 const COMPOSITION_ROLES = ['director', 'manager', 'okk']; // кто может задавать стартовый остаток
 
 const zero = () => ({ cash: 0, noncash: 0, bank: 0 });
-const normBucket = (pm) => (BUCKETS.includes(pm) ? pm : 'cash');
+const normBucket = (pm) => {
+  if (pm === 'sbp') return 'bank';
+  if (pm === 'card') return 'noncash';
+  return BUCKETS.includes(pm) ? pm : 'cash';
+};
 const num = (v) => Number(v || 0);
 const today = () => new Date().toISOString().slice(0, 10);
 const dstr = (d) => {
@@ -109,10 +113,12 @@ async function loadIncome(officeId, from, to) {
   };
   // оплаты по договорам
   const [contracts] = await db.query(
-    `SELECT contract_date d, payment_method pm, COALESCE(SUM(paid_amount),0) s
-       FROM contracts
-      WHERE office_id = ? AND paid_amount > 0 AND contract_date BETWEEN ? AND ?
-      GROUP BY contract_date, payment_method`,
+    `SELECT p.payment_date d, p.payment_method pm, COALESCE(SUM(p.amount),0) s
+       FROM contract_payments p
+       JOIN contracts c ON c.id = p.contract_id
+      WHERE c.office_id = ? AND p.confirmed = 1
+        AND p.payment_date BETWEEN ? AND ?
+      GROUP BY p.payment_date, p.payment_method`,
     [officeId, from, to]
   );
   contracts.forEach(r => add(r.d, r.pm, r.s));
@@ -142,6 +148,30 @@ async function loadExpenses(officeId, from, to) {
     const k = dstr(r.d);
     if (!map[k]) map[k] = zero();
     map[k][normBucket(r.pm)] += num(r.s);
+  });
+  return map;
+}
+
+// Внутренние переводы не являются доходом или расходом: они только меняют
+// остатки отдельных кошельков. Для расчёта дня возвращаем чистое изменение
+// по каждому кошельку и отдельную сумму переводов для журнала.
+async function loadTransfers(officeId, from, to) {
+  const map = {};
+  const [rows] = await db.query(
+    `SELECT transfer_date d, source_bucket source_pm, destination_bucket destination_pm,
+            COALESCE(SUM(amount),0) total
+       FROM office_transfers
+      WHERE office_id = ? AND transfer_date BETWEEN ? AND ?
+      GROUP BY transfer_date, source_bucket, destination_bucket`,
+    [officeId, from, to]
+  );
+  rows.forEach(r => {
+    const k = dstr(r.d);
+    if (!map[k]) map[k] = { delta: zero(), total: 0 };
+    const amount = num(r.total);
+    map[k].delta[normBucket(r.destination_pm)] += amount;
+    map[k].delta[normBucket(r.source_pm)] -= amount;
+    map[k].total += amount;
   });
   return map;
 }
@@ -194,33 +224,37 @@ const getBalance = async (req, res) => {
 
     const incomeMap = await loadIncome(officeId, startDate, calcTo);
     const expenseMap = await loadExpenses(officeId, startDate, calcTo);
+    const transferMap = await loadTransfers(officeId, startDate, calcTo);
 
     // все активные даты (есть поступления или расходы) в пределах [startDate, calcTo]
     const activeDates = Array.from(new Set([
       ...Object.keys(incomeMap),
       ...Object.keys(expenseMap),
+      ...Object.keys(transferMap),
     ])).filter(d => d >= startDate && d <= calcTo).sort();
 
     const running = { ...opening };
     const days = [];
-    const totals = { income: zero(), expense: zero(), tax: 0 };
+    const totals = { income: zero(), expense: zero(), transfer: zero(), tax: 0 };
 
     for (const date of activeDates) {
       const inc = incomeMap[date] || zero();
       const exp = expenseMap[date] || zero();
+      const transfer = transferMap[date] || { delta: zero(), total: 0 };
       const dayOpening = { ...running };
       const dayClosing = {
-        cash: dayOpening.cash + inc.cash - exp.cash,
-        noncash: dayOpening.noncash + inc.noncash - exp.noncash,
-        bank: dayOpening.bank + inc.bank - exp.bank,
+        cash: dayOpening.cash + inc.cash - exp.cash + transfer.delta.cash,
+        noncash: dayOpening.noncash + inc.noncash - exp.noncash + transfer.delta.noncash,
+        bank: dayOpening.bank + inc.bank - exp.bank + transfer.delta.bank,
       };
       const tax = Math.round(inc.bank * TAX_RATE * 100) / 100;
       Object.assign(running, dayClosing);
 
       // показываем только запрошенный диапазон
       if (date >= reqFrom && date <= reqTo) {
-        days.push({ date, opening: dayOpening, income: inc, expense: exp, closing: dayClosing, tax });
+        days.push({ date, opening: dayOpening, income: inc, expense: exp, transfer: transfer.delta, transfer_total: transfer.total, closing: dayClosing, tax });
         BUCKETS.forEach(b => { totals.income[b] += inc[b]; totals.expense[b] += exp[b]; });
+        BUCKETS.forEach(b => { totals.transfer[b] += transfer.delta[b]; });
         totals.tax += tax;
       }
     }
@@ -229,6 +263,7 @@ const getBalance = async (req, res) => {
     const current = { ...opening };
     const allActiveToToday = Array.from(new Set([
       ...Object.keys(incomeMap), ...Object.keys(expenseMap),
+      ...Object.keys(transferMap),
     ])).filter(d => d >= startDate && d <= today()).sort();
     for (const date of allActiveToToday) {
       const inc = incomeMap[date] || zero();
@@ -236,6 +271,10 @@ const getBalance = async (req, res) => {
       current.cash += inc.cash - exp.cash;
       current.noncash += inc.noncash - exp.noncash;
       current.bank += inc.bank - exp.bank;
+      const transfer = transferMap[date] || { delta: zero(), total: 0 };
+      current.cash += transfer.delta.cash;
+      current.noncash += transfer.delta.noncash;
+      current.bank += transfer.delta.bank;
     }
 
     return ok(res, {
@@ -266,15 +305,21 @@ const getDayDetail = async (req, res) => {
     if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
 
     const [contractRows] = await db.query(
-      `SELECT c.id, c.contract_number, c.payment_method, c.paid_amount amount,
-              TIME_FORMAT(c.created_at, '%H:%i') AS t,
-              CONCAT(COALESCE(u.first_name,''),' ',COALESCE(u.last_name,'')) AS lawyer_name,
+      `SELECT p.id, p.contract_id, c.contract_number, p.payment_method, p.amount,
+              p.payment_type, p.comment,
+              TIME_FORMAT(p.created_at, '%H:%i') AS t,
+              COALESCE(
+                NULLIF(TRIM(CONCAT_WS(' ', creator.last_name, creator.first_name)), ''),
+                NULLIF(TRIM(CONCAT_WS(' ', employee.last_name, employee.first_name, employee.middle_name)), '')
+              ) AS employee_name,
               cl.name AS client_name
-         FROM contracts c
-         LEFT JOIN users u ON u.id = c.id_employee
+         FROM contract_payments p
+         JOIN contracts c ON c.id = p.contract_id
+         LEFT JOIN users creator ON creator.id = p.created_by
+         LEFT JOIN employees employee ON employee.id = c.id_employee
          LEFT JOIN clients cl ON cl.id = c.id_client
-        WHERE c.office_id = ? AND c.contract_date = ? AND c.paid_amount > 0
-        ORDER BY c.id`,
+        WHERE c.office_id = ? AND p.payment_date = ? AND p.confirmed = 1
+        ORDER BY p.created_at, p.id`,
       [officeId, date]
     );
     const [manualIncome] = await db.query(
@@ -287,15 +332,23 @@ const getDayDetail = async (req, res) => {
          FROM expenses WHERE office_id = ? AND spent_on = ? ORDER BY id`,
       [officeId, date]
     );
+    const [transferRows] = await db.query(
+      `SELECT id, source_bucket, destination_bucket, amount, comment,
+              TIME_FORMAT(created_at, '%H:%i') AS t
+         FROM office_transfers WHERE office_id = ? AND transfer_date = ? ORDER BY id`,
+      [officeId, date]
+    );
 
     return ok(res, {
       date,
       income: {
         contracts: contractRows.map(r => ({
-          id: r.id, type: 'contract', payment_method: normBucket(r.payment_method),
-          amount: num(r.amount), title: `Договор ${r.contract_number || r.id}`,
+          id: r.id, contract_id: r.contract_id, type: 'contract',
+          payment_type: r.payment_type, payment_method: r.payment_method,
+          amount: num(r.amount), title: `Договор ${r.contract_number || r.contract_id}`,
           client_name: (r.client_name || '').trim() || null,
-          lawyer_name: (r.lawyer_name || '').trim() || null,
+          lawyer_name: (r.employee_name || '').trim() || null,
+          description: r.comment || null,
           time: r.t || null,
         })),
         manual: manualIncome.map(r => ({
@@ -310,9 +363,91 @@ const getDayDetail = async (req, res) => {
         is_auto: !!r.is_auto, expense_type: r.expense_type,
         time: r.t || null,
       })),
+      transfers: transferRows.map(r => ({
+        id: r.id, source: normBucket(r.source_bucket), destination: normBucket(r.destination_bucket),
+        amount: num(r.amount), comment: r.comment || null, time: r.t || null,
+      })),
     });
   } catch (e) {
     return bad(res, 500, 'Ошибка расшифровки дня', e);
+  }
+};
+
+// ─── POST /api/office/:officeId/transfers ───  внутреннее перемещение средств
+const createTransfer = async (req, res) => {
+  const officeId = Number(req.params.officeId);
+  if (!officeId) return bad(res, 400, 'Не указан офис');
+  if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
+  if (!COMPOSITION_ROLES.includes(req.user.role)) return bad(res, 403, 'Перевод средств доступен руководству');
+
+  const { source, destination, amount, transfer_date, comment } = req.body || {};
+  if (!BUCKETS.includes(source) || !BUCKETS.includes(destination)) return bad(res, 400, 'Выберите источник и получателя');
+  if (source === destination) return bad(res, 400, 'Источник и получатель должны отличаться');
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return bad(res, 400, 'Сумма должна быть больше нуля');
+  const date = dstr(transfer_date) || today();
+
+  let client;
+  try {
+    client = await db.getClient();
+    await client.beginTransaction();
+    // Сериализуем переводы одного офиса, чтобы два одновременных запроса
+    // не смогли списать больше доступного остатка.
+    await client.query('SELECT id FROM offices WHERE id = ? FOR UPDATE', [officeId]);
+    const [[openingRow]] = await client.query('SELECT * FROM office_balance_opening WHERE office_id = ?', [officeId]);
+    const startDate = openingRow ? dstr(openingRow.start_date) : '2000-01-01';
+    const balances = openingRow
+      ? { cash: num(openingRow.opening_cash), noncash: num(openingRow.opening_noncash), bank: num(openingRow.opening_bank) }
+      : zero();
+    const add = (pm, signed) => { balances[normBucket(pm)] += Number(signed || 0); };
+
+    const [contracts] = await client.query(
+      `SELECT p.payment_method pm, COALESCE(SUM(p.amount),0) s
+         FROM contract_payments p
+         JOIN contracts c ON c.id = p.contract_id
+        WHERE c.office_id = ? AND p.confirmed = 1
+          AND p.payment_date BETWEEN ? AND ?
+        GROUP BY p.payment_method`,
+      [officeId, startDate, date]
+    );
+    contracts.forEach(r => add(r.pm, r.s));
+    const [incomes] = await client.query(
+      `SELECT payment_method pm, COALESCE(SUM(amount),0) s FROM office_income
+        WHERE office_id = ? AND income_date BETWEEN ? AND ? GROUP BY payment_method`,
+      [officeId, startDate, date]
+    );
+    incomes.forEach(r => add(r.pm, r.s));
+    const [expenses] = await client.query(
+      `SELECT payment_method pm, COALESCE(SUM(amount),0) s FROM expenses
+        WHERE office_id = ? AND spent_on BETWEEN ? AND ? GROUP BY payment_method`,
+      [officeId, startDate, date]
+    );
+    expenses.forEach(r => add(r.pm, -Number(r.s || 0)));
+    const [transfers] = await client.query(
+      `SELECT source_bucket source_pm, destination_bucket destination_pm, COALESCE(SUM(amount),0) s
+         FROM office_transfers WHERE office_id = ? AND transfer_date BETWEEN ? AND ?
+        GROUP BY source_bucket, destination_bucket`,
+      [officeId, startDate, date]
+    );
+    transfers.forEach(r => { add(r.source_pm, -Number(r.s || 0)); add(r.destination_pm, Number(r.s || 0)); });
+
+    if (balances[source] + 0.000001 < value) {
+      await client.rollback();
+      return bad(res, 400, `Недостаточно средств на счёте «${source === 'cash' ? 'Наличные' : source === 'bank' ? 'Расчётный счёт' : 'Банковская карта'}»`);
+    }
+    const [result] = await client.query(
+      `INSERT INTO office_transfers (office_id, source_bucket, destination_bucket, amount, transfer_date, comment, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [officeId, source, destination, value, date, comment ? String(comment).trim() : null, req.user.id || null]
+    );
+    await client.commit();
+    const [[row]] = await db.query('SELECT * FROM office_transfers WHERE id = ?', [result.insertId]);
+    return ok(res, row);
+  } catch (e) {
+    if (client) { try { await client.rollback(); } catch (_) {} }
+    return bad(res, 500, 'Ошибка создания перевода средств', e);
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -344,6 +479,10 @@ const deleteIncome = async (req, res) => {
     const id = Number(req.params.id);
     if (!officeId || !id) return bad(res, 400, 'Нужны office_id и id');
     if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
+    const [[income]] = await db.query('SELECT source_type FROM office_income WHERE id=? AND office_id=?',[id,officeId]);
+    if (income && income.source_type === 'salary_payment_reversal') {
+      return bad(res,409,'Корректировку отмены выплаты нельзя удалить');
+    }
     await db.query('DELETE FROM office_income WHERE id = ? AND office_id = ?', [id, officeId]);
     return ok(res, { id });
   } catch (e) {
@@ -358,4 +497,5 @@ module.exports = {
   getDayDetail,
   createIncome,
   deleteIncome,
+  createTransfer,
 };

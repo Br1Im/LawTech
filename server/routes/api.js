@@ -19,6 +19,7 @@ const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
 const clientRoutes = require('./clients');
 const callCenterRoutes = require('./callCenter');
+const callCenterConnectionsRoutes = require('./callCenterConnections');
 const crmModulesRoutes = require('./crmModules');
 const caseWorkflowRoutes = require('./caseWorkflow');
 const employeeManagement = require('../controllers/employeeManagementController');
@@ -59,6 +60,7 @@ const gainnetService = require('../services/gainnetService');
 router.post('/gainnet/webhook', gainnetService.handleWebhook);
 
 router.use('/call-center', callCenterRoutes.router);
+router.use('/call-center-connections', callCenterConnectionsRoutes);
 // CRM модули: materials, cases, expenses, arrivals, employees
 router.use(crmModulesRoutes);
 router.use(caseWorkflowRoutes);
@@ -66,6 +68,7 @@ router.use(caseWorkflowRoutes);
 // Маршруты для записей (appointments) — доступны всем авторизованным
 const callCenterController = require('../controllers/callCenterController');
 const analyticsController = require('../controllers/analyticsController');
+const appointmentSourcesController = require('../controllers/appointmentSourcesController');
 router.get('/appointments', authenticateToken, callCenterController.getAppointments);
 router.post('/appointments', authenticateToken, callCenterController.createDirectAppointment);
 router.patch('/appointments/:id/status', authenticateToken, callCenterController.updateAppointmentStatus);
@@ -83,6 +86,11 @@ router.get('/visits/consultation-stats', authenticateToken, callCenterController
 
 // Analytics
 router.get('/analytics/call-center', authenticateToken, analyticsController.getCallCenterAnalytics);
+
+// Unified appointment source directory
+router.get('/appointment-sources', authenticateToken, appointmentSourcesController.list);
+router.post('/appointment-sources', authenticateToken, appointmentSourcesController.create);
+router.patch('/appointment-sources/:id', authenticateToken, appointmentSourcesController.update);
 
 // Маршруты для юридических запросов
 router.post('/chat', authenticateToken, legalController.handleChatRequest);
@@ -105,6 +113,8 @@ router.use('/offices', authenticateToken, officeRoutes);
 
 // Управление сотрудниками (иерархическая система)
 router.get('/staff', authenticateToken, employeeManagement.getEmployees);
+router.get('/staff/:id/dismissal-preview', authenticateToken, employeeManagement.getDismissalPreview);
+router.post('/staff/:id/dismiss', authenticateToken, employeeManagement.dismissEmployee);
 router.delete('/staff/:id', authenticateToken, employeeManagement.deleteEmployee);
 router.post('/staff', authenticateToken, employeeManagement.createEmployee);
 router.get('/staff/allowed-roles', authenticateToken, employeeManagement.getAllowedRoles);
@@ -149,6 +159,9 @@ router.put('/employees/:id/salary', authenticateToken, salaryController.upsertEm
 router.get('/shifts', authenticateToken, salaryController.listShifts);
 router.post('/shifts', authenticateToken, salaryController.createShift);
 router.delete('/shifts/:id', authenticateToken, salaryController.removeShift);
+router.get('/salary-payments', authenticateToken, salaryController.listSalaryPayments);
+router.post('/salary-payments', authenticateToken, salaryController.paySalary);
+router.post('/salary-payments/:id/cancel', authenticateToken, salaryController.cancelSalaryPayment);
 
 // Акты по договору
 const actsController = require('../controllers/actsController');
@@ -240,6 +253,7 @@ router.put('/office/:officeId/balance/opening', authenticateToken, balanceContro
 router.get('/office/:officeId/balance/day', authenticateToken, balanceController.getDayDetail);
 router.post('/office/:officeId/income', authenticateToken, balanceController.createIncome);
 router.delete('/office/:officeId/income/:id', authenticateToken, balanceController.deleteIncome);
+router.post('/office/:officeId/transfers', authenticateToken, balanceController.createTransfer);
 
 // Роуты для приходов офиса
 router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {
@@ -260,6 +274,7 @@ router.get('/employees', authenticateToken, async (req, res) => {
        LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
        WHERE (e.office_id = ? OR uo.office_id IS NOT NULL)
          AND (u.is_active = 1 OR u.is_active IS NULL)
+         AND (u.role IS NULL OR u.role NOT IN ('cc_manager', 'cc_operator'))
        ORDER BY e.last_name, e.first_name`,
       [officeId, officeId]
     );
@@ -281,6 +296,7 @@ router.get('/office/:officeId/employees', authenticateToken, async (req, res) =>
        LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
        WHERE (e.office_id = ? OR uo.office_id IS NOT NULL)
          AND (u.is_active = 1 OR u.is_active IS NULL)
+         AND (u.role IS NULL OR u.role NOT IN ('cc_manager', 'cc_operator'))
        ORDER BY e.last_name, e.first_name`,
       [officeId, officeId]
     );

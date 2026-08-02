@@ -152,7 +152,7 @@ export interface CrmContract {
   // New fields for type 1 / type 2 split
   contract_type?: 'docs' | 'court_rep' | string | null;
   expert_id?: number | null;
-  docs_status?: 'pending' | 'ready' | string | null;
+  docs_status?: 'pending' | 'ready' | 'completed' | string | null;
   expert_deadline?: string | null;
   expert_deadline_days?: number | null;
   expert_deadline_time?: string | null;
@@ -205,7 +205,7 @@ export const contractsApi = {
     unwrap<CrmContract>(apiInstance.post('/contracts', payload)),
   update: (id: number, payload: Partial<CrmContract>) =>
     unwrap<CrmContract>(apiInstance.put(`/contracts/${id}`, payload)),
-  setDocsStatus: (id: number, docs_status: 'pending' | 'ready') =>
+  setDocsStatus: (id: number, docs_status: 'pending' | 'ready' | 'completed') =>
     unwrap<{ id: number; docs_status: string }>(apiInstance.patch(`/contracts/${id}/docs-status`, { docs_status })),
   terminate: (id: number, payload: {
     terminated_at: string;
@@ -311,6 +311,24 @@ export interface EmployeeSalary {
   custom_per_doc?: number | string | null;
 }
 
+export interface SalaryPayment {
+  id: number;
+  office_id: number;
+  employee_id: number;
+  period_from: string;
+  period_to: string;
+  amount: number;
+  payment_method: 'cash' | 'noncash' | 'bank';
+  status: 'paid' | 'cancelled';
+  paid_at: string;
+  paid_by_name?: string | null;
+  cancelled_at?: string | null;
+  cancelled_by_name?: string | null;
+  cancellation_reason?: string | null;
+  expense_id?: number | null;
+  reversal_income_id?: number | null;
+}
+
 export interface SalaryRow {
   employee_id: number;
   full_name: string;
@@ -326,6 +344,8 @@ export interface SalaryRow {
   acts_sum_court?: number;
   acts_count_court?: number;
   external?: boolean;
+  salary_payments?: SalaryPayment[];
+  active_payment?: SalaryPayment | null;
 }
 
 export interface SalaryCalcResult {
@@ -365,6 +385,12 @@ export const salaryApi = {
   createShift: (payload: { employee_id: number; shift_date: string; note?: string }) =>
     unwrap<{ ok: boolean }>(apiInstance.post('/shifts', payload)),
   removeShift: (id: number) => unwrap<{ id: number }>(apiInstance.delete(`/shifts/${id}`)),
+  listPayments: (params: { office_id?: number; date_from?: string; date_to?: string; employee_id?: number }) =>
+    unwrap<SalaryPayment[]>(apiInstance.get('/salary-payments', { params })),
+  pay: (payload: { office_id: number; employee_id: number; period_from: string; period_to: string; payment_method: 'cash' | 'noncash' | 'bank' }) =>
+    unwrap<SalaryPayment>(apiInstance.post('/salary-payments', payload)),
+  cancelPayment: (id: number, reason: string) =>
+    unwrap<{ id: number; status: 'cancelled'; reversal_income_id: number }>(apiInstance.post(`/salary-payments/${id}/cancel`, { reason })),
 };
 
 // Акты — фиксация выполненных работ по договорам

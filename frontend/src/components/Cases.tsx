@@ -631,16 +631,22 @@ const Cases: React.FC = () => {
   // ---------- Render ----------
   if (isExpert) {
     return (
-      <div style={{ padding: 16 }}>
-        <Title level={4} style={{ marginBottom: 12 }}>Мои дела</Title>
+      <div className="lt-page lt-page-cases" style={{ padding: 16 }}>
+        <div className="lt-page-heading">
+          <h1>Мои дела</h1>
+          <p>Документы, материалы и этапы работы по назначенным делам</p>
+        </div>
         {renderDocsTab()}
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <Title level={4} style={{ marginBottom: 12 }}>Входящие дела</Title>
+    <div className="lt-page lt-page-cases" style={{ padding: 16 }}>
+      <div className="lt-page-heading">
+        <h1>Входящие дела</h1>
+        <p>Распределение документов и дел по ответственным сотрудникам</p>
+      </div>
       {isManager ? (
         <Tabs
           defaultActiveKey="docs"

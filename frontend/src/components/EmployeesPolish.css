@@ -462,3 +462,64 @@
   border-color: #7C5CFF;
   box-shadow: 0 0 0 2px rgba(124,92,255,0.15);
 }
+.dismissal-panel {
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  background: rgba(254, 242, 242, 0.55);
+}
+
+.dismissal-note {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dismissal-workload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.dismissal-workload span {
+  padding: 6px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 12px;
+}
+
+.dismissal-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dismissal-field select,
+.dismissal-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid #dbe2ea;
+  border-radius: 9px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 400;
+}
+
+.dismissal-field textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.dismissal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}

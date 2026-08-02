@@ -153,6 +153,62 @@ const contractController = {
       console.log('Creating contract with data:', JSON.stringify(contractData, null, 2));
       console.log('User office_id:', user.office_id, 'role:', user.role);
 
+      const contractAmount = Number(contractData.amount);
+      const allowedPaymentMethods = new Set(['cash', 'noncash', 'bank', 'sbp']);
+      if (contractData.payments !== undefined) {
+        if (!Array.isArray(contractData.payments)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Некорректный формат списка платежей.',
+          });
+        }
+
+        const payments = [];
+        for (const payment of contractData.payments) {
+          const paymentAmount = Number(payment?.amount);
+          if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+            return res.status(400).json({
+              success: false,
+              message: 'Сумма каждого платежа должна быть больше 0.',
+            });
+          }
+          if (!allowedPaymentMethods.has(payment?.payment_method)) {
+            return res.status(400).json({
+              success: false,
+              message: 'Выберите корректный способ оплаты.',
+            });
+          }
+          payments.push({
+            amount: Math.round(paymentAmount * 100) / 100,
+            payment_method: payment.payment_method,
+            payment_date: payment.payment_date || contractData.contract_date,
+            comment: payment.comment || null,
+          });
+        }
+
+        const totalPaid = Math.round(
+          payments.reduce((sum, payment) => sum + payment.amount, 0) * 100
+        ) / 100;
+        if (Number.isFinite(contractAmount) && totalPaid > contractAmount) {
+          return res.status(400).json({
+            success: false,
+            message: 'Общая сумма платежей превышает сумму договора.',
+          });
+        }
+        contractData.payments = payments;
+        contractData.paid_amount = totalPaid;
+        const methods = [...new Set(payments.map((payment) => payment.payment_method))];
+        contractData.payment_method = methods.length > 1 ? 'mixed' : (methods[0] || 'cash');
+      } else {
+        const legacyPaid = Number(contractData.paid_amount ?? contractData.amount ?? 0);
+        if (Number.isFinite(contractAmount) && legacyPaid > contractAmount) {
+          return res.status(400).json({
+            success: false,
+            message: 'Общая сумма платежей превышает сумму договора.',
+          });
+        }
+      }
+
       // Если пользователь ещё не привязан к офису — создаём для него
       // персональный офис.
       await ensureUserOffice(user);

@@ -7,7 +7,7 @@ import "./OfficePolish.css";
 import StatCard from "./StatCard";
 import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaEllipsisH, FaPlus } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
-import { Modal, Form, Input, Button, message } from "antd";
+import { Modal, Form, Input, Button, message, Tag, Space, Alert } from "antd";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
 import { useOffice } from "../shared/contexts/OfficeContext";
 import { officeAPI } from "../shared/api/office";
@@ -15,6 +15,7 @@ import { useAuth } from "../shared/lib/hooks/useAuth";
 import { apiInstance } from '../shared/api/instance';
 
 import { formatRussianPhone } from "../shared/lib/phone";
+import { OfficeAnalyticsTop, OfficeAnalyticsBottom, OfficePeriod, OfficeSourceManager } from './OfficeAnalytics';
 // Максимальное количество офисов, которое можно создать
 const MAX_OFFICES = 3;
 
@@ -60,6 +61,11 @@ interface Office {
   // Поля для ИНН и ОГРН
   inn?: string;
   ogrn?: string;
+}
+
+interface OfficeCallCenterState {
+  connections: Array<{ id: number; public_id: string; name: string; connected_at: string }>;
+  requests: Array<{ id: number; status: string; call_center_id: number; name: string; created_at: string }>;
 }
 
 type PeriodType = "plan" | "day" | "yesterday" | "week" | "2weeks" | "month" | "custom";
@@ -182,6 +188,11 @@ const Office = () => {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [showRevenueModal, setShowRevenueModal] = useState(false);
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
+  const [callCenterState, setCallCenterState] = useState<OfficeCallCenterState>({ connections: [], requests: [] });
+  const [showConnectCallCenter, setShowConnectCallCenter] = useState(false);
+  const [connectionCode, setConnectionCode] = useState('');
+  const [foundCallCenter, setFoundCallCenter] = useState<{ id: number; public_id: string; name: string; chief_name: string } | null>(null);
+  const [connectionLoading, setConnectionLoading] = useState(false);
   const [contracts, setContracts] = useState<Array<{ id: number; id_employee: number; status: string; title: string; amount?: number | string }>>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   // Смещение периода офиса для просмотра предыдущих периодов (0 = текущий, -1 = предыдущий).
@@ -462,6 +473,69 @@ const Office = () => {
       return (payload.role || '').toLowerCase() === 'director';
     } catch { return false; }
   })();
+
+  const loadOfficeCallCenters = useCallback(async () => {
+    if (!selectedOffice?.id || !isDirector) return;
+    try {
+      const response = await apiInstance.get(`/call-center-connections/offices/${selectedOffice.id}`);
+      setCallCenterState(response.data?.data || { connections: [], requests: [] });
+    } catch (error) {
+      console.error('Failed to load office call centers', error);
+    }
+  }, [selectedOffice?.id, isDirector]);
+
+  useEffect(() => {
+    if (showOfficeInfoModal) loadOfficeCallCenters();
+  }, [showOfficeInfoModal, loadOfficeCallCenters]);
+
+  const verifyConnectionCode = async () => {
+    if (!connectionCode.trim()) return message.warning('Введите код подключения');
+    setConnectionLoading(true);
+    try {
+      const response = await apiInstance.post('/call-center-connections/lookup', { code: connectionCode });
+      setFoundCallCenter(response.data?.data || null);
+    } catch (error: any) {
+      setFoundCallCenter(null);
+      message.error(error?.response?.data?.message || 'Колл-центр не найден');
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
+  const sendConnectionRequest = async () => {
+    if (!selectedOffice?.id || !foundCallCenter) return;
+    setConnectionLoading(true);
+    try {
+      await apiInstance.post(`/call-center-connections/offices/${selectedOffice.id}/requests`, {
+        call_center_id: foundCallCenter.id,
+      });
+      message.success('Заявка отправлена начальнику колл-центра');
+      setShowConnectCallCenter(false);
+      setConnectionCode('');
+      setFoundCallCenter(null);
+      await loadOfficeCallCenters();
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Не удалось отправить заявку');
+    } finally {
+      setConnectionLoading(false);
+    }
+  };
+
+  const disconnectCallCenter = (callCenterId: number, name: string) => {
+    if (!selectedOffice?.id) return;
+    Modal.confirm({
+      title: `Отключить «${name}»?`,
+      content: 'Новые лиды больше не будут доступны этому колл-центру. Старые лиды, история и статистика сохранятся.',
+      okText: 'Отключить',
+      okButtonProps: { danger: true },
+      cancelText: 'Отмена',
+      onOk: async () => {
+        await apiInstance.delete(`/call-center-connections/offices/${selectedOffice.id}/${callCenterId}`);
+        message.success('Колл-центр отключён');
+        await loadOfficeCallCenters();
+      },
+    });
+  };
 
   // CC operator stats for Office tab
   interface CcOperatorStat {
@@ -1049,15 +1123,48 @@ const Office = () => {
 
 
   return (
-    <div className="office-content">
+    <div className="office-content lt-office-dashboard">
       {/* ── HEADER ── */}
       <div className="office-header">
-        <h2>Управление офисами</h2>
-        {isDirector && canManageOffices && !isOfficeLimit && (
-          <button className="office-header-add-btn" onClick={showAddModal}>
-            <FaPlus style={{ fontSize: 12 }} /> Добавить офис
-          </button>
-        )}
+        <div className="lt-office-heading-block">
+          <h2>{selectedOffice?.title || 'Управление офисами'}</h2>
+
+        </div>
+        <div className="lt-office-header-actions">
+          <OfficeSourceManager />
+          <OfficePeriod
+            from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
+            to={period === 'custom' ? customTo : (dashboard?.period?.to || customTo)}
+            onChange={(from, to) => {
+              setCustomFrom(from);
+              setCustomTo(to);
+              setPeriod('custom');
+              setPlanCycleOffset(0);
+              setDayOffset(0);
+            }}
+          />
+          {isDirector && offices.length > 0 && (
+            <label className="lt-office-switcher">
+              <FaBuilding aria-hidden="true" />
+              <span className="sr-only">Выберите офис</span>
+              <select
+                value={selectedOffice ? String(selectedOffice.id) : ''}
+                onChange={(e) => {
+                  const nextOffice = offices.find((office) => String(office.id) === e.target.value);
+                  if (nextOffice) void handleOfficeClick(nextOffice);
+                }}
+                aria-label="Выберите офис"
+              >
+                {offices.map((office) => <option key={office.id} value={String(office.id)}>{office.title}</option>)}
+              </select>
+            </label>
+          )}
+          {isDirector && canManageOffices && !isOfficeLimit && (
+            <button className="office-header-add-btn" onClick={showAddModal}>
+              <FaPlus style={{ fontSize: 12 }} /> Добавить офис
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── OFFICE CARDS ── */}
@@ -1092,6 +1199,41 @@ const Office = () => {
         ))}
       </div>
 
+      {/* ── EXECUTIVE KPI STRIP ── */}
+      {selectedOffice && !isCcRole && (() => {
+        const dayFact = Number(dashboard?.fact.day || 0);
+        const periodFact = Number(dashboard?.fact.period || 0);
+        const dayPlan = Number(dashboard?.plan?.day || 0);
+        const periodPlan = Number(dashboard?.plan?.period || 0);
+        const pct = (fact: number, plan: number) => plan > 0 ? `${Math.min(100, Math.round((fact / plan) * 100))}%` : '—';
+        const money = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
+        const cards = [
+          { label: 'Выручка за день', value: money(dayFact), meta: `План: ${dayPlan > 0 ? money(dayPlan) : '—'}`, trend: pct(dayFact, dayPlan), icon: <FaChartLine /> },
+          { label: 'Выручка за период', value: money(periodFact), meta: `План: ${periodPlan > 0 ? money(periodPlan) : '—'}`, trend: pct(periodFact, periodPlan), icon: <FaCalendarAlt /> },
+          { label: 'Сотрудники', value: String(selectedOffice.employee_count || 0), meta: 'В штате офиса', trend: '', icon: <FaUsers /> },
+          { label: 'Визиты за период', value: String(selectedOffice.data?.[0] || 0), meta: 'По текущему периоду', trend: '', icon: <FaBuilding /> },
+        ];
+        return (
+          <div className="lt-office-kpi-grid" aria-label="Ключевые показатели офиса">
+            {cards.map((card) => (
+              <div className="lt-office-kpi-card" key={card.label}>
+                <div className="lt-office-kpi-top"><span>{card.label}</span><span className="lt-office-kpi-icon">{card.icon}</span></div>
+                <strong>{card.value}</strong>
+                <div className="lt-office-kpi-bottom"><span>{card.meta}</span>{card.trend && <b>{card.trend}</b>}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {selectedOffice && !isCcRole && (
+        <OfficeAnalyticsTop
+          officeId={selectedOffice.id}
+          from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
+          to={period === 'custom' ? customTo : (dashboard?.period?.to || customTo)}
+        />
+      )}
+
       {/* ── ПЛАН / ФАКТ ── */}
       {selectedOffice && !isCcRole && (() => {
         const dayFact = Number(dashboard?.fact.day || 0);
@@ -1117,7 +1259,10 @@ const Office = () => {
           ? `${new Date(dashboard.period.from).toLocaleDateString('ru-RU')} – ${new Date(dashboard.period.to).toLocaleDateString('ru-RU')}`
           : periodLabel;
         const isCurrentCycle = cycIdx == null || curIdx == null ? planCycleOffset >= 0 : cycIdx >= curIdx;
-        const canGoPrev = cycIdx == null ? true : cycIdx > 0;
+        // Предыдущие циклы могут иметь отрицательный индекс относительно
+        // первоначальной даты плана. Поэтому не блокируем навигацию на первом
+        // цикле и оставляем разумную глубину истории.
+        const canGoPrev = planCycleOffset > -24;
         const navBtnStyle = (enabled: boolean): React.CSSProperties => ({
           padding: '5px 12px', fontSize: 13, borderRadius: 8,
           border: '1px solid var(--color-border)',
@@ -1138,25 +1283,27 @@ const Office = () => {
                 </button>
               )}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, margin: '0 0 12px' }}>
+            <div className="plan-cycle-nav">
               <button
-                onClick={() => { if (canGoPrev) setPlanCycleOffset(o => (curIdx != null ? Math.max(-curIdx, o - 1) : o - 1)); }}
+                onClick={() => { if (canGoPrev) setPlanCycleOffset(o => Math.max(-24, o - 1)); }}
                 disabled={!canGoPrev}
+                className="plan-cycle-nav-btn"
                 style={navBtnStyle(canGoPrev)}
                 title="Предыдущий период"
               >‹ Пред. период</button>
-              <span style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 600 }}>
+              <span className="plan-cycle-nav-range">
                 {periodWindowLabel}
                 {!isCurrentCycle && <span style={{ color: 'var(--color-muted)', fontWeight: 400 }}> (прошлый период)</span>}
               </span>
               <button
                 onClick={() => { if (!isCurrentCycle) setPlanCycleOffset(o => Math.min(0, o + 1)); }}
                 disabled={isCurrentCycle}
+                className="plan-cycle-nav-btn"
                 style={navBtnStyle(!isCurrentCycle)}
                 title="Следующий период"
               >След. период ›</button>
               {!isCurrentCycle && (
-                <button onClick={() => setPlanCycleOffset(0)} style={navBtnStyle(true)} title="К текущему периоду">Текущий</button>
+                <button className="plan-cycle-current-btn" onClick={() => setPlanCycleOffset(0)} style={navBtnStyle(true)} title="К текущему периоду">Текущий</button>
               )}
             </div>
             <div className="plan-fact-grid-v2">
@@ -1192,7 +1339,10 @@ const Office = () => {
                   <span className="pf-sep"> / </span>
                   <span className="pf-plan">{dayPlan > 0 ? fmt(dayPlan) : '—'}</span>
                 </div>
-                <div className="plan-fact-card-pct">{dayPct !== null ? `${dayPct.toFixed(0)}%` : '0%'}</div>
+                <div className="plan-fact-progress-v2" role="progressbar" aria-label="Выполнение плана на день" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, Math.round(dayPct ?? 0)))}>
+                  <span style={{ width: `${Math.min(100, Math.max(0, dayPct ?? 0))}%` }} />
+                </div>
+                <div className={`plan-fact-card-pct ${(dayPct ?? 0) >= 100 ? 'is-complete' : ''}`}>{dayPct !== null ? `${dayPct.toFixed(0)}%` : '0%'}</div>
                 {dayOffset !== 0 && (
                   <div
                     onClick={() => setDayOffset(0)}
@@ -1209,7 +1359,10 @@ const Office = () => {
                   <span className="pf-sep"> / </span>
                   <span className="pf-plan">{periodPlan > 0 ? fmt(periodPlan) : '—'}</span>
                 </div>
-                <div className="plan-fact-card-pct">{periodPct !== null ? `${periodPct.toFixed(0)}%` : '0%'}</div>
+                <div className="plan-fact-progress-v2" role="progressbar" aria-label="Выполнение плана на период" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, Math.round(periodPct ?? 0)))}>
+                  <span style={{ width: `${Math.min(100, Math.max(0, periodPct ?? 0))}%` }} />
+                </div>
+                <div className={`plan-fact-card-pct ${(periodPct ?? 0) >= 100 ? 'is-complete' : ''}`}>{periodPct !== null ? `${periodPct.toFixed(0)}%` : '0%'}</div>
               </div>
             </div>
           </div>
@@ -1332,6 +1485,14 @@ const Office = () => {
         </div>
       )}
 
+      {selectedOffice && !isCcRole && (
+        <OfficeAnalyticsBottom
+          officeId={selectedOffice.id}
+          from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
+          to={period === 'custom' ? customTo : (dashboard?.period?.to || customTo)}
+        />
+      )}
+
       {/* ── КАССА ЮРИСТОВ ── */}
       {selectedOffice && !isCcRole && (
         <div className="lawyers-section">
@@ -1373,11 +1534,18 @@ const Office = () => {
                           key={cs.id}
                           className="lawyer-row-static"
                         >
-                          <td><b>{cs.name}</b></td>
+                          <td>
+                            <span className="lt-lawyer-person">
+                              <span className="lt-lawyer-avatar" aria-hidden="true">
+                                {cs.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}
+                              </span>
+                              <b>{cs.name}</b>
+                            </span>
+                          </td>
                           <td>{roleLabel(cs.role)}</td>
                           <td className="num">{cs.total_consultations}</td>
                           <td className="num" style={{ color: 'var(--color-primary)', fontWeight: 700 }}>{cs.contracts_signed}</td>
-                          <td className="num" style={{ fontWeight: 700 }}>{cs.total_consultations > 0 ? `${cs.conversion}%` : '—'}</td>
+                          <td className={`num lt-conversion-value ${cs.conversion >= 25 ? 'is-good' : cs.conversion >= 15 ? 'is-mid' : 'is-low'}`} style={{ fontWeight: 700 }}>{cs.total_consultations > 0 ? `${cs.conversion}%` : '—'}</td>
                           <td>
                             {cs.total_consultations > 0 ? (
                               <span className="lawyer-rating-stars-v2">
@@ -1517,6 +1685,29 @@ const Office = () => {
                 <p><strong>ИНН:</strong> {selectedOffice.inn || 'Не указан'}</p>
                 <p><strong>ОГРН:</strong> {selectedOffice.ogrn || 'Не указан'}</p>
               </div>
+
+              {isDirector && (
+                <div className="info-section" style={{ gridColumn: '1 / -1' }}>
+                  <h4>📞 Колл-центры</h4>
+                  {callCenterState.connections.length === 0 && callCenterState.requests.length === 0 && (
+                    <p style={{ color: 'var(--color-muted)' }}>Не подключены</p>
+                  )}
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    {callCenterState.connections.map((center) => (
+                      <div key={center.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
+                        <span><Tag color="green">Подключён</Tag><strong>{center.name}</strong> <small>{center.public_id}</small></span>
+                        <Button danger size="small" onClick={() => disconnectCallCenter(center.id, center.name)}>Отключить</Button>
+                      </div>
+                    ))}
+                    {callCenterState.requests.map((request) => (
+                      <div key={request.id} style={{ padding: '8px 0' }}>
+                        <Tag color="gold">Ожидает подтверждения</Tag>{request.name}
+                      </div>
+                    ))}
+                    <Button type="primary" onClick={() => setShowConnectCallCenter(true)}>Подключить колл-центр</Button>
+                  </Space>
+                </div>
+              )}
             </div>
             
             {offices.length > 1 && (
@@ -1558,6 +1749,35 @@ const Office = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title="Подключение колл-центра"
+        open={showConnectCallCenter}
+        onCancel={() => { setShowConnectCallCenter(false); setFoundCallCenter(null); setConnectionCode(''); }}
+        footer={null}
+        destroyOnClose
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Input
+            value={connectionCode}
+            onChange={(event) => { setConnectionCode(event.target.value.toUpperCase()); setFoundCallCenter(null); }}
+            placeholder="LAWTECH-XXXX-XXXX"
+            onPressEnter={verifyConnectionCode}
+          />
+          <Button loading={connectionLoading} onClick={verifyConnectionCode}>Проверить</Button>
+          {foundCallCenter && (
+            <>
+              <Alert
+                type="success"
+                showIcon
+                message={foundCallCenter.name}
+                description={`Начальник: ${foundCallCenter.chief_name || 'не указан'} · ${foundCallCenter.public_id}`}
+              />
+              <Button type="primary" block loading={connectionLoading} onClick={sendConnectionRequest}>Отправить заявку</Button>
+            </>
+          )}
+        </Space>
       </Modal>
       
 

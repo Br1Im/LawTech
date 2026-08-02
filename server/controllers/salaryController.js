@@ -19,7 +19,6 @@
 const db = require('../db');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
-const { createAutoExpense } = require('./expensesController');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -399,7 +398,9 @@ const calculate = async (req, res) => {
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
          LEFT JOIN users u ON u.id = e.id
-        WHERE e.office_id = ? AND e.deleted_at IS NULL AND (u.is_active = 1 OR u.is_active IS NULL)`,
+        WHERE e.office_id = ? AND e.deleted_at IS NULL
+          AND (u.is_active = 1 OR u.is_active IS NULL)
+          AND (u.role IS NULL OR u.role NOT IN ('cc_manager', 'cc_operator'))`,
       [officeId]
     );
 
@@ -702,31 +703,28 @@ const calculate = async (req, res) => {
     // Сортируем по итоговой ЗП по убыванию.
     results.sort((a, b) => b.total - a.total);
 
-    // Авто-расход «Зарплаты» — создаем/обновляем при расчете
-    const totalSalaries = results.reduce((s, r) => s + Number(r.total || 0), 0);
-    if (totalSalaries > 0 && dateFrom) {
-      const salaryDate = dateFrom;
-      // source_id = officeId * 1000000 + YYYYMM (уникален для офис+месяц)
-      const dt = new Date(dateFrom);
-      const sourceId = officeId * 1000000 + dt.getFullYear() * 100 + (dt.getMonth() + 1);
-      const empNames = results.filter(r => r.total > 0).map(r => r.full_name).slice(0, 5).join(', ');
-      const titleStr = 'Зарплаты за ' + dt.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-
-      // Upsert: delete old + create new
-      try {
-        await db.query('DELETE FROM expenses WHERE source_type = ? AND source_id = ? AND office_id = ?', ['salary', sourceId, officeId]);
-        await createAutoExpense({
-          office_id: officeId,
-          category: 'Зарплаты',
-          title: titleStr,
-          amount: totalSalaries,
-          description: empNames ? ('Сотрудники: ' + empNames + (results.filter(r => r.total > 0).length > 5 ? '...' : '')) : null,
-          spent_on: salaryDate,
-          source_type: 'salary',
-          source_id: sourceId,
-          created_by: req.user ? req.user.id : null,
-        });
-      } catch (salErr) { console.error('Salary auto-expense error:', salErr.message); }
+    // Выплаты не создаются при расчёте. Подтягиваем уже проведённые и отменённые
+    // выплаты этого периода, чтобы интерфейс показывал их рядом с начислением.
+    const [paymentRows] = await db.query(
+      `SELECT sp.*, e.first_name, e.last_name, e.middle_name,
+              TRIM(CONCAT_WS(' ', pu.last_name, pu.first_name)) paid_by_name,
+              TRIM(CONCAT_WS(' ', cu.last_name, cu.first_name)) cancelled_by_name
+         FROM salary_payments sp
+         JOIN employees e ON e.id=sp.employee_id
+         LEFT JOIN users pu ON pu.id=sp.paid_by
+         LEFT JOIN users cu ON cu.id=sp.cancelled_by
+        WHERE sp.office_id=? AND sp.period_from=? AND sp.period_to=?
+        ORDER BY sp.paid_at DESC`,
+      [officeId, dateFrom, dateTo]
+    );
+    const paymentsByEmployee = new Map();
+    for (const payment of paymentRows) {
+      if (!paymentsByEmployee.has(Number(payment.employee_id))) paymentsByEmployee.set(Number(payment.employee_id), []);
+      paymentsByEmployee.get(Number(payment.employee_id)).push(payment);
+    }
+    for (const row of results) {
+      row.salary_payments = paymentsByEmployee.get(Number(row.employee_id)) || [];
+      row.active_payment = row.salary_payments.find(payment => payment.status === 'paid') || null;
     }
 
     return ok(res, {
@@ -745,6 +743,133 @@ const calculate = async (req, res) => {
   }
 };
 
+
+const PAYOUT_ROLES = new Set(['director', 'manager', 'okk']);
+const PAYMENT_METHODS = new Set(['cash', 'noncash', 'bank']);
+const canPaySalary = user => PAYOUT_ROLES.has(String(user?.role || '').toLowerCase());
+
+async function calculatePayload(req, query) {
+  let payload = null;
+  let statusCode = 200;
+  const fakeReq = { ...req, query };
+  const fakeRes = {
+    status(code) { statusCode = code; return this; },
+    json(body) { payload = body; return body; },
+  };
+  await calculate(fakeReq, fakeRes);
+  if (statusCode >= 400 || !payload?.success) {
+    throw new Error(payload?.message || 'Не удалось пересчитать зарплату');
+  }
+  return payload.data;
+}
+
+const listSalaryPayments = async (req, res) => {
+  try {
+    const officeId = Number(req.query.office_id || await resolveUserOfficeId(req.user));
+    if (!officeId || !await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');
+    const where = ['sp.office_id=?']; const params = [officeId];
+    if (req.query.date_from) { where.push('sp.period_from>=?'); params.push(req.query.date_from); }
+    if (req.query.date_to) { where.push('sp.period_to<=?'); params.push(req.query.date_to); }
+    if (req.query.employee_id) { where.push('sp.employee_id=?'); params.push(Number(req.query.employee_id)); }
+    const [rows] = await db.query(
+      `SELECT sp.*, TRIM(CONCAT_WS(' ',e.last_name,e.first_name,e.middle_name)) employee_name,
+              TRIM(CONCAT_WS(' ',pu.last_name,pu.first_name)) paid_by_name,
+              TRIM(CONCAT_WS(' ',cu.last_name,cu.first_name)) cancelled_by_name
+         FROM salary_payments sp JOIN employees e ON e.id=sp.employee_id
+         LEFT JOIN users pu ON pu.id=sp.paid_by LEFT JOIN users cu ON cu.id=sp.cancelled_by
+        WHERE ${where.join(' AND ')} ORDER BY sp.paid_at DESC`, params
+    );
+    return ok(res, rows);
+  } catch (e) { return bad(res, 500, 'Ошибка получения выплат', e); }
+};
+
+const paySalary = async (req, res) => {
+  if (!canPaySalary(req.user)) return bad(res, 403, 'Выплачивать зарплату могут директор, менеджер или руководитель');
+  const officeId = Number(req.body.office_id || await resolveUserOfficeId(req.user));
+  const employeeId = Number(req.body.employee_id);
+  const periodFrom = String(req.body.period_from || '').slice(0,10);
+  const periodTo = String(req.body.period_to || '').slice(0,10);
+  const paymentMethod = String(req.body.payment_method || '');
+  if (!officeId || !employeeId || !/^\d{4}-\d{2}-\d{2}$/.test(periodFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(periodTo) || periodTo < periodFrom) {
+    return bad(res, 400, 'Проверьте сотрудника и период');
+  }
+  if (!PAYMENT_METHODS.has(paymentMethod)) return bad(res, 400, 'Выберите способ выплаты');
+  if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');
+
+  const calculated = await calculatePayload(req, { office_id: officeId, date_from: periodFrom, date_to: periodTo });
+  const row = (calculated.rows || []).find(item => Number(item.employee_id) === employeeId);
+  if (!row || Number(row.total || 0) <= 0) return bad(res, 400, 'Нет начисления для выплаты');
+  const amount = Math.round(Number(row.total) * 100) / 100;
+  const connection = await db.getClient();
+  try {
+    await connection.beginTransaction();
+    const [existing] = await connection.query(
+      `SELECT id FROM salary_payments WHERE office_id=? AND employee_id=?
+        AND period_from=? AND period_to=? AND status='paid' AND active_flag=1 FOR UPDATE`,
+      [officeId, employeeId, periodFrom, periodTo]
+    );
+    if (existing.length) { await connection.rollback(); return bad(res, 409, 'Зарплата этому сотруднику за период уже выплачена'); }
+    const snapshot = JSON.stringify({
+      employee_id: row.employee_id, full_name: row.full_name, role: row.role,
+      base_salary: row.base_salary, bonus: row.bonus,
+      bonus_breakdown: row.bonus_breakdown, total: amount,
+      acts_sum_docs: row.acts_sum_docs, acts_sum_court: row.acts_sum_court,
+    });
+    const [paymentResult] = await connection.query(
+      `INSERT INTO salary_payments
+       (office_id,employee_id,period_from,period_to,amount,payment_method,status,calculation_snapshot,paid_by)
+       VALUES (?,?,?,?,?,?,'paid',?,?)`,
+      [officeId,employeeId,periodFrom,periodTo,amount,paymentMethod,snapshot,req.user.id]
+    );
+    const paymentId = paymentResult.insertId;
+    const [expenseResult] = await connection.query(
+      `INSERT INTO expenses
+       (office_id,category,amount,expense_type,payment_method,is_auto,source_type,source_id,title,description,spent_on,created_by)
+       VALUES (?,'Зарплаты',?,'Разовый',?,1,'salary_payment',?, ?, ?, CURRENT_DATE(),?)`,
+      [officeId,amount,paymentMethod,paymentId,
+       `Выплата зарплаты: ${row.full_name}`,
+       `Период ${periodFrom} — ${periodTo}. Оклад ${row.base_salary}; бонус ${row.bonus}.`,req.user.id]
+    );
+    await connection.query('UPDATE salary_payments SET expense_id=? WHERE id=?',[expenseResult.insertId,paymentId]);
+    await connection.commit();
+    return res.status(201).json({ success:true, data:{ id:paymentId, amount, payment_method:paymentMethod, status:'paid' } });
+  } catch (e) {
+    try { await connection.rollback(); } catch (_) {}
+    return bad(res, 500, 'Ошибка выплаты зарплаты', e);
+  } finally { connection.release(); }
+};
+
+const cancelSalaryPayment = async (req, res) => {
+  if (!canPaySalary(req.user)) return bad(res, 403, 'Отменять выплату могут директор, менеджер или руководитель');
+  const reason = String(req.body.reason || '').trim();
+  if (reason.length < 5) return bad(res, 400, 'Укажите причину отмены минимум из 5 символов');
+  const connection = await db.getClient();
+  try {
+    await connection.beginTransaction();
+    const [[payment]] = await connection.query('SELECT * FROM salary_payments WHERE id=? FOR UPDATE',[req.params.id]);
+    if (!payment || !await checkOfficeAccess(req.user, payment.office_id)) { await connection.rollback(); return bad(res,404,'Выплата не найдена'); }
+    if (payment.status !== 'paid' || payment.cancelled_at || payment.reversal_income_id) { await connection.rollback(); return bad(res,409,'Выплата уже отменена'); }
+    const [realIncome] = await connection.query(
+      `INSERT INTO office_income (office_id,income_date,payment_method,amount,title,description,created_by,source_type,source_id)
+       VALUES (?,CURRENT_DATE(),?,?,?,?,?,'salary_payment_reversal',?)`,
+      [payment.office_id,payment.payment_method,payment.amount,
+       `Отмена выплаты зарплаты #${payment.id}`,
+       `Возврат в баланс. Причина: ${reason}`,req.user.id,payment.id]
+    );
+    const reversalId = realIncome.insertId;
+    await connection.query(
+      `UPDATE salary_payments SET status='cancelled',active_flag=NULL,cancelled_by=?,cancelled_at=NOW(),
+       cancellation_reason=?,reversal_income_id=? WHERE id=?`,
+      [req.user.id,reason,reversalId,payment.id]
+    );
+    await connection.commit();
+    return ok(res,{ id:payment.id,status:'cancelled',reversal_income_id:reversalId });
+  } catch (e) {
+    try { await connection.rollback(); } catch (_) {}
+    return bad(res,500,'Ошибка отмены выплаты',e);
+  } finally { connection.release(); }
+};
+
 module.exports = {
   getSettings,
   updateSettings,
@@ -754,4 +879,7 @@ module.exports = {
   createShift,
   removeShift,
   calculate,
+  listSalaryPayments,
+  paySalary,
+  cancelSalaryPayment,
 };

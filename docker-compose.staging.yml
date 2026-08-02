@@ -1,0 +1,66 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: lawtech-stg-db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3308:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=lawtech_root_password_2024
+      - MYSQL_DATABASE=lawtech_crm
+      - MYSQL_USER=lawtech_user
+      - MYSQL_PASSWORD=lawtech_password_2024
+    volumes:
+      - mysql-data-stg:/var/lib/mysql
+    networks: [ lawtech-stg-network ]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  faiss-service:
+    build: { context: ./server/scripts, dockerfile: Dockerfile }
+    container_name: lawtech-stg-faiss
+    restart: unless-stopped
+    environment: [ PYTHONUNBUFFERED=1, PORT=5000 ]
+    networks: [ lawtech-stg-network ]
+
+  backend:
+    build: { context: ./server, dockerfile: Dockerfile }
+    container_name: lawtech-stg-backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - FAISS_SERVICE_URL=http://faiss-service:5000
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=lawtech_user
+      - DB_PASSWORD=lawtech_password_2024
+      - DB_NAME=lawtech_crm
+      - JWT_SECRET=f88e3310dbc6d3863169fb2d29759dab646626214052b32e61d290b778ff32cc
+      - JWT_EXPIRES_IN=7d
+      - CORS_ORIGIN=*
+      - UPLOAD_DIR=/app/uploads
+      - MAX_FILE_SIZE=10485760
+    depends_on: [ db, faiss-service ]
+    volumes:
+      - ./server/uploads:/app/uploads
+    networks: [ lawtech-stg-network ]
+
+  frontend:
+    build: { context: ./frontend, dockerfile: Dockerfile }
+    container_name: lawtech-stg-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8091:80"
+    depends_on: [ backend ]
+    networks: [ lawtech-stg-network ]
+
+volumes:
+  mysql-data-stg: { driver: local }
+
+networks:
+  lawtech-stg-network: { driver: bridge }

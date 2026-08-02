@@ -184,11 +184,16 @@ const CashRegister: React.FC = () => {
   ];
 
   return (
-    <Page>
+    <Page className="lt-page lt-page-cash-register">
       <ToolRow>
         <Space size={12} wrap>
           <DollarOutlined style={{ fontSize: 20, color: 'var(--color-accent)' }} />
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Касса</span>
+          <div className="lt-page-heading lt-page-heading-inline">
+            <div>
+              <h1>Касса</h1>
+              <p>Движение денежных средств по дням</p>
+            </div>
+          </div>
           <DatePicker.RangePicker
             value={dateRange}
             onChange={(v) => v && setDateRange(v as [dayjs.Dayjs, dayjs.Dayjs])}

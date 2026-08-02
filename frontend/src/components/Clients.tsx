@@ -93,9 +93,7 @@ import {
   type ContractHistoryEntry,
 } from '../shared/api/crm';
 import apiInstance from '../shared/api/instance';
-import Documents from './Documents';
 import { useAuth } from '../shared/lib/hooks/useAuth';
-import AdminContractRegister from './AdminContractRegister';
 import { buildApiUrl, getAuthHeaders, getAuthenticatedUrl } from '../shared/utils/apiUtils';
 
 interface ClientsProps {
@@ -215,7 +213,6 @@ const Clients: React.FC<ClientsProps> = () => {
   const { user } = useAuth();
   const canAssignRep = ['director', 'manager', 'okk'].includes(user?.role || '');
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
-  const [newContractOpen, setNewContractOpen] = useState(false);
   const isLawyer = user?.role === 'lawyer';
   const isManagementRole = ['director', 'manager', 'okk'].includes(user?.role || '');
 
@@ -225,7 +222,8 @@ const Clients: React.FC<ClientsProps> = () => {
     contract_id: number;
     amount: string;
     payment_date: string;
-    payment_method: 'cash' | 'noncash';
+    payment_method: 'cash' | 'noncash' | 'bank' | 'sbp';
+    payment_type: 'initial' | 'additional';
     comment: string | null;
     created_by: number;
     created_by_name: string;
@@ -238,7 +236,13 @@ const Clients: React.FC<ClientsProps> = () => {
   const [contractPayments, setContractPayments] = useState<ContractPayment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [paymentFormData, setPaymentFormData] = useState({ amount: null as number | null, date: dayjs(), method: 'cash' as 'cash' | 'noncash', comment: '' });
+  const canManagePayments = ['admin', 'administrator', 'director', 'manager', 'okk'].includes(user?.role || '');
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: null as number | null,
+    date: dayjs(),
+    method: 'cash' as 'cash' | 'noncash' | 'bank' | 'sbp',
+    comment: '',
+  });
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
   const loadPayments = useCallback(async (contractId: number) => {
@@ -260,7 +264,7 @@ const Clients: React.FC<ClientsProps> = () => {
         payment_method: paymentFormData.method,
         comment: paymentFormData.comment || null,
       });
-      message.success('Доплата добавлена');
+      message.success('Оплата добавлена и учтена в балансе');
       setShowPaymentForm(false);
       setPaymentFormData({ amount: null, date: dayjs(), method: 'cash', comment: '' });
       await loadPayments(contractId);
@@ -923,41 +927,50 @@ const Clients: React.FC<ClientsProps> = () => {
   };
 
   // ===== Table columns =====
+  const renderClientIdentity = (r: ContractRow) => {
+    const name = r.client?.name || r.contract.client_name || '—';
+    const phone = r.client?.phone || r.contract.client_phone || '—';
+    return (
+      <div className="lt-client-identity" title={`${name}\n${phone}`}>
+        <strong style={{ color: r.contract.status === 'terminated' ? '#e74c3c' : 'var(--color-text)' }}>{name}</strong>
+        <span>{phone}</span>
+      </div>
+    );
+  };
+
+  const renderFinanceSummary = (r: ContractRow) => (
+    <div className="lt-client-finance">
+      <strong>{formatMoney(r.contract.amount)}</strong>
+      <span>внесено {formatMoney(r.contract.paid_amount)}</span>
+    </div>
+  );
+
   const docsColumns: ColumnsType<ContractRow> = [
     {
-      title: 'ФИО клиента',
+      title: 'Клиент',
       key: 'client_name',
-      render: (_, r) => (
-        <span style={{ fontWeight: 600, color: r.contract.status === 'terminated' ? '#e74c3c' : 'var(--color-text)' }}>
-          {r.client?.name || r.contract.client_name || '—'}
-        </span>
-      ),
+      width: 175,
+      render: (_, r) => renderClientIdentity(r),
       sorter: (a, b) => (a.client?.name || '').localeCompare(b.client?.name || ''),
     },
     {
-      title: 'Номер договора',
+      title: 'Договор',
       key: 'contract_number',
-      width: 160,
-      render: (_, r) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{contractNumber(r.contract.id, r.contract.contract_number)}</span>,
+      width: 105,
+      render: (_, r) => <span className="lt-client-contract-number">{contractNumber(r.contract.id, r.contract.contract_number)}</span>,
     },
     {
       title: 'Тема',
       key: 'topic',
-      render: (_, r) => <span>{extractTopic(r.contract)}</span>,
-    },
-    {
-      title: 'Контакты',
-      key: 'contacts',
-      render: (_, r) => {
-        const phone = r.client?.phone || r.contract.client_phone;
-        return phone
-          ? <span>{phone}</span>
-          : <span style={{ color: 'var(--color-muted)' }}>—</span>;
-      },
+      width: 140,
+      ellipsis: true,
+      render: (_, r) => <span title={extractTopic(r.contract)}>{extractTopic(r.contract)}</span>,
     },
     {
       title: 'Юрист',
       key: 'lawyer',
+      width: 95,
+      ellipsis: true,
       render: (_, r) => {
         const base = isAdmin
           ? (r.contract.signed_by_name || r.contract.lawyer_full_name || r.contract.employee_name)
@@ -965,29 +978,20 @@ const Clients: React.FC<ClientsProps> = () => {
         const label = (r.contract.is_joint && r.contract.second_lawyer_full_name)
           ? `${shortName(base)} / ${shortName(r.contract.second_lawyer_full_name)}`
           : shortName(base);
-        return <span>{label}</span>;
+        return <span title={label}>{label}</span>;
       },
     },
     {
-      title: 'Сумма',
-      key: 'amount',
-      align: 'right',
-      width: 130,
-      render: (_, r) => <span style={{ fontWeight: 600 }}>{formatMoney(r.contract.amount)}</span>,
+      title: 'Сумма / внесено',
+      key: 'finance',
+      width: 118,
+      render: (_, r) => renderFinanceSummary(r),
       sorter: (a, b) => parseFloat(String(a.contract.amount || 0)) - parseFloat(String(b.contract.amount || 0)),
     },
-    {
-      title: 'Внесено',
-      key: 'paid',
-      align: 'right',
-      width: 130,
-      render: (_, r) => <span>{formatMoney(r.contract.paid_amount)}</span>,
-      sorter: (a, b) => parseFloat(String(a.contract.paid_amount || 0)) - parseFloat(String(b.contract.paid_amount || 0)),
-    },
-    ...(user?.role !== 'expert' ? [{
-      title: '',
+    ...(user?.role !== 'expert' && !isAdmin ? [{
+      title: 'Данные',
       key: 'needs_input',
-      width: 140,
+      width: 90,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         if (!r.contract.needs_lawyer_input) return null;
@@ -1001,9 +1005,9 @@ const Clients: React.FC<ClientsProps> = () => {
       },
     }] : []),
     ...(!isAdmin ? [{
-      title: 'Срок выполнения',
+      title: 'Срок',
       key: 'expert_deadline',
-      width: 170,
+      width: 120,
       align: 'center' as const,
       sorter: (a: ContractRow, b: ContractRow) => {
         const va = a.contract.expert_deadline ? dayjs(a.contract.expert_deadline).valueOf() : Number.POSITIVE_INFINITY;
@@ -1016,16 +1020,17 @@ const Clients: React.FC<ClientsProps> = () => {
         const exact = dayjs(r.contract.expert_deadline).format('DD.MM.YYYY');
         const cmt = (r.contract as any).expert_deadline_comment || undefined;
         return (
-          <span title={cmt} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: info.bg, color: info.color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
-            {info.icon} {info.label} · {exact}
+          <span className="lt-client-deadline" title={cmt || `${info.label}, ${exact}`} style={{ background: info.bg, color: info.color }}>
+            <strong>{info.icon} {exact}</strong>
+            <small>{info.label}</small>
           </span>
         );
       },
     }] : []),
     ...(!isAdmin ? [{
-      title: 'Статус документов',
+      title: 'Документы',
       key: 'docs_status',
-      width: 170,
+      width: 125,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         const ready = r.contract.docs_status === 'ready';
@@ -1040,10 +1045,11 @@ const Clients: React.FC<ClientsProps> = () => {
             value={ready ? 'ready' : 'pending'}
             onClick={(e) => e.stopPropagation()}
             onChange={(val) => setDocsStatus(r.contract, val as 'pending' | 'ready')}
-            style={{ width: 168 }}
+            className="lt-client-status-select"
+            style={{ width: 120 }}
             options={[
               { value: 'pending', label: <span style={{ color: '#D97706', fontWeight: 500 }}>⏳ Ожидание</span> },
-              { value: 'ready', label: <span style={{ color: '#059669', fontWeight: 500 }}>✓ Документы готовы</span> },
+              { value: 'ready', label: <span style={{ color: '#059669', fontWeight: 500 }}>✓ Готовы</span> },
             ]}
           />
         );
@@ -1052,7 +1058,7 @@ const Clients: React.FC<ClientsProps> = () => {
     ...(isAdmin ? [{
       title: '',
       key: 'admin_actions',
-      width: 80,
+      width: 52,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => (
         <Popconfirm
@@ -1080,42 +1086,42 @@ const Clients: React.FC<ClientsProps> = () => {
 
   const courtColumns: ColumnsType<ContractRow> = [
     {
-      title: 'ФИО клиента',
+      title: 'Клиент',
       key: 'client_name',
-      render: (_, r) => (
-        <span style={{ fontWeight: 600, color: r.contract.status === 'terminated' ? '#e74c3c' : undefined }}>{r.client?.name || r.contract.client_name || '—'}</span>
-      ),
+      width: 185,
+      render: (_, r) => renderClientIdentity(r),
     },
-    { title: 'Номер договора', key: 'num', render: (_, r) => contractNumber(r.contract.id, r.contract.contract_number) },
-    { title: 'Тема', key: 'topic', render: (_, r) => extractTopic(r.contract) },
+    { title: 'Договор', key: 'num', width: 105, render: (_, r) => <span className="lt-client-contract-number">{contractNumber(r.contract.id, r.contract.contract_number)}</span> },
+    { title: 'Тема', key: 'topic', width: 150, ellipsis: true, render: (_, r) => <span title={extractTopic(r.contract)}>{extractTopic(r.contract)}</span> },
     {
-      title: 'Контакты',
-      key: 'contacts',
-      render: (_, r) => r.client?.phone || r.contract.client_phone || '—',
+      title: 'Юрист',
+      key: 'lawyer',
+      width: 100,
+      ellipsis: true,
+      render: (_, r) => {
+        const label = lawyersLabel(r.contract);
+        return <span title={label}>{label}</span>;
+      },
     },
-    { title: 'Юрист', key: 'lawyer', render: (_, r) => lawyersLabel(r.contract) },
-    { title: 'Сумма', key: 'amount', align: 'right', render: (_, r) => formatMoney(r.contract.amount) },
-    { title: 'Внесено', key: 'paid', align: 'right', render: (_, r) => formatMoney(r.contract.paid_amount) },
-    {
-      title: '',
+    { title: 'Сумма / внесено', key: 'finance', width: 118, render: (_, r) => renderFinanceSummary(r) },
+    ...(!isAdmin ? [{
+      title: 'Данные',
       key: 'needs_input',
-      width: 140,
+      width: 90,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         if (!r.contract.needs_lawyer_input) return null;
-        // Администратор не видит функцию "Дополнить"
-        if (isAdmin) return null;
         return (
           <Tag color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0, cursor: 'pointer' }}>
             Дополнить
           </Tag>
         );
       },
-    },
+    }] : []),
     ...(canAssignRep ? [{
       title: 'Представитель',
       key: 'assign_rep',
-      width: 180,
+      width: 125,
       render: (_: unknown, r: ContractRow) => (
         <Button
           type="primary"
@@ -1123,14 +1129,14 @@ const Clients: React.FC<ClientsProps> = () => {
           icon={<SendOutlined />}
           onClick={(e) => { e.stopPropagation(); openAssignModal(r.contract); }}
         >
-          Передать
+          Назначить
         </Button>
       ),
     }] : []),
     ...(isAdmin ? [{
       title: '',
       key: 'admin_actions',
-      width: 80,
+      width: 52,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => (
         <Popconfirm
@@ -1314,8 +1320,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const pendingPaymentsSum = contractPayments
       .filter(p => !p.confirmed)
       .reduce((s, p) => s + parseFloat(String(p.amount || 0)), 0);
-    const totalPaidWithPending = parseFloat(String(c.paid_amount || 0)) + pendingPaymentsSum;
-    const remaining = (parseFloat(String(c.amount || 0)) - totalPaidWithPending);
+    const totalPaid = parseFloat(String(c.paid_amount || 0));
+    const remaining = Math.max(0, parseFloat(String(c.amount || 0)) - totalPaid);
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
     const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
     const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
@@ -1342,7 +1348,7 @@ const Clients: React.FC<ClientsProps> = () => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* ── Блок «Исполнение договора» ── */}
-        {contractTotal > 0 && (
+        {!isAdmin && contractTotal > 0 && (
           <div style={{
             border: '1px solid var(--color-border)',
             borderRadius: 10,
@@ -1417,10 +1423,10 @@ const Clients: React.FC<ClientsProps> = () => {
           </Descriptions.Item>
           <Descriptions.Item label="Внесено">
             <span style={{ color: '#3aa56b', fontWeight: 600 }}>
-              {formatMoney(totalPaidWithPending)}
+              {formatMoney(totalPaid)}
               {pendingPaymentsSum > 0 && (
                 <span style={{ fontSize: 11, color: '#888', fontWeight: 400, marginLeft: 6 }}>
-                  (из них {formatMoney(pendingPaymentsSum)} на подтверждении)
+                  (+ {formatMoney(pendingPaymentsSum)} ожидает подтверждения)
                 </span>
               )}
             </span>
@@ -1482,7 +1488,7 @@ const Clients: React.FC<ClientsProps> = () => {
               lawyersLabel(c)
             )}
           </Descriptions.Item>
-          {isDocsType && (
+          {isDocsType && !isAdmin && (
             <Descriptions.Item label="Эксперт">
               {canAssignExpert ? (
                 <Select
@@ -1503,11 +1509,13 @@ const Clients: React.FC<ClientsProps> = () => {
               )}
             </Descriptions.Item>
           )}
-          <Descriptions.Item label="Статус документов">
-            {c.docs_status === 'ready'
-              ? <span style={{ padding: '2px 10px', borderRadius: 999, background: '#F0FDF4', color: '#059669', fontSize: 12, fontWeight: 500 }}>Готовы</span>
-              : <span style={{ padding: '2px 10px', borderRadius: 999, background: '#FFF7ED', color: '#D97706', fontSize: 12, fontWeight: 500 }}>Ожидание</span>}
-          </Descriptions.Item>
+          {!isAdmin && (
+            <Descriptions.Item label="Статус документов">
+              {c.docs_status === 'ready'
+                ? <span style={{ padding: '2px 10px', borderRadius: 999, background: '#F0FDF4', color: '#059669', fontSize: 12, fontWeight: 500 }}>Готовы</span>
+                : <span style={{ padding: '2px 10px', borderRadius: 999, background: '#FFF7ED', color: '#D97706', fontSize: 12, fontWeight: 500 }}>Ожидание</span>}
+            </Descriptions.Item>
+          )}
         </Descriptions>
 
         {contractHistory.length > 0 && (
@@ -1808,26 +1816,26 @@ const Clients: React.FC<ClientsProps> = () => {
         )}
 
         {/* ── Журнал платежей ── */}
-        {(remaining > 0 || contractPayments.length > 0) && (
+        {parseFloat(String(c.amount || 0)) > 0 && (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontWeight: 600, fontSize: 14 }}>💳 Платежи</span>
-              {isAdmin && remaining > 0 && (
+              <span style={{ fontWeight: 600, fontSize: 14 }}>История платежей</span>
+              {canManagePayments && remaining > 0 && (
                 <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setShowPaymentForm(!showPaymentForm)}>
-                  {showPaymentForm ? 'Отмена' : 'Внести доплату'}
+                  {showPaymentForm ? 'Отмена' : 'Добавить платёж'}
                 </Button>
               )}
             </div>
 
             {/* Форма добавления доплаты */}
-            {showPaymentForm && isAdmin && (
+            {showPaymentForm && canManagePayments && (
               <div style={{ background: 'var(--color-bg-alt, #f9fafb)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
                 <div style={{ flex: '1 1 120px' }}>
                   <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Сумма *</div>
                   <InputNumber
                     value={paymentFormData.amount}
                     onChange={(v) => setPaymentFormData(p => ({ ...p, amount: v }))}
-                    min={1} max={parseFloat(String(c.amount || 0))}
+                    min={1} max={remaining}
                     style={{ width: '100%' }}
                     placeholder="10 000"
                     formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''}
@@ -1841,7 +1849,12 @@ const Clients: React.FC<ClientsProps> = () => {
                 <div style={{ flex: '1 1 100px' }}>
                   <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Способ</div>
                   <Select value={paymentFormData.method} onChange={(v) => setPaymentFormData(p => ({ ...p, method: v }))} style={{ width: '100%' }}
-                    options={[{ value: 'cash', label: 'Наличные' }, { value: 'noncash', label: 'Безналичный' }]} />
+                    options={[
+                      { value: 'cash', label: 'Наличные' },
+                      { value: 'noncash', label: 'Банковская карта (терминал)' },
+                      { value: 'bank', label: 'Банковский перевод' },
+                      { value: 'sbp', label: 'СБП' },
+                    ]} />
                 </div>
                 <div style={{ flex: '2 1 160px' }}>
                   <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Комментарий</div>
@@ -1867,12 +1880,22 @@ const Clients: React.FC<ClientsProps> = () => {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>
                           +{formatMoney(p.amount)}
-                          <Tag color={p.payment_method === 'cash' ? 'green' : 'blue'} style={{ marginLeft: 6, fontSize: 11 }}>
-                            {p.payment_method === 'cash' ? 'Нал' : 'Безнал'}
+                          <Tag color={p.payment_method === 'cash' ? 'green' : p.payment_method === 'bank' || p.payment_method === 'sbp' ? 'purple' : 'blue'} style={{ marginLeft: 6, fontSize: 11 }}>
+                            {{
+                              cash: 'Наличные',
+                              noncash: 'Банковская карта',
+                              bank: 'Банковский перевод',
+                              sbp: 'СБП',
+                            }[p.payment_method]}
+                          </Tag>
+                          <Tag style={{ marginLeft: 4, fontSize: 11 }}>
+                            {p.payment_type === 'initial' ? 'Первичная оплата' : 'Доплата'}
                           </Tag>
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-                          {new Date(p.payment_date).toLocaleDateString('ru-RU')} · {p.created_by_name}
+                          {new Date(p.payment_date).toLocaleDateString('ru-RU')}
+                          {p.created_at ? `, ${new Date(p.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}
+                          {p.created_by_name ? ` · ${p.created_by_name}` : ''}
                           {p.comment && <> · {p.comment}</>}
                           {p.confirmed && p.confirmed_by_name && (
                             <> · Подтвердил: {p.confirmed_by_name}</>
@@ -1896,7 +1919,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 </div>
               ) : (
                 <div style={{ color: 'var(--color-muted)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: 8 }}>
-                  Доплат ещё не вносилось
+                  Платежей по договору пока нет
                 </div>
               )
             )}
@@ -2790,46 +2813,36 @@ const Clients: React.FC<ClientsProps> = () => {
   };
 
   return (
-    <Page>
-      <ToolRow>
-        <Space size={12} wrap>
-          <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', overflowX: 'auto', maxWidth: 'min(100%, calc(100vw - 32px))' }}>
-            {[
-              { label: 'Договоры', value: 'contracts' as ClientsView },
-              ...(canTerminate ? [{ label: 'Расторжение договора', value: 'terminated' as ClientsView }] : []),
-            ].map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setView(tab.value)}
-                style={{
-                  padding: '8px 16px',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: view === tab.value ? '2px solid var(--color-primary)' : '2px solid transparent',
-                  color: view === tab.value ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                  fontWeight: view === tab.value ? 600 : 400,
-                  fontSize: 14,
-                  cursor: 'pointer',
-                  transition: 'color 0.15s, border-color 0.15s',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+    <Page className="lt-page lt-page-clients">
+      {canTerminate && (
+        <ToolRow className="clients-view-toolbar">
+          <div className="clients-switch-row">
+            <button
+              onClick={() => setView(view === 'contracts' ? 'terminated' : 'contracts')}
+              style={{
+                padding: '8px 16px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: view === 'terminated' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                color: view === 'terminated' ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                fontWeight: view === 'terminated' ? 600 : 400,
+                fontSize: 14,
+                cursor: 'pointer',
+                transition: 'color 0.15s, border-color 0.15s',
+              }}
+            >
+              {view === 'contracts' ? 'Расторжение договора' : '← К клиентам'}
+            </button>
           </div>
-        </Space>
-        <Space>
-          {isAdmin && view === 'contracts' && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNewContractOpen(true)}>Новый договор</Button>}
-          {!isAdmin && view === 'contracts' && <Documents headless />}
-        </Space>
-      </ToolRow>
+        </ToolRow>
+      )}
       {view === 'contracts' && (
         <>
           <ToolRow>
             <Space size={12} wrap>
-              <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', overflowX: 'auto', maxWidth: 'min(100%, calc(100vw - 32px))' }}>
+              <div className="clients-switch-row clients-switch-row--types">
                 {([
                   { label: 'Подготовка документов', value: 'docs' as DealType },
                   { label: 'Представительство в суде', value: 'court_rep' as DealType },
@@ -2931,12 +2944,13 @@ const Clients: React.FC<ClientsProps> = () => {
                 </div>
               </div>
               <Input
+                className="clients-search-input"
                 allowClear
                 prefix={<SearchOutlined style={{ color: '#9CA3AF' }} />}
                 placeholder="Поиск по ФИО, номеру договора или телефону"
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                style={{ minWidth: 260, maxWidth: 420, borderRadius: 8 }}
+                style={{ borderRadius: 8 }}
               />
             </Space>
           </ToolRow>
@@ -2973,7 +2987,7 @@ const Clients: React.FC<ClientsProps> = () => {
                       {({registered:"Зарегистрирован",active:"Активный",pending:"Ожидает",completed:"Завершён",cancelled:"Отменён",draft:"Черновик",terminated:"Расторгнут"} as Record<string,string>)[row.contract.status] || row.contract.status}
                     </Tag>
                   </div>
-                  {(row.contract as any).needs_lawyer_input ? (
+                  {!isAdmin && (row.contract as any).needs_lawyer_input ? (
                     <div style={{ marginTop: 8, padding: '4px 10px', background: '#fef3c7', color: '#92400e', borderRadius: 6, fontSize: 12, fontWeight: 600, display: 'inline-block' }}>
                       ⚠ Дополнить данные
                     </div>
@@ -2983,7 +2997,7 @@ const Clients: React.FC<ClientsProps> = () => {
             </div>
           ) : (
             <TableCard>
-              {dealType === 'docs' && (() => {
+              {!isAdmin && dealType === 'docs' && (() => {
                 const withDl = filtered.filter((r) => r.contract.expert_deadline);
                 let ontime = 0, today = 0, overdue = 0;
                 withDl.forEach((r) => { const i = getDeadlineInfo(r.contract.expert_deadline); if (!i) return; if (i.key === 'red') overdue++; else if (i.key === 'orange') today++; else ontime++; });
@@ -2999,11 +3013,17 @@ const Clients: React.FC<ClientsProps> = () => {
                 );
               })()}
               <Table<ContractRow>
+                className="lt-clients-register-table"
                 rowKey="key"
                 dataSource={filtered}
                 columns={dealType === 'docs' ? docsColumns : courtColumns}
+                tableLayout="fixed"
                 showSorterTooltip={false}
-                rowClassName={(r) => { const i = getDeadlineInfo(r.contract.expert_deadline); return i ? `deadline-row deadline-${i.key}` : ''; }}
+                rowClassName={(r) => {
+                  if (isAdmin) return '';
+                  const i = getDeadlineInfo(r.contract.expert_deadline);
+                  return i ? `deadline-row deadline-${i.key}` : '';
+                }}
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
                 locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
@@ -3025,9 +3045,11 @@ const Clients: React.FC<ClientsProps> = () => {
       {view === 'terminated' && (
         <TableCard>
           <Table<CrmContract>
+            className="lt-clients-terminated-table"
             rowKey="id"
             dataSource={terminatedContracts}
             loading={terminatedLoading}
+            tableLayout="fixed"
             pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
             locale={{ emptyText: <Empty description="Нет расторгнутых договоров" /> }}
             size="small"
@@ -3042,6 +3064,7 @@ const Clients: React.FC<ClientsProps> = () => {
               {
                 title: 'ФИО клиента',
                 key: 'client_name',
+                width: 170,
                 render: (_, r) => (
                   <span style={{ fontWeight: 600, color: '#e74c3c' }}>
                     {r.client_name || '—'}
@@ -3051,44 +3074,45 @@ const Clients: React.FC<ClientsProps> = () => {
               {
                 title: 'Номер договора',
                 key: 'contract_number',
-                width: 160,
+                width: 110,
                 render: (_, r) => contractNumber(r.id, r.contract_number),
               },
               {
                 title: 'Сумма договора',
                 key: 'amount',
-                width: 130,
+                width: 105,
                 align: 'right',
                 render: (_, r) => formatMoney(r.amount),
               },
               {
                 title: 'Юрист',
                 key: 'lawyer',
+                width: 105,
                 render: (_, r) => lawyersLabel(r),
               },
               {
                 title: 'Дата расторжения',
                 key: 'terminated_at',
-                width: 140,
+                width: 112,
                 render: (_, r) => r.terminated_at ? new Date(r.terminated_at).toLocaleDateString('ru-RU') : '—',
               },
               {
                 title: 'Сумма возврата',
                 key: 'refund_amount',
-                width: 140,
+                width: 110,
                 align: 'right',
                 render: (_, r) => <span style={{ color: '#e74c3c', fontWeight: 600 }}>{formatMoney(r.refund_amount)}</span>,
               },
               {
                 title: 'Срок возврата',
                 key: 'refund_deadline',
-                width: 130,
+                width: 108,
                 render: (_, r) => r.refund_deadline ? new Date(r.refund_deadline).toLocaleDateString('ru-RU') : '—',
               },
               {
                 title: 'Статус возврата',
                 key: 'refund_status',
-                width: 180,
+                width: 150,
                 render: (_, r) => {
                   if (r.refund_confirmed) {
                     return <Tag color="green">Возвращено</Tag>;
@@ -3203,12 +3227,6 @@ const Clients: React.FC<ClientsProps> = () => {
         )}
       </Modal>
 
-      <AdminContractRegister
-        open={newContractOpen}
-        onClose={() => setNewContractOpen(false)}
-        onSuccess={() => { setNewContractOpen(false); load(); }}
-        appointmentData={null}
-      />
     </Page>
   );
 };

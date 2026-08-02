@@ -19,23 +19,23 @@ dayjs.locale('ru');
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 0 0;
 `;
 
 const StatRow = styled.div`
   display: flex;
-  gap: 16px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 2px;
 `;
 
 const Stat = styled.div`
   border-radius: var(--radius-md);
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  padding: 10px 14px;
-  min-width: 150px;
+  padding: 9px 12px;
+  min-width: 132px;
   flex: 1;
   .lbl { color: var(--color-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
   .val { font-weight: 700; font-size: 18px; }
@@ -56,7 +56,7 @@ const TableCard = styled.div`
 const ToolRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: space-between;
 `;
@@ -173,6 +173,12 @@ const fmtArrivedTime = (arrivedAt: string | null, scheduled: string) => {
 };
 // День из даты/датавремени в формате YYYY-MM-DD (как в «Записях»).
 const toDayKey = (d: string) => { try { return new Date(d).toISOString().slice(0, 10); } catch { return (d || '').slice(0, 10); } };
+const getInitials = (name: string) => name
+  .trim()
+  .split(/\s+/)
+  .slice(0, 2)
+  .map(part => part.charAt(0).toUpperCase())
+  .join('') || 'К';
 
 /* ─── component ─── */
 
@@ -454,10 +460,113 @@ const Arrivals: React.FC = () => {
     { title: 'Комментарий', dataIndex: 'comment', key: 'comm', render: (v: string) => v || '—' },
   ];
 
+  const assignedEmployees = (row: PrimaryVisit) => {
+    const assignedItems = [
+      row.assigned_lawyer_id ? { value: row.assigned_lawyer_id, label: row.assigned_lawyer_name || `#${row.assigned_lawyer_id}` } : null,
+      row.assigned_lawyer_id_2 ? { value: row.assigned_lawyer_id_2, label: row.assigned_lawyer_name_2 || `#${row.assigned_lawyer_id_2}` } : null,
+    ].filter((item): item is { value: number; label: string } => item !== null);
+
+    if (canAssignLawyer) {
+      return (
+        <Select
+          size="small"
+          mode="multiple"
+          labelInValue
+          optionFilterProp="label"
+          className="arrival-employee-select"
+          placeholder="Не назначен"
+          allowClear
+          maxTagCount="responsive"
+          value={assignedItems}
+          onChange={(items: { value: number; label: string }[]) => {
+            handleAssignLawyers(row.id, items.map(item => item.value).slice(-2));
+          }}
+          options={employees.map(employee => ({ value: employee.id, label: employee.name }))}
+        />
+      );
+    }
+
+    const names = [row.assigned_lawyer_name, row.assigned_lawyer_name_2].filter(Boolean);
+    return <span>{names.length ? names.join(', ') : 'Не назначен'}</span>;
+  };
+
+  const consultationResult = (row: PrimaryVisit) => {
+    if (canSetResult) {
+      return (
+        <div className="arrival-result-actions" aria-label="Результат консультации">
+          <button
+            type="button"
+            className={row.consultation_result === 'contract_signed' ? 'is-success' : ''}
+            onClick={() => handleSetResult(row.id, 'contract_signed')}
+            title="Договор заключён"
+            aria-label="Договор заключён"
+            aria-pressed={row.consultation_result === 'contract_signed'}
+          >
+            <CheckCircleFilled />
+          </button>
+          <button
+            type="button"
+            className={row.consultation_result === 'not_signed' ? 'is-danger' : ''}
+            onClick={() => handleSetResult(row.id, 'not_signed')}
+            title="Договор не заключён"
+            aria-label="Договор не заключён"
+            aria-pressed={row.consultation_result === 'not_signed'}
+          >
+            <CloseCircleFilled />
+          </button>
+        </div>
+      );
+    }
+    if (row.consultation_result === 'contract_signed') {
+      return <BadgeStatic bg="#ECFDF5" border="#A7F3D0" color="#047857">Договор заключён</BadgeStatic>;
+    }
+    if (row.consultation_result === 'not_signed') {
+      return <BadgeStatic bg="#FEF2F2" border="#FECACA" color="#B91C1C">Не заключён</BadgeStatic>;
+    }
+    return <BadgeStatic bg="#F8FAFC" border="#E2E8F0" color="#64748B">Ожидает результата</BadgeStatic>;
+  };
+
+  const contractAction = (row: PrimaryVisit) => {
+    if (row.consultation_result !== 'contract_signed') return null;
+    const contracts = row.linked_contracts || [];
+    if (contracts.length) {
+      return (
+        <div className="arrival-contracts">
+          {contracts.map(contract => (
+            <BadgeStatic
+              key={contract.id}
+              bg={contract.contract_type === 'docs' ? '#EFF6FF' : '#F5F3FF'}
+              border={contract.contract_type === 'docs' ? '#BFDBFE' : '#DDD6FE'}
+              color={contract.contract_type === 'docs' ? '#1D4ED8' : '#6D28D9'}
+            >
+              {contract.contract_type === 'docs' ? 'Документы' : 'Представление'} · №{contract.contract_number || contract.id}
+            </BadgeStatic>
+          ))}
+          {isAdmin && (
+            <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}>
+              Ещё договор
+            </Button>
+          )}
+        </div>
+      );
+    }
+    return isAdmin ? (
+      <Button size="small" type="primary" onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}>
+        Зарегистрировать договор
+      </Button>
+    ) : <span className="arrival-muted">Договор ещё не зарегистрирован</span>;
+  };
+
   return (
-    <Page>
+    <Page className="lt-page lt-page-arrivals">
+      <div className="lt-page-heading">
+        <div>
+          <h1>Приходы</h1>
+          <p>Фактические визиты клиентов и результат консультаций</p>
+        </div>
+      </div>
       {/* ─── Stats ─── */}
-      {stats && (
+      {!isAdmin && stats && (
         <StatRow>
           <Stat>
             <div className="lbl">Всего пришло</div>
@@ -498,41 +607,72 @@ const Arrivals: React.FC = () => {
       {/* ─── Primary ─── */}
       {tab === 'primary' && (
         <>
-          <ToolRow>
+          <ToolRow className="arrival-toolbar">
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setNewPrimaryModal(true)}>
               Добавить приход
             </Button>
           </ToolRow>
-        <TableCard>
           {loading && primaryVisits.length === 0 ? (
-            <TableSkeleton rows={6} cols={primaryCols.length} />
+            <TableSkeleton rows={5} cols={4} />
+          ) : primaryByDay.length ? (
+            <div className="arrival-cards-list">
+              {primaryByDay.map(row => (
+                <article className="apt-card arrival-card" key={row.id}>
+                  <div className="arrival-card-time">
+                    <strong>{fmtArrivedTime(row.arrived_at, row.appointment_time)}</strong>
+                    <span>{fmtDate(row.appointment_date)}</span>
+                  </div>
+                  <div className="arrival-card-main">
+                    <div className="arrival-card-client">
+                      <span className="apt-card-avatar">{getInitials(row.client_name)}</span>
+                      <div>
+                        <h3>{row.client_name}</h3>
+                        <span>{row.client_phone || 'Телефон не указан'}</span>
+                      </div>
+                    </div>
+                    <div className="arrival-card-details">
+                      <div>
+                        <small>Источник</small>
+                        <span>{row.source || 'Не указан'}</span>
+                      </div>
+                      <div>
+                        <small>Кто записал</small>
+                        <span>{row.operator_name || 'Не указан'}</span>
+                      </div>
+                      <div className="arrival-card-employee">
+                        <small>Сотрудник на консультации</small>
+                        {assignedEmployees(row)}
+                      </div>
+                      {row.comment && (
+                        <div className="arrival-card-comment">
+                          <small>Тема / комментарий</small>
+                          <span>{row.comment}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="arrival-card-side">
+                    {consultationResult(row)}
+                    {contractAction(row)}
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
-            <Table<PrimaryVisit>
-              dataSource={primaryByDay}
-              columns={primaryCols}
-              rowKey="id"
-              size="small"
-              pagination={false}
-              loading={loading}
-              locale={{
-                emptyText: (
-                  <EmptyState
-                    title="Нет первичных приходов за этот день"
-                    description="Выберите другой день стрелками или календарём выше."
-                  />
-                ),
-              }}
-              scroll={{ x: 900 }}
-            />
+            <div className="arrival-empty-card">
+              <EmptyState
+                title="Нет первичных приходов за этот день"
+                description="Выберите другой день стрелками или календарём выше."
+              />
+            </div>
           )}
-        </TableCard>
         </>
       )}
 
       {/* ─── Existing ─── */}
       {tab === 'existing' && (
         <>
-          <ToolRow>
+          <ToolRow className="arrival-toolbar">
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowForm(!showForm)}>
               {showForm ? 'Отменить' : 'Добавить приход'}
             </Button>
@@ -563,29 +703,52 @@ const Arrivals: React.FC = () => {
             </FormCard>
           )}
 
-          <TableCard>
-            {loading && existingVisits.length === 0 ? (
-              <TableSkeleton rows={5} cols={existingCols.length} />
-            ) : (
-              <Table<ExistingVisit>
-                dataSource={existingByDay}
-                columns={existingCols}
-                rowKey="id"
-                size="small"
-                pagination={false}
-                loading={loading}
-                locale={{
-                  emptyText: (
-                    <EmptyState
-                      title="Нет приходов действующих клиентов за этот день"
-                      description="Добавьте приход кнопкой выше или выберите другой день."
-                    />
-                  ),
-                }}
-                scroll={{ x: 600 }}
+          {loading && existingVisits.length === 0 ? (
+            <TableSkeleton rows={5} cols={3} />
+          ) : existingByDay.length ? (
+            <div className="arrival-cards-list">
+              {existingByDay.map(row => (
+                <article className="apt-card arrival-card arrival-card--existing" key={row.id}>
+                  <div className="arrival-card-time">
+                    <strong>{dayjs(row.visited_at).format('HH:mm')}</strong>
+                    <span>{dayjs(row.visited_at).format('DD.MM.YYYY')}</span>
+                  </div>
+                  <div className="arrival-card-main">
+                    <div className="arrival-card-client">
+                      <span className="apt-card-avatar">{getInitials(row.client_name)}</span>
+                      <div>
+                        <h3>{row.client_name}</h3>
+                        <span>Действующий клиент</span>
+                      </div>
+                    </div>
+                    <div className="arrival-card-details">
+                      <div>
+                        <small>К сотруднику</small>
+                        <span>{row.employee_name || 'Не указан'}</span>
+                      </div>
+                      <div>
+                        <small>Добавил</small>
+                        <span>{row.created_by_name || 'Не указан'}</span>
+                      </div>
+                      {row.comment && (
+                        <div className="arrival-card-comment">
+                          <small>Комментарий</small>
+                          <span>{row.comment}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="arrival-empty-card">
+              <EmptyState
+                title="Нет приходов действующих клиентов за этот день"
+                description="Добавьте приход кнопкой выше или выберите другой день."
               />
-            )}
-          </TableCard>
+            </div>
+          )}
         </>
       )}
 

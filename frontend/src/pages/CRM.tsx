@@ -12,6 +12,7 @@ const Expenses = React.lazy(() => import('../components/Expenses'));
 const Balance = React.lazy(() => import('../components/Balance'));
 const Reception = React.lazy(() => import('../components/Reception'));
 const CallCenter = React.lazy(() => import('../components/CallCenter'));
+const CallCenterConnections = React.lazy(() => import('../components/CallCenterConnections'));
 const Materials = React.lazy(() => import('../components/Materials'));
 const Clients = React.lazy(() => import('../components/Clients'));
 const Acts = React.lazy(() => import('../components/Acts'));
@@ -51,9 +52,11 @@ const SRM = () => {
         return 'Офис';
       case 'representative':
         return 'Мои дела';
+      case 'administrator':
       case 'admin':
-        return 'Клиенты';
+        return 'Записи';
       case 'cc_manager':
+        return 'Подключения';
       case 'cc_operator':
         return 'Колл-центр';
       case 'director':
@@ -91,6 +94,9 @@ const SRM = () => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [chatSoundEnabled, setChatSoundEnabled] = useState(() => localStorage.getItem('chatNotificationSound') !== 'off');
+  const unreadPreviousRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const unreadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const [notifications, setNotifications] = useState([]);
@@ -119,21 +125,67 @@ const SRM = () => {
   // Тема (светлая/тёмная) управляется единым AntThemeProvider через useThemeMode().
   // Здесь намеренно нет дублирующей логики data-theme, чтобы не было рассинхрона с Ant Design.
 
-  // Poll unread chat messages for badge
+  const playChatSound = useCallback(() => {
+    if (!chatSoundEnabled || typeof window === 'undefined') return;
+    const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextCtor) return;
+    const context = audioContextRef.current || new AudioContextCtor();
+    audioContextRef.current = context;
+    if (context.state === 'suspended') context.resume().catch(() => {});
+    const now = context.currentTime;
+    [659.25, 783.99].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, now + index * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.05625, now + index * 0.09 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.09 + 0.16);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(now + index * 0.09);
+      oscillator.stop(now + index * 0.09 + 0.18);
+    });
+  }, [chatSoundEnabled]);
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      const AudioContextCtor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return;
+      if (!audioContextRef.current) audioContextRef.current = new AudioContextCtor();
+      if (audioContextRef.current.state === 'suspended') audioContextRef.current.resume().catch(() => {});
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    return () => window.removeEventListener('pointerdown', unlockAudio);
+  }, []);
+
+  // Poll unread chat messages for badge and play a short Telegram-style chime for new incoming messages.
   useEffect(() => {
     const checkUnread = async () => {
       try {
         const officeId = localStorage.getItem('activeOfficeId') || user?.office_id;
         if (!officeId) return;
         const counts = await receptionAPI.getUnreadCounts(String(officeId));
-        const total = Object.values(counts).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+        const total = Object.values(counts).reduce((sum: number, value: any) => sum + (Number(value) || 0), 0);
+        const previous = unreadPreviousRef.current;
+        if (previous !== null && total > previous && activeTab !== '???') {
+          playChatSound();
+          setNotifications(prev => [{
+            id: 'chat-' + Date.now(),
+            title: '????? ????????? ? ????',
+            message: '????????? ????? ????????? ?? ???????',
+            type: 'info' as const,
+            timestamp: new Date(),
+            read: false,
+          }, ...prev].slice(0, 50));
+        }
+        unreadPreviousRef.current = total;
         setUnreadChatCount(total);
       } catch { /* ignore */ }
     };
     checkUnread();
-    unreadPollRef.current = setInterval(checkUnread, 15000);
+    unreadPollRef.current = setInterval(checkUnread, 5000);
     return () => { if (unreadPollRef.current) clearInterval(unreadPollRef.current); };
-  }, [user?.office_id]);
+  }, [user?.office_id, activeTab, playChatSound]);
 
   // Reset badge when user is on Chat tab
   useEffect(() => {
@@ -158,6 +210,14 @@ const SRM = () => {
     // Обновляем URL с новым contractId
     const newUrl = `/crm?tab=Клиенты&contractId=${safeContractId}`;
     window.history.pushState({}, '', newUrl);
+  };
+
+  const toggleChatSound = () => {
+    setChatSoundEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('chatNotificationSound', next ? 'on' : 'off');
+      return next;
+    });
   };
 
   const handleNotificationClick = () => {
@@ -200,13 +260,13 @@ const SRM = () => {
 
     content: {
       flex: 1,
-      marginLeft: isMobile ? "0" : (collapsed ? "64px" : "191px"),
+      marginLeft: isMobile ? "0" : (collapsed ? "64px" : "216px"),
       marginTop: "0px",
-      padding: isMobile ? "8px 8px 76px" : "16px",
+      padding: isMobile ? "10px 10px 76px" : "22px",
       backgroundColor: "var(--color-bg)",
-      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      transition: "margin-left 0.24s cubic-bezier(0.22, 1, 0.36, 1), max-width 0.24s cubic-bezier(0.22, 1, 0.36, 1)",
       height: "100vh",
-      maxWidth: isMobile ? "100vw" : `calc(100vw - ${collapsed ? "64px" : "191px"})`,
+      maxWidth: isMobile ? "100vw" : `calc(100vw - ${collapsed ? "64px" : "216px"})`,
       overflow: "auto",
       position: "relative" as const,
       WebkitOverflowScrolling: "touch" as const,
@@ -219,6 +279,32 @@ const SRM = () => {
       display: "flex",
       alignItems: "center",
       zIndex: 1001,
+    } satisfies React.CSSProperties,
+    notificationBar: {
+      position: "fixed" as const,
+      top: isMobile ? "10px" : "14px",
+      right: isMobile ? "14px" : "24px",
+      zIndex: 1001,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      pointerEvents: "none" as const,
+    } satisfies React.CSSProperties,
+    notificationButton: {
+      position: "relative" as const,
+      width: 42,
+      height: 42,
+      boxSizing: "border-box" as const,
+      borderRadius: 12,
+      border: "1px solid #DFE5F2",
+      background: "rgba(255,255,255,0.94)",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: "0 6px 18px rgba(31,35,87,0.10)",
+      flex: "0 0 auto",
+      pointerEvents: "auto" as const,
     } satisfies React.CSSProperties,
 
   };
@@ -240,18 +326,18 @@ const SRM = () => {
           }
 
           .ant-layout-content::-webkit-scrollbar-thumb {
-            background: var(--color-accent);
+            background: var(--brand-blue, var(--color-accent));
             border-radius: 4px;
             transition: background 0.3s ease;
           }
 
           .ant-layout-content::-webkit-scrollbar-thumb:hover {
-            background: var(--color-accent-light);
+            background: var(--brand-blue-soft, var(--color-accent-light));
           }
 
           .ant-layout-content {
             scrollbar-width: thin;
-            scrollbar-color: var(--color-accent) var(--color-bg-alt);
+            scrollbar-color: var(--brand-blue, var(--color-accent)) var(--color-bg-alt);
           }
         `}
       </style>
@@ -275,52 +361,68 @@ const SRM = () => {
           user={user ? { ...user } : undefined}
           unreadChatCount={unreadChatCount}
         />
-        <Content style={styles.content}>
+        <Content className="lawtech-workspace" style={styles.content}>
+          {!isAdmin && (
+            <div className="lawtech-notification-bar" style={styles.notificationBar}>
+              <button
+                className="lawtech-notification-button"
+                onClick={handleNotificationClick}
+                title="Уведомления"
+                aria-label="Открыть уведомления"
+                style={styles.notificationButton}
+              >
+                <BellOutlined style={{ fontSize: 18, color: 'var(--brand-blue, var(--color-primary))' }} />
+                {notifications.filter((n) => !n.read).length > 0 && (
+                  <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {notifications.filter((n) => !n.read).length}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
           <Suspense fallback={<div style={{padding:48,textAlign:"center",color:"var(--color-text-muted)"}}>Загрузка…</div>}>
-          {activeTab === "Офис" && (<Office />)}
-          {activeTab === "AI инструменты" && <AITools />}
-          {activeTab === "Сотрудники" && <Employees />}
-          {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
-          {activeTab === "Приходы" && <Arrivals />}
-          {activeTab === "Расходы" && <Expenses />}
-          {activeTab === "Баланс" && <Balance />}
-          {activeTab === "Колл-центр" && <CallCenter />}
-          {activeTab === "Материалы" && <Materials />}
-          {activeTab === "Клиенты" && (<Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />)}
-          {activeTab === "Акты" && (<Acts />)}
-          {activeTab === "Зарплата" && (<Salary />)}
-          {activeTab === "Записи" && <Appointments />}
-          {activeTab === "Мои дела" && <MyCases />}
-          {activeTab === "Чат" && <OfficeChat />}
-          {activeTab === "Настройки" && <Settings />}
-          {activeTab === "Касса" && <CashRegister />}
-          {activeTab === "Представители" && <MyCases />}
-          {activeTab === "Заявления" && <Applications />}
-          {activeTab === "Суды" && <Cases />}
+            <div
+              key={activeTab}
+              className={`lawtech-page-stage${activeTab === "Чат" ? " is-chat" : ""}`}
+            >
+              {activeTab === "Офис" && (<Office />)}
+              {activeTab === "AI инструменты" && <AITools />}
+              {activeTab === "Сотрудники" && <Employees />}
+              {activeTab === "Договоры" && <Documents contractId={contractIdParam || selectedContractId} />}
+              {activeTab === "Приходы" && <Arrivals />}
+              {activeTab === "Расходы" && <Expenses />}
+              {activeTab === "Баланс" && <Balance />}
+              {activeTab === "Колл-центр" && <CallCenter />}
+              {activeTab === "Подключения" && <CallCenterConnections />}
+              {activeTab === "Материалы" && <Materials />}
+              {activeTab === "Клиенты" && (<Clients onTabClick={handleTabClick} onContractSelect={handleContractSelect} />)}
+              {activeTab === "Акты" && (<Acts />)}
+              {activeTab === "Зарплата" && (<Salary />)}
+              {activeTab === "Записи" && <Appointments />}
+              {activeTab === "Мои дела" && <MyCases />}
+              {activeTab === "Чат" && <OfficeChat />}
+              {activeTab === "Настройки" && <Settings />}
+              {activeTab === "Касса" && <CashRegister />}
+              {activeTab === "Представители" && <MyCases />}
+              {activeTab === "Заявления" && <Applications />}
+              {activeTab === "Суды" && <Cases />}
+            </div>
           </Suspense>
 
         </Content>
       </div>
       
-      <button
-        onClick={handleNotificationClick}
-        title="Уведомления"
-        style={{ position: 'fixed', top: 14, right: 18, zIndex: 1000, width: 40, height: 40, borderRadius: '50%', border: '1px solid var(--color-border)', background: 'var(--color-bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.10)' }}
-      >
-        <BellOutlined style={{ fontSize: 18, color: 'var(--color-text)' }} />
-        {notifications.filter((n) => !n.read).length > 0 && (
-          <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {notifications.filter((n) => !n.read).length}
-          </span>
-        )}
-      </button>
-      <NotificationPanel
-        isOpen={isNotificationPanelOpen}
-        onClose={handleCloseNotificationPanel}
-        notifications={notifications}
-        onMarkAsRead={handleMarkAsRead}
-        onMarkAllAsRead={handleMarkAllAsRead}
-      />
+      {!isAdmin && (
+        <NotificationPanel
+          isOpen={isNotificationPanelOpen}
+          onClose={handleCloseNotificationPanel}
+          notifications={notifications}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          soundEnabled={chatSoundEnabled}
+          onToggleSound={toggleChatSound}
+        />
+      )}
 
       {showChangePassword && (
         <ChangePasswordModal onDone={() => setShowChangePassword(false)} />
