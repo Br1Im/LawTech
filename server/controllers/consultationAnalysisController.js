@@ -3,7 +3,7 @@ const ROLES=new Set(['director','manager','okk']);
 const CATEGORIES=new Set(['LEAD_QUALITY','SALES_PROCESS','CLIENT_DELAY','SERVICE_PROBLEM','NON_TARGET','UNRESOLVED','OTHER']);
 const REASON_CATEGORY={
  NEED_THINK:'CLIENT_DELAY',CONSULT_OTHERS:'CLIENT_DELAY',NOT_READY:'CLIENT_DELAY',RETURN_LATER:'CLIENT_DELAY',DELAY_OTHER:'CLIENT_DELAY',
- PRICE:'SERVICE_PROBLEM',NO_MONEY_NOW:'SERVICE_PROBLEM',PAYMENT_SCHEME:'SERVICE_PROBLEM',FINANCE_OTHER:'SERVICE_PROBLEM',CONDITIONS:'SERVICE_PROBLEM',SERVICE_SCOPE:'SERVICE_PROBLEM',VALUE_NOT_CLEAR:'SERVICE_PROBLEM',SOLUTION_REJECTED:'SERVICE_PROBLEM',
+ PRICE:'SERVICE_PROBLEM',NO_MONEY_NOW:'SERVICE_PROBLEM',PAYMENT_SCHEME:'SERVICE_PROBLEM',FINANCE_OTHER:'SERVICE_PROBLEM',CONDITIONS:'SERVICE_PROBLEM',SERVICE_SCOPE:'SERVICE_PROBLEM',VALUE_NOT_CLEAR:'SERVICE_PROBLEM',SOLUTION_REJECTED:'SERVICE_PROBLEM',PRODUCT_OTHER:'SERVICE_PROBLEM',
  NEED_NOT_IDENTIFIED:'SALES_PROCESS',SOLUTION_NOT_CLEAR:'SALES_PROCESS',VALUE_NOT_FORMED:'SALES_PROCESS',OBJECTION_NOT_HANDLED:'SALES_PROCESS',OFFER_NOT_MADE:'SALES_PROCESS',ARGUMENTS_INSUFFICIENT:'SALES_PROCESS',
  LOW_POTENTIAL:'LEAD_QUALITY',ECONOMICALLY_UNVIABLE:'LEAD_QUALITY',NO_SUPPORT_NEEDED:'LEAD_QUALITY',NOT_LEGALLY_SOLVABLE:'LEAD_QUALITY',
  NON_TARGET_SERVICE:'NON_TARGET',OUT_OF_PROFILE:'NON_TARGET',OTHER:'OTHER',INSUFFICIENT_DATA:'UNRESOLVED'
@@ -39,7 +39,7 @@ const api={
       const arrived=Number(base.arrived||0),contracts=Number(base.contracts||0),lost=Number(base.lost||0),analyzed=Number(stat.analyzed||0),promising=Number(stat.promising||0),averageCheck=Number(avg.average_check||0);
       const potentialLostRevenue=Math.round(promising*averageCheck);
       const coverage=lost?Math.round(analyzed*10000/lost)/100:0;
-      return res.json({success:true,data:{period:{from,to},arrived,contracts,lost,analyzed,coverage_pct:coverage,coverage_warning:coverage<Number(settings?.coverage_warning_pct||70),promising,conversion_all_pct:arrived?Math.round(contracts*10000/arrived)/100:0,conversion_promising_pct:promising?Math.round(contracts*10000/promising)/100:0,insufficient:Number(stat.insufficient||0),hypotheses:Number(stat.hypotheses||0),average_check:averageCheck,potential_lost_revenue:potentialLostRevenue,revenue_method:settings?.revenue_method||'OFFICE_AVG',min_sample_size:Number(settings?.min_sample_size||20),categories:cats}});
+      return res.json({success:true,data:{period:{from,to},arrived,contracts,lost,analyzed,coverage_pct:coverage,coverage_warning:coverage<Number(settings?.coverage_warning_pct||70),promising,conversion_all_pct:arrived?Math.round(contracts*10000/arrived)/100:0,conversion_promising_pct:promising?Math.round(contracts*10000/promising)/100:0,insufficient:Number(stat.insufficient||0),hypotheses:Number(stat.hypotheses||0),average_check:averageCheck,potential_lost_revenue:potentialLostRevenue,revenue_method:settings?.revenue_method==='TOPIC_AVG'?'OFFICE_AVG_FALLBACK':'OFFICE_AVG',min_sample_size:Number(settings?.min_sample_size||20),categories:cats}});
     }catch(e){console.error(e);return bad(res,500,'Ошибка аналитики');}
   },
   async details(req,res){
@@ -56,11 +56,25 @@ const api={
   async rankings(req,res){
     try{
       if(!manager(req.user))return bad(res,403,'Нет доступа');
-      const [from,to]=dates(req.query),by=req.params.by==='employees'?'employee':'source',oid=office(req.user);
-      if(by==='employee'){
-        const [rows]=await db.query(`SELECT COALESCE(ca.employee_id,0) id,COALESCE(CONCAT(u.first_name,' ',u.last_name),'Не назначен') name,COUNT(*) analyzed,SUM(ca.lead_quality IN ('HIGH','MEDIUM')) promising,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient FROM consultation_analysis ca JOIN appointments a ON a.id=ca.consultation_id LEFT JOIN users u ON u.id=ca.employee_id WHERE ca.office_id=? AND ca.deleted_at IS NULL AND a.appointment_date BETWEEN ? AND ? GROUP BY ca.employee_id,name ORDER BY promising DESC`,[oid,from,to]);return res.json({success:true,data:rows});
+      const [from,to]=dates(req.query),oid=office(req.user),by=req.params.by;
+      if(by==='employees'){
+        const [rows]=await db.query(`SELECT COALESCE(a.assigned_lawyer_id,0) id,COALESCE(CONCAT(u.first_name,' ',u.last_name),'Не назначен') name,
+          COUNT(*) consultations,SUM(a.consultation_result='contract_signed' OR c.contracts>0) contracts,
+          SUM(a.consultation_result='contract_signed' OR c.contracts>0)+SUM(CASE WHEN a.consultation_result='not_signed' AND ca.lead_quality IN ('HIGH','MEDIUM') THEN 1 ELSE 0 END) promising,
+          SUM(c.revenue) revenue,COUNT(ca.id) analyzed,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient
+          FROM appointments a LEFT JOIN users u ON u.id=a.assigned_lawyer_id LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
+          LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
+          WHERE a.office_id=? AND a.status='arrived' AND a.appointment_date BETWEEN ? AND ? GROUP BY a.assigned_lawyer_id,name ORDER BY promising DESC`,[oid,oid,from,to]);
+        return res.json({success:true,data:rows.map(r=>({...r,conversion_promising_pct:Number(r.promising)?Math.round(Number(r.contracts)*10000/Number(r.promising))/100:0}))});
       }
-      const [rows]=await db.query(`SELECT MIN(a.id) id,a.source COLLATE utf8mb4_unicode_ci name,COUNT(*) analyzed,SUM(ca.lead_quality IN ('HIGH','MEDIUM')) promising,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient FROM consultation_analysis ca JOIN appointments a ON a.id=ca.consultation_id WHERE ca.office_id=? AND ca.deleted_at IS NULL AND a.appointment_date BETWEEN ? AND ? GROUP BY a.source COLLATE utf8mb4_unicode_ci ORDER BY promising DESC`,[oid,from,to]);return res.json({success:true,data:rows});
+      const [rows]=await db.query(`SELECT MIN(a.id) id,COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci name,
+        COUNT(*) records,SUM(a.status='arrived') arrived,SUM(a.consultation_result='contract_signed' OR c.contracts>0) contracts,
+        SUM(a.consultation_result='contract_signed' OR c.contracts>0)+SUM(CASE WHEN a.consultation_result='not_signed' AND ca.lead_quality IN ('HIGH','MEDIUM') THEN 1 ELSE 0 END) promising,
+        SUM(c.revenue) revenue,COUNT(ca.id) analyzed,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient
+        FROM appointments a LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
+        LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
+        WHERE a.office_id=? AND a.appointment_date BETWEEN ? AND ? GROUP BY COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci ORDER BY promising DESC`,[oid,oid,from,to]);
+      return res.json({success:true,data:rows.map(r=>({...r,conversion_promising_pct:Number(r.promising)?Math.round(Number(r.contracts)*10000/Number(r.promising))/100:0,average_check:Number(r.contracts)?Math.round(Number(r.revenue||0)/Number(r.contracts)):0}))});
     }catch(e){console.error(e);return bad(res,500,'Ошибка рейтинга');}
   },
   async getSettings(req,res){try{if(!manager(req.user))return bad(res,403,'Нет доступа');const [rows]=await db.query('SELECT * FROM consultation_analysis_settings WHERE office_id=?',[office(req.user)]);return res.json({success:true,data:rows[0]||{office_id:office(req.user),min_sample_size:20,coverage_warning_pct:70,revenue_method:'TOPIC_AVG'}});}catch(e){return bad(res,500,'Ошибка настроек');}},
