@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Spin } from 'antd';
+import { Spin, Modal, Input, Select, Button, App as AntApp } from 'antd';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { officeAPI } from '../shared/api/office';
 import type { Office } from '../shared/api/office';
 import { receptionAPI } from '../shared/api/reception';
-import type { Message, ChatChannel, ChatParticipant } from '../shared/api/reception';
-import { apiInstance } from '../shared/api/instance';
+import type { Message, ChatChannel, ChatParticipant, ChatChannelInfo, ChatCandidate } from '../shared/api/reception';
 import './OfficeChat.css';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -34,12 +33,11 @@ const CHANNEL_ABBR: Record<string, string> = {
 
 const POLL_INTERVAL = 3000;
 
-interface ChannelInfo { key: ChatChannel; label: string }
-
 const API_BASE = '';
 
 const OfficeChat: React.FC = () => {
   const { user } = useAuth();
+  const { message } = AntApp.useApp();
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,7 +45,17 @@ const OfficeChat: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(true);
   const [sending, setSending] = useState(false);
-  const [channels, setChannels] = useState<ChannelInfo[]>([]);
+  const [channels, setChannels] = useState<ChatChannelInfo[]>([]);
+  const [canManageChat, setCanManageChat] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [newChatName, setNewChatName] = useState('');
+  const [renameValue, setRenameValue] = useState('');
+  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
+  const [candidates, setCandidates] = useState<ChatCandidate[]>([]);
+  const [memberToAdd, setMemberToAdd] = useState<number | undefined>();
+  const [savingChat, setSavingChat] = useState(false);
   const [activeChannel, setActiveChannel] = useState<ChatChannel>('reception');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
@@ -93,34 +101,23 @@ const OfficeChat: React.FC = () => {
     lastChannelRef.current = String(activeChannel);
   }, [messages, activeChannel, scrollToBottom]);
 
-  // Fetch channels
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiInstance.get('/chat/channels');
-        const data: ChannelInfo[] = res.data?.channels || [];
-        setChannels(data);
-        if (data.length > 0) setActiveChannel(data[0].key);
-      } catch {
-        const role = user?.role;
-        if (role === 'cc_operator') {
-          setChannels([{ key: 'cc_internal' as ChatChannel, label: 'Внутренний чат КЦ' }]);
-          setActiveChannel('cc_internal' as ChatChannel);
-        } else if (role === 'cc_manager') {
-          setChannels([
-            { key: 'cc_internal' as ChatChannel, label: 'Внутренний чат КЦ' },
-            { key: 'call_center' as ChatChannel, label: 'Колл-центр' },
-          ]);
-          setActiveChannel('cc_internal' as ChatChannel);
-        } else {
-          setChannels([
-            { key: 'reception', label: 'Ресепшен' },
-            { key: 'call_center' as ChatChannel, label: 'Колл-центр' },
-          ]);
-        }
-      }
-    })();
-  }, [user]);
+  const loadChannels = useCallback(async (preferred?: string) => {
+    if (!selectedOfficeId) return;
+    try {
+      const result = await receptionAPI.getChannels(selectedOfficeId);
+      setChannels(result.channels);
+      setCanManageChat(result.canManage);
+      const next = preferred || activeChannel;
+      if (result.channels.some(ch => ch.key === next)) setActiveChannel(next);
+      else if (result.channels.length) setActiveChannel(result.channels[0].key);
+      else setActiveChannel('');
+    } catch {
+      setChannels([]);
+      setCanManageChat(false);
+    }
+  }, [selectedOfficeId, activeChannel]);
+
+  useEffect(() => { if (selectedOfficeId) loadChannels(); }, [selectedOfficeId]);
 
   // Fetch offices
   useEffect(() => {
@@ -144,7 +141,7 @@ const OfficeChat: React.FC = () => {
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {
-    if (!selectedOfficeId) return;
+    if (!selectedOfficeId || !activeChannel) return;
     try {
       const data = await receptionAPI.getMessages(selectedOfficeId, activeChannel);
       const arr = Array.isArray(data) ? data : (data as unknown as { data: Message[] })?.data || [];
@@ -179,8 +176,10 @@ const OfficeChat: React.FC = () => {
   const fetchParticipants = useCallback(async () => {
     if (!selectedOfficeId) return;
     try {
-      const p = await receptionAPI.getParticipants(selectedOfficeId, activeChannel);
-      setParticipants(p);
+      if (!activeChannel) { setParticipants([]); return; }
+      const result = await receptionAPI.getParticipants(selectedOfficeId, activeChannel);
+      setParticipants(result.participants);
+      setCanManageChat(result.canManage);
     } catch { /* skip */ }
   }, [selectedOfficeId, activeChannel]);
 
@@ -206,7 +205,7 @@ const OfficeChat: React.FC = () => {
 
   // Send message
   const handleSend = async (file?: File) => {
-    if ((!newMessage.trim() && !file) || !selectedOfficeId || sending) return;
+    if ((!newMessage.trim() && !file) || !selectedOfficeId || !activeChannel || sending) return;
     const text = newMessage.trim();
     setNewMessage('');
     setSending(true);
@@ -255,6 +254,76 @@ const OfficeChat: React.FC = () => {
     const t = setTimeout(handleSearch, 400);
     return () => clearTimeout(t);
   }, [searchQuery, handleSearch]);
+
+  const loadCandidates = async () => {
+    if (!selectedOfficeId || !activeChannel) return;
+    try { setCandidates(await receptionAPI.getCandidates(selectedOfficeId, activeChannel)); }
+    catch { setCandidates([]); }
+  };
+
+  const openCreateChat = async () => {
+    setNewChatName(''); setSelectedMemberIds([]); setCreateOpen(true);
+    if (!selectedOfficeId) return;
+    try { setCandidates(await receptionAPI.getCandidates(selectedOfficeId, '__new__')); }
+    catch { setCandidates([]); }
+  };
+
+  const createChat = async () => {
+    if (!selectedOfficeId || newChatName.trim().length < 2) return;
+    setSavingChat(true);
+    try {
+      const channel = await receptionAPI.createChannel(selectedOfficeId, newChatName.trim(), selectedMemberIds);
+      setCreateOpen(false); message.success('Чат создан'); await loadChannels(channel.key);
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось создать чат'); }
+    finally { setSavingChat(false); }
+  };
+
+  const openManageMembers = async () => {
+    setManageOpen(true); setMemberToAdd(undefined); await loadCandidates();
+  };
+
+  const addMember = async () => {
+    if (!selectedOfficeId || !activeChannel || !memberToAdd) return;
+    setSavingChat(true);
+    try {
+      await receptionAPI.addMember(selectedOfficeId, activeChannel, memberToAdd);
+      setMemberToAdd(undefined); await Promise.all([fetchParticipants(), loadCandidates(), loadChannels(activeChannel)]);
+      message.success('Участник добавлен');
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось добавить участника'); }
+    finally { setSavingChat(false); }
+  };
+
+  const removeMember = async (userId: number) => {
+    if (!selectedOfficeId || !activeChannel) return;
+    try {
+      await receptionAPI.removeMember(selectedOfficeId, activeChannel, userId);
+      await Promise.all([fetchParticipants(), loadCandidates(), loadChannels(activeChannel)]);
+      message.success('Участник удалён');
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось удалить участника'); }
+  };
+
+  const renameChat = async () => {
+    if (!selectedOfficeId || !activeChannel || renameValue.trim().length < 2) return;
+    setSavingChat(true);
+    try { await receptionAPI.renameChannel(selectedOfficeId, activeChannel, renameValue.trim()); setRenameOpen(false); await loadChannels(activeChannel); message.success('Название изменено'); }
+    catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось переименовать чат'); }
+    finally { setSavingChat(false); }
+  };
+
+  const archiveChat = () => {
+    if (!selectedOfficeId || !activeChannel) return;
+    Modal.confirm({
+      title: 'Удалить чат?', content: 'История останется в базе, но чат исчезнет у участников.',
+      okText: 'Удалить', okButtonProps: { danger: true }, cancelText: 'Отмена',
+      onOk: async () => { await receptionAPI.archiveChannel(selectedOfficeId, activeChannel); message.success('Чат удалён'); await loadChannels(); },
+    });
+  };
+
+  const candidateOptions = Object.entries(candidates.reduce((acc, person) => {
+    const group = person.callCenterName ? `Колл-центр: ${person.callCenterName}` : 'Сотрудники офиса';
+    (acc[group] ||= []).push({ label: `${person.name} · ${ROLE_LABELS[person.role] || person.role}`, value: person.id, disabled: person.isMember });
+    return acc;
+  }, {} as Record<string, { label: string; value: number; disabled?: boolean }[]>)).map(([label, options]) => ({ label, options }));
 
   const switchChannel = (ch: ChatChannel) => {
     setActiveChannel(ch);
@@ -384,12 +453,23 @@ const OfficeChat: React.FC = () => {
           <div className="tg-sidebar-section-header">
             <span>Чаты</span>
             <div className="tg-sidebar-section-actions">
-              <button className="tg-sidebar-icon-btn" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); }}>
+              {canManageChat && (
+                <button className="tg-sidebar-icon-btn tg-create-chat-btn" title="Создать чат" aria-label="Создать чат" onClick={openCreateChat}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+              )}
+              <button className="tg-sidebar-icon-btn" title="Поиск" aria-label="Поиск" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               </button>
             </div>
           </div>
           <div className="tg-channel-list">
+            {channels.length === 0 && (
+              <div className="tg-channel-list-empty">
+                <span>У вас пока нет чатов</span>
+                {canManageChat && <button onClick={openCreateChat}>Создать первый</button>}
+              </div>
+            )}
             {channels.map(ch => {
               const lastMsg = lastMessages[`${selectedOfficeId}_${ch.key}`];
               const unread = unreadCounts[ch.key] || 0;
@@ -431,7 +511,7 @@ const OfficeChat: React.FC = () => {
             </div>
             <div className="tg-header-info">
               <div className="tg-header-title">{activeChannelLabel}</div>
-              <button className="tg-header-members" onClick={() => setShowParticipants(!showParticipants)}>
+              <button className="tg-header-members" onClick={() => { setShowParticipants(!showParticipants); if (!showParticipants) fetchParticipants(); }}>
                 {participants.length} участников
               </button>
             </div>
@@ -440,9 +520,11 @@ const OfficeChat: React.FC = () => {
             <button className="tg-icon-btn" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); setSearchResults([]); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
             </button>
-            <button className="tg-icon-btn" onClick={() => setShowParticipants(!showParticipants)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-            </button>
+            {canManageChat && activeChannel && (
+              <button className="tg-icon-btn" title="Управление чатом" aria-label="Управление чатом" onClick={openManageMembers}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.4-5 5.5-5s5.1 1.8 5.5 5M17 8v6M14 11h6"/></svg>
+              </button>
+            )}
           </div>
         </div>
 
@@ -478,7 +560,12 @@ const OfficeChat: React.FC = () => {
         {/* Messages + Participants split */}
         <div className="tg-body">
           <div className="tg-messages" ref={msgContainerRef}>
-            {loadingMsgs ? (
+            {!activeChannel ? (
+              <div className="tg-chat-center tg-no-chat">
+                <div className="tg-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+                <p>Выберите чат</p><span>Или создайте новый для нужной команды</span>
+              </div>
+            ) : loadingMsgs ? (
               <div className="tg-chat-center"><Spin /><p>Загрузка сообщений...</p></div>
             ) : messages.length === 0 ? (
               <div className="tg-chat-center">
@@ -510,9 +597,17 @@ const OfficeChat: React.FC = () => {
                         {ROLE_LABELS[p.role] || p.role}
                       </span>
                     </div>
-                    <span className={`tg-participant-status ${p.online ? 'online' : 'offline'}`}>
-                      <span className="tg-status-dot" /> {p.online ? 'Онлайн' : 'Офлайн'}
-                    </span>
+                    <div className="tg-participant-actions">
+                      {p.callCenterName && <span className="tg-cc-chip">{p.callCenterName}</span>}
+                      <span className={`tg-participant-status ${p.online ? 'online' : 'offline'}`}>
+                        <span className="tg-status-dot" /> {p.online ? 'Онлайн' : 'Офлайн'}
+                      </span>
+                      {canManageChat && (
+                        <button className="tg-member-remove" title="Удалить из чата" aria-label={`Удалить ${p.name}`} onClick={() => removeMember(p.id)}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {participants.length === 0 && <div className="tg-participants-empty">Нет участников</div>}
@@ -535,9 +630,9 @@ const OfficeChat: React.FC = () => {
             onKeyDown={handleKeyDown}
             placeholder="Введите сообщение..."
             rows={1}
-            disabled={sending}
+            disabled={sending || !activeChannel}
           />
-          <button className="tg-send-btn" onClick={() => handleSend()} disabled={!newMessage.trim() || sending}>
+          <button className="tg-send-btn" onClick={() => handleSend()} disabled={!activeChannel || !newMessage.trim() || sending}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -545,6 +640,44 @@ const OfficeChat: React.FC = () => {
           </button>
         </div>
 
+
+        <Modal title="Новый чат" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={createChat}
+          okText="Создать" cancelText="Отмена" confirmLoading={savingChat}
+          okButtonProps={{ disabled: newChatName.trim().length < 2 }} width={520}>
+          <div className="tg-dialog-stack">
+            <label><span>Название</span><Input autoFocus maxLength={100} placeholder="Например, Судебный отдел" value={newChatName} onChange={e => setNewChatName(e.target.value)} /></label>
+            <label><span>Участники</span><Select mode="multiple" allowClear showSearch optionFilterProp="label" placeholder="Выберите сотрудников" value={selectedMemberIds} onChange={setSelectedMemberIds} options={candidateOptions} /></label>
+            <div className="tg-dialog-note">Вы автоматически будете добавлены в новый чат. Сотрудники подключённых колл-центров показаны отдельными группами.</div>
+          </div>
+        </Modal>
+
+        <Modal title="Управление чатом" open={manageOpen} onCancel={() => setManageOpen(false)} footer={null} width={560}>
+          <div className="tg-dialog-stack">
+            <div className="tg-manage-chat-title">
+              <div><span>Чат</span><strong>{activeChannelLabel}</strong></div>
+              <div className="tg-manage-actions">
+                <Button onClick={() => { setRenameValue(activeChannelLabel); setRenameOpen(true); }}>Переименовать</Button>
+                {!channels.find(ch => ch.key === activeChannel)?.isSystem && <Button danger onClick={archiveChat}>Удалить чат</Button>}
+              </div>
+            </div>
+            <div className="tg-add-member-row">
+              <Select showSearch optionFilterProp="label" placeholder="Добавить сотрудника" value={memberToAdd} onChange={setMemberToAdd} options={candidateOptions} />
+              <Button type="primary" disabled={!memberToAdd} loading={savingChat} onClick={addMember}>Добавить</Button>
+            </div>
+            <div className="tg-manage-list">
+              {participants.map(p => <div className="tg-manage-person" key={p.id}>
+                <div className="tg-participant-avatar" style={{ background: ROLE_COLORS[p.role] || '#6B7280' }}>{p.name[0]?.toUpperCase()}</div>
+                <div><strong>{p.name}</strong><span>{ROLE_LABELS[p.role] || p.role}{p.callCenterName ? ` · ${p.callCenterName}` : ''}</span></div>
+                <button className="tg-member-remove" title="Удалить из чата" onClick={() => removeMember(p.id)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+              </div>)}
+            </div>
+          </div>
+        </Modal>
+
+        <Modal title="Переименовать чат" open={renameOpen} onCancel={() => setRenameOpen(false)} onOk={renameChat}
+          okText="Сохранить" cancelText="Отмена" confirmLoading={savingChat} okButtonProps={{ disabled: renameValue.trim().length < 2 }}>
+          <Input autoFocus maxLength={100} value={renameValue} onChange={e => setRenameValue(e.target.value)} onPressEnter={renameChat} />
+        </Modal>
 
       </div>
     </div>

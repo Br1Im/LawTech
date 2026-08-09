@@ -19,13 +19,28 @@ export interface Message {
   fileType?: 'image' | 'video' | 'document' | null;
 }
 
-export type ChatChannel = 'reception' | 'call_center' | 'cc_internal';
+export type ChatChannel = string;
 
 export interface ChatParticipant {
   id: number;
   name: string;
   role: string;
   online: boolean;
+  source?: 'office' | 'call_center' | 'manual' | 'migration';
+  callCenterId?: number | null;
+  callCenterName?: string | null;
+}
+
+export interface ChatChannelInfo {
+  key: string;
+  label: string;
+  isSystem?: boolean;
+  createdBy?: number | null;
+  memberCount?: number;
+}
+
+export interface ChatCandidate extends ChatParticipant {
+  isMember: boolean;
 }
 
 export const receptionAPI = {
@@ -67,9 +82,40 @@ export const receptionAPI = {
     return response.data;
   },
 
-  getParticipants: async (officeId: string, channel: ChatChannel = 'reception'): Promise<ChatParticipant[]> => {
+  getChannels: async (officeId: string): Promise<{ channels: ChatChannelInfo[]; canManage: boolean }> => {
+    const response = await apiInstance.get('/chat/channels', { params: { officeId } });
+    return { channels: response.data?.channels || [], canManage: !!response.data?.canManage };
+  },
+
+  getParticipants: async (officeId: string, channel: ChatChannel = 'reception'): Promise<{ participants: ChatParticipant[]; canManage: boolean }> => {
     const response = await apiInstance.get('/chat/participants', { params: { officeId, channel } });
-    return response.data?.participants || [];
+    return { participants: response.data?.participants || [], canManage: !!response.data?.canManage };
+  },
+
+  getCandidates: async (officeId: string, channel: string): Promise<ChatCandidate[]> => {
+    const response = await apiInstance.get('/chat/candidates', { params: { officeId, channel } });
+    return response.data?.candidates || [];
+  },
+
+  createChannel: async (officeId: string, name: string, memberIds: number[]): Promise<ChatChannelInfo> => {
+    const response = await apiInstance.post('/chat/channels', { officeId, name, memberIds });
+    return response.data.channel;
+  },
+
+  renameChannel: async (officeId: string, channel: string, name: string): Promise<void> => {
+    await apiInstance.patch(`/chat/channels/${encodeURIComponent(channel)}`, { officeId, name });
+  },
+
+  archiveChannel: async (officeId: string, channel: string): Promise<void> => {
+    await apiInstance.delete(`/chat/channels/${encodeURIComponent(channel)}`, { data: { officeId } });
+  },
+
+  addMember: async (officeId: string, channel: string, userId: number): Promise<void> => {
+    await apiInstance.post('/chat/members', { officeId, channel, userId });
+  },
+
+  removeMember: async (officeId: string, channel: string, userId: number): Promise<void> => {
+    await apiInstance.delete('/chat/members', { data: { officeId, channel, userId } });
   },
 
   deleteMessage: async (messageId: string): Promise<void> => {

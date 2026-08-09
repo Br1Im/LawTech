@@ -214,6 +214,9 @@ router.put('/office/:officeId/plan', authenticateToken, officeDashboardControlle
 
 // Роуты для чата
 router.get('/chat/channels', authenticateToken, chatController.getAvailableChannels);
+router.post('/chat/channels', authenticateToken, chatController.createChannel);
+router.patch('/chat/channels/:channel', authenticateToken, chatController.renameChannel);
+router.delete('/chat/channels/:channel', authenticateToken, chatController.archiveChannel);
 router.get('/chat/participants', authenticateToken, chatController.getChannelParticipants);
 router.get('/chat/candidates', authenticateToken, chatController.getChannelCandidates);
 router.post('/chat/members', authenticateToken, chatController.addChannelMember);
