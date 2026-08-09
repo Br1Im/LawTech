@@ -142,7 +142,7 @@ type PeriodKey = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 const Salary: React.FC = () => {
   const { user } = useAuth();
   const { message } = App.useApp();
-  const isDirector = ['director', 'admin', 'owner'].includes(String(user?.role || '').toLowerCase());
+  const isDirector = String(user?.role || '').toLowerCase() === 'director';
   const isManagerOrAbove = ['director', 'admin', 'owner', 'manager'].includes(String(user?.role || '').toLowerCase());
   const canPaySalary = ['director', 'manager', 'okk'].includes(String(user?.role || '').toLowerCase());
   const isLawyer = String(user?.role || '').toLowerCase() === 'lawyer';
@@ -426,7 +426,7 @@ const Salary: React.FC = () => {
       title: 'Действия',
       key: 'actions',
       width: 330,
-      render: (_, r) => <Space direction="vertical" size={6} align="end">{renderPaymentActions(r)}<Button size="small" icon={<EditOutlined />} disabled={!isManagerOrAbove} onClick={() => openSalaryEditor(r)}>Настроить расчёт</Button></Space>,
+      render: (_, r) => <Space size={8} align="center">{renderPaymentActions(r)}{isDirector && <Button size="small" icon={<EditOutlined />} onClick={() => openSalaryEditor(r)}>Настроить расчёт</Button>}</Space>,
     },
   ];
 
@@ -581,7 +581,7 @@ const Salary: React.FC = () => {
                       >
                         Настроить
                       </Button>
-                       <div style={{ marginTop: 8 }}>{renderPaymentActions(r)}</div>
+                       <div style={{ marginTop: 8 }}><Space size={8} align="center">{renderPaymentActions(r)}{isDirector && <Button size="small" icon={<EditOutlined />} onClick={() => openSalaryEditor(r)}>Настроить расчёт</Button>}</Space></div>
                     </div>
                   ))}
                 </SalaryCards>
