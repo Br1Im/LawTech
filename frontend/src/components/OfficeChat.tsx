@@ -3,6 +3,7 @@ import { Spin, Modal, Input, Select, Button, App as AntApp } from 'antd';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { officeAPI } from '../shared/api/office';
 import type { Office } from '../shared/api/office';
+import { apiInstance } from '../shared/api/instance';
 import { receptionAPI } from '../shared/api/reception';
 import type { Message, ChatChannel, ChatParticipant, ChatChannelInfo, ChatCandidate } from '../shared/api/reception';
 import './OfficeChat.css';
@@ -31,9 +32,19 @@ const CHANNEL_ABBR: Record<string, string> = {
   cc_internal: 'Ю',
 };
 
-const POLL_INTERVAL = 3000;
+const ChatAttachment: React.FC<{ msg: Message }> = ({ msg }) => {
+  const [url,setUrl]=useState(''); const [failed,setFailed]=useState(false);
+  useEffect(() => { if (!msg.fileUrl) return; let objectUrl='',alive=true;
+    apiInstance.get(`/chat/files/${msg.id}`,{responseType:'blob'}).then(r=>{if(!alive)return;objectUrl=URL.createObjectURL(r.data);setUrl(objectUrl)}).catch(()=>{if(alive)setFailed(true)});
+    return()=>{alive=false;if(objectUrl)URL.revokeObjectURL(objectUrl)};
+  },[msg.id,msg.fileUrl]);
+  if(failed)return <span className="tg-msg-file tg-file-error">Файл недоступен</span>;
+  if(!url)return <span className="tg-msg-file tg-file-loading">Загрузка файла…</span>;
+  if(msg.fileType==='image')return <img className="tg-msg-image" src={url} alt={msg.fileName||'image'} onClick={()=>window.open(url,'_blank','noopener,noreferrer')}/>;
+  return <a className="tg-msg-file" href={url} download={msg.fileName||'file'}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg><span>{msg.fileName||'Файл'}</span></a>;
+};
 
-const API_BASE = '';
+const POLL_INTERVAL = 3000;
 
 const OfficeChat: React.FC = () => {
   const { user } = useAuth();
@@ -379,15 +390,7 @@ const OfficeChat: React.FC = () => {
                   <span className="tg-msg-sender-role">{ROLE_LABELS[msg.senderRole || ''] || ''}</span>
                 </div>
               )}
-              {msg.fileUrl && msg.fileType === 'image' && (
-                <img className="tg-msg-image" src={`${API_BASE}${msg.fileUrl}`} alt={msg.fileName || 'image'} onClick={() => window.open(`${API_BASE}${msg.fileUrl}`, '_blank')} />
-              )}
-              {msg.fileUrl && msg.fileType === 'document' && (
-                <a className="tg-msg-file" href={`${API_BASE}${msg.fileUrl}`} target="_blank" rel="noreferrer">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
-                  <span>{msg.fileName || 'Документ'}</span>
-                </a>
-              )}
+              {msg.fileUrl && <ChatAttachment msg={msg} />}
               {msg.text && !(msg.fileUrl && !msg.text.trim()) && (
                 <div className="tg-msg-text">{msg.text}</div>
               )}

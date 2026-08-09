@@ -213,21 +213,26 @@ router.get('/office/:officeId/plan', authenticateToken, officeDashboardControlle
 router.put('/office/:officeId/plan', authenticateToken, officeDashboardController.upsertPlan);
 
 // Роуты для чата
-router.get('/chat/channels', authenticateToken, chatController.getAvailableChannels);
-router.post('/chat/channels', authenticateToken, chatController.createChannel);
-router.patch('/chat/channels/:channel', authenticateToken, chatController.renameChannel);
-router.delete('/chat/channels/:channel', authenticateToken, chatController.archiveChannel);
-router.get('/chat/participants', authenticateToken, chatController.getChannelParticipants);
-router.get('/chat/candidates', authenticateToken, chatController.getChannelCandidates);
-router.post('/chat/members', authenticateToken, chatController.addChannelMember);
-router.delete('/chat/members', authenticateToken, chatController.removeChannelMember);
-router.get('/offices/:officeId/messages', authenticateToken, chatController.getOfficeMessages);
-router.get('/offices/:officeId/messages/unread', authenticateToken, chatController.getUnreadCounts);
-router.get('/offices/:officeId/messages/search', authenticateToken, chatController.searchMessages);
-router.post('/offices/:officeId/messages', authenticateToken, chatController.chatUploadMiddleware, chatController.sendMessage);
-router.post('/offices/:officeId/messages/read-all', authenticateToken, chatController.markAllAsRead);
-router.put('/messages/:messageId/read', authenticateToken, chatController.markMessageAsRead);
-router.delete('/messages/:messageId', authenticateToken, chatController.deleteMessage);
+const rateLimit = require('express-rate-limit');
+const chatReadLimiter = rateLimit({ windowMs:60*1000, limit:180, standardHeaders:'draft-7', legacyHeaders:false });
+const chatWriteLimiter = rateLimit({ windowMs:60*1000, limit:40, standardHeaders:'draft-7', legacyHeaders:false });
+
+router.get('/chat/channels', authenticateToken, chatReadLimiter, chatController.getAvailableChannels);
+router.post('/chat/channels', authenticateToken, chatWriteLimiter, chatController.createChannel);
+router.patch('/chat/channels/:channel', authenticateToken, chatWriteLimiter, chatController.renameChannel);
+router.delete('/chat/channels/:channel', authenticateToken, chatWriteLimiter, chatController.archiveChannel);
+router.get('/chat/participants', authenticateToken, chatReadLimiter, chatController.getChannelParticipants);
+router.get('/chat/candidates', authenticateToken, chatReadLimiter, chatController.getChannelCandidates);
+router.post('/chat/members', authenticateToken, chatWriteLimiter, chatController.addChannelMember);
+router.delete('/chat/members', authenticateToken, chatWriteLimiter, chatController.removeChannelMember);
+router.get('/offices/:officeId/messages', authenticateToken, chatReadLimiter, chatController.getOfficeMessages);
+router.get('/offices/:officeId/messages/unread', authenticateToken, chatReadLimiter, chatController.getUnreadCounts);
+router.get('/offices/:officeId/messages/search', authenticateToken, chatReadLimiter, chatController.searchMessages);
+router.post('/offices/:officeId/messages', authenticateToken, chatWriteLimiter, chatController.chatUploadMiddleware, chatController.sendMessage);
+router.post('/offices/:officeId/messages/read-all', authenticateToken, chatWriteLimiter, chatController.markAllAsRead);
+router.put('/messages/:messageId/read', authenticateToken, chatWriteLimiter, chatController.markMessageAsRead);
+router.get('/chat/files/:messageId', authenticateToken, chatReadLimiter, chatController.downloadChatFile);
+router.delete('/messages/:messageId', authenticateToken, chatWriteLimiter, chatController.deleteMessage);
 
 // Роуты для документов офиса
 router.get('/office/:officeId/documents', authenticateToken, legalDocumentsController.getOfficeDocuments);

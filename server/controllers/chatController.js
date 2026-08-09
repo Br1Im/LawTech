@@ -7,6 +7,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const config = require('../config');
+const crypto = require('crypto');
 
 /**
  * Контроллер для работы с чатом офисов
@@ -31,7 +32,9 @@ async function isChannelMember(officeId, userId, channel) {
 }
 
 async function canAccessChannel(officeId, user, channel) {
-  return isChannelMember(Number(officeId), Number(user.id), String(channel));
+  const oid=Number(officeId), ch=String(channel || '');
+  if (!oid || !ch || !(await channelExists(oid,ch))) return false;
+  return isChannelMember(oid, Number(user.id), ch);
 }
 
 async function channelExists(officeId, channel) {
@@ -43,11 +46,14 @@ async function channelExists(officeId, channel) {
 }
 
 async function canManageOfficeChat(officeId, user) {
-  if (!canManageChat(user)) return false;
-  if (Number(user.office_id) === Number(officeId)) return true;
+  const oid=Number(officeId);
+  if (!oid || !canManageChat(user)) return false;
   const [rows] = await db.query(
-    `SELECT 1 FROM users WHERE id=? AND is_active=1 AND (office_id=? OR role='director') LIMIT 1`,
-    [user.id, officeId]
+    `SELECT 1 FROM users u
+       LEFT JOIN offices o ON o.id=?
+      WHERE u.id=? AND u.is_active=1
+        AND (u.office_id=? OR (u.role='director' AND o.owner_id=u.id)) LIMIT 1`,
+    [oid,user.id,oid]
   );
   return rows.length > 0;
 }
@@ -58,18 +64,24 @@ if (!fs.existsSync(chatUploadDir)) {
   fs.mkdirSync(chatUploadDir, { recursive: true });
 }
 
-const chatStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, chatUploadDir),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
-  }
+const CHAT_FILE_TYPES = new Map([
+  ['image/jpeg','.jpg'],['image/png','.png'],['image/gif','.gif'],['image/webp','.webp'],
+  ['application/pdf','.pdf'],['text/plain','.txt'],['application/zip','.zip'],
+  ['application/msword','.doc'],['application/vnd.openxmlformats-officedocument.wordprocessingml.document','.docx'],
+  ['application/vnd.ms-excel','.xls'],['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','.xlsx'],
+]);
+const chatUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (_req,file,cb) => CHAT_FILE_TYPES.has(file.mimetype)
+    ? cb(null,true) : cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE','file')),
 });
 
-const chatUpload = multer({
-  storage: chatStorage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
-});
+function removeUploadedFile(fileUrl) {
+  if (!fileUrl || !fileUrl.startsWith('/uploads/chat/')) return;
+  const filePath=path.join(chatUploadDir,path.basename(fileUrl));
+  try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (e) { console.error('chat file cleanup:',e.message); }
+}
 
 function getFileType(mimetype) {
   if (mimetype?.startsWith('image/')) return 'image';
@@ -78,7 +90,13 @@ function getFileType(mimetype) {
 }
 
 const chatController = {
-  chatUploadMiddleware: chatUpload.single('file'),
+  chatUploadMiddleware(req,res,next) {
+    chatUpload.single('file')(req,res,(error) => {
+      if (!error) return next();
+      if (error instanceof multer.MulterError) return res.status(400).json({success:false,message:'Недопустимый файл или превышен лимит 10 МБ'});
+      return res.status(400).json({success:false,message:'Не удалось обработать файл'});
+    });
+  },
 
   async getAvailableChannels(req, res) {
     try {
@@ -136,15 +154,18 @@ const chatController = {
   },
 
   async sendMessage(req, res) {
+    let savedFileUrl=null;
     try {
       const { officeId } = req.params;
       const { text, channel = 'reception' } = req.body;
 
       if (!(await canAccessChannel(officeId, req.user, channel)))
-        return res.status(403).json({ success: false, message: 'Нет доступа к каналу' });
+        return res.status(403).json({ success:false, message:'Нет доступа к чату' });
 
-      const hasFile = !!req.file;
-      if ((!text || !text.trim()) && !hasFile)
+      const cleanText=String(text || '').trim();
+      if (cleanText.length>10000) return res.status(413).json({success:false,message:'Сообщение длиннее 10 000 символов'});
+      const hasFile=!!req.file;
+      if (!cleanText && !hasFile)
         return res.status(400).json({ success: false, message: 'Текст или файл обязательны' });
 
       const [userRows] = await db.query('SELECT first_name, last_name, email, role FROM users WHERE id = ?', [req.user.id]);
@@ -153,13 +174,16 @@ const chatController = {
 
       let fileUrl = null, fileName = null, fileType = null;
       if (hasFile) {
-        fileUrl = `/uploads/chat/${req.file.filename}`;
-        fileName = req.file.originalname;
-        fileType = getFileType(req.file.mimetype);
+        const ext=CHAT_FILE_TYPES.get(req.file.mimetype);
+        const storedName=`chat_${Date.now()}_${crypto.randomBytes(12).toString('hex')}${ext}`;
+        fs.writeFileSync(path.join(chatUploadDir,storedName),req.file.buffer,{flag:'wx',mode:0o600});
+        fileUrl=`/uploads/chat/${storedName}`; savedFileUrl=fileUrl;
+        fileName=path.basename(req.file.originalname).replace(/[\r\n]/g,' ').slice(0,180);
+        fileType=getFileType(req.file.mimetype);
       }
 
       const message = await Message.create({
-        content: (text || '').trim() || (hasFile ? fileName : ''),
+        content: cleanText || (hasFile ? fileName : ''),
         sender_name: senderName,
         office_id: officeId,
         sender_id: req.user.id,
@@ -179,16 +203,22 @@ const chatController = {
 
       return res.status(201).json(formatted);
     } catch (error) {
+      if (savedFileUrl) removeUploadedFile(savedFileUrl);
       console.error('sendMessage error:', error);
-      return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+      return res.status(500).json({ success:false, message:'Внутренняя ошибка сервера' });
     }
   },
 
   async markMessageAsRead(req, res) {
     try {
       const { messageId } = req.params;
-      await db.query(`UPDATE messages SET is_read = 1, status = 'read' WHERE id = ?`, [messageId]);
-      return res.json({ success: true });
+      const [rows]=await db.query('SELECT office_id,channel,sender_id FROM messages WHERE id=? LIMIT 1',[messageId]);
+      if (!rows.length) return res.status(404).json({success:false,message:'Сообщение не найдено'});
+      const m=rows[0];
+      if (!(await canAccessChannel(m.office_id,req.user,m.channel))) return res.status(403).json({success:false,message:'Нет доступа к чату'});
+      if (Number(m.sender_id)===Number(req.user.id)) return res.json({success:true});
+      await db.query(`UPDATE messages SET is_read=1,status='read' WHERE id=?`,[messageId]);
+      return res.json({success:true});
     } catch (error) {
       console.error('markMessageAsRead error:', error);
       return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
@@ -290,15 +320,34 @@ const chatController = {
     }
   },
 
+  async downloadChatFile(req,res) {
+    try {
+      const messageId=Number(req.params.messageId);
+      const [rows]=await db.query('SELECT office_id,channel,file_url,file_name,file_type FROM messages WHERE id=? LIMIT 1',[messageId]);
+      if (!rows.length || !rows[0].file_url) return res.status(404).json({success:false,message:'Файл не найден'});
+      const m=rows[0];
+      if (!(await canAccessChannel(m.office_id,req.user,m.channel))) return res.status(403).json({success:false,message:'Нет доступа к файлу'});
+      const filePath=path.join(chatUploadDir,path.basename(m.file_url));
+      if (!fs.existsSync(filePath)) return res.status(404).json({success:false,message:'Файл не найден'});
+      res.setHeader('X-Content-Type-Options','nosniff');
+      res.setHeader('Cache-Control','private, no-store');
+      if (m.file_type==='image') return res.sendFile(filePath);
+      return res.download(filePath,m.file_name || path.basename(filePath));
+    } catch(error) { console.error('downloadChatFile error:',error); return res.status(500).json({success:false,message:'Не удалось загрузить файл'}); }
+  },
+
   async deleteMessage(req, res) {
     try {
       const { messageId } = req.params;
-      const [rows] = await db.query('SELECT office_id,sender_id FROM messages WHERE id=? LIMIT 1',[messageId]);
+      const [rows]=await db.query('SELECT office_id,channel,sender_id,file_url FROM messages WHERE id=? LIMIT 1',[messageId]);
       if (!rows.length) return res.status(404).json({success:false,message:'Сообщение не найдено'});
-      if (Number(rows[0].sender_id)!==Number(req.user.id) && !(await canManageOfficeChat(rows[0].office_id,req.user)))
+      const m=rows[0];
+      if (!(await canAccessChannel(m.office_id,req.user,m.channel))) return res.status(403).json({success:false,message:'Нет доступа к чату'});
+      if (Number(m.sender_id)!==Number(req.user.id) && !(await canManageOfficeChat(m.office_id,req.user)))
         return res.status(403).json({success:false,message:'Нет прав удалить сообщение'});
       await Message.delete(messageId);
-      return res.json({ success: true });
+      removeUploadedFile(m.file_url);
+      return res.json({success:true});
     } catch (error) {
       console.error('deleteMessage error:', error);
       return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });

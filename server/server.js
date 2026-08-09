@@ -55,6 +55,10 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Chat attachments are served only through /api/chat/files/:messageId,
+// where channel membership is checked. Direct paths must never bypass that ACL.
+app.use('/uploads/chat', (_req,res) => res.status(404).json({success:false,message:'Файл не найден'}));
+
 // Статические файлы для uploads (с проверкой JWT)
 const jwt = require('jsonwebtoken');
 app.use('/uploads', (req, res, next) => {

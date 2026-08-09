@@ -3,6 +3,7 @@
  * Контроллер вызывает emitXxx() после успешного ответа клиенту.
  */
 const socket = require('../socketManager');
+const db = require('../db');
 
 const ROLE_LABELS = {
   director: 'Директор',
@@ -135,21 +136,12 @@ module.exports = {
   /**
    * Новое сообщение в чате
    */
-  emitChatMessage(officeId, channel, message) {
-    // Определяем, каким ролям доступен канал
-    const channelRoles = {
-      reception: ['admin', 'administrator', 'manager', 'okk', 'director'],
-      call_center: ['cc_manager', 'manager', 'okk', 'director'],
-      cc_internal: ['cc_manager', 'cc_operator'],
-    };
-    const roles = channelRoles[channel] || [];
-    socket.emitToOfficeRoles(officeId, roles, 'chat:message', {
-      title: 'Новое сообщение',
-      message: `${message.sender_name || ''}: ${(message.content || '').substring(0, 50)}`,
-      type: 'info',
-      channel,
-      data: message,
-    });
+  async emitChatMessage(officeId, channel, message) {
+    try {
+      const [rows]=await db.query('SELECT user_id FROM chat_channel_members WHERE office_id=? AND channel=?',[officeId,channel]);
+      const payload={ title:'Новое сообщение', message:`${message.sender_name || message.sender || ''}: ${(message.content || message.text || '').substring(0,50)}`, type:'info', channel, data:message };
+      for (const row of rows) socket.emitToUser(Number(row.user_id),'chat:message',payload);
+    } catch (e) { console.error('emitChatMessage:',e.message); }
   },
 
   /**
