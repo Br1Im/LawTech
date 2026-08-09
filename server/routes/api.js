@@ -14,6 +14,7 @@ const legalDocumentsController = require('../controllers/legalDocuments');
 const fileController = require('../controllers/file');
 const officeController = require('../controllers/officeController');
 const chatController = require('../controllers/chatController');
+const consultationAnalysisController = require('../controllers/consultationAnalysisController');
 const calendarController = require('../controllers/calendarController');
 const officeRoutes = require('./officeRoutes');
 const contractRoutes = require('./contracts');
@@ -83,6 +84,12 @@ router.get('/visits/stats', authenticateToken, callCenterController.getVisitsSta
 router.get('/visits/employees', authenticateToken, callCenterController.getOfficeEmployees);
 router.patch('/appointments/:id/assign-lawyer', authenticateToken, callCenterController.assignLawyer);
 router.get('/visits/consultation-stats', authenticateToken, callCenterController.getConsultationStats);
+router.get('/consultation-analysis/analytics/summary', authenticateToken, consultationAnalysisController.summary);
+router.get('/consultation-analysis/analytics/details', authenticateToken, consultationAnalysisController.details);
+router.get('/consultation-analysis/analytics/rankings/:by', authenticateToken, consultationAnalysisController.rankings);
+router.get('/consultation-analysis/:consultationId', authenticateToken, consultationAnalysisController.getOne);
+router.put('/consultation-analysis/:consultationId', authenticateToken, consultationAnalysisController.upsert);
+router.delete('/consultation-analysis/:consultationId', authenticateToken, consultationAnalysisController.remove);
 
 // Analytics
 router.get('/analytics/call-center', authenticateToken, analyticsController.getCallCenterAnalytics);

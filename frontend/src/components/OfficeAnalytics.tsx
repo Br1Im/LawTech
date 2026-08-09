@@ -58,16 +58,25 @@ export function OfficeAnalyticsTop({officeId, from, to}:{officeId:string|number;
 
 export function OfficeAnalyticsBottom({officeId,from,to}:{officeId:string|number;from:string;to:string}){
   const [data,setData]=useState<Analytics|null>(null);
+  const [lossData,setLossData]=useState<any>(null);
+  const [sourceRows,setSourceRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
-  useEffect(()=>{let alive=true;setLoading(true);fetchOfficeAnalytics(officeId,from,to).then(result=>{if(alive)setData(result||null)}).catch(()=>{if(alive)setData(null)}).finally(()=>{if(alive)setLoading(false)});return()=>{alive=false};},[officeId,from,to]);
+  useEffect(()=>{let alive=true;setLoading(true);Promise.all([
+    fetchOfficeAnalytics(officeId,from,to),
+    apiInstance.get('/consultation-analysis/analytics/summary',{params:{date_from:from,date_to:to}}).then(r=>r.data?.data).catch(()=>null),
+    apiInstance.get('/consultation-analysis/analytics/rankings/sources',{params:{date_from:from,date_to:to}}).then(r=>r.data?.data||[]).catch(()=>[])
+  ]).then(([base,losses,sources])=>{if(alive){setData(base||null);setLossData(losses);setSourceRows(sources)}}).finally(()=>{if(alive)setLoading(false)});return()=>{alive=false};},[officeId,from,to]);
   const rows=data?.source_ranking||[];
+  const labels:any={LEAD_QUALITY:'Качество / перспективность лидов',SALES_PROCESS:'Проблемы процесса продаж',CLIENT_DELAY:'Отложенное решение клиента',SERVICE_PROBLEM:'Предложение / услуга',NON_TARGET:'Нецелевые обращения',UNRESOLVED:'Недостаточно данных',OTHER:'Прочее'};
+  const totalAnalyzed=Number(lossData?.analyzed||0);
+  const lossItems=(lossData?.categories||[]).map((x:any)=>({reason:x.category,label:labels[x.category]||x.category,count:Number(x.count),percentage:totalAnalyzed?Math.round(Number(x.count)*1000/totalAnalyzed)/10:0}));
   if(loading) return <div className="oa-split"><section className="oa-panel oa-skeleton oa-skeleton-compact"><span/><span/><span/><span/></section><section className="oa-panel oa-skeleton oa-skeleton-compact"><span/><span/><span/><span/></section></div>;
   return <>
     <div className="oa-split">
       <section className="oa-panel oa-losses"><h2>Где компания теряет деньги</h2><div className="oa-loss-list">
-        {(data?.losses.items||[]).slice(0,5).map((item,i)=><div className="oa-loss" key={item.reason}><b style={{color:lossColors[i]}}>{item.percentage}%</b><div><span>{item.label}</span><div className="oa-loss-track"><i style={{width:`${item.percentage}%`,background:lossColors[i]}}/></div></div></div>)}
-        {!data?.losses.items?.length&&<p className="oa-muted">За период потери не зафиксированы</p>}
-      </div><button className="oa-link" type="button">Подробнее →</button></section>
+        {(lossItems.length?lossItems:(data?.losses.items||[])).slice(0,6).map((item,i)=><div className="oa-loss" key={item.reason}><b style={{color:lossColors[i]}}>{item.percentage}%</b><div><span>{item.label}</span><div className="oa-loss-track"><i style={{width:`${item.percentage}%`,background:lossColors[i]}}/></div></div></div>)}
+        {!lossItems.length&&!data?.losses.items?.length&&<p className="oa-muted">За период потери не зафиксированы</p>}
+      </div>{lossData&&<p className="oa-scroll-hint">Разобрано {lossData.analyzed} из {lossData.lost}: покрытие {lossData.coverage_pct}% · перспективных {lossData.promising} · конверсия среди перспективных {lossData.conversion_promising_pct}%</p>}<button className="oa-link" type="button">Подробнее →</button></section>
       <section className="oa-panel oa-sources"><div className="oa-sources-head"><h2>Рейтинг источников</h2>{rows.length > 5 && <span>{rows.length} источников</span>}</div><div className="oa-table-wrap" tabIndex={0} aria-label="Рейтинг источников, прокручиваемая таблица"><table><thead><tr><th>Источник</th><th>Лиды</th><th>Пришло</th><th>Договоры</th><th>Конверсия</th><th>Средний чек</th></tr></thead><tbody>
         {rows.map(r=><tr key={r.source}><td><b>{r.source}</b></td><td>{r.leads}</td><td>{r.arrived}</td><td>{r.contracts}</td><td>{r.conversion}%</td><td>{money(r.average_check)}</td></tr>)}
         {!rows.length&&<tr><td colSpan={6} className="oa-muted">Нет данных за выбранный период</td></tr>}

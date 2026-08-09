@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import { Table, Select, Button, Space, App, Input, Tabs, DatePicker, TimePicker, Modal } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
+import ConsultationAnalysisModal from './ConsultationAnalysisModal';
 import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled, LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
@@ -131,6 +132,9 @@ interface PrimaryVisit {
   linked_contract_type: 'docs' | 'court_rep' | null;
   linked_contract_number: string | null;
   linked_needs_input: number;
+  analysis_id?: number | null;
+  analysis_category?: string | null;
+  analysis_sufficiency?: string | null;
   linked_contracts: Array<{ id: number; contract_type: 'docs' | 'court_rep'; contract_number: string; needs_lawyer_input: number }>;
 }
 
@@ -194,6 +198,7 @@ const Arrivals: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [calOpen, setCalOpen] = useState(false);
   const [primaryVisits, setPrimaryVisits] = useState<PrimaryVisit[]>([]);
+  const [analysisVisit, setAnalysisVisit] = useState<PrimaryVisit | null>(null);
   const [existingVisits, setExistingVisits] = useState<ExistingVisit[]>([]);
   const [stats, setStats] = useState<VisitsStats | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -627,6 +632,12 @@ const Arrivals: React.FC = () => {
                   </div>
                   <div className="arrival-card-side">
                     {consultationResult(row)}
+                    {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role||'').toLowerCase()) && (
+                      <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>
+                        {row.analysis_id ? 'Разбор: изменить' : 'Разбор консультации'}
+                      </Button>
+                    )}
+                    {row.analysis_id && <Tag color={row.analysis_sufficiency==='INSUFFICIENT'?'orange':'blue'}>{row.analysis_sufficiency==='INSUFFICIENT'?'Недостаточно данных':'Разобрано'}</Tag>}
                     {contractAction(row)}
                   </div>
                 </article>
@@ -794,7 +805,9 @@ const Arrivals: React.FC = () => {
           assigned_lawyer_name_2: registerAppointment.assigned_lawyer_name_2,
         } : null}
       />
-    </Page>
+          <ConsultationAnalysisModal open={!!analysisVisit} consultation={analysisVisit} onClose={() => setAnalysisVisit(null)} onSaved={fetchPrimary} />
+
+</Page>
   );
 };
 

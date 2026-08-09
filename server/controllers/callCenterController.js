@@ -1717,6 +1717,8 @@ const callCenterController = {
            CONCAT(s.first_name, ' ', s.last_name) AS signed_by_name,
            CONCAT(l.first_name, ' ', l.last_name) AS assigned_lawyer_name,
            CONCAT(l2.first_name, ' ', l2.last_name) AS assigned_lawyer_name_2,
+           ca.id AS analysis_id, ca.version AS analysis_version, ca.loss_category AS analysis_category,
+           ca.data_sufficiency AS analysis_sufficiency, ca.updated_at AS analysis_updated_at,
            (SELECT JSON_ARRAYAGG(
               JSON_OBJECT('id', con.id, 'contract_type', con.contract_type,
                           'contract_number', con.contract_number,
@@ -1728,6 +1730,7 @@ const callCenterController = {
          LEFT JOIN users s ON s.id = a.contract_signed_by
          LEFT JOIN users l ON l.id = a.assigned_lawyer_id
          LEFT JOIN users l2 ON l2.id = a.assigned_lawyer_id_2
+         LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
          WHERE a.office_id = ? AND a.status = 'arrived'
          GROUP BY a.id
          ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
