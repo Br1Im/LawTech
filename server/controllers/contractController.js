@@ -4,6 +4,8 @@ const { REFUND_CONFIRM_ROLES } = require('../constants');
 const TERMINATE_ROLES = ['director', 'manager', 'okk'];
 const socketEmitter = require('../middleware/socketEmitter');
 const { createAutoExpense } = require('./expensesController');
+const { userForEmployee } = require('../utils/employeeIdentity');
+const { canAccessContract } = require('../utils/contractAccess');
 
 /**
  * Контроллер для работы с договорами
@@ -41,10 +43,11 @@ const contractController = {
         }
       }
 
+      if (["cc_operator", "cc_manager"].includes(user.role)) return res.status(403).json({success:false,message:'Нет доступа к договорам'});
       const page = parseInt(req.query.page, 10);
       const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
 
-      if (page > 0) {
+      if (page > 0 && ['admin','administrator','owner','director','manager','okk'].includes(user.role)) {
         const result = await Contract.getAllByOffice(officeId, { page, pageSize });
         return res.json({
           success: true,
@@ -64,13 +67,14 @@ const contractController = {
 
       // ACL: expert работает только с docs контрактами
       if (user.role === 'expert') {
-        contracts = (contracts || []).filter(c => (c.contract_type || 'docs') === 'docs');
+        const visible=[]; for(const c of contracts||[]) if((c.contract_type||'docs')==='docs' && await canAccessContract(user,c.id)) visible.push(c); contracts=visible;
       }
 
       // ACL: представитель видит только свои договоры (где он назначен представителем)
       if (user.role === 'representative') {
-        contracts = (contracts || []).filter(c => c.representative_id === user.id);
+        contracts = (contracts || []).filter(c => Number(c.representative_id) === Number(user.id));
       }
+      if (user.role === 'lawyer') { const visible=[]; for(const c of contracts||[]) if(await canAccessContract(user,c.id)) visible.push(c); contracts=visible; }
 
       res.json({
         success: true,
@@ -102,7 +106,7 @@ const contractController = {
         });
       }
 
-      const allowedView = await checkOfficeAccess(user, contract.office_id);
+      const allowedView = await canAccessContract(user, contract.id);
       if (!allowedView) {
         return res.status(403).json({
           success: false,
@@ -163,6 +167,9 @@ const contractController = {
           });
         }
 
+        if (contractData.payments.length === 0) {
+          return res.status(400).json({ success:false, message:'Договор заключается только после подтверждённой оплаты больше 0.' });
+        }
         const payments = [];
         for (const payment of contractData.payments) {
           const paymentAmount = Number(payment?.amount);
@@ -200,7 +207,8 @@ const contractController = {
         const methods = [...new Set(payments.map((payment) => payment.payment_method))];
         contractData.payment_method = methods.length > 1 ? 'mixed' : (methods[0] || 'cash');
       } else {
-        const legacyPaid = Number(contractData.paid_amount ?? contractData.amount ?? 0);
+        const legacyPaid = Number(contractData.paid_amount ?? 0);
+        if (!Number.isFinite(legacyPaid) || legacyPaid <= 0) return res.status(400).json({ success:false, message:'Договор заключается только после подтверждённой оплаты больше 0.' });
         if (Number.isFinite(contractAmount) && legacyPaid > contractAmount) {
           return res.status(400).json({
             success: false,
@@ -282,6 +290,18 @@ const contractController = {
             amount: !!contractData.amount
           }
         });
+      }
+
+      const linkedLawyer = await userForEmployee(contractData.id_employee);
+      if (!linkedLawyer || linkedLawyer.role !== 'lawyer') {
+        return res.status(400).json({ success:false, message:'Выбранный исполнитель не связан с активным пользователем роли «Юрист».' });
+      }
+      if (Number(contractData.paid_amount) < Number(contractData.amount)) {
+        const remainder = Math.round((Number(contractData.amount)-Number(contractData.paid_amount))*100)/100;
+        if (!contractData.additional_payment_date) return res.status(400).json({success:false,message:'При частичной оплате укажите дату доплаты.'});
+        contractData.additional_payment_amount = remainder;
+      } else {
+        contractData.additional_payment_date = null; contractData.additional_payment_amount = null;
       }
 
       // Привязываем договор к офису текущего пользователя

@@ -20,7 +20,7 @@ class Contract {
         LEFT JOIN employees e ON c.id_employee = e.id
         LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
-        LEFT JOIN employees sb ON c.signed_by = sb.id
+        LEFT JOIN users sb ON c.signed_by = sb.id
         LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
         WHERE ${officeFilter}
       `;
@@ -80,7 +80,7 @@ class Contract {
         LEFT JOIN employees e ON c.id_employee = e.id
         LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
-        LEFT JOIN employees sb ON c.signed_by = sb.id
+        LEFT JOIN users sb ON c.signed_by = sb.id
         LEFT JOIN users rc ON c.remainder_confirmed_by = rc.id
         WHERE c.id = ?
       `;
@@ -799,7 +799,7 @@ class Contract {
         LEFT JOIN employees e2 ON c.second_employee_id = e2.id
         LEFT JOIN employees exp ON c.expert_id = exp.id
         LEFT JOIN users conf ON c.refund_confirmed_by = conf.id
-        LEFT JOIN employees sb ON c.signed_by = sb.id
+        LEFT JOIN users sb ON c.signed_by = sb.id
         WHERE c.office_id = ? AND c.status = 'terminated'
         ORDER BY c.terminated_at DESC
       `;

@@ -13,6 +13,7 @@ const clientController = {
   async getAllClients(req, res) {
     try {
       const user = req.user;
+      if (['cc_manager','cc_operator'].includes(String(user.role||'').toLowerCase())) return res.status(403).json({success:false,message:'Нет доступа к базе клиентов'});
 
       // Мульти-офис: получаем все доступные офисы
       const officeIds = await getUserOfficeIds(user);
@@ -30,7 +31,9 @@ const clientController = {
       const page = parseInt(req.query.page, 10);
       const pageSize = Math.min(parseInt(req.query.page_size, 10) || 50, 200);
 
-      if (page > 0) {
+      const viewerRole=String(user.role||'').toLowerCase();
+      const fullAccess=['admin','administrator','owner','director','manager','okk'].includes(viewerRole);
+      if (page > 0 && fullAccess) {
         const result = await Client.getAllByOffice(officeId, { page, pageSize });
         return res.json({
           success: true,
@@ -41,7 +44,17 @@ const clientController = {
         });
       }
 
-      const clients = await Client.getAllByOffice(officeId);
+      let clients = await Client.getAllByOffice(officeId);
+      if (!fullAccess) {
+        let sql = `SELECT DISTINCT c.id_client FROM contracts c LEFT JOIN contract_assignments ca ON ca.contract_id=c.id LEFT JOIN employees exp ON exp.id=c.expert_id WHERE `;
+        const params=[];
+        if (viewerRole==='representative') { sql += 'c.representative_id=?'; params.push(user.id); }
+        else if (viewerRole==='expert') { sql += '(ca.user_id=? OR exp.user_id=?)'; params.push(user.id,user.id); }
+        else { sql += 'ca.user_id=?'; params.push(user.id); }
+        const [allowedClients]=await db.query(sql,params);
+        const ids=new Set(allowedClients.map(row=>Number(row.id_client)));
+        clients=(clients||[]).filter(client=>ids.has(Number(client.id)));
+      }
 
       res.json({
         success: true,
@@ -62,6 +75,7 @@ const clientController = {
   async getClientById(req, res) {
     try {
       const { id } = req.params;
+      if (['cc_manager','cc_operator'].includes(String(req.user.role||'').toLowerCase())) return res.status(403).json({success:false,message:'Нет доступа к базе клиентов'});
 
       const client = await Client.getById(id);
       

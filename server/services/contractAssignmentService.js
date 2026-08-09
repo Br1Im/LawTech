@@ -44,13 +44,13 @@ const contractAssignmentService = {
     // employeeId — это employees.id, находим связанного user через email/office
     if (employeeId) {
       const [empRows] = await connection.query(
-        'SELECT e.email, e.office_id FROM employees e WHERE e.id = ?',
+        'SELECT e.user_id, e.email, e.office_id FROM employees e WHERE e.id = ?',
         [employeeId]
       );
-      if (empRows.length > 0 && empRows[0].email) {
+      if (empRows.length > 0) {
         const [userRows] = await connection.query(
-          'SELECT id, role FROM users WHERE email = ? LIMIT 1',
-          [empRows[0].email]
+          'SELECT id, role FROM users WHERE id = ? OR (email = ? AND office_id = ?) ORDER BY id = ? DESC LIMIT 1',
+          [empRows[0].user_id || 0, empRows[0].email || '', empRows[0].office_id, empRows[0].user_id || 0]
         );
         if (userRows.length > 0 && !assignees.has(userRows[0].id)) {
           assignees.set(userRows[0].id, userRows[0].role);

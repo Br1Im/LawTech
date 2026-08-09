@@ -16,7 +16,6 @@
  *   Расходы     = expenses.amount по payment_method, на spent_on (зарплаты/возвраты падают сюда авто)
  *   Стартовый остаток задаётся один раз (office_balance_opening).
  *
- * Налог: TAX_RATE от поступлений по Р/С (bank) за день. Накопительно за период.
  */
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
@@ -28,9 +27,9 @@ const bad = (res, code, message, err) => {
   return res.status(code).json({ success: false, message });
 };
 
-const TAX_RATE = 0.11; // 11 % от поступлений по Р/С
 const BUCKETS = ['cash', 'noncash', 'bank'];
-const COMPOSITION_ROLES = ['director', 'manager', 'okk']; // кто может задавать стартовый остаток
+const COMPOSITION_ROLES = ['admin','administrator','director','manager','okk'];
+const BALANCE_ROLES = new Set(COMPOSITION_ROLES); // кто может задавать стартовый остаток
 
 const zero = () => ({ cash: 0, noncash: 0, bank: 0 });
 const normBucket = (pm) => {
@@ -48,6 +47,7 @@ const dstr = (d) => {
 
 // Разрешить офис из query/body или из токена пользователя
 async function resolveOffice(req, res) {
+  if (!BALANCE_ROLES.has(String(req.user?.role||'').toLowerCase())) { bad(res,403,'Нет доступа к Балансу'); return null; }
   const officeId = Number(req.query.office_id || req.body.office_id || req.user.office_id);
   if (!officeId) { bad(res, 400, 'Не указан офис'); return null; }
   const allowed = await checkOfficeAccess(req.user, officeId);
@@ -57,6 +57,7 @@ async function resolveOffice(req, res) {
 
 // ─── GET /api/office/:officeId/balance/opening ───
 const getOpening = async (req, res) => {
+  if (!BALANCE_ROLES.has(String(req.user?.role||'').toLowerCase())) return bad(res,403,'Нет доступа к Балансу');
   try {
     const officeId = Number(req.params.officeId);
     if (!officeId) return bad(res, 400, 'Не указан офис');
@@ -178,6 +179,7 @@ async function loadTransfers(officeId, from, to) {
 
 // ─── GET /api/office/:officeId/balance?date_from&date_to ───
 const getBalance = async (req, res) => {
+  if (!BALANCE_ROLES.has(String(req.user?.role||'').toLowerCase())) return bad(res,403,'Нет доступа к Балансу');
   try {
     const officeId = Number(req.params.officeId);
     if (!officeId) return bad(res, 400, 'Не указан офис');
@@ -235,7 +237,7 @@ const getBalance = async (req, res) => {
 
     const running = { ...opening };
     const days = [];
-    const totals = { income: zero(), expense: zero(), transfer: zero(), tax: 0 };
+    const totals = { income: zero(), expense: zero(), transfer: zero() };
 
     for (const date of activeDates) {
       const inc = incomeMap[date] || zero();
@@ -247,15 +249,13 @@ const getBalance = async (req, res) => {
         noncash: dayOpening.noncash + inc.noncash - exp.noncash + transfer.delta.noncash,
         bank: dayOpening.bank + inc.bank - exp.bank + transfer.delta.bank,
       };
-      const tax = Math.round(inc.bank * TAX_RATE * 100) / 100;
       Object.assign(running, dayClosing);
 
       // показываем только запрошенный диапазон
       if (date >= reqFrom && date <= reqTo) {
-        days.push({ date, opening: dayOpening, income: inc, expense: exp, transfer: transfer.delta, transfer_total: transfer.total, closing: dayClosing, tax });
+        days.push({ date, opening: dayOpening, income: inc, expense: exp, transfer: transfer.delta, transfer_total: transfer.total, closing: dayClosing });
         BUCKETS.forEach(b => { totals.income[b] += inc[b]; totals.expense[b] += exp[b]; });
         BUCKETS.forEach(b => { totals.transfer[b] += transfer.delta[b]; });
-        totals.tax += tax;
       }
     }
 
@@ -281,7 +281,6 @@ const getBalance = async (req, res) => {
       office_id: officeId,
       has_opening: !!op,
       start_date: op ? startDate : null,
-      tax_rate: TAX_RATE,
       date_from: reqFrom,
       date_to: reqTo,
       opening,
@@ -298,6 +297,7 @@ const getBalance = async (req, res) => {
 
 // ─── GET /api/office/:officeId/balance/day?date=YYYY-MM-DD ───  построчная расшифровка дня
 const getDayDetail = async (req, res) => {
+  if (!BALANCE_ROLES.has(String(req.user?.role||'').toLowerCase())) return bad(res,403,'Нет доступа к Балансу');
   try {
     const officeId = Number(req.params.officeId);
     const date = dstr(req.query.date);

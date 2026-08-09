@@ -49,7 +49,7 @@ const SRM = () => {
       case 'expert':
         return 'Клиенты';
       case 'lawyer':
-        return 'Офис';
+        return 'Клиенты';
       case 'representative':
         return 'Мои дела';
       case 'administrator':

@@ -18,6 +18,8 @@ const db = require('../db');
 const socketEmitter = require('../middleware/socketEmitter');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
+const { employeeIdForUser } = require('../utils/employeeIdentity');
+const { canAccessContract } = require('../utils/contractAccess');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -117,6 +119,10 @@ const list = async (req, res) => {
       where.push('a.contract_id IN (SELECT id FROM contracts WHERE representative_id = ?)');
       params.push(req.user.id);
     }
+    else if (['lawyer','expert'].includes(userRole)) {
+      where.push('a.contract_id IN (SELECT contract_id FROM contract_assignments WHERE user_id = ?)');
+      params.push(req.user.id);
+    }
 
     if (req.query.date_from) { where.push('a.act_date >= ?'); params.push(req.query.date_from); }
     if (req.query.date_to) { where.push('a.act_date <= ?'); params.push(req.query.date_to); }
@@ -198,8 +204,8 @@ const getOne = async (req, res) => {
   try {
     const [[row]] = await db.query(`${SELECT_BASE} WHERE a.id = ?`, [req.params.id]);
     if (!row) return bad(res, 404, 'Акт не найден');
-    const allowed = await checkOfficeAccess(req.user, row.office_id);
-    if (!allowed) return bad(res, 403, 'Акт другого офиса');
+    const allowed = await canAccessContract(req.user,row.contract_id);
+    if (!allowed) return bad(res, 403, 'Нет доступа к акту');
     normalizeAttachments(row);
     return ok(res, row);
   } catch (e) {
@@ -255,7 +261,12 @@ const createForContract = async (req, res) => {
 
     const type = contract.contract_type || 'docs';
     // Ответственный определяется автоматически: создатель акта (user.id = employee.id).
-    const respId = req.user.id ? Number(req.user.id) : null;
+    const respId = req.user.id ? await employeeIdForUser(Number(req.user.id)) : null;
+    if (!respId) return bad(res, 409, 'Пользователь не связан с карточкой сотрудника. Обратитесь к руководителю.');
+    const role = String(req.user.role || '').toLowerCase();
+    const leadership = ['admin','owner','director','manager','okk'].includes(role);
+    const [[assignment]] = await db.query('SELECT 1 FROM contract_assignments WHERE contract_id=? AND user_id=? LIMIT 1',[contractId,req.user.id]);
+    if (!leadership && !assignment) return bad(res,403,'Договор не назначен этому сотруднику');
 
     // Контроль баланса: сумма всех актов по договору не должна превышать стоимость договора.
     const contractAmount = Number(contract.amount) || 0;

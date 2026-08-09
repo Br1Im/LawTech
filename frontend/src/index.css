@@ -926,3 +926,9 @@ html.theme-transition body::after {
     transition: none !important;
   }
 }
+
+
+@media (max-width: 768px) {
+  button, [role="button"], .ant-btn, .ant-pagination-item, .ant-pagination-prev, .ant-pagination-next { min-height: 40px; }
+  button[aria-label], button[title], [role="button"][aria-label], .ant-pagination-item, .ant-pagination-prev, .ant-pagination-next { min-width: 40px; }
+}

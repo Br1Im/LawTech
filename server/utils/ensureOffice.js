@@ -88,9 +88,11 @@ async function checkOfficeAccess(user, officeId) {
 
   // Директор — только свои офисы (где owner_id = user.id)
   if (role === 'director') {
+    if (Number(user.office_id) === numOfficeId) return true;
     const [offices] = await db.query(
-      'SELECT id FROM offices WHERE id = ? AND owner_id = ?',
-      [numOfficeId, user.id]
+      `SELECT o.id FROM offices o LEFT JOIN user_offices uo ON uo.office_id=o.id AND uo.user_id=?
+       WHERE o.id=? AND (o.owner_id=? OR uo.user_id IS NOT NULL) LIMIT 1`,
+      [user.id, numOfficeId, user.id]
     );
     return offices.length > 0;
   }

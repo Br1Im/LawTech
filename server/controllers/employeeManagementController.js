@@ -139,10 +139,10 @@ const createEmployee = async (req, res) => {
     if (!creatorIsCallCenter) {
       try {
         await db.query(
-          `INSERT INTO employees (id, first_name, last_name, middle_name, email, phone, position, office_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO employees (id, user_id, first_name, last_name, middle_name, email, phone, position, office_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE office_id = VALUES(office_id), position = VALUES(position)`,
-          [newUserId, first_name, last_name, middle_name || null,
+          [newUserId, newUserId, first_name, last_name, middle_name || null,
            `${login}@staff.local`, phone || null,
            positionMap[role] || role, employeeOfficeId]
         );

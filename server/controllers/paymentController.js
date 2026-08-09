@@ -1,5 +1,6 @@
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { canAccessContract } = require('../utils/contractAccess');
 
 const PAYMENT_METHODS = new Set(['cash', 'noncash', 'bank', 'sbp']);
 const PAYMENT_ROLES = new Set(['admin', 'administrator', 'director', 'manager', 'okk']);
@@ -17,7 +18,7 @@ async function getAccessibleContract(req, connection = db, lock = false) {
   );
   const contract = rows[0];
   if (!contract) return { error: [404, 'Договор не найден'] };
-  if (!await checkOfficeAccess(req.user, contract.office_id)) {
+  if (!await canAccessContract(req.user, contract.id, connection)) {
     return { error: [403, 'Доступ запрещён'] };
   }
   return { contract };
@@ -34,9 +35,13 @@ async function syncPaidAmount(connection, contractId) {
   await connection.query(
     `UPDATE contracts
         SET paid_amount = ?,
-            payment_date = CASE WHEN ? > 0 THEN CURRENT_DATE() ELSE payment_date END
+            payment_date = CASE WHEN ? > 0 THEN CURRENT_DATE() ELSE payment_date END,
+            additional_payment_date = CASE WHEN ? >= amount THEN NULL ELSE additional_payment_date END,
+            additional_payment_amount = CASE WHEN ? >= amount THEN NULL ELSE ROUND(amount-?,2) END,
+            remainder_confirmed = CASE WHEN ? >= amount THEN 1 ELSE 0 END,
+            remainder_confirmed_at = CASE WHEN ? >= amount THEN NOW() ELSE remainder_confirmed_at END
       WHERE id = ?`,
-    [total, total, contractId]
+    [total, total, total, total, total, total, total, contractId]
   );
   return total;
 }

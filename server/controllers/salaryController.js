@@ -18,6 +18,7 @@
  */
 const db = require('../db');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
+const { employeeIdForUser } = require('../utils/employeeIdentity');
 const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
 
 const ok = (res, data) => res.json({ success: true, data });
@@ -727,6 +728,12 @@ const calculate = async (req, res) => {
       row.active_payment = row.salary_payments.find(payment => payment.status === 'paid') || null;
     }
 
+    const viewerRole=String(req.user.role||'').toLowerCase();
+    let visibleResults=results;
+    if (!['admin','administrator','director','manager','okk'].includes(viewerRole)) {
+      const ownEmployeeId=await employeeIdForUser(req.user.id);
+      visibleResults=results.filter(row=>Number(row.employee_id)===Number(ownEmployeeId));
+    }
     return ok(res, {
       office_id: officeId,
       date_from: dateFrom,
@@ -736,7 +743,7 @@ const calculate = async (req, res) => {
       office_expenses: officeExpenses,
       office_profit: officeProfit,
       settings,
-      rows: results,
+      rows: visibleResults,
     });
   } catch (e) {
     return bad(res, 500, 'Ошибка расчёта зарплаты', e);
@@ -764,6 +771,7 @@ async function calculatePayload(req, query) {
 }
 
 const listSalaryPayments = async (req, res) => {
+  if (!['admin','administrator','director','manager','okk'].includes(String(req.user.role||'').toLowerCase())) return bad(res,403,'Нет доступа к журналу выплат');
   try {
     const officeId = Number(req.query.office_id || await resolveUserOfficeId(req.user));
     if (!officeId || !await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');
