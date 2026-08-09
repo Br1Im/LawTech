@@ -122,29 +122,27 @@
   margin-bottom: 20px;
 }
 .bal2-act {
+  appearance: none;
   height: 46px;
-  padding: 0 22px;
-  border: none;
+  padding: 0 20px;
+  border: 1px solid;
   border-radius: 12px;
+  font: inherit;
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
   cursor: pointer;
-  transition: background 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease;
+  box-shadow: none;
+  transition: transform 0.12s cubic-bezier(0.25, 1, 0.5, 1);
 }
-.bal2-act:active { transform: translateY(1px); }
-.bal2-act--income {
-  background: var(--bal-green);
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.28);
-}
-.bal2-act--income:hover { background: var(--bal-green-d); }
-.bal2-act--expense {
-  background: var(--bal-red);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.28);
-}
-.bal2-act--expense:hover { background: var(--bal-red-d); }
-.bal2-act--transfer { background: #2563EB; box-shadow: 0 4px 12px rgba(37,99,235,.24); }
-.bal2-act--transfer:hover { background: #1D4ED8; }
+.bal2-act:hover { transform: translateY(-1px); }
+.bal2-act:active { transform: translateY(0); }
+.bal2-act:focus-visible { outline: 3px solid rgba(79,70,229,.2); outline-offset: 2px; }
+.bal2-act--income { background: #ECFDF3; border-color: #A7E8BE; color: #087A38; }
+.bal2-act--income:hover { background: #E0F8E9; }
+.bal2-act--expense { background: #FFF3F2; border-color: #F6C1BC; color: #B42318; }
+.bal2-act--expense:hover { background: #FDE9E7; }
+.bal2-act--transfer { background: #EEF2FF; border-color: #C7D2FE; color: #4338CA; }
+.bal2-act--transfer:hover { background: #E5E9FF; }
 
 /* ─── Period bar (moved down, single line) ─── */
 .bal2-periodbar {
@@ -601,3 +599,8 @@
   .bal2-export { width: 100%; }
   .bal2-export-btn { width: 100%; justify-content: center; }
 }
+
+/* Button normalization: prevent inherited/native backgrounds from breaking Balance controls */
+.bal2 button { font-family: inherit; -webkit-appearance: none; appearance: none; }
+.bal2-navbtn, .bal2-export-btn, .bal2-btn-cancel, .bal2-modal-x { box-shadow: none; }
+.bal2-navbtn:focus-visible, .bal2-export-btn:focus-visible, .bal2-btn-cancel:focus-visible, .bal2-btn-ok:focus-visible, .bal2-pm-opt:focus-visible { outline: 3px solid rgba(79,70,229,.18); outline-offset: 2px; }

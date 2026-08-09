@@ -565,32 +565,6 @@ const Arrivals: React.FC = () => {
           <p>Фактические визиты клиентов и результат консультаций</p>
         </div>
       </div>
-      {/* ─── Stats ─── */}
-      {!isAdmin && stats && (
-        <StatRow>
-          <Stat>
-            <div className="lbl">Всего пришло</div>
-            <div className="val">{stats.total_visits}</div>
-          </Stat>
-          <Stat>
-            <div className="lbl">Первичных</div>
-            <div className="val">{stats.primary.total}</div>
-          </Stat>
-          <Stat>
-            <div className="lbl">Договор заключён</div>
-            <div className="val" style={{ color: '#059669' }}>{stats.primary.contracts_signed}</div>
-          </Stat>
-          <Stat>
-            <div className="lbl">Не заключён</div>
-            <div className="val" style={{ color: '#DC2626' }}>{stats.primary.contracts_not_signed}</div>
-          </Stat>
-          <Stat>
-            <div className="lbl">Конверсия</div>
-            <div className="val" style={{ color: 'var(--color-primary)' }}>{stats.primary.conversion}%</div>
-          </Stat>
-        </StatRow>
-      )}
-
       {/* ─── Tabs ─── */}
       <Tabs
         activeKey={tab}

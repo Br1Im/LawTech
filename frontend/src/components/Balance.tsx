@@ -15,7 +15,6 @@ interface DayRow {
   transfer?: Bucket;
   transfer_total?: number;
   closing: Bucket;
-  tax: number;
 }
 
 interface PeriodInfo {
@@ -32,13 +31,12 @@ interface BalanceData {
   office_id: number;
   has_opening: boolean;
   start_date: string | null;
-  tax_rate: number;
   date_from: string;
   date_to: string;
   opening: Bucket;
   current: Bucket;
   current_total: number;
-  totals: { income: Bucket; expense: Bucket; transfer: Bucket; tax: number };
+  totals: { income: Bucket; expense: Bucket; transfer: Bucket };
   days: DayRow[];
   period?: PeriodInfo | null;
 }
@@ -55,14 +53,10 @@ interface DayDetail {
 
 interface OfficeOption { id: string; name: string; }
 
-const DEFAULT_CATEGORIES = [
-  'Аренда офиса', 'Зарплаты', 'Возвраты', 'Лиды', 'Реклама',
-  'Коммунальные услуги', 'Налоги', 'Интернет', 'Телефония', 'Техника', 'Прочее'
-];
 
 const PM_LABEL: Record<string, string> = {
   cash: 'Наличные',
-  noncash: 'Банковская карта',
+  noncash: 'Р/С',
   bank: 'Банковский перевод',
   sbp: 'СБП',
 };
@@ -73,6 +67,11 @@ const TRANSFER_PM_OPTIONS = [
 ];
 
 const fmt = (n: number) => (Number(n) || 0).toLocaleString('ru-RU');
+const clientShortName = (name?: string | null) => {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  return [parts[0], ...parts.slice(1, 3).map(part => `${part.charAt(0).toUpperCase()}.`)].join(' ');
+};
 const fmtMoney = (n: number) => fmt(n) + ' ₽';
 const fmtSigned = (n: number) => (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + ' ₽';
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -133,7 +132,7 @@ const Balance: React.FC = () => {
   const [showIncome, setShowIncome] = useState(false);
   const [incomeForm, setIncomeForm] = useState({ amount: '', payment_method: 'cash', comment: '' });
   const [showExpense, setShowExpense] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ amount: '', payment_method: 'bank', category: 'Аренда офиса', comment: '' });
+  const [expenseForm, setExpenseForm] = useState({ amount: '', payment_method: 'bank', title: '', comment: '' });
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferForm, setTransferForm] = useState({ source: 'bank', destination: 'cash', amount: '', transfer_date: localDateStr(), comment: '' });
   const [saving, setSaving] = useState(false);
@@ -215,7 +214,7 @@ const Balance: React.FC = () => {
   };
 
   const addExpense = async () => {
-    if (!expenseForm.amount) return;
+    if (!expenseForm.amount || !expenseForm.title.trim()) return;
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl('/expenses'), {
@@ -223,14 +222,14 @@ const Balance: React.FC = () => {
         body: JSON.stringify({
           office_id: Number(selectedOfficeId), amount: Number(expenseForm.amount),
           payment_method: expenseForm.payment_method, spent_on: todayStr(),
-          title: expenseForm.comment.trim() || expenseForm.category, category: expenseForm.category,
+          title: expenseForm.title.trim(), category: 'Прочее',
           description: expenseForm.comment.trim() || null,
         }),
       });
       if (!res.ok) throw new Error('Ошибка добавления расхода');
       setShowExpense(false);
       const d = todayStr();
-      setExpenseForm({ amount: '', payment_method: 'bank', category: 'Аренда офиса', comment: '' });
+      setExpenseForm({ amount: '', payment_method: 'bank', title: '', comment: '' });
       setDayDetail(prev => { const c = { ...prev }; delete c[d]; return c; });
       await fetchBalance();
     } catch (err) { setError((err as Error).message); }
@@ -268,10 +267,10 @@ const Balance: React.FC = () => {
   /* ─── Export ─── */
   const buildRows = () => {
     if (!data) return [] as (string | number)[][];
-    const head = ['Дата', 'Поступило', 'Потрачено', 'Налог', 'Итого за день'];
+    const head = ['Дата', 'Поступило', 'Потрачено', 'Итого за день'];
     const rows = data.days.map(d => {
       const inc = sumB(d.income), exp = sumB(d.expense);
-      return [ruShort(d.date), inc, exp, d.tax, inc - exp - d.tax];
+      return [ruShort(d.date), inc, exp, inc - exp];
     });
     return [head, ...rows];
   };
@@ -306,7 +305,7 @@ const Balance: React.FC = () => {
   };
 
   const cur = data?.current || ZERO;
-  const totals = data?.totals || { income: ZERO, expense: ZERO, transfer: ZERO, tax: 0 };
+  const totals = data?.totals || { income: ZERO, expense: ZERO, transfer: ZERO };
   const deltaCash = totals.income.cash - totals.expense.cash + totals.transfer.cash;
   const deltaNoncash = totals.income.noncash - totals.expense.noncash + totals.transfer.noncash;
   const deltaBank = totals.income.bank - totals.expense.bank + totals.transfer.bank;
@@ -409,7 +408,7 @@ const Balance: React.FC = () => {
           {data && data.days.map(d => {
             const inc = sumB(d.income), exp = sumB(d.expense);
             const transferTotal = Number(d.transfer_total || 0);
-            const total = inc - exp - d.tax;
+            const total = inc - exp;
             const isToday = d.date === todayStr();
             const open = expanded === d.date;
             const det = dayDetail[d.date];
@@ -425,7 +424,6 @@ const Balance: React.FC = () => {
                     <span className="bal2-m"><i>Поступило</i><b className="pos">+ {fmt(inc)} ₽</b></span>
                     <span className="bal2-m"><i>Потрачено</i><b className="neg">{exp ? '− ' + fmt(exp) : '− 0'} ₽</b></span>
                     {transferTotal > 0 && <span className="bal2-m"><i>Переводы</i><b className="transfer">↔ {fmt(transferTotal)} ₽</b></span>}
-                    <span className="bal2-m"><i>Налог 11%</i><b className="amber">{d.tax ? fmt(d.tax) + ' ₽' : '—'}</b></span>
                     <span className="bal2-m"><i>Итого за день</i><b className="tot">+ {fmt(total)} ₽</b></span>
                   </span>
                   <span className="bal2-day-chev"><IcChevron /></span>
@@ -439,12 +437,12 @@ const Balance: React.FC = () => {
                         <div className="bal2-op" key={'i' + i}>
                           <span className="bal2-op-ic in"><IcDoc /></span>
                           <span className="bal2-op-main">
-                            <span className="bal2-op-title" title={it.title}>{it.title}</span>
-                            {(it.client_name || it.description || it.lawyer_name) && (
-                              <span className="bal2-op-sub">
-                                {[it.client_name, it.lawyer_name, it.description].filter(Boolean).join(' · ')}
-                              </span>
-                            )}
+                            <span className="bal2-op-title" title={it.client_name || it.title}>
+                              {it.client_name ? clientShortName(it.client_name) : it.title}
+                            </span>
+                            <span className="bal2-op-sub" title={[it.title, it.lawyer_name, it.description].filter(Boolean).join(' · ')}>
+                              {[it.title, it.lawyer_name, it.description].filter(Boolean).join(' · ')}
+                            </span>
                           </span>
                           <span className="bal2-op-amt">{fmt(it.amount)} ₽</span>
                           <span className="bal2-op-pm">{PM_LABEL[it.payment_method] || it.payment_method}</span>
@@ -525,8 +523,8 @@ const Balance: React.FC = () => {
         <div className="bal2-modal-bg" onClick={() => setShowExpense(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
             <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новый расход</h3><button className="bal2-modal-x" onClick={() => setShowExpense(false)}>✕</button></div>
-            <div className="bal2-fld-b"><span>Категория расхода</span>
-              <select value={expenseForm.category} onChange={e => setExpenseForm(f => ({ ...f, category: e.target.value }))}>{DEFAULT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+            <div className="bal2-fld-b"><span>Наименование расхода</span>
+              <input value={expenseForm.title} onChange={e => setExpenseForm(f => ({ ...f, title: e.target.value }))} placeholder="Например: Аренда офиса" autoFocus /></div>
             <div className="bal2-fld-b"><span>Источник списания</span>
               <PmToggle value={expenseForm.payment_method} onChange={v => setExpenseForm(f => ({ ...f, payment_method: v }))} /></div>
             <div className="bal2-fld-b"><span>Сумма</span>
@@ -535,7 +533,7 @@ const Balance: React.FC = () => {
               <input value={expenseForm.comment} onChange={e => setExpenseForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: Оплата аренды за июль" /></div>
             <div className="bal2-modal-actions">
               <button className="bal2-btn-cancel" onClick={() => setShowExpense(false)}>Отмена</button>
-              <button className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount}>Сохранить</button>
+              <button className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount || !expenseForm.title.trim()}>Сохранить</button>
             </div>
           </div>
         </div>
