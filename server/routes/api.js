@@ -85,6 +85,8 @@ router.get('/visits/employees', authenticateToken, callCenterController.getOffic
 router.patch('/appointments/:id/assign-lawyer', authenticateToken, callCenterController.assignLawyer);
 router.get('/visits/consultation-stats', authenticateToken, callCenterController.getConsultationStats);
 router.get('/consultation-analysis/analytics/summary', authenticateToken, consultationAnalysisController.summary);
+router.get('/consultation-analysis/settings', authenticateToken, consultationAnalysisController.getSettings);
+router.put('/consultation-analysis/settings', authenticateToken, consultationAnalysisController.updateSettings);
 router.get('/consultation-analysis/analytics/details', authenticateToken, consultationAnalysisController.details);
 router.get('/consultation-analysis/analytics/rankings/:by', authenticateToken, consultationAnalysisController.rankings);
 router.get('/consultation-analysis/:consultationId', authenticateToken, consultationAnalysisController.getOne);

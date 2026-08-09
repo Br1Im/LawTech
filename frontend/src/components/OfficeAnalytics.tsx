@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CalendarOutlined, ArrowUpOutlined, ArrowDownOutlined, InfoCircleOutlined, PlusOutlined, EditOutlined, StopOutlined, CheckOutlined } from '@ant-design/icons';
 import { apiInstance } from '../shared/api/instance';
-import { Modal, Input, notification } from 'antd';
+import { Modal, Input, notification, Tabs, Table, Tag } from 'antd';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './OfficeAnalytics.css';
 
@@ -61,6 +61,10 @@ export function OfficeAnalyticsBottom({officeId,from,to}:{officeId:string|number
   const [lossData,setLossData]=useState<any>(null);
   const [sourceRows,setSourceRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [detailOpen,setDetailOpen]=useState(false);
+  const [detailRows,setDetailRows]=useState<any[]>([]);
+  const [employeeRows,setEmployeeRows]=useState<any[]>([]);
+  const [detailLoading,setDetailLoading]=useState(false);
   useEffect(()=>{let alive=true;setLoading(true);Promise.all([
     fetchOfficeAnalytics(officeId,from,to),
     apiInstance.get('/consultation-analysis/analytics/summary',{params:{date_from:from,date_to:to}}).then(r=>r.data?.data).catch(()=>null),
@@ -70,18 +74,31 @@ export function OfficeAnalyticsBottom({officeId,from,to}:{officeId:string|number
   const labels:any={LEAD_QUALITY:'Качество / перспективность лидов',SALES_PROCESS:'Проблемы процесса продаж',CLIENT_DELAY:'Отложенное решение клиента',SERVICE_PROBLEM:'Предложение / услуга',NON_TARGET:'Нецелевые обращения',UNRESOLVED:'Недостаточно данных',OTHER:'Прочее'};
   const totalAnalyzed=Number(lossData?.analyzed||0);
   const lossItems=(lossData?.categories||[]).map((x:any)=>({reason:x.category,label:labels[x.category]||x.category,count:Number(x.count),percentage:totalAnalyzed?Math.round(Number(x.count)*1000/totalAnalyzed)/10:0}));
+  const openDetails=async()=>{setDetailOpen(true);setDetailLoading(true);try{const [d,e]=await Promise.all([apiInstance.get('/consultation-analysis/analytics/details',{params:{date_from:from,date_to:to,limit:100}}),apiInstance.get('/consultation-analysis/analytics/rankings/employees',{params:{date_from:from,date_to:to}})]);setDetailRows(d.data?.data||[]);setEmployeeRows(e.data?.data||[])}catch{notification.error({message:'Не удалось загрузить детализацию'})}finally{setDetailLoading(false)}};
   if(loading) return <div className="oa-split"><section className="oa-panel oa-skeleton oa-skeleton-compact"><span/><span/><span/><span/></section><section className="oa-panel oa-skeleton oa-skeleton-compact"><span/><span/><span/><span/></section></div>;
   return <>
     <div className="oa-split">
       <section className="oa-panel oa-losses"><h2>Где компания теряет деньги</h2><div className="oa-loss-list">
         {(lossItems.length?lossItems:(data?.losses.items||[])).slice(0,6).map((item,i)=><div className="oa-loss" key={item.reason}><b style={{color:lossColors[i]}}>{item.percentage}%</b><div><span>{item.label}</span><div className="oa-loss-track"><i style={{width:`${item.percentage}%`,background:lossColors[i]}}/></div></div></div>)}
         {!lossItems.length&&!data?.losses.items?.length&&<p className="oa-muted">За период потери не зафиксированы</p>}
-      </div>{lossData&&<p className="oa-scroll-hint">Разобрано {lossData.analyzed} из {lossData.lost}: покрытие {lossData.coverage_pct}% · перспективных {lossData.promising} · конверсия среди перспективных {lossData.conversion_promising_pct}%</p>}<button className="oa-link" type="button">Подробнее →</button></section>
+      </div>{lossData&&<p className="oa-scroll-hint">Разобрано {lossData.analyzed} из {lossData.lost}: покрытие {lossData.coverage_pct}% · перспективных {lossData.promising} · конверсия среди перспективных {lossData.conversion_promising_pct}% · потенциальная выручка {money(lossData.potential_lost_revenue)}</p>}<button className="oa-link" type="button" onClick={openDetails}>Подробнее →</button></section>
       <section className="oa-panel oa-sources"><div className="oa-sources-head"><h2>Рейтинг источников</h2>{rows.length > 5 && <span>{rows.length} источников</span>}</div><div className="oa-table-wrap" tabIndex={0} aria-label="Рейтинг источников, прокручиваемая таблица"><table><thead><tr><th>Источник</th><th>Лиды</th><th>Пришло</th><th>Договоры</th><th>Конверсия</th><th>Средний чек</th></tr></thead><tbody>
-        {rows.map(r=><tr key={r.source}><td><b>{r.source}</b></td><td>{r.leads}</td><td>{r.arrived}</td><td>{r.contracts}</td><td>{r.conversion}%</td><td>{money(r.average_check)}</td></tr>)}
+        {(sourceRows.length?sourceRows:rows).map((r:any)=><tr key={r.id||r.source}><td><b>{r.name||r.source}</b></td><td>{r.analyzed??r.leads??0}</td><td>{r.promising??r.arrived??0}</td><td>{r.sales_losses??r.contracts??0}</td><td>{r.analyzed?Math.round((r.promising||0)*1000/r.analyzed)/10:r.conversion||0}%</td><td>{r.insufficient??money(r.average_check)}</td></tr>)}
         {!rows.length&&<tr><td colSpan={6} className="oa-muted">Нет данных за выбранный период</td></tr>}
       </tbody></table></div>{rows.length > 5 && <p className="oa-scroll-hint">Прокрутите таблицу, чтобы увидеть остальные источники</p>}</section>
     </div>
+    <Modal title="Детализация потерь" open={detailOpen} onCancel={()=>setDetailOpen(false)} footer={null} width={980}>
+      <Tabs items={[
+        {key:'losses',label:'Потерянные консультации',children:<Table loading={detailLoading} rowKey="id" pagination={{pageSize:10}} dataSource={detailRows} columns={[
+          {title:'Клиент',dataIndex:'client_name'},{title:'Дата',dataIndex:'appointment_date'},{title:'Сотрудник',dataIndex:'employee_name'},
+          {title:'Категория',dataIndex:'loss_category',render:(v:string)=><Tag>{labels[v]||v}</Tag>},{title:'Причина',dataIndex:'loss_reason'},
+          {title:'Потенциальная выручка',dataIndex:'potential_lost_revenue',align:'right' as const,render:(v:number)=>money(v)}
+        ]}/>},
+        {key:'employees',label:'Сотрудники',children:<Table loading={detailLoading} rowKey="id" pagination={false} dataSource={employeeRows} columns={[
+          {title:'Сотрудник',dataIndex:'name'},{title:'Разобрано',dataIndex:'analyzed',align:'right' as const},{title:'Перспективные',dataIndex:'promising',align:'right' as const},{title:'Потери процесса',dataIndex:'sales_losses',align:'right' as const},{title:'Недостаточно данных',dataIndex:'insufficient',align:'right' as const}
+        ]}/>}
+      ]}/>
+    </Modal>
   </>;
 }
 
