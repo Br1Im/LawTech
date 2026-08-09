@@ -953,3 +953,16 @@
 @media (prefers-reduced-motion: reduce) {
   .tg-chat-wrap * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Chat bug fixes: mobile controls, errors and history paging */
+.tg-chat-error{margin:10px auto;padding:8px 12px;border:1px solid #f0c8c4;background:#fff3f1;color:#a33831;border-radius:9px;display:flex;gap:10px;align-items:center;font-size:12px}
+.tg-chat-error button,.tg-participants-empty button{border:0;background:transparent;color:var(--chat-accent);font:inherit;font-weight:650;cursor:pointer}
+.tg-load-older{display:block;margin:10px auto 14px;padding:7px 13px;border:1px solid var(--chat-line);border-radius:999px;background:var(--chat-surface);color:var(--chat-muted);font:inherit;font-size:12px;cursor:pointer}
+.tg-load-older:hover{border-color:var(--chat-accent);color:var(--chat-accent)}
+@media(max-width:768px){
+ .tg-sidebar{width:76px!important;min-width:76px!important}
+ .tg-sidebar-section-actions{display:flex!important;gap:3px;justify-content:center}
+ .tg-sidebar-section-header{display:grid!important;justify-items:center;padding:8px 4px!important}
+ .tg-participants-panel{display:block!important;position:absolute!important;inset:0 0 0 auto!important;width:min(88vw,340px)!important;z-index:15!important}
+ .tg-header-actions{display:flex!important}
+}

@@ -54,7 +54,11 @@ const OfficeChat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [loadingMsgs, setLoadingMsgs] = useState(true);
+  const [loadingMsgs,setLoadingMsgs]=useState(true);
+  const [loadingOlder,setLoadingOlder]=useState(false);
+  const [hasMoreMessages,setHasMoreMessages]=useState(false);
+  const [messagesError,setMessagesError]=useState('');
+  const [participantsError,setParticipantsError]=useState('');
   const [sending, setSending] = useState(false);
   const [channels, setChannels] = useState<ChatChannelInfo[]>([]);
   const [canManageChat, setCanManageChat] = useState(false);
@@ -154,10 +158,14 @@ const OfficeChat: React.FC = () => {
   const fetchMessages = useCallback(async () => {
     if (!selectedOfficeId || !activeChannel) return;
     try {
-      const data = await receptionAPI.getMessages(selectedOfficeId, activeChannel);
-      const arr = Array.isArray(data) ? data : (data as unknown as { data: Message[] })?.data || [];
-      setMessages(arr);
-      setLoadingMsgs(false);
+      const page=await receptionAPI.getMessages(selectedOfficeId,activeChannel);
+      const arr=page.messages;
+      setMessages(prev => {
+        const older=prev.filter(old=>!arr.some(fresh=>fresh.id===old.id));
+        return [...older,...arr].sort((a,b)=>Number(a.id)-Number(b.id));
+      });
+      setHasMoreMessages(page.hasMore);
+      setMessagesError(''); setLoadingMsgs(false);
       // Update last message for current channel
       if (arr.length > 0) {
         const last = arr[arr.length - 1];
@@ -171,7 +179,7 @@ const OfficeChat: React.FC = () => {
           }
         }));
       }
-    } catch { setLoadingMsgs(false); }
+    } catch { setMessagesError('Не удалось загрузить сообщения'); setLoadingMsgs(false); }
   }, [selectedOfficeId, activeChannel]);
 
   // Fetch unread counts
@@ -190,8 +198,8 @@ const OfficeChat: React.FC = () => {
       if (!activeChannel) { setParticipants([]); return; }
       const result = await receptionAPI.getParticipants(selectedOfficeId, activeChannel);
       setParticipants(result.participants);
-      setCanManageChat(result.canManage);
-    } catch { /* skip */ }
+      setCanManageChat(result.canManage); setParticipantsError('');
+    } catch { setParticipantsError('Не удалось загрузить участников'); }
   }, [selectedOfficeId, activeChannel]);
 
   // Poll messages + unread
@@ -247,6 +255,16 @@ const OfficeChat: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) handleSend(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const loadOlderMessages=async()=>{
+    if(!selectedOfficeId||!activeChannel||!messages.length||loadingOlder)return;
+    setLoadingOlder(true);
+    try{
+      const page=await receptionAPI.getMessages(selectedOfficeId,activeChannel,messages[0].id);
+      setMessages(prev=>[...page.messages.filter(x=>!prev.some(y=>y.id===x.id)),...prev]);
+      setHasMoreMessages(page.hasMore); setMessagesError('');
+    }catch{setMessagesError('Не удалось загрузить ранние сообщения')}finally{setLoadingOlder(false)}
   };
 
   // Search
@@ -338,7 +356,7 @@ const OfficeChat: React.FC = () => {
 
   const switchChannel = (ch: ChatChannel) => {
     setActiveChannel(ch);
-    setMessages([]);
+    setMessages([]); setHasMoreMessages(false); setMessagesError('');
     setLoadingMsgs(true);
     setSearchOpen(false);
     setSearchQuery('');
@@ -563,6 +581,8 @@ const OfficeChat: React.FC = () => {
         {/* Messages + Participants split */}
         <div className="tg-body">
           <div className="tg-messages" ref={msgContainerRef}>
+            {messagesError && <div className="tg-chat-error"><span>{messagesError}</span><button onClick={()=>fetchMessages()}>Повторить</button></div>}
+            {hasMoreMessages && !loadingMsgs && <button className="tg-load-older" disabled={loadingOlder} onClick={loadOlderMessages}>{loadingOlder?'Загрузка…':'Показать ранние сообщения'}</button>}
             {!activeChannel ? (
               <div className="tg-chat-center tg-no-chat">
                 <div className="tg-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
@@ -589,6 +609,7 @@ const OfficeChat: React.FC = () => {
                 </button>
               </div>
               <div className="tg-participants-list">
+                {participantsError && <div className="tg-participants-empty"><span>{participantsError}</span><button onClick={()=>fetchParticipants()}>Повторить</button></div>}
                 {participants.map(p => (
                   <div key={p.id} className="tg-participant-row">
                     <div className="tg-participant-avatar" style={{ background: ROLE_COLORS[p.role] || '#6B7280' }}>

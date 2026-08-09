@@ -45,6 +45,12 @@ async function channelExists(officeId, channel) {
   return rows[0] || null;
 }
 
+
+async function touchPresence(userId) {
+  await db.query(`INSERT INTO chat_user_presence (user_id,last_seen_at) VALUES (?,NOW())
+    ON DUPLICATE KEY UPDATE last_seen_at=NOW()`,[userId]);
+}
+
 async function canManageOfficeChat(officeId, user) {
   const oid=Number(officeId);
   if (!oid || !canManageChat(user)) return false;
@@ -132,21 +138,10 @@ const chatController = {
       if (!(await canAccessChannel(officeId, req.user, channel)))
         return res.status(403).json({ success: false, message: 'Нет доступа к каналу' });
 
-      const messages = await Message.getByOfficeAndChannel(officeId, channel);
-      const formatted = messages.map(m => formatMessageResponse(m, req.user.id));
-
-      // Mark all as delivered for this user
-      const unreadIds = messages
-        .filter(m => m.sender_id !== req.user.id && (!m.status || m.status === 'sent'))
-        .map(m => m.id);
-      if (unreadIds.length > 0) {
-        await db.query(
-          `UPDATE messages SET status = 'delivered' WHERE id IN (?) AND status = 'sent'`,
-          [unreadIds]
-        );
-      }
-
-      return res.json(formatted);
+      await touchPresence(req.user.id);
+      const page=await Message.getByOfficeAndChannel(officeId,channel,{limit:req.query.limit,before:req.query.before});
+      const formatted=page.messages.map(m=>formatMessageResponse(m,req.user.id));
+      return res.json({messages:formatted,hasMore:page.hasMore});
     } catch (error) {
       console.error('getOfficeMessages error:', error);
       return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
@@ -216,8 +211,11 @@ const chatController = {
       if (!rows.length) return res.status(404).json({success:false,message:'Сообщение не найдено'});
       const m=rows[0];
       if (!(await canAccessChannel(m.office_id,req.user,m.channel))) return res.status(403).json({success:false,message:'Нет доступа к чату'});
-      if (Number(m.sender_id)===Number(req.user.id)) return res.json({success:true});
-      await db.query(`UPDATE messages SET is_read=1,status='read' WHERE id=?`,[messageId]);
+      await touchPresence(req.user.id);
+      if (Number(m.sender_id)!==Number(req.user.id)) await db.query(
+        'INSERT INTO chat_message_reads (message_id,user_id,read_at) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE read_at=NOW()',
+        [messageId,req.user.id]
+      );
       return res.json({success:true});
     } catch (error) {
       console.error('markMessageAsRead error:', error);
@@ -231,12 +229,11 @@ const chatController = {
       const { channel = 'reception' } = req.body;
       if (!(await canAccessChannel(officeId, req.user, channel)))
         return res.status(403).json({ success:false, message:'Нет доступа к чату' });
-      await db.query(
-        `UPDATE messages SET is_read = 1, status = 'read'
-         WHERE office_id = ? AND channel = ? AND sender_id != ? AND status != 'read'`,
-        [officeId, channel, req.user.id]
-      );
-      return res.json({ success: true });
+      await touchPresence(req.user.id);
+      await db.query(`INSERT IGNORE INTO chat_message_reads (message_id,user_id,read_at)
+        SELECT id,?,NOW() FROM messages WHERE office_id=? AND channel=? AND sender_id<>?`,
+        [req.user.id,officeId,channel,req.user.id]);
+      return res.json({success:true});
     } catch (error) {
       console.error('markAllAsRead error:', error);
       return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
@@ -248,13 +245,11 @@ const chatController = {
       const { officeId } = req.params;
       const userId = req.user.id;
       const [rows] = await db.query(
-        `SELECT m.channel, COUNT(*) AS cnt
-           FROM messages m
-           JOIN chat_channel_members cm ON cm.office_id=m.office_id
-             AND cm.channel=m.channel AND cm.user_id=?
-          WHERE m.office_id=? AND m.sender_id != ? AND m.status != 'read'
-          GROUP BY m.channel`,
-        [userId, officeId, userId]
+        `SELECT m.channel,COUNT(*) AS cnt FROM messages m
+           JOIN chat_channel_members cm ON cm.office_id=m.office_id AND cm.channel=m.channel AND cm.user_id=?
+           LEFT JOIN chat_message_reads mr ON mr.message_id=m.id AND mr.user_id=?
+          WHERE m.office_id=? AND m.sender_id<>? AND mr.message_id IS NULL GROUP BY m.channel`,
+        [userId,userId,officeId,userId]
       );
       const counts = {};
       for (const r of rows) counts[r.channel] = r.cnt;
@@ -297,19 +292,22 @@ const chatController = {
       const channel = String(req.query.channel || '');
       if (!officeId || !channel || !(await canAccessChannel(officeId, req.user, channel)))
         return res.status(403).json({ success:false, message:'Нет доступа к чату' });
+      await touchPresence(req.user.id);
       const [users] = await db.query(
         `SELECT u.id, u.first_name, u.last_name, u.role, u.is_active,
-                cm.source, cm.call_center_id, cc.name AS call_center_name
+                cm.source, cm.call_center_id, cc.name AS call_center_name,
+                IF(p.last_seen_at >= DATE_SUB(NOW(),INTERVAL 90 SECOND),1,0) AS is_online
            FROM chat_channel_members cm
            JOIN users u ON u.id=cm.user_id
            LEFT JOIN call_centers cc ON cc.id=cm.call_center_id
+           LEFT JOIN chat_user_presence p ON p.user_id=u.id
           WHERE cm.office_id=? AND cm.channel=? AND u.is_active=1
           ORDER BY u.first_name, u.last_name`, [officeId, channel]
       );
       return res.json({
         participants: users.map(u => ({
           id:u.id, name:`${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Сотрудник',
-          role:u.role, online:!!u.is_active, source:u.source,
+          role:u.role, online:!!u.is_online, source:u.source,
           callCenterId:u.call_center_id, callCenterName:u.call_center_name || null,
         })),
         canManage: await canManageOfficeChat(officeId, req.user),
@@ -362,26 +360,22 @@ const chatController = {
       if (channel !== '__new__' && !(await channelExists(officeId, channel)))
         return res.status(404).json({ success:false, message:'Чат не найден' });
       const memberChannel = channel === '__new__' ? '__new__' : channel;
-      const [rows] = await db.query(
-        `SELECT q.id, q.first_name, q.last_name, q.role, q.source,
-                q.call_center_id, q.call_center_name,
-                IF(cm.user_id IS NULL,0,1) AS is_member
+      const [rows]=await db.query(
+        `SELECT q.id,MAX(q.first_name) first_name,MAX(q.last_name) last_name,MAX(q.role) role,
+                IF(MAX(q.call_center_id) IS NULL,'office','call_center') source,
+                MAX(q.call_center_id) call_center_id,MAX(q.call_center_name) call_center_name,
+                MAX(IF(cm.user_id IS NULL,0,1)) is_member
            FROM (
-             SELECT u.id,u.first_name,u.last_name,u.role,'office' AS source,
-                    NULL AS call_center_id,NULL AS call_center_name
+             SELECT u.id,u.first_name,u.last_name,u.role,NULL call_center_id,NULL call_center_name
                FROM users u WHERE u.office_id=? AND u.is_active=1
-             UNION
-             SELECT u.id,u.first_name,u.last_name,u.role,'call_center' AS source,
-                    cc.id AS call_center_id,cc.name AS call_center_name
-               FROM office_call_centers occ
-               JOIN call_centers cc ON cc.id=occ.call_center_id AND cc.is_active=1
-               JOIN call_center_members ccm ON ccm.call_center_id=cc.id
-               JOIN users u ON u.id=ccm.user_id AND u.is_active=1
+             UNION ALL
+             SELECT u.id,u.first_name,u.last_name,u.role,cc.id,CASE WHEN cc.name LIKE '%?%' THEN 'Подключённый колл-центр' ELSE cc.name END
+               FROM office_call_centers occ JOIN call_centers cc ON cc.id=occ.call_center_id AND cc.is_active=1
+               JOIN call_center_members ccm ON ccm.call_center_id=cc.id JOIN users u ON u.id=ccm.user_id AND u.is_active=1
               WHERE occ.office_id=? AND occ.is_active=1
-           ) q
-           LEFT JOIN chat_channel_members cm ON cm.office_id=? AND cm.channel=? AND cm.user_id=q.id
-          ORDER BY q.source, q.call_center_name, q.first_name, q.last_name`,
-        [officeId, officeId, officeId, memberChannel]
+           ) q LEFT JOIN chat_channel_members cm ON cm.office_id=? AND cm.channel=? AND cm.user_id=q.id
+          GROUP BY q.id ORDER BY source,call_center_name,first_name,last_name`,
+        [officeId,officeId,officeId,memberChannel]
       );
       return res.json({ candidates:rows.map(u => ({
         id:u.id, name:`${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Сотрудник',

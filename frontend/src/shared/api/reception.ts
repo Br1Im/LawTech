@@ -44,9 +44,10 @@ export interface ChatCandidate extends ChatParticipant {
 }
 
 export const receptionAPI = {
-  getMessages: async (officeId: string, channel: ChatChannel = 'reception'): Promise<Message[]> => {
-    const response = await apiInstance.get(`/offices/${officeId}/messages`, { params: { channel } });
-    return response.data;
+  getMessages: async (officeId:string,channel:ChatChannel='reception',before?:string):Promise<{messages:Message[];hasMore:boolean}> => {
+    const response=await apiInstance.get(`/offices/${officeId}/messages`,{params:{channel,limit:50,before}});
+    const data=response.data;
+    return Array.isArray(data)?{messages:data,hasMore:false}:{messages:data?.messages||[],hasMore:!!data?.hasMore};
   },
 
   sendMessage: async (officeId: string, text: string, channel: ChatChannel = 'reception', file?: File): Promise<Message> => {
