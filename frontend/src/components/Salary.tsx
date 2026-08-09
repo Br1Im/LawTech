@@ -166,7 +166,7 @@ const Salary: React.FC = () => {
   const [shiftForm, setShiftForm] = useState<{ employee_id?: number; shift_date: Dayjs; note: string }>(
     { employee_id: undefined, shift_date: dayjs(), note: '' }
   );
-  const [paymentMethods, setPaymentMethods] = useState<Record<number, 'cash' | 'noncash' | 'bank'>>({});
+  const [payDialog, setPayDialog] = useState<{ row: SalaryRow; paymentMethod?: 'cash' | 'noncash' | 'bank' } | null>(null);
   const [payingEmployeeId, setPayingEmployeeId] = useState<number | null>(null);
   const [cancelPaymentId, setCancelPaymentId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -321,8 +321,29 @@ const Salary: React.FC = () => {
     [employees]
   );
 
-  const paymentMethodLabel = (method?: string) => ({ cash: 'Наличные', noncash: 'Безналичный', bank: 'Расчётный счёт' } as Record<string,string>)[method || ''] || method || '—';
-  const payEmployee = (row: SalaryRow) => { if (!data) return; const paymentMethod = paymentMethods[row.employee_id] || 'cash'; Modal.confirm({ title: `Выплатить ${formatMoney(row.total)}?`, content: `${shortName(row.full_name)} · ${paymentMethodLabel(paymentMethod)} · период ${range[0]} — ${range[1]}. После подтверждения сумма появится расходом в Балансе.`, okText: 'Выплатить', cancelText: 'Отмена', onOk: async () => { setPayingEmployeeId(row.employee_id); try { await salaryApi.pay({ office_id: data.office_id, employee_id: row.employee_id, period_from: range[0], period_to: range[1], payment_method: paymentMethod }); message.success('Зарплата выплачена и добавлена в Баланс'); await load(); } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось провести выплату'); } finally { setPayingEmployeeId(null); } } }); };
+  const paymentMethodLabel = (method?: string) => ({ cash: 'Наличные', noncash: 'Безнал', bank: 'Расчётный счёт' } as Record<string,string>)[method || ''] || method || '—';
+  const openPayDialog = (row: SalaryRow) => setPayDialog({ row, paymentMethod: undefined });
+  const confirmSalaryPayment = async () => {
+    if (!data || !payDialog?.paymentMethod) return;
+    const { row, paymentMethod } = payDialog;
+    setPayingEmployeeId(row.employee_id);
+    try {
+      await salaryApi.pay({
+        office_id: data.office_id,
+        employee_id: row.employee_id,
+        period_from: range[0],
+        period_to: range[1],
+        payment_method: paymentMethod,
+      });
+      message.success(`Зарплата выплачена из источника «${paymentMethodLabel(paymentMethod)}» и добавлена в Баланс`);
+      setPayDialog(null);
+      await load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось провести выплату');
+    } finally {
+      setPayingEmployeeId(null);
+    }
+  };
   const cancelPayment = async () => { if (!cancelPaymentId || cancelReason.trim().length < 5 || cancelConfirmation.trim().toUpperCase() !== 'ОТМЕНИТЬ') { message.warning('Укажите причину отмены минимум из 5 символов'); return; } try { await salaryApi.cancelPayment(cancelPaymentId, cancelReason.trim()); message.success('Выплата отменена, деньги возвращены в соответствующий остаток Баланса'); setCancelPaymentId(null); setCancelReason(''); setCancelConfirmation(''); await load(); } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось отменить выплату'); } };
   const renderPaymentActions = (row: SalaryRow) => {
     const cancelled = (row.salary_payments || []).filter(payment => payment.status === 'cancelled');
@@ -332,7 +353,7 @@ const Salary: React.FC = () => {
     if (!canPaySalary) return <>{row.active_payment ? <Tag color="green">Выплачено</Tag> : null}{history}</>;
     if (row.active_payment) return <><Space size={6} wrap><Tag color="green">Выплачено · {paymentMethodLabel(row.active_payment.payment_method)}</Tag><Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => { setCancelPaymentId(row.active_payment!.id); setCancelReason(''); setCancelConfirmation(''); }}>Отменить</Button></Space>{history}</>;
     if (Number(row.total || 0) <= 0) return <>{<Tag>Нет начисления</Tag>}{history}</>;
-    return <><Space size={6} wrap><Select size="small" style={{ width: 145 }} value={paymentMethods[row.employee_id] || 'cash'} onChange={(value) => setPaymentMethods(prev => ({ ...prev, [row.employee_id]: value }))} options={[{value:'cash',label:'Наличные'},{value:'noncash',label:'Безналичный'},{value:'bank',label:'Расчётный счёт'}]}/><Button size="small" type="primary" shape="circle" title="Выплатить зарплату" aria-label="Выплатить зарплату" loading={payingEmployeeId===row.employee_id} onClick={() => payEmployee(row)}><span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1, fontWeight: 500 }}>₽</span></Button></Space>{history}</>;
+    return <><Button size="small" type="primary" shape="circle" title="Выплатить зарплату" aria-label="Выплатить зарплату" loading={payingEmployeeId===row.employee_id} onClick={() => openPayDialog(row)}><span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1, fontWeight: 500 }}>₽</span></Button>{history}</>;
   };
 
   const columns: ColumnsType<SalaryRow> = [
@@ -640,6 +661,48 @@ const Salary: React.FC = () => {
 
         ]}
       />
+
+      {/* Выплата зарплаты: источник списания выбирается после нажатия ₽ */}
+      <Modal
+        title="Выплатить зарплату"
+        open={!!payDialog}
+        onCancel={() => { if (!payingEmployeeId) setPayDialog(null); }}
+        onOk={confirmSalaryPayment}
+        okText="Выплатить"
+        cancelText="Отмена"
+        confirmLoading={!!payingEmployeeId}
+        okButtonProps={{ disabled: !payDialog?.paymentMethod }}
+        destroyOnClose
+      >
+        {payDialog && (
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ padding: '12px 14px', borderRadius: 10, background: 'var(--color-bg-alt)' }}>
+              <div style={{ fontWeight: 600 }}>{shortName(payDialog.row.full_name)}</div>
+              <div style={{ marginTop: 4, color: 'var(--color-text-secondary)' }}>
+                К выплате: <b style={{ color: 'var(--color-text)' }}>{formatMoney(payDialog.row.total)}</b> · период {range[0]} — {range[1]}
+              </div>
+            </div>
+            <div>
+              <div style={{ marginBottom: 8, fontWeight: 600 }}>Откуда списать деньги</div>
+              <Select
+                autoFocus
+                placeholder="Выберите источник списания"
+                value={payDialog.paymentMethod}
+                onChange={(paymentMethod) => setPayDialog({ ...payDialog, paymentMethod })}
+                style={{ width: '100%' }}
+                options={[
+                  { value: 'cash', label: 'Наличные' },
+                  { value: 'noncash', label: 'Безнал' },
+                  { value: 'bank', label: 'Расчётный счёт' },
+                ]}
+              />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
+              После подтверждения сумма спишется из выбранного остатка и появится расходом в Балансе.
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Настройки расчёта (директор) */}
       <Modal
