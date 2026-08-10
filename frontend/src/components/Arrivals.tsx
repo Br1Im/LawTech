@@ -12,6 +12,7 @@ import { useAuth } from '../shared/lib/hooks/useAuth';
 import AdminContractRegister from './AdminContractRegister';
 import { formatRussianPhone } from '../shared/lib/phone';
 import './Appointments.css';
+import './Arrivals.css';
 
 dayjs.locale('ru');
 
