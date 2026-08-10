@@ -124,3 +124,62 @@ html[data-theme='dark'] body :where(.ant-message-notice-title,.ant-message-notic
  html[data-theme='dark'] body .lawtech-workspace :where(button,[role=button],a){min-height:40px}
  html[data-theme='dark'] body .lawtech-workspace :where(.ant-pagination-item,.ant-pagination-prev,.ant-pagination-next,.ant-pagination-item-link){min-width:36px!important;min-height:36px!important;line-height:34px!important}
 }
+
+/* Production visual audit fixes, 2026-08-11 */
+html[data-theme='dark'] body .lawtech-workspace .mobile-icon-rail .rail-item.active .rail-label {
+  color: oklch(24% 0.018 270) !important;
+}
+html[data-theme='dark'] body .lawtech-workspace .oa-kpis > div > span:not(.oa-positive):not(.oa-negative),
+html[data-theme='dark'] body .lawtech-workspace .oa-kpis > div > span:last-child {
+  color: oklch(64% 0.018 286) !important;
+}
+html[data-theme='dark'] body .lawtech-workspace .bal2-m > i {
+  color: var(--preview-muted) !important;
+}
+html[data-theme='dark'] body .lawtech-workspace :where(
+  .collapse-button,
+  .lawtech-notification-button,
+  .apt-date-arrow,
+  .apt-cal-btn,
+  .tg-sidebar-icon-btn,
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next
+) {
+  min-width: 36px !important;
+  min-height: 36px !important;
+}
+html[data-theme='dark'] body .lawtech-workspace .ant-pagination-item-link {
+  width: 36px !important;
+  height: 36px !important;
+}
+/* Audit pass 2: navigation and compact controls live outside .lawtech-workspace */
+html[data-theme='dark'] body .mobile-icon-rail .rail-item.active .rail-label {
+  color: oklch(24% 0.018 270) !important;
+}
+html[data-theme='dark'] body :where(
+  .collapse-button,
+  .lawtech-notification-button,
+  .apt-date-arrow,
+  .apt-cal-btn,
+  .cc-date-arrow,
+  .cc-date-cal-btn,
+  .tg-sidebar-icon-btn,
+  .reset-filter,
+  .ant-table-filter-trigger,
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next
+) {
+  min-width: 36px !important;
+  min-height: 36px !important;
+}
+html[data-theme='dark'] body .ant-btn-sm,
+html[data-theme='dark'] body .plan-fact-card-label button {
+  min-width: 36px !important;
+  min-height: 36px !important;
+}
+html[data-theme='dark'] body .tg-header-members,
+html[data-theme='dark'] body .tg-chat-error button {
+  min-height: 32px !important;
+}
