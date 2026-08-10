@@ -149,3 +149,16 @@
 .lt-page-arrivals .arrival-analysis-action .consultation-analysis-btn{width:auto;min-width:142px;white-space:nowrap}
 @media(max-width:900px){.lt-page-arrivals .arrival-card-client{align-items:flex-start!important;flex-wrap:wrap}.lt-page-arrivals .arrival-analysis-action{width:100%;margin-left:42px}.lt-page-arrivals .arrival-analysis-action .consultation-analysis-btn{min-width:0}}
 @media(max-width:700px){.lt-page-arrivals .arrival-analysis-action{margin-left:0}.lt-page-arrivals .arrival-card-side{grid-template-columns:1fr!important}.lt-page-arrivals .arrival-result-actions{justify-self:end}}
+
+
+/* Final action placement: separate semantic row below consultation facts. */
+.lt-page-arrivals .arrival-analysis-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:10px -12px -9px;padding:9px 12px;border-top:1px solid oklch(91% .01 256);background:oklch(98% .006 256)}
+.lt-page-arrivals .arrival-analysis-state{display:flex;align-items:center;gap:7px;min-width:0;color:oklch(50% .02 256);font-size:11.5px}
+.lt-page-arrivals .arrival-analysis-state>span:not(.arrival-analysis-dot){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lt-page-arrivals .arrival-analysis-dot{width:7px;height:7px;flex:none;border-radius:50%;background:oklch(62% .13 256)}
+.lt-page-arrivals .arrival-analysis-state .ant-tag{margin:0;flex:none}
+.lt-page-arrivals .arrival-analysis-row .consultation-analysis-btn{width:auto;min-width:154px;flex:none;white-space:nowrap}
+.lt-page-arrivals .arrival-card-client .arrival-analysis-action{display:none!important}
+@media(max-width:700px){.lt-page-arrivals .arrival-analysis-row{align-items:stretch;flex-direction:column;gap:8px;margin-top:10px}.lt-page-arrivals .arrival-analysis-row .consultation-analysis-btn{width:100%}.lt-page-arrivals .arrival-analysis-state>span:not(.arrival-analysis-dot){white-space:normal}}
+
+.ca-modal{max-width:calc(100vw - 32px)!important}.ca-modal[style]{width:min(840px,calc(100vw - 32px))!important}
