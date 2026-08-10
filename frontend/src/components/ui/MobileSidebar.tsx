@@ -22,6 +22,7 @@ import {
 } from 'react-icons/fa';
 
 import './MobileSidebar.css';
+import ThemeToggle from './ThemeToggle';
 import { buildApiUrl, getAuthHeaders } from '../../shared/utils/apiUtils';
 
 interface MobileSidebarProps {
@@ -233,8 +234,6 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
         </nav>
 
         <div className="mobile-sidebar-footer">
-
-
           <div className="mobile-sidebar-user-menu" ref={userMenuRef}>
             <button
               className="mobile-sidebar-item mobile-sidebar-profile"
@@ -264,6 +263,7 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
               </div>
             )}
           </div>
+          <div className="mobile-sidebar-theme-toggle"><ThemeToggle /></div>
         </div>
       </div>
     </>

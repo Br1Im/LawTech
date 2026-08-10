@@ -1,0 +1,126 @@
+/* Law.Tech Graphite theme: audited color layer, geometry untouched */
+:root[data-theme='dark']{
+ --preview-accent:oklch(72% .15 277);
+ --preview-accent-strong:oklch(65% .17 277);
+ --preview-accent-soft:oklch(25% .055 277);
+ --preview-bg:oklch(14.5% .008 270);
+ --preview-s1:oklch(18.5% .009 270);
+ --preview-s2:oklch(22.5% .011 270);
+ --preview-s3:oklch(27% .012 270);
+ --preview-border:oklch(30% .012 270);
+ --preview-text:oklch(94% .007 270);
+ --preview-muted:oklch(70% .012 270);
+ --color-bg:var(--preview-bg);--color-bg-alt:var(--preview-s2);--color-bg-elevated:var(--preview-s1);
+ --color-bg-hover:var(--preview-s2);--color-table-head-bg:var(--preview-s2);
+ --color-text:var(--preview-text);--color-text-secondary:var(--preview-muted);--color-muted:oklch(58% .012 270);
+ --color-border:var(--preview-border);--color-border-strong:oklch(38% .014 270);
+ --color-primary:var(--preview-accent);--color-primary-light:var(--preview-accent-soft);
+ --color-accent:var(--preview-accent);--color-accent-hover:var(--preview-accent-strong);--color-accent-dark:var(--preview-accent-strong);
+ --brand-blue:var(--preview-accent);--brand-blue-soft:var(--preview-accent-soft);--brand-ink:var(--preview-text);
+ --lt-canvas:var(--preview-bg);--lt-canvas-deep:var(--preview-bg);--lt-surface:var(--preview-s1);--lt-surface-soft:var(--preview-s2);
+ --lt-ink:var(--preview-text);--lt-ink-soft:var(--preview-muted);--lt-muted:var(--preview-muted);--lt-muted-light:oklch(58% .012 270);
+ --lt-line:var(--preview-border);--lt-line-soft:oklch(26% .01 270);
+ --lt-brand-600:var(--preview-accent);--lt-brand-700:var(--preview-accent-strong);--lt-brand-50:var(--preview-accent-soft);
+ color-scheme:dark;
+}
+[data-theme='dark'] html,[data-theme='dark'] body,[data-theme='dark'] #root,[data-theme='dark'] .lawtech-workspace{background:var(--preview-bg)!important;color:var(--preview-text)!important}
+[data-theme='dark'] body::before,[data-theme='dark'] body::after{display:none!important}
+[data-theme='dark'] :where(.lawtech-workspace,.ant-app) :where(.glass-card,.stat-card,.office-card,.client-item,.employee-card-v2,.bal2-card,.ant-card,.arrival-card,.apt-card,[class*='-card']:not([class*='-cards'])){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:none!important}
+[data-theme='dark'] :where(.lawtech-workspace,.ant-app) :where(h1,h2,h3,h4,h5,h6,strong,b,.ant-card-head-title,.ant-modal-title){color:var(--preview-text)!important}
+[data-theme='dark'] :where(.lawtech-workspace,.ant-app) :where(p,small,label,.ant-form-item-label>label,[class*='-label'],[class*='-hint'],[class*='-subtitle']){color:var(--preview-muted)!important}
+[data-theme='dark'] :where(.ant-table,.ant-table-container,.ant-table-cell,.table-container,table){background:var(--preview-s1)!important;color:var(--preview-text)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] :where(.ant-table-thead>tr>th,table thead th){background:var(--preview-s2)!important;color:var(--preview-muted)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] :where(.ant-table-tbody>tr>td,table tbody td){background:var(--preview-s1)!important;color:var(--preview-text)!important;border-color:oklch(26% .01 270)!important}
+[data-theme='dark'] .ant-table-tbody>tr:hover>td{background:var(--preview-s2)!important}
+[data-theme='dark'] :where(input,textarea,select,.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker,.ant-input-number){background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+[data-theme='dark'] :where(.ant-modal-container,.ant-drawer-content,.ant-dropdown-menu,.ant-select-dropdown,.ant-popover-inner){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:0 24px 64px -28px oklch(5% .02 270)!important}
+[data-theme='dark'] :where(.sidebar,.tg-sidebar,.mobile-sidebar){background:var(--preview-s1)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .sidebar-item{color:var(--preview-muted)!important}
+[data-theme='dark'] .sidebar-item:hover{background:var(--preview-s2)!important;color:var(--preview-text)!important}
+[data-theme='dark'] .sidebar-item.active{background:var(--preview-accent-soft)!important;color:var(--preview-text)!important}
+[data-theme='dark'] .sidebar-item.active svg{color:var(--preview-accent)!important}
+[data-theme='dark'] :where(.ant-btn-primary,.premium-btn,.apt-new-btn,.add-employee-btn,.btn-primary){background:var(--preview-accent-strong)!important;border-color:var(--preview-accent-strong)!important;color:oklch(98% .004 270)!important}
+[data-theme='dark'] :where(.ant-tabs-ink-bar,.ant-switch-checked,.ant-progress-bg){background:var(--preview-accent)!important}
+[data-theme='dark'] :where(.ant-tabs-tab-active .ant-tabs-tab-btn,.ant-btn-link){color:var(--preview-accent)!important}
+[data-theme='dark'] .apt-card-time,[data-theme='dark'] .arrival-card-time{background:var(--preview-s2)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .arrival-card-side{background:var(--preview-s2)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .arrival-analysis-row{background:var(--preview-s2)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .consultation-analysis-btn{background:var(--preview-accent-soft)!important;border-color:var(--preview-accent)!important;color:var(--preview-accent)!important}
+[data-theme='dark'] .ca-modal-container,[data-theme='dark'] .ca-modal-head,[data-theme='dark'] .ca-modal-footer{background:var(--preview-s1)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .ca-context,[data-theme='dark'] .ca-context>div,[data-theme='dark'] .ca-step-nav,[data-theme='dark'] .ca-result{background:var(--preview-s2)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .ca-section{border-color:var(--preview-border)!important}
+
+/* Audit fixes: contrast and component coverage, geometry untouched */
+:root[data-theme='dark']{--preview-button:oklch(54% .16 277);--preview-muted:oklch(75% .012 270)}
+[data-theme='dark'] .user-email,[data-theme='dark'] .user-name,[data-theme='dark'] .sidebar-label{color:var(--preview-muted)!important}
+[data-theme='dark'] :where(.oa-panel,.oa-period,.oa-source-trigger,.plan-fact-block,.plan-fact-card-v2,.lawyers-section,.apt-toolbar,.apt-date-current,.cc-filters,.cc-table-wrap,.bal2-navbtn,.bal2-periodlabel,.bal2-export-btn,.bal2-day,.bal2-empty,.lt-office-switcher){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:none!important}
+[data-theme='dark'] :where(.plan-cycle-nav-btn,.reset-filter,.apt-date-arrow,.apt-cal-btn,.cc-date-arrow,.cc-date-cal-btn){background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+[data-theme='dark'] :where(.oa-kpis>div,.plan-fact-card-v2>div,.lawyers-section td,.lawyers-section th){background:var(--preview-s1)!important;color:var(--preview-text)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] .oa-funnel-shape{color:var(--preview-text)!important;background:var(--preview-s3)!important}
+[data-theme='dark'] .oa-funnel-row:nth-child(1) .oa-funnel-shape{background:oklch(31% .07 277)!important}
+[data-theme='dark'] .oa-funnel-row:nth-child(2) .oa-funnel-shape{background:oklch(31% .055 82)!important}
+[data-theme='dark'] .oa-funnel-row:nth-child(3) .oa-funnel-shape{background:oklch(31% .055 155)!important}
+[data-theme='dark'] .oa-funnel-row:nth-child(4) .oa-funnel-shape{background:oklch(31% .06 25)!important}
+[data-theme='dark'] :where(.oa-scroll-hint,.oa-muted,.pf-plan,.plan-id-tag,.plan-cycle-nav-range,.ant-statistic-title,.ant-empty-description,.no-data,.cc-td-empty,.apt-empty-state-text){color:var(--preview-muted)!important}
+[data-theme='dark'] :where(.ant-table-wrapper,.ant-table-wrapper .ant-spin-container,.ant-table-wrapper .ant-table,.ant-table-wrapper .ant-table-container,.ant-empty){background:var(--preview-s1)!important;color:var(--preview-text)!important;border-color:var(--preview-border)!important}
+[data-theme='dark'] :where(.tg-sidebar,.tg-header,.tg-input-area,.tg-bubble,.tg-office-item.active,.tg-channel-item.active){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+[data-theme='dark'] .tg-bubble{background:var(--preview-s2)!important}
+[data-theme='dark'] .tg-msg.mine .tg-bubble{background:var(--preview-accent-soft)!important}
+[data-theme='dark'] .tg-chat-error{background:oklch(25% .055 25)!important;border-color:oklch(42% .1 25)!important;color:oklch(84% .08 25)!important}
+[data-theme='dark'] .bal2-act--income{background:oklch(25% .055 155)!important;border-color:oklch(42% .1 155)!important;color:oklch(82% .11 155)!important}
+[data-theme='dark'] .bal2-act--expense{background:oklch(25% .055 25)!important;border-color:oklch(42% .1 25)!important;color:oklch(82% .1 25)!important}
+[data-theme='dark'] :where(.ant-btn-primary,.premium-btn,.apt-new-btn,.add-employee-btn,.btn-primary){background:var(--preview-button)!important;border-color:var(--preview-button)!important;color:oklch(98% .004 270)!important}
+[data-theme='dark'] .plan-fact-card-pct{color:var(--preview-accent)!important}
+[data-theme='dark'] .lt-page-clients :where([style*='background: rgb(240, 253, 244)'],[style*='background: rgb(255, 247, 237)'],[style*='background: rgb(254, 242, 242)']){background:var(--preview-s2)!important}
+[data-theme='dark'] .ant-message-notice-content{background:var(--preview-s2)!important;color:var(--preview-text)!important;border:1px solid var(--preview-border)!important}
+
+/* Lazy chunk override: deliberately higher specificity, colors only */
+html[data-theme='dark'] body .lawtech-workspace :where(.plan-fact-block,.plan-fact-card-v2,.lawyers-section,.lawyer-row-static,.oa-panel,.oa-period,.oa-source-trigger,.lt-office-switcher){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:none!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.plan-cycle-nav-btn,.plan-cycle-nav-range,.apt-date-current,.apt-toolbar,.bal2-navbtn,.bal2-periodlabel,.bal2-export-btn){background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.plan-fact-card-v2 div,.plan-fact-card-v2 span,.lawyers-section td,.lawyers-section th,.lawyer-row-static td){background-color:transparent!important;border-color:var(--preview-border)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.pf-plan,.plan-id-tag,.plan-cycle-nav-range,.oa-muted,.oa-scroll-hint,.oa-link,.ant-empty-description,.apt-empty-state-text,.no-data,.cc-td-empty){color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .oa-link{color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.ant-table-wrapper,.ant-table-wrapper .ant-table,.ant-table-wrapper .ant-table-container,.ant-table-wrapper .ant-table-content,.ant-table-wrapper table,.ant-table-wrapper tbody,.ant-table-wrapper tr,.ant-table-wrapper td){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-table-wrapper :where(thead,th){background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.cc-filters,.cc-table-wrap,.cc-table-wrap table,.cc-table-wrap tbody,.cc-table-wrap td){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .cc-table-wrap :where(thead,th){background:var(--preview-s2)!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap :where(.tg-sidebar,.tg-header,.tg-input-area,.tg-bubble){background:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap :where(.tg-office-item.active,.tg-channel-item.active,.tg-msg.mine .tg-bubble){background:var(--preview-accent-soft)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap :where(.tg-msg-text,.tg-msg-sender,.tg-channel-name,.tg-header-title){color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap :where(.tg-msg-sender-role,.tg-channel-preview,.tg-channel-time,.tg-header-members){color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.ant-empty,.ant-empty-description){background:transparent!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.ant-btn-primary,.apt-new-btn,.premium-btn,.add-employee-btn){background:var(--preview-button)!important;border-color:var(--preview-button)!important;color:oklch(98% .004 270)!important}
+
+html[data-theme='dark'] body .lawtech-workspace .plan-cycle-nav .plan-cycle-nav-btn.plan-cycle-nav-btn{background:var(--preview-s2)!important;background-color:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .lawyers-section .employee-stats-table :where(th,td),html[data-theme='dark'] body .lawtech-workspace .cc-table-wrap table :where(th,td){background:var(--preview-s1)!important;background-color:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .lawyers-section .employee-stats-table th,html[data-theme='dark'] body .lawtech-workspace .cc-table-wrap table th{background:var(--preview-s2)!important;background-color:var(--preview-s2)!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-table-wrapper .ant-table-thead>tr>th{background:var(--preview-s2)!important;background-color:var(--preview-s2)!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-table-wrapper .ant-table-tbody>tr>td{background:var(--preview-s1)!important;background-color:var(--preview-s1)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-sidebar.tg-sidebar,html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-header.tg-header,html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-input-area.tg-input-area,html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-bubble.tg-bubble{background:var(--preview-s1)!important;background-color:var(--preview-s1)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-empty .ant-empty-description{color:var(--preview-muted)!important}
+
+:root[data-theme='dark']{--lt-muted-light:var(--preview-muted)!important;--color-muted:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.lt-lawyer-avatar,.emp-avatar,.user-avatar-initials){background:var(--preview-accent-soft)!important;color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-tabs-tab-active .ant-tabs-tab-btn{color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace .cc-tab-count{color:oklch(82% .01 243)!important;background:var(--preview-s3)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-no-chat :where(p,span){color:var(--preview-text)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-error button{color:oklch(80% .12 277)!important}
+html[data-theme='dark'] body .lawtech-workspace [style*='color: rgb(220, 38, 38)']{color:oklch(75% .16 25)!important}
+
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-date-sep span{background:var(--preview-s3)!important;color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap :where(.tg-msg-time,.tg-msg-sender-role){color:var(--preview-muted)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-msg-sender-name{color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace .tg-chat-wrap .tg-msg-avatar{background:var(--preview-accent-soft)!important;color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace :where(.ant-tag-purple,.ant-tag-geekblue){background:var(--preview-accent-soft)!important;border-color:var(--preview-accent)!important;color:var(--preview-accent)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-pagination-item-active{background:var(--preview-button)!important;border-color:var(--preview-button)!important}
+html[data-theme='dark'] body .lawtech-workspace .ant-pagination-item-active a{color:oklch(98% .004 270)!important}
+html[data-theme='dark'] body :where(.ant-message-notice,.ant-message-notice-content){background:var(--preview-s2)!important;color:var(--preview-text)!important;border-color:var(--preview-border)!important}
+
+html[data-theme='dark'] body :where(.ant-message-notice-title,.ant-message-notice-description){color:var(--preview-text)!important}
+
+@media(max-width:768px){
+ html[data-theme='dark'] body .lawtech-workspace .mobile-icon-rail .rail-item.active .rail-label,html[data-theme='dark'] body .lawtech-workspace .mobile-icon-rail .rail-label{color:var(--preview-text)!important}
+ html[data-theme='dark'] body .lawtech-workspace .mobile-icon-rail .rail-item.active{background:var(--preview-accent-soft)!important;color:var(--preview-accent)!important}
+ html[data-theme='dark'] body .lawtech-workspace :where(button,[role=button],a){min-height:40px}
+ html[data-theme='dark'] body .lawtech-workspace :where(.ant-pagination-item,.ant-pagination-prev,.ant-pagination-next,.ant-pagination-item-link){min-width:36px!important;min-height:36px!important;line-height:34px!important}
+}

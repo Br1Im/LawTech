@@ -5,10 +5,15 @@ import ruRU from 'antd/locale/ru_RU';
 export type ThemeMode = 'light' | 'dark';
 
 function readInitialTheme(): ThemeMode {
-  // Тёмная тема удалена из проекта — приложение всегда в светлой теме.
-  if (typeof window !== 'undefined') {
-    try { localStorage.setItem('theme', 'light'); } catch { /* noop */ }
-  }
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved);
+      return saved;
+    }
+  } catch { /* storage can be unavailable in private contexts */ }
+  document.documentElement.setAttribute('data-theme', 'light');
   return 'light';
 }
 
@@ -48,7 +53,7 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
     }
     isFirstRender.current = false;
     root.setAttribute('data-theme', mode);
-    localStorage.setItem('theme', mode);
+    try { localStorage.setItem('theme', mode); } catch { /* storage can be unavailable */ }
   }, [mode]);
 
   useEffect(() => {
@@ -61,11 +66,11 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const toggle = () => {}; // тёмная тема удалена из проекта
+  const toggle = () => setMode(current => current === 'light' ? 'dark' : 'light');
 
   const tokens = {
-    colorPrimary: mode === 'dark' ? '#7C5CFF' : '#4F46E5',
-    colorInfo: mode === 'dark' ? '#60A5FA' : '#4F46E5',
+    colorPrimary: mode === 'dark' ? '#6651D4' : '#4F46E5',
+    colorInfo: mode === 'dark' ? '#6651D4' : '#4F46E5',
     colorSuccess: '#12B76A',
     colorWarning: '#F79009',
     colorError: '#F04438',
@@ -131,9 +136,9 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
               colorBgElevated: mode === 'dark' ? '#1D2230' : '#ffffff',
             },
             Tabs: {
-              inkBarColor: mode === 'dark' ? '#7C5CFF' : undefined,
+              inkBarColor: mode === 'dark' ? '#A493F2' : undefined,
               itemActiveColor: mode === 'dark' ? '#E6E8EF' : undefined,
-              itemSelectedColor: mode === 'dark' ? '#E6E8EF' : undefined,
+              itemSelectedColor: mode === 'dark' ? '#AFA0F4' : undefined,
               itemColor: mode === 'dark' ? '#8B8FA3' : undefined,
             },
             Tag: {

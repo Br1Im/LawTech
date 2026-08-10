@@ -21,6 +21,7 @@ import {
 
 } from 'lucide-react';
 import './Sidebar.css';
+import ThemeToggle from './ThemeToggle';
 import apiClient from '../../shared/api/apiClient';
 
 const ICON_SIZE = 20;
@@ -307,8 +308,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       <div className="sidebar-footer">
-
-
         <div className="sidebar-user-menu" ref={userMenuRef}>
           <button
             className="sidebar-item sidebar-profile"
@@ -333,6 +332,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
         </div>
+        <div className="sidebar-theme-toggle"><ThemeToggle /></div>
       </div>
     </div>
   );

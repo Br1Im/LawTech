@@ -1,12 +1,10 @@
 .theme-toggle-button {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   border: 1px solid var(--color-border);
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--color-bg-elevated);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -24,7 +22,6 @@
   transform: translateY(-1px);
   border-color: var(--color-primary);
   background: var(--color-bg-hover);
-  box-shadow: 0 6px 18px -8px rgba(124, 92, 255, 0.35);
 }
 
 .theme-toggle-button:active {
@@ -43,11 +40,36 @@
 
 @media (max-width: 768px) {
   .theme-toggle-button {
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
   }
   .theme-toggle-button svg {
     width: 16px;
     height: 16px;
   }
 }
+
+.sidebar-footer,
+.mobile-sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sidebar-user-menu,
+.mobile-sidebar-user-menu {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-theme-toggle,
+.mobile-sidebar-theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+}
+.sidebar.collapsed .sidebar-theme-toggle {
+  display: none;
+}
+
+.theme-toggle-button:focus-visible { outline:3px solid color-mix(in oklch, var(--color-primary) 55%, transparent); outline-offset:2px; }
+[data-theme='dark'] .theme-toggle-button { background:var(--preview-s2); border-color:var(--preview-border); color:var(--preview-text); box-shadow:none; }
