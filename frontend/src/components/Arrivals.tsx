@@ -609,6 +609,14 @@ const Arrivals: React.FC = () => {
                         <h3>{row.client_name}</h3>
                         <span>{row.client_phone || 'Телефон не указан'}</span>
                       </div>
+                      {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role||'').toLowerCase()) && (
+                        <div className="arrival-analysis-action">
+                          {row.analysis_id && <Tag color={row.analysis_sufficiency==='INSUFFICIENT'?'orange':'blue'}>{row.analysis_sufficiency==='INSUFFICIENT'?'Нужно уточнить':'Разобрано'}</Tag>}
+                          <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>
+                            {row.analysis_id ? 'Изменить разбор' : 'Разбор консультации'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <div className="arrival-card-details">
                       <div>
@@ -633,12 +641,6 @@ const Arrivals: React.FC = () => {
                   </div>
                   <div className="arrival-card-side">
                     {consultationResult(row)}
-                    {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role||'').toLowerCase()) && (
-                      <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>
-                        {row.analysis_id ? 'Разбор: изменить' : 'Разбор консультации'}
-                      </Button>
-                    )}
-                    {row.analysis_id && <Tag color={row.analysis_sufficiency==='INSUFFICIENT'?'orange':'blue'}>{row.analysis_sufficiency==='INSUFFICIENT'?'Недостаточно данных':'Разобрано'}</Tag>}
                     {contractAction(row)}
                   </div>
                 </article>

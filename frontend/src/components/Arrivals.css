@@ -5,7 +5,7 @@
 
 /* Consultation analysis UX polish */
 .lt-page-arrivals .arrival-card {
-  grid-template-columns: 72px minmax(0,1fr) 188px !important;
+  grid-template-columns: 72px minmax(0,1fr) 116px !important;
 }
 .lt-page-arrivals .arrival-card-side {
   align-items: stretch !important;
@@ -114,7 +114,7 @@
 .ca-result small { margin-left: auto; color: oklch(57% .015 256); }
 
 @media(max-width:900px){
-  .lt-page-arrivals .arrival-card { grid-template-columns: 68px minmax(0,1fr) 168px !important; }
+  .lt-page-arrivals .arrival-card { grid-template-columns: 68px minmax(0,1fr) 116px !important; }
 }
 @media(max-width:700px){
   .lt-page-arrivals .arrival-card { grid-template-columns: 64px minmax(0,1fr) !important; }
@@ -142,3 +142,10 @@
 .ca-step-actions button.primary{border-color:oklch(52% .13 256);background:oklch(52% .13 256);color:oklch(99% .002 256)}
 .ca-step-actions button:disabled{opacity:.38;cursor:not-allowed}
 @media(max-width:700px){.ca-step-nav{grid-template-columns:repeat(4,44px);justify-content:center}.ca-step-nav button{font-size:0}.ca-step-nav button span{font-size:10px}.ca-step-actions{position:sticky;bottom:0;background:oklch(98.5% .004 256);padding-bottom:8px}}
+
+
+.lt-page-arrivals .arrival-analysis-action{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
+.lt-page-arrivals .arrival-analysis-action .ant-tag{margin:0}
+.lt-page-arrivals .arrival-analysis-action .consultation-analysis-btn{width:auto;min-width:142px;white-space:nowrap}
+@media(max-width:900px){.lt-page-arrivals .arrival-card-client{align-items:flex-start!important;flex-wrap:wrap}.lt-page-arrivals .arrival-analysis-action{width:100%;margin-left:42px}.lt-page-arrivals .arrival-analysis-action .consultation-analysis-btn{min-width:0}}
+@media(max-width:700px){.lt-page-arrivals .arrival-analysis-action{margin-left:0}.lt-page-arrivals .arrival-card-side{grid-template-columns:1fr!important}.lt-page-arrivals .arrival-result-actions{justify-self:end}}

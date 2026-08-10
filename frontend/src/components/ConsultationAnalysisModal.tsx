@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Input, InputNumber, Modal, Radio, Select, Tag } from 'antd';
+import { Alert, App, Button, Input, InputNumber, Modal, Radio, Select, Tag } from 'antd';
 import { apiInstance } from '../shared/api/instance';
 
 type Props = { open: boolean; consultation: any; onClose: () => void; onSaved: () => void };
@@ -60,7 +60,12 @@ const ConsultationAnalysisModal: React.FC<Props> = ({open,consultation,onClose,o
   const save=async()=>{setLoading(true);try{await apiInstance.put(`/consultation-analysis/${consultation.id}`,f);message.success('Разбор сохранён');onSaved();onClose();}
     catch(e:any){message[e?.response?.status===409?'warning':'error'](e?.response?.status===409?'Запись уже изменена. Откройте разбор повторно.':e?.response?.data?.message||'Не удалось сохранить');}finally{setLoading(false)}};
   const basisColor=f.classification_basis==='FACTS'?'green':f.classification_basis==='HYPOTHESIS'?'orange':'blue';
-  return <Modal className="ca-modal" title={null} open={open} onCancel={onClose} onOk={save} okText="Сохранить разбор" cancelText="Отмена" confirmLoading={loading} width={920} centered destroyOnClose>
+  return <Modal className="ca-modal" title={null} open={open} onCancel={onClose} width={920} centered destroyOnClose footer={[
+    <Button key="cancel" onClick={onClose}>Отмена</Button>,
+    step>1 && <Button key="back" onClick={()=>setStep(v=>Math.max(1,v-1))}>Назад</Button>,
+    step<4 ? <Button key="next" type="primary" onClick={()=>setStep(v=>Math.min(4,v+1))}>Далее</Button>
+      : <Button key="save" type="primary" loading={loading} onClick={save}>Сохранить разбор</Button>
+  ]}>
     {consultation && <div className="ca-shell">
       <header className="ca-modal-head"><div><span className="ca-eyebrow">Управленческий разбор</span><h2>{consultation.client_name}</h2></div><Tag color="red">Договор не заключён</Tag></header>
       <div className="ca-context">
@@ -102,11 +107,7 @@ const ConsultationAnalysisModal: React.FC<Props> = ({open,consultation,onClose,o
         <Field label="Комментарий руководителя" wide><Input.TextArea rows={3} maxLength={1000} showCount value={f.manager_comment} onChange={e=>set('manager_comment',e.target.value)} placeholder="Нужен при ручном изменении категории или спорном выводе"/></Field>
         <div className="ca-result ca-field--wide"><span>Итог</span><Tag color={basisColor}>{CATEGORIES.find(x=>x.value===f.loss_category)?.label||f.loss_category}</Tag><small>{f.classification_basis==='HYPOTHESIS'?'Гипотеза, требует подтверждения':'Будет учтено в аналитике офиса'}</small></div>
       </Section>}
-      <div className="ca-step-actions">
-        <button type="button" disabled={step===1} onClick={()=>setStep(v=>Math.max(1,v-1))}>Назад</button>
-        <span>Шаг {step} из 4</span>
-        {step<4&&<button type="button" className="primary" onClick={()=>setStep(v=>Math.min(4,v+1))}>Далее</button>}
-      </div>
+
     </div>}
   </Modal>;
 };
