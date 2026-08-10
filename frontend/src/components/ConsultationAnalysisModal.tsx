@@ -48,8 +48,9 @@ const ConsultationAnalysisModal: React.FC<Props> = ({open,consultation,onClose,o
   const { message } = App.useApp();
   const [f,setF] = useState<any>(initial);
   const [loading,setLoading] = useState(false);
+  const [step,setStep] = useState(1);
   const set = (key:string,value:any) => setF((old:any)=>({...old,[key]:value}));
-  useEffect(()=>{ if(!open||!consultation)return; (async()=>{ setLoading(true); try{
+  useEffect(()=>{ if(!open||!consultation)return; setStep(1); (async()=>{ setLoading(true); try{
     const r=await apiInstance.get(`/consultation-analysis/${consultation.id}`); const data=r.data.data;
     setF(data ? {...initial,...data,evidence_sources:typeof data.evidence_sources==='string'?JSON.parse(data.evidence_sources):data.evidence_sources}
       : {...initial,employee_id:consultation.assigned_lawyer_id,source_id:consultation.source_id,topic:consultation.comment});
@@ -68,26 +69,29 @@ const ConsultationAnalysisModal: React.FC<Props> = ({open,consultation,onClose,o
         <div><small>Юрист</small><b>{consultation.assigned_lawyer_name||'Не назначен'}</b></div>
       </div>
       <Alert className="ca-principle" type="info" showIcon message="Фиксируйте только доступные сведения" description="Если факт нельзя подтвердить, выберите «Не определить». Разбор не устанавливает виновность сотрудника." />
-      <Section number="1" title="Основание разбора" note="Откуда получена информация и достаточно ли её для вывода">
+      <nav className="ca-step-nav" aria-label="Разделы разбора">
+        {[['1','Основание'],['2','Перспективность'],['3','Консультация'],['4','Итог']].map(([n,label])=><button key={n} type="button" className={step===Number(n)?'active':''} onClick={()=>setStep(Number(n))}><span>{n}</span>{label}</button>)}
+      </nav>
+      {step===1&&<Section number="1" title="Основание разбора" note="Откуда получена информация и достаточно ли её для вывода">
         <Field label="Источник сведений" wide><Select mode="multiple" value={f.evidence_sources} onChange={v=>set('evidence_sources',v)} options={[['CRM','Данные CRM'],['ADMIN_COMMENT','Комментарий администратора'],['LAWYER_INFO','Информация от юриста'],['CLIENT_FEEDBACK','Сообщение клиента'],['DOCUMENTS','Документы / переписка'],['MANAGER_PRESENT','Личное присутствие'],['OTHER','Иное']].map(x=>({value:x[0],label:x[1]}))}/></Field>
         <Field label="Достаточность данных" wide><Radio.Group className="ca-segments" optionType="button" buttonStyle="solid" value={f.data_sufficiency} onChange={e=>set('data_sufficiency',e.target.value)} options={[{value:'SUFFICIENT',label:'Достаточно'},{value:'PARTIAL',label:'Частично'},{value:'INSUFFICIENT',label:'Недостаточно'}]}/></Field>
         {f.data_sufficiency==='INSUFFICIENT'&&<Field label="Каких сведений не хватает" wide><Input value={f.missing_data_reason} onChange={e=>set('missing_data_reason',e.target.value)} placeholder="Например, не зафиксирована причина отказа"/></Field>}
-      </Section>
-      <Section number="2" title="Перспективность обращения" note="Оцениваем соответствие обращения услугам, а не «качество клиента»">
+      </Section>}
+      {step===2&&<Section number="2" title="Перспективность обращения" note="Оцениваем соответствие обращения услугам, а не «качество клиента»">
         <Field label="Перспективность"><Select value={f.lead_quality} onChange={v=>set('lead_quality',v)} options={[['HIGH','Высокая'],['MEDIUM','Средняя'],['LOW','Низкая'],['ECONOMICALLY_UNVIABLE','Экономически нецелесообразно'],['NOT_LEGALLY_SOLVABLE','Не решается юридически'],['UNKNOWN','Не определить']].map(x=>({value:x[0],label:x[1]}))}/></Field>
         <Field label="Коммерческий потенциал"><Select value={f.commercial_potential} onChange={v=>set('commercial_potential',v)} options={[['HIGH','Высокий'],['MEDIUM','Средний'],['LOW','Низкий'],['NONE','Отсутствует'],['UNKNOWN','Не определить']].map(x=>({value:x[0],label:x[1]}))}/></Field>
         <Field label="Соответствует услугам офиса"><Select value={f.service_fit} onChange={v=>set('service_fit',v)} options={YPN}/></Field>
         <Field label="Решается юридически"><Select value={f.legally_solvable} onChange={v=>set('legally_solvable',v)} options={YPN}/></Field>
-      </Section>
-      <Section number="3" title="Ход консультации" note="Наблюдаемые признаки процесса продажи">
+      </Section>}
+      {step===3&&<Section number="3" title="Ход консультации" note="Наблюдаемые признаки процесса продажи">
         <Field label="Потребность выявлена"><Select value={f.need_identified} onChange={v=>set('need_identified',v)} options={YPN}/></Field>
         <Field label="Лицо принимает решение"><Select value={f.decision_maker_identified} onChange={v=>set('decision_maker_identified',v)} options={[{value:'YES',label:'Да'},{value:'NO',label:'Нет'},{value:'NA',label:'Не применимо'},{value:'UNKNOWN',label:'Не определить'}]}/></Field>
         <Field label="Клиент понял решение"><Select value={f.solution_understood} onChange={v=>set('solution_understood',v)} options={YPN}/></Field>
         <Field label="Договор предложен"><Select value={f.offer_made} onChange={v=>set('offer_made',v)} options={YES_NO_UNKNOWN}/></Field>
         <Field label="Возражение выявлено"><Select value={f.objection_identified} onChange={v=>set('objection_identified',v)} options={[...YES_NO_UNKNOWN,{value:'NONE',label:'Не было'}]}/></Field>
         <Field label="Возражение отработано"><Select value={f.objection_processed} onChange={v=>set('objection_processed',v)} options={[...YPN,{value:'NONE',label:'Не было'}]}/></Field>
-      </Section>
-      <Section number="4" title="Итог и причина потери" note="Причина определяет основную категорию автоматически">
+      </Section>}
+      {step===4&&<Section number="4" title="Итог и причина потери" note="Причина определяет основную категорию автоматически">
         <Field label="Причина незаключения" wide><Select showSearch optionFilterProp="label" value={f.loss_reason} onChange={chooseReason} options={reasonOptions}/></Field>
         <Field label="Основная категория"><Select value={f.loss_category} onChange={v=>set('loss_category',v)} options={CATEGORIES}/></Field>
         <Field label="Следующий шаг"><Select value={f.next_step} onChange={v=>set('next_step',v)} options={[{value:'FOLLOW_UP',label:'Повторный контакт'},{value:'PROPOSAL_SENT',label:'Предложение отправлено'},{value:'CLIENT_DECLINED',label:'Клиент отказался'},{value:'NOT_FIXED',label:'Не зафиксирован'}]}/></Field>
@@ -97,7 +101,12 @@ const ConsultationAnalysisModal: React.FC<Props> = ({open,consultation,onClose,o
         <Field label="Уверенность"><InputNumber min={0} max={100} addonAfter="%" value={f.confidence_score} onChange={v=>set('confidence_score',v)} style={{width:'100%'}}/></Field>
         <Field label="Комментарий руководителя" wide><Input.TextArea rows={3} maxLength={1000} showCount value={f.manager_comment} onChange={e=>set('manager_comment',e.target.value)} placeholder="Нужен при ручном изменении категории или спорном выводе"/></Field>
         <div className="ca-result ca-field--wide"><span>Итог</span><Tag color={basisColor}>{CATEGORIES.find(x=>x.value===f.loss_category)?.label||f.loss_category}</Tag><small>{f.classification_basis==='HYPOTHESIS'?'Гипотеза, требует подтверждения':'Будет учтено в аналитике офиса'}</small></div>
-      </Section>
+      </Section>}
+      <div className="ca-step-actions">
+        <button type="button" disabled={step===1} onClick={()=>setStep(v=>Math.max(1,v-1))}>Назад</button>
+        <span>Шаг {step} из 4</span>
+        {step<4&&<button type="button" className="primary" onClick={()=>setStep(v=>Math.min(4,v+1))}>Далее</button>}
+      </div>
     </div>}
   </Modal>;
 };
