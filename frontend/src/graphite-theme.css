@@ -183,3 +183,10 @@ html[data-theme='dark'] body .tg-header-members,
 html[data-theme='dark'] body .tg-chat-error button {
   min-height: 32px !important;
 }
+html[data-theme='dark'] body .mobile-icon-rail .rail-btn.active {
+  background: oklch(24% 0.045 277) !important;
+  color: var(--preview-accent) !important;
+}
+html[data-theme='dark'] body .mobile-icon-rail .rail-btn.active .rail-label {
+  color: var(--preview-text) !important;
+}
