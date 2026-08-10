@@ -121,6 +121,7 @@ const Appointments: React.FC = () => {
   const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null as number | null, assigned_lawyer_id: null as number | null });
   const [appointmentSources, setAppointmentSources] = useState<Array<{ id: number; name: string; is_active: number }>>([]);
   const [creating, setCreating] = useState(false);
+  const [newErrors, setNewErrors] = useState<{ client_name?: string; client_phone?: string; source_id?: string }>({});
   const [showFilters, setShowFilters] = useState(false);
   const [editingText, setEditingText] = useState<{ id: number; field: 'comment' | 'manager_comment'; value: string } | null>(null);
   const [editingDateTime, setEditingDateTime] = useState<{ id: number; date: dayjs.Dayjs; time: dayjs.Dayjs } | null>(null);
@@ -196,8 +197,13 @@ const Appointments: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!newForm.client_name.trim()) { notification.warning({ message: 'Укажите ФИО клиента' }); return; }
-    if (!newForm.source_id) { notification.warning({ message: 'Выберите источник записи' }); return; }
+    const errors: { client_name?: string; client_phone?: string; source_id?: string } = {};
+    if (!newForm.client_name.trim()) errors.client_name = 'Укажите ФИО клиента';
+    const phoneDigits = newForm.client_phone.replace(/\D/g, '');
+    if (phoneDigits.length < 11) errors.client_phone = 'Укажите полный номер телефона';
+    if (!newForm.source_id) errors.source_id = 'Выберите источник записи';
+    setNewErrors(errors);
+    if (Object.keys(errors).length) { notification.warning({ message: 'Заполните обязательные поля' }); return; }
     const selectedSource = appointmentSources.find(source => source.id === newForm.source_id);
     setCreating(true);
     try {
@@ -215,8 +221,8 @@ const Appointments: React.FC = () => {
       setNewModal(false);
       setNewForm({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null, assigned_lawyer_id: null });
       fetchAppointments();
-    } catch {
-      notification.error({ message: 'Ошибка', description: 'Не удалось создать запись' });
+    } catch (e: any) {
+      notification.error({ message: 'Не удалось создать запись', description: e?.response?.data?.message || 'Проверьте данные и повторите попытку' });
     } finally {
       setCreating(false);
     }
@@ -513,7 +519,7 @@ const Appointments: React.FC = () => {
         </div>
         <div className="apt-header-right">
           {canManage && (
-            <button className="apt-new-btn" onClick={() => setNewModal(true)}>
+            <button className="apt-new-btn" onClick={() => { setNewErrors({}); setNewModal(true); }}>
               <PlusOutlined /> Новая запись
             </button>
           )}
@@ -646,7 +652,7 @@ const Appointments: React.FC = () => {
       <Modal
         title="Новая запись"
         open={newModal}
-        onCancel={() => setNewModal(false)}
+        onCancel={() => { setNewModal(false); setNewErrors({}); }}
         onOk={handleCreate}
         okText="Создать"
         cancelText="Отмена"
@@ -656,11 +662,13 @@ const Appointments: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 16 }}>
           <div>
             <div style={{ marginBottom: 4, fontWeight: 500 }}>ФИО клиента *</div>
-            <Input value={newForm.client_name} onChange={e => setNewForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Иванов Иван Иванович" />
+            <Input status={newErrors.client_name ? 'error' : undefined} autoFocus value={newForm.client_name} onChange={e => setNewForm(f => ({ ...f, client_name: e.target.value }))} placeholder="Иванов Иван Иванович" />
+            {newErrors.client_name && <div className="apt-field-error">{newErrors.client_name}</div>}
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontWeight: 500 }}>Телефон</div>
-            <Input value={newForm.client_phone} onChange={e => setNewForm(f => ({ ...f, client_phone: formatRussianPhone(e.target.value) }))} placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Телефон *</div>
+            <Input status={newErrors.client_phone ? 'error' : undefined} value={newForm.client_phone} onChange={e => setNewForm(f => ({ ...f, client_phone: formatRussianPhone(e.target.value) }))} placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
+            {newErrors.client_phone && <div className="apt-field-error">{newErrors.client_phone}</div>}
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>
@@ -677,8 +685,9 @@ const Appointments: React.FC = () => {
             <Input.TextArea value={newForm.comment} onChange={e => setNewForm(f => ({ ...f, comment: e.target.value }))} placeholder="Тема консультации" rows={3} autoSize={{ minRows: 2, maxRows: 6 }} />
           </div>
           <div>
-            <div style={{ marginBottom: 4, fontWeight: 500 }}>Источник</div>
+            <div style={{ marginBottom: 4, fontWeight: 500 }}>Источник *</div>
             <Select
+              status={newErrors.source_id ? 'error' : undefined}
               value={newForm.source_id ?? undefined}
               onChange={value => {
                 const selected = appointmentSources.find(source => source.id === value);
@@ -688,6 +697,7 @@ const Appointments: React.FC = () => {
               style={{ width: '100%' }}
               options={appointmentSources.filter(source => source.is_active).map(source => ({ value: source.id, label: source.name }))}
             />
+            {newErrors.source_id && <div className="apt-field-error">{newErrors.source_id}</div>}
           </div>
         </div>
       </Modal>

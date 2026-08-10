@@ -1000,3 +1000,5 @@
   background: #312e81;
   color: #a5b4fc;
 }
+
+.apt-field-error{margin-top:4px;color:#c33a2e;font-size:11.5px;line-height:1.35}
