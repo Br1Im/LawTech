@@ -49,8 +49,8 @@ export function OfficeAnalyticsTop({officeId, from, to}:{officeId:string|number;
       <div className="oa-kpis">
         <div><small>Конверсия в договор</small><strong>{data.kpi.conversion}%</strong><span className="oa-positive"><ArrowUpOutlined/> по пришедшим</span></div>
         <div><small>Не пришли на консультацию</small><strong>{data.kpi.no_show}</strong><span>{data.kpi.total_records ? Math.round(data.kpi.no_show/data.kpi.total_records*100):0}%</span></div>
-        <div><small>Средний чек</small><strong>{money(data.kpi.average_check)}</strong></div>
-        <div><small>Общая касса</small><strong>{money(data.kpi.contract_revenue)}</strong></div>
+        <div><small>Средний оплаченный чек</small><strong>{money(data.kpi.average_check)}</strong></div>
+        <div><small>Оплачено по договорам</small><strong>{money(data.kpi.contract_revenue)}</strong></div>
       </div>
     </div>
   </section>;

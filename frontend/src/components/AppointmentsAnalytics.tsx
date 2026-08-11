@@ -332,8 +332,8 @@ const AppointmentsAnalytics: React.FC = () => {
         <div className="aa-kpi-card aa-kpi-accent"><span className="aa-kpi-label">Заключено договоров</span><strong>{data.kpi.contracts_signed}</strong><small>из записей</small></div>
         <div className="aa-kpi-card"><span className="aa-kpi-label">Конверсия</span><strong>{data.kpi.conversion}%</strong><small>запись → договор</small></div>
         <div className="aa-kpi-card aa-kpi-warning"><span className="aa-kpi-label">Не пришли</span><strong>{data.kpi.no_show}</strong><small>неявка</small></div>
-        <div className="aa-kpi-card"><span className="aa-kpi-label">Средний чек</span><strong>{formatMoney(data.kpi.average_check)}</strong><small>на договор</small></div>
-        <div className="aa-kpi-card aa-kpi-revenue"><span className="aa-kpi-label">Выручка по договорам</span><strong>{formatMoney(data.kpi.contract_revenue)}</strong><small>за период</small></div>
+        <div className="aa-kpi-card"><span className="aa-kpi-label">Средний оплаченный чек</span><strong>{formatMoney(data.kpi.average_check)}</strong><small>на договор</small></div>
+        <div className="aa-kpi-card aa-kpi-revenue"><span className="aa-kpi-label">Оплачено по договорам</span><strong>{formatMoney(data.kpi.contract_revenue)}</strong><small>за период</small></div>
       </div>
 
       <div className="aa-two-col">

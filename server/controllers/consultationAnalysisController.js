@@ -66,8 +66,8 @@ const api={
           SUM(a.consultation_result='contract_signed' OR c.contracts>0)+SUM(CASE WHEN a.consultation_result='not_signed' AND ca.lead_quality IN ('HIGH','MEDIUM') THEN 1 ELSE 0 END) promising,
           SUM(c.revenue) revenue,COUNT(ca.id) analyzed,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient
           FROM appointments a LEFT JOIN users u ON u.id=a.assigned_lawyer_id LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
-          LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
-          WHERE a.office_id=? AND a.status='arrived' AND a.appointment_date BETWEEN ? AND ? GROUP BY a.assigned_lawyer_id,name ORDER BY promising DESC`,[oid,oid,from,to]);
+          LEFT JOIN (SELECT c.appointment_id,COUNT(DISTINCT c.id) contracts,COALESCE(SUM(CASE WHEN p.confirmed=1 AND p.payment_date BETWEEN ? AND ? THEN p.amount ELSE 0 END),0) revenue FROM contracts c LEFT JOIN contract_payments p ON p.contract_id=c.id WHERE c.office_id=? GROUP BY c.appointment_id)c ON c.appointment_id=a.id
+          WHERE a.office_id=? AND a.status='arrived' AND a.appointment_date BETWEEN ? AND ? GROUP BY a.assigned_lawyer_id,name ORDER BY promising DESC`,[from,to,oid,oid,from,to]);
         return res.json({success:true,data:rows.map(r=>{const analyzed=Number(r.analyzed||0);const promising=analyzed?Number(r.promising||0):null;return {...r,analyzed,promising,conversion_promising_pct:promising?Math.round(Number(r.contracts)*10000/promising)/100:null};})});
       }
       const [rows]=await db.query(`SELECT MIN(a.id) id,COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci name,
@@ -75,9 +75,9 @@ const api={
         SUM(a.consultation_result='contract_signed' OR c.contracts>0)+SUM(CASE WHEN a.consultation_result='not_signed' AND ca.lead_quality IN ('HIGH','MEDIUM') THEN 1 ELSE 0 END) promising,
         SUM(c.revenue) revenue,COUNT(ca.id) analyzed,SUM(ca.loss_category='SALES_PROCESS') sales_losses,SUM(ca.data_sufficiency='INSUFFICIENT') insufficient
         FROM appointments a LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
-        LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
-        WHERE a.office_id=? AND a.appointment_date BETWEEN ? AND ? GROUP BY COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci ORDER BY promising DESC`,[oid,oid,from,to]);
-      return res.json({success:true,data:rows.map(r=>{const analyzed=Number(r.analyzed||0);const promising=analyzed?Number(r.promising||0):null;return {...r,analyzed,promising,conversion_promising_pct:promising?Math.round(Number(r.contracts)*10000/promising)/100:null,average_check:Number(r.contracts)?Math.round(Number(r.revenue||0)/Number(r.contracts)):0};})});
+        LEFT JOIN (SELECT c.appointment_id,COUNT(DISTINCT c.id) contracts,COALESCE(SUM(CASE WHEN p.confirmed=1 AND p.payment_date BETWEEN ? AND ? THEN p.amount ELSE 0 END),0) revenue FROM contracts c LEFT JOIN contract_payments p ON p.contract_id=c.id WHERE c.office_id=? GROUP BY c.appointment_id)c ON c.appointment_id=a.id
+        WHERE a.office_id=? AND a.appointment_date BETWEEN ? AND ? GROUP BY COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci ORDER BY promising DESC`,[from,to,oid,oid,from,to]);
+      return res.json({success:true,data:rows.map(r=>{const analyzed=Number(r.analyzed||0);const promising=analyzed?Number(r.promising||0):null;return {...r,analyzed,promising,revenue_basis:'CONFIRMED_PAYMENTS',conversion_promising_pct:promising?Math.round(Number(r.contracts)*10000/promising)/100:null,average_check:Number(r.contracts)?Math.round(Number(r.revenue||0)/Number(r.contracts)):0};})});
     }catch(e){console.error(e);return bad(res,500,'Ошибка рейтинга');}
   },
   async getSettings(req,res){try{if(!manager(req.user))return bad(res,403,'Нет доступа');const [rows]=await db.query('SELECT * FROM consultation_analysis_settings WHERE office_id=?',[office(req.user)]);return res.json({success:true,data:rows[0]||{office_id:office(req.user),min_sample_size:20,coverage_warning_pct:70,revenue_method:'TOPIC_AVG'}});}catch(e){return bad(res,500,'Ошибка настроек');}},
