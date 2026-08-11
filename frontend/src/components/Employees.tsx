@@ -653,17 +653,17 @@ const StaffDetailModal = ({
                 {isGeneralDirector && staff.role !== 'director' && myOffices.length > 1 && (
                   <button className="btn-secondary" onClick={() => setShowMultiOffice(!showMultiOffice)}><FaBuilding /> Доступные офисы</button>
                 )}
-                {confirmDeactivate ? (
+                {staff.is_active === 0 && (confirmDeactivate ? (
                   <div className="delete-confirm">
-                    <span>{staff.is_active === 0 ? 'Активировать?' : 'Деактивировать?'}</span>
-                    <button className="btn-danger" onClick={handleToggleActive}>{staff.is_active === 0 ? 'Да, активировать' : 'Да, деактивировать'}</button>
+                    <span>Активировать?</span>
+                    <button className="btn-primary" onClick={handleToggleActive}>Да, активировать</button>
                     <button className="btn-secondary" onClick={() => setConfirmDeactivate(false)}>Отмена</button>
                   </div>
                 ) : (
-                  <button className={staff.is_active === 0 ? 'btn-primary' : 'btn-danger'} onClick={() => setConfirmDeactivate(true)}>
-                    {staff.is_active === 0 ? <><FaCheck /> Активировать</> : <><FaBan /> Деактивировать</>}
+                  <button className="btn-primary" onClick={() => setConfirmDeactivate(true)}>
+                    <FaCheck /> Активировать
                   </button>
-                )}
+                ))}
                 {canDismissEmp && !showDismissal && (
                   <button className="btn-danger" onClick={openDismissal}><FaBan /> Уволить и передать дела</button>
                 )}

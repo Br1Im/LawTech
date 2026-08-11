@@ -604,3 +604,50 @@
 .bal2 button { font-family: inherit; -webkit-appearance: none; appearance: none; }
 .bal2-navbtn, .bal2-export-btn, .bal2-btn-cancel, .bal2-modal-x { box-shadow: none; }
 .bal2-navbtn:focus-visible, .bal2-export-btn:focus-visible, .bal2-btn-cancel:focus-visible, .bal2-btn-ok:focus-visible, .bal2-pm-opt:focus-visible { outline: 3px solid rgba(79,70,229,.18); outline-offset: 2px; }
+
+
+/* Graphite dark mode: complete Balance surface map. */
+[data-theme='dark'] .bal2 {
+  --bal-ink: oklch(94% 0.007 270);
+  --bal-mut: oklch(75% 0.012 270);
+  --bal-line: oklch(30% 0.012 270);
+  --bal-bg: oklch(22.5% 0.011 270);
+  --bal-blue: oklch(72% 0.14 277);
+  --bal-violet: oklch(72% 0.13 300);
+  --bal-green: oklch(76% 0.14 155);
+  --bal-red: oklch(75% 0.14 25);
+  color: var(--bal-ink);
+}
+[data-theme='dark'] .bal2 :where(.bal2-card,.bal2-day,.bal2-empty,.bal2-drop,.bal2-modal) {
+  background: oklch(18.5% 0.009 270) !important;
+  border-color: var(--bal-line) !important;
+  color: var(--bal-ink) !important;
+  box-shadow: none !important;
+}
+[data-theme='dark'] .bal2 .bal2-card--total {
+  background: oklch(26% 0.07 277) !important;
+  border-color: oklch(42% 0.11 277) !important;
+}
+[data-theme='dark'] .bal2 .bal2-card--total :where(.bal2-card-label,.bal2-card-value,.bal2-card-delta,.pos,.neg) { color: oklch(94% 0.007 270) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-card-top,.bal2-card-value,.bal2-card-delta,.bal2-title,.bal2-day-head,.bal2-day-date,.bal2-op-title,.bal2-m .tot,.bal2-modal-title) { color: var(--bal-ink) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-card-label,.bal2-card-delta,.bal2-m i,.bal2-op-sub,.bal2-op-time,.bal2-col-h,.bal2-fld-b>span) { color: var(--bal-mut) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-card-ic--green,.bal2-col-ic.in,.bal2-pm-ic--green) { background: oklch(25% 0.055 155) !important; color: oklch(78% 0.14 155) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-card-ic--blue,.bal2-day-cal,.bal2-badge,.bal2-pm-ic--blue) { background: oklch(25% 0.055 277) !important; color: oklch(76% 0.13 277) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-card-ic--violet,.bal2-pm-ic--violet) { background: oklch(25% 0.05 300) !important; color: oklch(78% 0.12 300) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-col-ic.out) { background: oklch(25% 0.055 25) !important; color: oklch(78% 0.13 25) !important; }
+[data-theme='dark'] .bal2 :where(.bal2-navbtn,.bal2-periodlabel,.bal2-export-btn,.bal2-office,.bal2-btn-cancel,.bal2-modal-x,.bal2-op-ic,.bal2-op-pm,.bal2-fld-b input,.bal2-fld-b select,.bal2-pm-opt) {
+  background: oklch(22.5% 0.011 270) !important;
+  border-color: var(--bal-line) !important;
+  color: var(--bal-ink) !important;
+}
+[data-theme='dark'] .bal2 :where(.bal2-navbtn,.bal2-export-btn,.bal2-btn-cancel,.bal2-modal-x,.bal2-pm-opt):hover { background: oklch(26% 0.012 270) !important; border-color: oklch(40% 0.02 277) !important; }
+[data-theme='dark'] .bal2 .bal2-pm-opt.active { background: oklch(26% 0.055 277) !important; border-color: var(--bal-blue) !important; color: var(--bal-ink) !important; }
+[data-theme='dark'] .bal2 .bal2-act--transfer { background: oklch(25% 0.055 277) !important; border-color: oklch(42% 0.10 277) !important; color: oklch(78% 0.12 277) !important; }
+[data-theme='dark'] .bal2 .bal2-op { background: oklch(22.5% 0.011 270) !important; color: var(--bal-ink) !important; }
+[data-theme='dark'] .bal2 .bal2-op--transfer { background: oklch(23% 0.035 277) !important; }
+[data-theme='dark'] .bal2 .bal2-op-ic.transfer,
+[data-theme='dark'] .bal2 .bal2-col-ic.transfer { background: oklch(25% 0.055 277) !important; color: oklch(76% 0.13 277) !important; }
+[data-theme='dark'] .bal2 .bal2-drop-item { color: var(--bal-ink) !important; }
+[data-theme='dark'] .bal2 .bal2-drop-item:hover { background: oklch(26% 0.012 270) !important; }
+[data-theme='dark'] .bal2-modal-bg { background: oklch(8% 0.01 270 / 0.78) !important; backdrop-filter: none !important; }
+[data-theme='dark'] .bal2 .bal2-error { background: oklch(24% 0.055 25) !important; border-color: oklch(42% 0.10 25) !important; color: oklch(82% 0.10 25) !important; }

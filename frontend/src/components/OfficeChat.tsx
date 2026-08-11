@@ -71,7 +71,7 @@ const OfficeChat: React.FC = () => {
   const [candidates, setCandidates] = useState<ChatCandidate[]>([]);
   const [memberToAdd, setMemberToAdd] = useState<number | undefined>();
   const [savingChat, setSavingChat] = useState(false);
-  const [activeChannel, setActiveChannel] = useState<ChatChannel>('reception');
+  const [activeChannel, setActiveChannel] = useState<ChatChannel>('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -125,9 +125,19 @@ const OfficeChat: React.FC = () => {
       const next = preferred || activeChannel;
       if (result.channels.some(ch => ch.key === next)) setActiveChannel(next);
       else if (result.channels.length) setActiveChannel(result.channels[0].key);
-      else setActiveChannel('');
+      else {
+        setActiveChannel('');
+        setMessages([]);
+        setMessagesError('');
+        setParticipantsError('');
+        setLoadingMsgs(false);
+      }
     } catch {
       setChannels([]);
+      setActiveChannel('');
+      setMessages([]);
+      setMessagesError('');
+      setLoadingMsgs(false);
       setCanManageChat(false);
     }
   }, [selectedOfficeId, activeChannel]);
@@ -206,11 +216,19 @@ const OfficeChat: React.FC = () => {
   useEffect(() => {
     if (pollRef.current) clearInterval(pollRef.current);
     if (selectedOfficeId) {
-      setLoadingMsgs(true);
-      fetchMessages();
       fetchUnread();
-      fetchParticipants();
-      pollRef.current = setInterval(() => { fetchMessages(); fetchUnread(); }, POLL_INTERVAL);
+      if (activeChannel) {
+        setLoadingMsgs(true);
+        fetchMessages();
+        fetchParticipants();
+        pollRef.current = setInterval(() => { fetchMessages(); fetchUnread(); }, POLL_INTERVAL);
+      } else {
+        setMessages([]);
+        setMessagesError('');
+        setParticipants([]);
+        setParticipantsError('');
+        setLoadingMsgs(false);
+      }
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [selectedOfficeId, activeChannel, fetchMessages, fetchUnread, fetchParticipants]);
@@ -578,12 +596,12 @@ const OfficeChat: React.FC = () => {
         {/* Messages + Participants split */}
         <div className="tg-body">
           <div className="tg-messages" ref={msgContainerRef}>
-            {messagesError && <div className="tg-chat-error"><span>{messagesError}</span><button onClick={()=>fetchMessages()}>Повторить</button></div>}
+            {activeChannel && messagesError && <div className="tg-chat-error"><span>{messagesError}</span><button onClick={()=>fetchMessages()}>Повторить</button></div>}
             {hasMoreMessages && !loadingMsgs && <button className="tg-load-older" disabled={loadingOlder} onClick={loadOlderMessages}>{loadingOlder?'Загрузка…':'Показать ранние сообщения'}</button>}
             {!activeChannel ? (
               <div className="tg-chat-center tg-no-chat">
                 <div className="tg-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
-                <p>Выберите чат</p><span>Или создайте новый для нужной команды</span>
+                <p>Нет доступных чатов</p><span>Администратор добавит вас в нужный чат</span>
               </div>
             ) : loadingMsgs ? (
               <div className="tg-chat-center"><Spin /><p>Загрузка сообщений...</p></div>

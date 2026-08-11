@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import './Salary.css';
 import dayjs, { Dayjs } from 'dayjs';
 import {
   ReloadOutlined,
@@ -684,18 +685,24 @@ const Salary: React.FC = () => {
             </div>
             <div>
               <div style={{ marginBottom: 8, fontWeight: 600 }}>Откуда списать деньги</div>
-              <Select
-                autoFocus
-                placeholder="Выберите источник списания"
-                value={payDialog.paymentMethod}
-                onChange={(paymentMethod) => setPayDialog({ ...payDialog, paymentMethod })}
-                style={{ width: '100%' }}
-                options={[
+              <div className="salary-payment-methods" role="radiogroup" aria-label="Источник выплаты">
+                {[
                   { value: 'cash', label: 'Наличные' },
-                  { value: 'noncash', label: 'Безнал' },
+                  { value: 'noncash', label: 'Безналичные' },
                   { value: 'bank', label: 'Расчётный счёт' },
-                ]}
-              />
+                ].map((method) => (
+                  <button
+                    key={method.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={payDialog.paymentMethod === method.value}
+                    className={`salary-payment-method${payDialog.paymentMethod === method.value ? ' active' : ''}`}
+                    onClick={() => setPayDialog({ ...payDialog, paymentMethod: method.value })}
+                  >
+                    {method.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-muted)' }}>
               После подтверждения сумма спишется из выбранного остатка и появится расходом в Балансе.
