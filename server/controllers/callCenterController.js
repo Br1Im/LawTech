@@ -1405,8 +1405,9 @@ const callCenterController = {
 
       await connection.beginTransaction();
 
+      // Lock the lead so two concurrent clicks cannot create two appointments.
       const [leadRows] = await connection.query(
-        'SELECT * FROM call_center_leads WHERE id = ? AND office_id = ?',
+        'SELECT * FROM call_center_leads WHERE id = ? AND office_id = ? FOR UPDATE',
         [id, req.user.office_id]
       );
 
@@ -1416,6 +1417,24 @@ const callCenterController = {
       }
 
       const lead = leadRows[0];
+      const [[existingAppointment]] = await connection.query(
+        `SELECT id, office_id, appointment_date, appointment_time, status
+           FROM appointments
+          WHERE lead_id = ?
+          ORDER BY id ASC
+          LIMIT 1
+          FOR UPDATE`,
+        [lead.id]
+      );
+      if (existingAppointment) {
+        await connection.rollback();
+        return res.status(409).json({
+          success: false,
+          code: 'LEAD_ALREADY_BOOKED',
+          message: 'По этому лиду уже существует запись на консультацию',
+          data: { appointment: existingAppointment }
+        });
+      }
 
       // Получаем имя оператора
       const [userRows] = await connection.query(
