@@ -479,9 +479,6 @@ const OfficeChat: React.FC = () => {
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14"/></svg>
                 </button>
               )}
-              <button className="tg-sidebar-icon-btn" title="Поиск" aria-label="Поиск" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              </button>
             </div>
           </div>
           <div className="tg-channel-list">

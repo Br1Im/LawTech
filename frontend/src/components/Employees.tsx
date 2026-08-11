@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { FaUser, FaUserPlus, FaUserShield, FaKey, FaBan, FaCheck, FaCopy, FaExchangeAlt, FaBuilding } from "react-icons/fa";
 import { MdReplay, MdClose } from "react-icons/md";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
@@ -739,7 +740,7 @@ const CreateStaffModal = ({
   };
 
   if (createdCreds) {
-    return (
+    return createPortal(
       <div className="emp-modal-overlay" onClick={onClose}>
         <div className="emp-modal-card" onClick={(e) => e.stopPropagation()}>
           <button className="emp-modal-close" onClick={() => { onCreated(); onClose(); }}><MdClose size={22} /></button>
@@ -761,11 +762,12 @@ const CreateStaffModal = ({
             <button className="btn-primary" onClick={() => { onCreated(); onClose(); }}>Готово</button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div className="emp-modal-overlay" onClick={onClose}>
       <div className="emp-modal-card add-employee-card" onClick={(e) => e.stopPropagation()}>
         <button className="emp-modal-close" onClick={onClose}><MdClose size={22} /></button>
@@ -808,7 +810,8 @@ const CreateStaffModal = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

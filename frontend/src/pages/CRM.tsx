@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { Layout } from "antd";
-import { BellOutlined } from "@ant-design/icons";
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 const Office = React.lazy(() => import("../components/Office"));
@@ -362,24 +361,6 @@ const SRM = () => {
           unreadChatCount={unreadChatCount}
         />
         <Content className="lawtech-workspace" style={styles.content}>
-          {!isAdmin && (
-            <div className="lawtech-notification-bar" style={styles.notificationBar}>
-              <button
-                className="lawtech-notification-button"
-                onClick={handleNotificationClick}
-                title="Уведомления"
-                aria-label="Открыть уведомления"
-                style={styles.notificationButton}
-              >
-                <BellOutlined style={{ fontSize: 18, color: 'var(--brand-blue, var(--color-primary))' }} />
-                {notifications.filter((n) => !n.read).length > 0 && (
-                  <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: '#ef4444', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {notifications.filter((n) => !n.read).length}
-                  </span>
-                )}
-              </button>
-            </div>
-          )}
           <Suspense fallback={<div style={{padding:48,textAlign:"center",color:"var(--color-text-muted)"}}>Загрузка…</div>}>
             <div
               key={activeTab}

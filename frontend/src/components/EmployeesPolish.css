@@ -523,3 +523,25 @@
   gap: 8px;
   margin-top: 14px;
 }
+
+
+/* Keep employee dialogs in the document top layer, outside animated page containers. */
+body > .emp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  padding: 24px;
+  background: rgba(15, 17, 22, 0.64) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  isolation: isolate;
+  overflow-y: auto;
+}
+body > .emp-modal-overlay > .emp-modal-card {
+  margin: auto;
+  flex: 0 0 auto;
+}
+@media (max-width: 768px) {
+  body > .emp-modal-overlay { padding: 12px; }
+}
