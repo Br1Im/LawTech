@@ -2,6 +2,8 @@
  * Маршруты API для приложения
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const financeWriteLimiter = rateLimit({ windowMs:60*1000, limit:60, standardHeaders:'draft-7', legacyHeaders:false, message:{success:false,message:'Слишком много финансовых операций. Повторите позже.'} });
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
@@ -169,8 +171,8 @@ router.get('/shifts', authenticateToken, salaryController.listShifts);
 router.post('/shifts', authenticateToken, salaryController.createShift);
 router.delete('/shifts/:id', authenticateToken, salaryController.removeShift);
 router.get('/salary-payments', authenticateToken, salaryController.listSalaryPayments);
-router.post('/salary-payments', authenticateToken, salaryController.paySalary);
-router.post('/salary-payments/:id/cancel', authenticateToken, salaryController.cancelSalaryPayment);
+router.post('/salary-payments', authenticateToken, financeWriteLimiter, salaryController.paySalary);
+router.post('/salary-payments/:id/cancel', authenticateToken, financeWriteLimiter, salaryController.cancelSalaryPayment);
 
 // Акты по договору
 const actsController = require('../controllers/actsController');
@@ -222,7 +224,6 @@ router.get('/office/:officeId/plan', authenticateToken, officeDashboardControlle
 router.put('/office/:officeId/plan', authenticateToken, officeDashboardController.upsertPlan);
 
 // Роуты для чата
-const rateLimit = require('express-rate-limit');
 const chatReadLimiter = rateLimit({ windowMs:60*1000, limit:180, standardHeaders:'draft-7', legacyHeaders:false });
 const chatWriteLimiter = rateLimit({ windowMs:60*1000, limit:40, standardHeaders:'draft-7', legacyHeaders:false });
 
@@ -258,19 +259,20 @@ router.get('/office/:officeId/clients', authenticateToken, clientController.getA
 // Роуты для расходов офиса
 const expensesController = require('../controllers/expensesController');
 router.get('/office/:officeId/expenses-summary', authenticateToken, expensesController.getSummary);
-router.post('/expenses', authenticateToken, expensesController.createExpense);
-router.put('/expenses/:id', authenticateToken, expensesController.updateExpense);
-router.delete('/expenses/:id', authenticateToken, expensesController.deleteExpense);
+router.get('/expenses', authenticateToken, expensesController.listExpenses);
+router.post('/expenses', authenticateToken, financeWriteLimiter, expensesController.createExpense);
+router.put('/expenses/:id', authenticateToken, financeWriteLimiter, expensesController.updateExpense);
+router.delete('/expenses/:id', authenticateToken, financeWriteLimiter, expensesController.deleteExpense);
 
 // Роуты для «Баланс денежных средств»
 const balanceController = require('../controllers/balanceController');
 router.get('/office/:officeId/balance', authenticateToken, balanceController.getBalance);
 router.get('/office/:officeId/balance/opening', authenticateToken, balanceController.getOpening);
-router.put('/office/:officeId/balance/opening', authenticateToken, balanceController.setOpening);
+router.put('/office/:officeId/balance/opening', authenticateToken, financeWriteLimiter, balanceController.setOpening);
 router.get('/office/:officeId/balance/day', authenticateToken, balanceController.getDayDetail);
-router.post('/office/:officeId/income', authenticateToken, balanceController.createIncome);
-router.delete('/office/:officeId/income/:id', authenticateToken, balanceController.deleteIncome);
-router.post('/office/:officeId/transfers', authenticateToken, balanceController.createTransfer);
+router.post('/office/:officeId/income', authenticateToken, financeWriteLimiter, balanceController.createIncome);
+router.delete('/office/:officeId/income/:id', authenticateToken, financeWriteLimiter, balanceController.deleteIncome);
+router.post('/office/:officeId/transfers', authenticateToken, financeWriteLimiter, balanceController.createTransfer);
 
 // Роуты для приходов офиса
 router.get('/office/:officeId/arrivals', authenticateToken, (req, res) => {

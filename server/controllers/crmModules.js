@@ -91,68 +91,6 @@ const cases = {
   }
 };
 
-// ========== EXPENSES ==========
-const expenses = {
-  async list(req, res) {
-    try {
-      const officeId = req.params.officeId || req.user.office_id;
-      const [rows] = await db.query(
-        `SELECT e.*, CONCAT(u.first_name, ' ', u.last_name) AS created_by_name
-         FROM expenses e
-         LEFT JOIN users u ON u.id = e.created_by
-         WHERE e.office_id = ?
-         ORDER BY e.spent_on DESC, e.id DESC`,
-        [officeId]
-      );
-      return ok(res, rows);
-    } catch (e) { return bad(res, 500, 'Ошибка получения расходов', e); }
-  },
-  async create(req, res) {
-    try {
-      const officeId = await assertOffice(req.user);
-      const { category, amount, title, description, spent_on, expense_type } = req.body;
-      if (!title || amount == null || !spent_on) return bad(res, 400, 'Нужно: title, amount, spent_on');
-      const [r] = await db.query(
-        `INSERT INTO expenses (office_id, category, amount, expense_type, is_auto, title, description, spent_on, created_by)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)`,
-        [officeId, category || 'Прочее', amount, expense_type || 'Разовый', title, description || null, spent_on, req.user.id]
-      );
-      const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [r.insertId]);
-      return ok(res, row);
-    } catch (e) { return bad(res, e.statusCode || 500, e.message || 'Ошибка создания расхода', e); }
-  },
-  async update(req, res) {
-    try {
-      const { id } = req.params;
-      const fields = ['category','amount','title','description','spent_on','expense_type'];
-      const updates = fields.filter(f => req.body[f] !== undefined);
-      if (updates.length === 0) return bad(res, 400, 'Нет полей для обновления');
-      const setSql = updates.map(f => `${f} = ?`).join(', ');
-      const values = updates.map(f => req.body[f]);
-      await db.query(`UPDATE expenses SET ${setSql} WHERE id = ?`, [...values, id]);
-      const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [id]);
-      return ok(res, row);
-    } catch (e) { return bad(res, 500, 'Ошибка обновления расхода', e); }
-  },
-  async remove(req, res) {
-    try {
-      await db.query('DELETE FROM expenses WHERE id = ?', [req.params.id]);
-      return ok(res, { id: req.params.id });
-    } catch (e) { return bad(res, 500, 'Ошибка удаления расхода', e); }
-  },
-  async summary(req, res) {
-    try {
-      const officeId = req.params.officeId || req.user.office_id;
-      const [[row]] = await db.query(
-        `SELECT COUNT(*) AS count, COALESCE(SUM(amount),0) AS total_amount
-         FROM expenses WHERE office_id = ?`,
-        [officeId]
-      );
-      return ok(res, row);
-    } catch (e) { return bad(res, 500, 'Ошибка сводки расходов', e); }
-  }
-};
-
 // ========== ARRIVALS (приходы/income) ==========
 const arrivals = {
   async list(req, res) {
@@ -402,4 +340,4 @@ const joinRequests = {
   }
 };
 
-module.exports = { cases, expenses, arrivals, materials, employees, joinRequests };
+module.exports = { cases, arrivals, materials, employees, joinRequests };

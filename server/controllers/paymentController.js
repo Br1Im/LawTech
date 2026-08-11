@@ -1,6 +1,7 @@
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
 const { canAccessContract } = require('../utils/contractAccess');
+const { dateOnly, claimIdempotency, audit } = require('../utils/financeSecurity');
 
 const PAYMENT_METHODS = new Set(['cash', 'noncash', 'bank', 'sbp']);
 const PAYMENT_ROLES = new Set(['admin', 'administrator', 'director', 'manager', 'okk']);
@@ -120,10 +121,11 @@ async function addPayment(req, res) {
 
   const amount = roundMoney(req.body.amount);
   const paymentMethod = String(req.body.payment_method || '');
-  const paymentDate = req.body.payment_date || new Date().toISOString().slice(0, 10);
+  const paymentDate=dateOnly(req.body.payment_date||new Date().toISOString().slice(0,10));
   if (!Number.isFinite(amount) || amount <= 0) {
     return res.status(400).json({ success: false, message: 'Сумма каждого платежа должна быть больше 0.' });
   }
+  if(!paymentDate) return res.status(400).json({success:false,message:'Некорректная дата платежа'});
   if (!PAYMENT_METHODS.has(paymentMethod)) {
     return res.status(400).json({ success: false, message: 'Выберите корректный способ оплаты.' });
   }
@@ -131,6 +133,7 @@ async function addPayment(req, res) {
   const connection = await db.getClient();
   try {
     await connection.beginTransaction();
+    await claimIdempotency(connection,req,'contract:payment',Number(req.user.office_id)||null);
     const access = await getAccessibleContract(req, connection, true);
     if (access.error) {
       await connection.rollback();
@@ -176,6 +179,7 @@ async function addPayment(req, res) {
 
     const totalPaid = await syncPaidAmount(connection, contract.id);
     await createCashRegisterEntry(connection, contract, payment, req.user.id);
+    await audit(connection,req,'create','contract_payment',result.insertId,contract.office_id,amount,{contract_id:contract.id,payment_method:paymentMethod,payment_date:paymentDate});
     await connection.commit();
     res.status(201).json({
       success: true,
@@ -189,7 +193,7 @@ async function addPayment(req, res) {
   } catch (error) {
     try { await connection.rollback(); } catch (_) {}
     console.error('Error adding payment:', error);
-    res.status(500).json({ success: false, message: 'Ошибка при добавлении оплаты' });
+    res.status(error.statusCode||500).json({ success:false,message:error.message||'Ошибка при добавлении оплаты' });
   } finally {
     connection.release();
   }
@@ -248,6 +252,7 @@ async function confirmPayment(req, res) {
     );
     await syncPaidAmount(connection, contract.id);
     await createCashRegisterEntry(connection, contract, payment, req.user.id);
+    await audit(connection,req,'confirm','contract_payment',payment.id,contract.office_id,payment.amount,{contract_id:contract.id});
     await connection.commit();
     res.json({ success: true, message: 'Платёж подтверждён и учтён в балансе' });
   } catch (error) {

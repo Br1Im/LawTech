@@ -1,5 +1,8 @@
 import { apiInstance } from './instance';
 
+const financeRequestKey = () => globalThis.crypto?.randomUUID?.() || `fin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const financeConfig = () => ({ headers: { 'Idempotency-Key': financeRequestKey() } });
+
 export interface CrmClient {
   id: number;
   name: string;
@@ -112,7 +115,7 @@ export const casesApi = {
 // EXPENSES
 export const expensesApi = {
   list: () => unwrap<CrmExpense[]>(apiInstance.get('/expenses')),
-  create: (payload: Partial<CrmExpense>) => unwrap<CrmExpense>(apiInstance.post('/expenses', payload)),
+  create: (payload: Partial<CrmExpense>) => unwrap<CrmExpense>(apiInstance.post('/expenses', payload, financeConfig())),
   update: (id: number, payload: Partial<CrmExpense>) => unwrap<CrmExpense>(apiInstance.put(`/expenses/${id}`, payload)),
   remove: (id: number) => unwrap<{ id: number }>(apiInstance.delete(`/expenses/${id}`)),
 };
@@ -388,7 +391,7 @@ export const salaryApi = {
   listPayments: (params: { office_id?: number; date_from?: string; date_to?: string; employee_id?: number }) =>
     unwrap<SalaryPayment[]>(apiInstance.get('/salary-payments', { params })),
   pay: (payload: { office_id: number; employee_id: number; period_from: string; period_to: string; payment_method: 'cash' | 'noncash' | 'bank' }) =>
-    unwrap<SalaryPayment>(apiInstance.post('/salary-payments', payload)),
+    unwrap<SalaryPayment>(apiInstance.post('/salary-payments', payload, financeConfig())),
   cancelPayment: (id: number, reason: string) =>
     unwrap<{ id: number; status: 'cancelled'; reversal_income_id: number }>(apiInstance.post(`/salary-payments/${id}/cancel`, { reason })),
 };

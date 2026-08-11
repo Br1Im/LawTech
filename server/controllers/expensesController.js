@@ -11,6 +11,7 @@
  */
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { canReadFinance, requireOfficeWrite, money, dateOnly, audit, claimIdempotency, availableBalance, BUCKETS } = require('../utils/financeSecurity');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -26,6 +27,7 @@ const CATEGORIES = [
 // ─── GET /api/office/:officeId/expenses-summary ───
 const getSummary = async (req, res) => {
   try {
+    if(!canReadFinance(req.user)) return bad(res,403,'Нет доступа к расходам');
     const officeId = Number(req.params.officeId);
     if (!officeId) return bad(res, 400, 'Не указан офис');
     const allowed = await checkOfficeAccess(req.user, officeId);
@@ -110,86 +112,57 @@ const getSummary = async (req, res) => {
   }
 };
 
+
+const listExpenses = async (req, res) => {
+  try {
+    if (!canReadFinance(req.user)) return bad(res,403,'Нет доступа к расходам');
+    const officeId=Number(req.query.office_id||req.user.office_id);
+    if (!officeId || !await checkOfficeAccess(req.user,officeId)) return bad(res,403,'Нет доступа к офису');
+    const [rows]=await db.query('SELECT * FROM expenses WHERE office_id=? ORDER BY spent_on DESC,id DESC',[officeId]);
+    return ok(res,rows);
+  } catch(e){ return bad(res,500,'Ошибка получения расходов',e); }
+};
+
 // ─── POST /api/expenses ───
 const createExpense = async (req, res) => {
   try {
-    const { office_id, category, amount, title, description, spent_on, expense_type, payment_method } = req.body;
-    if (!office_id || !title || amount === undefined) {
-      return bad(res, 400, 'Обязательные поля: office_id, title, amount');
-    }
-    const pm = ['cash', 'noncash', 'bank'].includes(payment_method) ? payment_method : 'cash';
-
-    const [result] = await db.query(
-      `INSERT INTO expenses (office_id, category, amount, expense_type, is_auto, title, description, spent_on, created_by, payment_method)
-       VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
-      [
-        office_id,
-        category || 'Прочее',
-        Number(amount) || 0,
-        expense_type || 'Разовый',
-        title,
-        description || null,
-        spent_on || new Date().toISOString().slice(0, 10),
-        req.user.id || null,
-        pm,
-      ]
-    );
-
-    const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [result.insertId]);
-    return ok(res, row);
-  } catch (e) {
-    return bad(res, 500, 'Ошибка создания расхода', e);
-  }
+    const officeId=Number(req.body.office_id); if (!await requireOfficeWrite(req,res,officeId)) return;
+    const amount=money(req.body.amount); if (amount===null) return bad(res,400,'Сумма должна быть больше нуля');
+    const spentOn=dateOnly(req.body.spent_on||new Date().toISOString().slice(0,10)); if(!spentOn) return bad(res,400,'Некорректная дата');
+    if(!req.body.title || String(req.body.title).trim().length>255) return bad(res,400,'Укажите корректное название');
+    if(!BUCKETS.has(req.body.payment_method)) return bad(res,400,'Некорректный источник средств');
+    const connection=await db.getClient(); try { await connection.beginTransaction();
+      await connection.query('SELECT id FROM offices WHERE id=? FOR UPDATE',[officeId]);
+      await claimIdempotency(connection,req,'expense:create',officeId);
+      const available=await availableBalance(connection,officeId,req.body.payment_method,spentOn);
+      if(available+0.000001<amount){await connection.rollback();return bad(res,400,'Недостаточно средств в выбранном источнике');}
+      const [r]=await connection.query(`INSERT INTO expenses (office_id,category,amount,expense_type,is_auto,title,description,spent_on,created_by,payment_method) VALUES (?,?,?,?,0,?,?,?,?,?)`,[officeId,req.body.category||'Прочее',amount,req.body.expense_type||'Разовый',String(req.body.title).trim(),req.body.description||null,spentOn,req.user.id||null,req.body.payment_method]);
+      await audit(connection,req,'create','expense',r.insertId,officeId,amount,{payment_method:req.body.payment_method}); await connection.commit();
+      const [[row]]=await db.query('SELECT * FROM expenses WHERE id=?',[r.insertId]); return ok(res,row);
+    } catch(e){try{await connection.rollback()}catch(_){} throw e} finally{connection.release()}
+  } catch(e){return bad(res,e.statusCode||500,e.message||'Ошибка создания расхода',e)}
 };
 
 // ─── PUT /api/expenses/:id ───
-const updateExpense = async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const [[protectedExpense]] = await db.query('SELECT source_type FROM expenses WHERE id=?',[id]);
-    if (protectedExpense && protectedExpense.source_type === 'salary_payment') {
-      return bad(res,409,'Выплаты зарплаты изменяются только через безопасную отмену');
-    }
-    const { category, amount, title, description, spent_on, expense_type, payment_method } = req.body;
-
-    const updates = [];
-    const params = [];
-    if (category !== undefined) { updates.push('category = ?'); params.push(category); }
-    if (amount !== undefined) { updates.push('amount = ?'); params.push(Number(amount)); }
-    if (title !== undefined) { updates.push('title = ?'); params.push(title); }
-    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (spent_on !== undefined) { updates.push('spent_on = ?'); params.push(spent_on); }
-    if (expense_type !== undefined) { updates.push('expense_type = ?'); params.push(expense_type); }
-    if (payment_method !== undefined && ['cash', 'noncash', 'bank'].includes(payment_method)) { updates.push('payment_method = ?'); params.push(payment_method); }
-
-    if (!updates.length) return bad(res, 400, 'Нет полей для обновления');
-
-    params.push(id);
-    await db.query(`UPDATE expenses SET ${updates.join(', ')} WHERE id = ?`, params);
-
-    const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [id]);
-    return ok(res, row);
-  } catch (e) {
-    return bad(res, 500, 'Ошибка обновления расхода', e);
-  }
+const updateExpense = async (req,res)=>{
+  try { const id=Number(req.params.id); const [[row]]=await db.query('SELECT * FROM expenses WHERE id=?',[id]);
+    if(!row) return bad(res,404,'Расход не найден'); if(!await requireOfficeWrite(req,res,row.office_id)) return;
+    if(row.source_type) return bad(res,409,'Автоматическую финансовую запись нельзя редактировать');
+    const fields=[],params=[];
+    if(req.body.amount!==undefined){const v=money(req.body.amount);if(v===null)return bad(res,400,'Сумма должна быть больше нуля');fields.push('amount=?');params.push(v)}
+    if(req.body.payment_method!==undefined){if(!BUCKETS.has(req.body.payment_method))return bad(res,400,'Некорректный источник');fields.push('payment_method=?');params.push(req.body.payment_method)}
+    if(req.body.spent_on!==undefined){const d=dateOnly(req.body.spent_on);if(!d)return bad(res,400,'Некорректная дата');fields.push('spent_on=?');params.push(d)}
+    for(const f of ['category','title','description','expense_type'])if(req.body[f]!==undefined){fields.push(`${f}=?`);params.push(req.body[f])}
+    if(!fields.length)return bad(res,400,'Нет полей для обновления'); const c=await db.getClient();try{await c.beginTransaction();await c.query('SELECT id FROM offices WHERE id=? FOR UPDATE',[row.office_id]);
+    const newAmount=req.body.amount!==undefined?money(req.body.amount):Number(row.amount),newMethod=req.body.payment_method||row.payment_method,newDate=req.body.spent_on?dateOnly(req.body.spent_on):new Date(row.spent_on).toISOString().slice(0,10);
+    let available=await availableBalance(c,row.office_id,newMethod,newDate);if(newMethod===row.payment_method&&new Date(row.spent_on).toISOString().slice(0,10)<=newDate)available+=Number(row.amount);if(available+0.000001<newAmount){await c.rollback();return bad(res,400,'Недостаточно средств в выбранном источнике');}
+    await c.query(`UPDATE expenses SET ${fields.join(',')} WHERE id=? AND office_id=?`,[...params,id,row.office_id]);await audit(c,req,'update','expense',id,row.office_id,req.body.amount??row.amount,{before:row});await c.commit()}catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()};const [[fresh]]=await db.query('SELECT * FROM expenses WHERE id=?',[id]);return ok(res,fresh)
+  }catch(e){return bad(res,500,'Ошибка обновления расхода',e)}
 };
 
 // ─── DELETE /api/expenses/:id ───
-const deleteExpense = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [[row]] = await db.query('SELECT * FROM expenses WHERE id = ?', [id]);
-    if (!row) return res.status(404).json({ success: false, message: 'Расход не найден' });
-    if (row.source_type === 'salary_payment') {
-      return res.status(409).json({ success: false, message: 'Выплату зарплаты нельзя удалить в Балансе. Используйте безопасную отмену во вкладке Зарплата.' });
-    }
-    if (!await checkOfficeAccess(req.user, row.office_id)) return res.status(403).json({ success: false, message: 'Нет доступа' });
-    await db.query('DELETE FROM expenses WHERE id = ?', [id]);
-    return res.json({ success: true, data: { id: Number(id) } });
-  } catch (error) {
-    console.error('Error deleting expense:', error);
-    return res.status(500).json({ success: false, message: 'Ошибка удаления расхода' });
-  }
+const deleteExpense = async (req,res)=>{
+ try{const id=Number(req.params.id);const [[row]]=await db.query('SELECT * FROM expenses WHERE id=?',[id]);if(!row)return bad(res,404,'Расход не найден');if(!await requireOfficeWrite(req,res,row.office_id))return;if(row.source_type)return bad(res,409,'Автоматическую финансовую запись нельзя удалить');const c=await db.getClient();try{await c.beginTransaction();await c.query('DELETE FROM expenses WHERE id=? AND office_id=?',[id,row.office_id]);await audit(c,req,'delete','expense',id,row.office_id,row.amount,{deleted:row});await c.commit()}catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()};return ok(res,{id})}catch(e){return bad(res,500,'Ошибка удаления расхода',e)}
 };
 
 /**
@@ -230,6 +203,7 @@ async function createAutoExpense({ office_id, category, title, amount, descripti
 }
 
 module.exports = {
+  listExpenses,
   getSummary,
   createExpense,
   updateExpense,

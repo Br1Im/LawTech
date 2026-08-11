@@ -20,6 +20,7 @@ const db = require('../db');
 const { checkOfficeAccess, getUserOfficeIds } = require('../utils/ensureOffice');
 const { employeeIdForUser } = require('../utils/employeeIdentity');
 const { resolveRollingWindow, todayIsoInTz } = require('../utils/planPeriod');
+const { money, nonNegativeMoney, availableBalance, claimIdempotency, audit } = require('../utils/financeSecurity');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -153,18 +154,19 @@ const updateSettings = async (req, res) => {
     const params = [];
     for (const f of fields) {
       if (req.body[f] !== undefined) {
+        const value=Number(req.body[f]);
+        const isPercent=f.includes('percent');
+        if(!Number.isFinite(value)||value<0||(isPercent&&value>100)||(!isPercent&&value>1000000000000)) return bad(res,400,`Некорректное значение ${f}`);
         updates.push(`${f} = ?`);
-        params.push(Number(req.body[f]));
+        params.push(value);
       }
     }
     if (updates.length) {
       updates.push('updated_by = ?');
       params.push(req.user.id || null);
       params.push(officeId);
-      await db.query(
-        `UPDATE office_salary_settings SET ${updates.join(', ')} WHERE office_id = ?`,
-        params
-      );
+      const c=await db.getClient();
+      try{await c.beginTransaction();await c.query(`UPDATE office_salary_settings SET ${updates.join(', ')} WHERE office_id = ?`,params);await audit(c,req,'update','salary_settings',officeId,officeId,null,{fields:req.body});await c.commit()}catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()}
     }
     const [[row]] = await db.query('SELECT * FROM office_salary_settings WHERE office_id = ?', [
       officeId,
@@ -181,6 +183,9 @@ const getEmployeeSalary = async (req, res) => {
     const empId = Number(req.params.id);
     const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.id WHERE e.id = ?', [empId]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
+    const viewerRole=String(req.user.role||'').toLowerCase();
+    const ownEmployeeId=await employeeIdForUser(req.user.id);
+    if (!['admin','administrator','director','manager','okk'].includes(viewerRole) && Number(ownEmployeeId)!==empId) return bad(res,403,'Можно просматривать только свой оклад');
     if (emp.office_id) {
       const allowedEmp = await checkOfficeAccess(req.user, emp.office_id);
       if (!allowedEmp) return bad(res, 403, 'Чужой офис');
@@ -216,7 +221,14 @@ const upsertEmployeeSalary = async (req, res) => {
       if (!allowedUpsert) return bad(res, 403, 'Чужой офис');
     }
     const { base_salary, custom_percent, custom_shift_rate, custom_per_doc } = req.body;
-    await db.query(
+    const base=nonNegativeMoney(base_salary);
+    const percent=custom_percent===null||custom_percent===''||custom_percent===undefined?null:Number(custom_percent);
+    const shift=custom_shift_rate===null||custom_shift_rate===''||custom_shift_rate===undefined?null:nonNegativeMoney(custom_shift_rate);
+    const perDoc=custom_per_doc===null||custom_per_doc===''||custom_per_doc===undefined?null:nonNegativeMoney(custom_per_doc);
+    if(base===null || (percent!==null&&(!Number.isFinite(percent)||percent<0||percent>100)) || shift===null && custom_shift_rate!==null&&custom_shift_rate!==''&&custom_shift_rate!==undefined || perDoc===null && custom_per_doc!==null&&custom_per_doc!==''&&custom_per_doc!==undefined) return bad(res,400,'Некорректные параметры оклада');
+    const c=await db.getClient();
+    try{await c.beginTransaction();
+      await c.query(
       `INSERT INTO employee_salaries (employee_id, base_salary, custom_percent, custom_shift_rate, custom_per_doc, updated_by)
          VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
@@ -225,15 +237,11 @@ const upsertEmployeeSalary = async (req, res) => {
          custom_shift_rate = VALUES(custom_shift_rate),
          custom_per_doc = VALUES(custom_per_doc),
          updated_by = VALUES(updated_by)`,
-      [
-        empId,
-        Number(base_salary) || 0,
-        custom_percent === null || custom_percent === '' || custom_percent === undefined ? null : Number(custom_percent),
-        custom_shift_rate === null || custom_shift_rate === '' || custom_shift_rate === undefined ? null : Number(custom_shift_rate),
-        custom_per_doc === null || custom_per_doc === '' || custom_per_doc === undefined ? null : Number(custom_per_doc),
-        req.user.id || null,
-      ]
-    );
+      [empId,base,percent,shift,perDoc,req.user.id||null]
+      );
+      await audit(c,req,'update','employee_salary',empId,emp.office_id,base,{custom_percent:percent,custom_shift_rate:shift,custom_per_doc:perDoc});
+      await c.commit();
+    }catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()}
     const [[row]] = await db.query('SELECT * FROM employee_salaries WHERE employee_id = ?', [empId]);
     return ok(res, row);
   } catch (e) {
@@ -807,10 +815,15 @@ const paySalary = async (req, res) => {
   const calculated = await calculatePayload(req, { office_id: officeId, date_from: periodFrom, date_to: periodTo });
   const row = (calculated.rows || []).find(item => Number(item.employee_id) === employeeId);
   if (!row || Number(row.total || 0) <= 0) return bad(res, 400, 'Нет начисления для выплаты');
-  const amount = Math.round(Number(row.total) * 100) / 100;
+  const amount=money(row.total);
+  if(amount===null) return bad(res,400,'Некорректная сумма выплаты');
   const connection = await db.getClient();
   try {
     await connection.beginTransaction();
+    await claimIdempotency(connection,req,'salary:pay',officeId);
+    await connection.query('SELECT id FROM offices WHERE id=? FOR UPDATE',[officeId]);
+    const available=await availableBalance(connection,officeId,paymentMethod,new Date().toISOString().slice(0,10));
+    if(available+0.000001<amount){await connection.rollback();return bad(res,400,'Недостаточно средств в выбранном источнике');}
     const [existing] = await connection.query(
       `SELECT id FROM salary_payments WHERE office_id=? AND employee_id=?
         AND period_from=? AND period_to=? AND status='paid' AND active_flag=1 FOR UPDATE`,
@@ -839,11 +852,13 @@ const paySalary = async (req, res) => {
        `Период ${periodFrom} — ${periodTo}. Оклад ${row.base_salary}; бонус ${row.bonus}.`,req.user.id]
     );
     await connection.query('UPDATE salary_payments SET expense_id=? WHERE id=?',[expenseResult.insertId,paymentId]);
+    await audit(connection,req,'pay','salary_payment',paymentId,officeId,amount,{employee_id:employeeId,period_from:periodFrom,period_to:periodTo,payment_method:paymentMethod,expense_id:expenseResult.insertId});
     await connection.commit();
     return res.status(201).json({ success:true, data:{ id:paymentId, amount, payment_method:paymentMethod, status:'paid' } });
   } catch (e) {
     try { await connection.rollback(); } catch (_) {}
-    return bad(res, 500, 'Ошибка выплаты зарплаты', e);
+    if(e && e.code==='ER_DUP_ENTRY') return bad(res,409,'Зарплата этому сотруднику за период уже выплачена');
+    return bad(res,e.statusCode||500,e.message||'Ошибка выплаты зарплаты',e);
   } finally { connection.release(); }
 };
 
@@ -870,6 +885,7 @@ const cancelSalaryPayment = async (req, res) => {
        cancellation_reason=?,reversal_income_id=? WHERE id=?`,
       [req.user.id,reason,reversalId,payment.id]
     );
+    await audit(connection,req,'cancel','salary_payment',payment.id,payment.office_id,payment.amount,{reason,reversal_income_id:reversalId});
     await connection.commit();
     return ok(res,{ id:payment.id,status:'cancelled',reversal_income_id:reversalId });
   } catch (e) {

@@ -1,4 +1,6 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const contractPaymentLimiter=rateLimit({windowMs:60*1000,limit:30,standardHeaders:'draft-7',legacyHeaders:false,message:{success:false,message:'Слишком много платёжных операций. Повторите позже.'}});
 const router = express.Router();
 const contractController = require('../controllers/contractController');
 const paymentController = require('../controllers/paymentController');
@@ -165,9 +167,9 @@ router.delete('/:id', contractController.deleteContract);
 
 // Платежи по договору
 router.get('/:id/payments', paymentController.getPayments);
-router.post('/:id/payments', paymentController.addPayment);
-router.patch('/:id/payments/:paymentId/confirm', paymentController.confirmPayment);
-router.delete('/:id/payments/:paymentId', paymentController.deletePayment);
+router.post('/:id/payments', contractPaymentLimiter, paymentController.addPayment);
+router.patch('/:id/payments/:paymentId/confirm', contractPaymentLimiter, paymentController.confirmPayment);
+router.delete('/:id/payments/:paymentId', contractPaymentLimiter, paymentController.deletePayment);
 
 // Цепочка документов: эксперт Ожидание ↔ Готово; руководство Готово → Исполнено.
 router.patch('/:id/docs-status', async (req, res) => {

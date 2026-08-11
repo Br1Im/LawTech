@@ -263,7 +263,7 @@ const Clients: React.FC<ClientsProps> = () => {
         payment_date: paymentFormData.date.format('YYYY-MM-DD'),
         payment_method: paymentFormData.method,
         comment: paymentFormData.comment || null,
-      });
+      }, { headers: { 'Idempotency-Key': globalThis.crypto?.randomUUID?.() || `fin-${Date.now()}-${Math.random().toString(36).slice(2)}` } });
       message.success('Оплата добавлена и учтена в балансе');
       setShowPaymentForm(false);
       setPaymentFormData({ amount: null, date: dayjs(), method: 'cash', comment: '' });

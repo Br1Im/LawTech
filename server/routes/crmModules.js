@@ -16,12 +16,6 @@ router.put('/cases/:id', c.cases.update);
 router.delete('/cases/:id', c.cases.remove);
 
 // EXPENSES
-router.get('/office/:officeId/expenses', c.expenses.list);
-router.get('/office/:officeId/expenses/summary', c.expenses.summary);
-router.get('/expenses', c.expenses.list);
-router.post('/expenses', c.expenses.create);
-router.put('/expenses/:id', c.expenses.update);
-router.delete('/expenses/:id', c.expenses.remove);
 
 // ARRIVALS
 router.get('/office/:officeId/arrivals', c.arrivals.list);

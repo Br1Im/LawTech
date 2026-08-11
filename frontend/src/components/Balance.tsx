@@ -27,6 +27,8 @@ interface PeriodInfo {
   duration_days?: number | null;
 }
 
+const financeRequestKey = () => globalThis.crypto?.randomUUID?.() || `fin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 interface BalanceData {
   office_id: number;
   has_opening: boolean;
@@ -197,7 +199,7 @@ const Balance: React.FC = () => {
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl(`/office/${selectedOfficeId}/income`), {
-        method: 'POST', headers: getAuthHeaders(),
+        method: 'POST', headers: { ...getAuthHeaders(), 'Idempotency-Key': financeRequestKey() },
         body: JSON.stringify({
           amount: Number(incomeForm.amount), payment_method: incomeForm.payment_method,
           income_date: todayStr(), title: incomeForm.comment.trim() || 'Поступление',
@@ -218,7 +220,7 @@ const Balance: React.FC = () => {
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl('/expenses'), {
-        method: 'POST', headers: getAuthHeaders(),
+        method: 'POST', headers: { ...getAuthHeaders(), 'Idempotency-Key': financeRequestKey() },
         body: JSON.stringify({
           office_id: Number(selectedOfficeId), amount: Number(expenseForm.amount),
           payment_method: expenseForm.payment_method, spent_on: todayStr(),
@@ -241,7 +243,7 @@ const Balance: React.FC = () => {
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl(`/office/${selectedOfficeId}/transfers`), {
-        method: 'POST', headers: getAuthHeaders(),
+        method: 'POST', headers: { ...getAuthHeaders(), 'Idempotency-Key': financeRequestKey() },
         body: JSON.stringify({
           source: transferForm.source, destination: transferForm.destination,
           amount: Number(transferForm.amount), transfer_date: transferForm.transfer_date,

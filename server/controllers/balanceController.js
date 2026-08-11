@@ -20,6 +20,7 @@
 const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
 const { resolveRollingWindow } = require('../utils/planPeriod');
+const { requireOfficeWrite, money, nonNegativeMoney, dateOnly, claimIdempotency, availableBalance, audit } = require('../utils/financeSecurity');
 
 const ok = (res, data) => res.json({ success: true, data });
 const bad = (res, code, message, err) => {
@@ -86,18 +87,15 @@ const setOpening = async (req, res) => {
     if (!COMPOSITION_ROLES.includes(req.user.role)) {
       return bad(res, 403, 'Стартовый остаток может задавать Директор / Менеджер / ОКК');
     }
-    const { start_date, cash, noncash, bank } = req.body;
-    if (!start_date) return bad(res, 400, 'Укажите дату начала');
-
-    await db.query(
-      `INSERT INTO office_balance_opening (office_id, start_date, opening_cash, opening_noncash, opening_bank, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE start_date = VALUES(start_date),
-         opening_cash = VALUES(opening_cash), opening_noncash = VALUES(opening_noncash),
-         opening_bank = VALUES(opening_bank), updated_at = CURRENT_TIMESTAMP`,
-      [officeId, dstr(start_date), num(cash), num(noncash), num(bank), req.user.id || null]
-    );
-    return ok(res, { office_id: officeId, start_date: dstr(start_date), cash: num(cash), noncash: num(noncash), bank: num(bank) });
+    if (!await requireOfficeWrite(req,res,officeId)) return;
+    const startDate=dateOnly(req.body.start_date);
+    const cash=nonNegativeMoney(req.body.cash), noncash=nonNegativeMoney(req.body.noncash), bank=nonNegativeMoney(req.body.bank);
+    if (!startDate || [cash,noncash,bank].some(v=>v===null)) return bad(res,400,'Проверьте дату и остатки');
+    const c=await db.getClient(); try { await c.beginTransaction();
+      await c.query(`INSERT INTO office_balance_opening (office_id,start_date,opening_cash,opening_noncash,opening_bank,created_by) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_date=VALUES(start_date),opening_cash=VALUES(opening_cash),opening_noncash=VALUES(opening_noncash),opening_bank=VALUES(opening_bank),updated_at=CURRENT_TIMESTAMP`,[officeId,startDate,cash,noncash,bank,req.user.id||null]);
+      await audit(c,req,'set_opening','balance_opening',officeId,officeId,cash+noncash+bank,{start_date:startDate,cash,noncash,bank}); await c.commit();
+    } catch(e){try{await c.rollback()}catch(_){} throw e} finally{c.release()}
+    return ok(res,{office_id:officeId,start_date:startDate,cash,noncash,bank});
   } catch (e) {
     return bad(res, 500, 'Ошибка сохранения стартового остатка', e);
   }
@@ -377,20 +375,21 @@ const getDayDetail = async (req, res) => {
 const createTransfer = async (req, res) => {
   const officeId = Number(req.params.officeId);
   if (!officeId) return bad(res, 400, 'Не указан офис');
-  if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
-  if (!COMPOSITION_ROLES.includes(req.user.role)) return bad(res, 403, 'Перевод средств доступен руководству');
+  if (!await requireOfficeWrite(req,res,officeId)) return;
 
   const { source, destination, amount, transfer_date, comment } = req.body || {};
   if (!BUCKETS.includes(source) || !BUCKETS.includes(destination)) return bad(res, 400, 'Выберите источник и получателя');
   if (source === destination) return bad(res, 400, 'Источник и получатель должны отличаться');
-  const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0) return bad(res, 400, 'Сумма должна быть больше нуля');
-  const date = dstr(transfer_date) || today();
+  const value=money(amount);
+  if (value===null) return bad(res,400,'Сумма должна быть больше нуля');
+  const date=dateOnly(transfer_date||today());
+  if(!date) return bad(res,400,'Некорректная дата');
 
   let client;
   try {
     client = await db.getClient();
     await client.beginTransaction();
+    await claimIdempotency(client,req,'transfer:create',officeId);
     // Сериализуем переводы одного офиса, чтобы два одновременных запроса
     // не смогли списать больше доступного остатка.
     await client.query('SELECT id FROM offices WHERE id = ? FOR UPDATE', [officeId]);
@@ -440,54 +439,28 @@ const createTransfer = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [officeId, source, destination, value, date, comment ? String(comment).trim() : null, req.user.id || null]
     );
+    await audit(client,req,'create','transfer',result.insertId,officeId,value,{source,destination,date});
     await client.commit();
     const [[row]] = await db.query('SELECT * FROM office_transfers WHERE id = ?', [result.insertId]);
     return ok(res, row);
   } catch (e) {
     if (client) { try { await client.rollback(); } catch (_) {} }
-    return bad(res, 500, 'Ошибка создания перевода средств', e);
+    return bad(res,e.statusCode||500,e.message||'Ошибка создания перевода средств',e);
   } finally {
     if (client) client.release();
   }
 };
 
 // ─── POST /api/office/:officeId/income ───  ручное поступление
-const createIncome = async (req, res) => {
-  try {
-    const officeId = Number(req.params.officeId);
-    if (!officeId) return bad(res, 400, 'Не указан офис');
-    if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
-    const { amount, payment_method, income_date, title, description } = req.body;
-    if (amount === undefined) return bad(res, 400, 'Укажите сумму');
-    const [result] = await db.query(
-      `INSERT INTO office_income (office_id, income_date, payment_method, amount, title, description, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [officeId, dstr(income_date) || today(), normBucket(payment_method), num(amount),
-       title || 'Поступление', description || null, req.user.id || null]
-    );
-    const [[row]] = await db.query('SELECT * FROM office_income WHERE id = ?', [result.insertId]);
-    return ok(res, row);
-  } catch (e) {
-    return bad(res, 500, 'Ошибка создания поступления', e);
-  }
+const createIncome = async (req,res)=>{
+ try{const officeId=Number(req.params.officeId);if(!await requireOfficeWrite(req,res,officeId))return;const amount=money(req.body.amount);if(amount===null)return bad(res,400,'Сумма должна быть больше нуля');if(!BUCKETS.includes(req.body.payment_method))return bad(res,400,'Некорректный источник');const date=dateOnly(req.body.income_date||today());if(!date)return bad(res,400,'Некорректная дата');const title=String(req.body.title||'Поступление').trim().slice(0,255);const c=await db.getClient();try{await c.beginTransaction();await claimIdempotency(c,req,'income:create',officeId);const[r]=await c.query(`INSERT INTO office_income (office_id,income_date,payment_method,amount,title,description,created_by) VALUES (?,?,?,?,?,?,?)`,[officeId,date,req.body.payment_method,amount,title,req.body.description||null,req.user.id||null]);await audit(c,req,'create','income',r.insertId,officeId,amount,{payment_method:req.body.payment_method,date});await c.commit();const[[row]]=await db.query('SELECT * FROM office_income WHERE id=?',[r.insertId]);return ok(res,row)}catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()}}
+ catch(e){return bad(res,e.statusCode||500,e.message||'Ошибка создания поступления',e)}
 };
 
 // ─── DELETE /api/office/:officeId/income/:id ───
-const deleteIncome = async (req, res) => {
-  try {
-    const officeId = Number(req.params.officeId);
-    const id = Number(req.params.id);
-    if (!officeId || !id) return bad(res, 400, 'Нужны office_id и id');
-    if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
-    const [[income]] = await db.query('SELECT source_type FROM office_income WHERE id=? AND office_id=?',[id,officeId]);
-    if (income && income.source_type === 'salary_payment_reversal') {
-      return bad(res,409,'Корректировку отмены выплаты нельзя удалить');
-    }
-    await db.query('DELETE FROM office_income WHERE id = ? AND office_id = ?', [id, officeId]);
-    return ok(res, { id });
-  } catch (e) {
-    return bad(res, 500, 'Ошибка удаления поступления', e);
-  }
+const deleteIncome = async (req,res)=>{
+ try{const officeId=Number(req.params.officeId),id=Number(req.params.id);if(!officeId||!id)return bad(res,400,'Нужны office_id и id');if(!await requireOfficeWrite(req,res,officeId))return;const[[row]]=await db.query('SELECT * FROM office_income WHERE id=? AND office_id=?',[id,officeId]);if(!row)return bad(res,404,'Поступление не найдено');if(row.source_type)return bad(res,409,'Автоматическую финансовую запись нельзя удалить');const c=await db.getClient();try{await c.beginTransaction();await c.query('SELECT id FROM offices WHERE id=? FOR UPDATE',[officeId]);if(dstr(row.income_date)<=today()){const available=await availableBalance(c,officeId,normBucket(row.payment_method),today());if(available+0.000001<Number(row.amount)){await c.rollback();return bad(res,400,'Удаление создаст отрицательный остаток');}}await c.query('DELETE FROM office_income WHERE id=? AND office_id=?',[id,officeId]);await audit(c,req,'delete','income',id,officeId,row.amount,{deleted:row});await c.commit()}catch(e){try{await c.rollback()}catch(_){}throw e}finally{c.release()};return ok(res,{id})}
+ catch(e){return bad(res,500,'Ошибка удаления поступления',e)}
 };
 
 module.exports = {
