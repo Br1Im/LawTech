@@ -441,3 +441,7 @@
   color: #7b8cff;
   background: rgba(123, 140, 255, 0.1);
 }
+
+
+/* WCAG contrast for unread counter. */
+.sidebar-badge { background: oklch(45% .18 25) !important; color: oklch(98% .004 25) !important; }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { App, ConfigProvider, theme as antTheme } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 
@@ -66,7 +67,17 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const toggle = () => setMode(current => current === 'light' ? 'dark' : 'light');
+  const toggle = () => {
+    const next: ThemeMode = mode === 'light' ? 'dark' : 'light';
+    const doc = document as Document & { startViewTransition?: (update: () => void) => { finished: Promise<void> } };
+    if (doc.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.documentElement.classList.add('theme-view-transition');
+      const transition = doc.startViewTransition(() => flushSync(() => setMode(next)));
+      transition.finished.finally(() => document.documentElement.classList.remove('theme-view-transition'));
+      return;
+    }
+    setMode(next);
+  };
 
   const tokens = {
     colorPrimary: mode === 'dark' ? '#6651D4' : '#4F46E5',

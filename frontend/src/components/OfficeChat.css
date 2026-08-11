@@ -966,3 +966,24 @@
  .tg-participants-panel{display:block!important;position:absolute!important;inset:0 0 0 auto!important;width:min(88vw,340px)!important;z-index:15!important}
  .tg-header-actions{display:flex!important}
 }
+
+
+/* Final mobile touch-target normalization. */
+@media (max-width:768px) {
+  .tg-icon-btn,.tg-attach-btn { width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important; }
+  .tg-textarea { min-height:40px!important;height:40px!important; }
+}
+@media (max-width:768px) {
+  .tg-icon-btn,.tg-attach-btn {
+    flex:0 0 40px!important;
+    inline-size:40px!important;
+    max-inline-size:40px!important;
+    box-sizing:border-box!important;
+  }
+}@media (max-width:768px) {
+  .tg-input-area .tg-attach-btn {
+    width:40px!important;min-width:40px!important;max-width:40px!important;
+    height:40px!important;min-height:40px!important;
+    flex:0 0 40px!important;inline-size:40px!important;max-inline-size:40px!important;
+  }
+}

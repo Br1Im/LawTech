@@ -932,3 +932,14 @@ html.theme-transition body::after { transition:none!important; }
   button, [role="button"], .ant-btn, .ant-pagination-item, .ant-pagination-prev, .ant-pagination-next { min-height: 40px; }
   button[aria-label], button[title], [role="button"][aria-label], .ant-pagination-item, .ant-pagination-prev, .ant-pagination-next { min-width: 40px; }
 }
+
+
+/* Compositor-only theme crossfade on browsers supporting View Transitions. */
+::view-transition-old(root),::view-transition-new(root) { animation-duration:260ms;animation-timing-function:cubic-bezier(.22,1,.36,1); }
+::view-transition-old(root) { animation-name:theme-fade-out; }
+::view-transition-new(root) { animation-name:theme-fade-in; }
+@keyframes theme-fade-out { to { opacity:0; } }
+@keyframes theme-fade-in { from { opacity:0; } }
+html.theme-view-transition.theme-transition,
+html.theme-view-transition.theme-transition :where(*) { transition:none!important; }
+@media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root){animation:none!important}}
