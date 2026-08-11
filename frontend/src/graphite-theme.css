@@ -225,62 +225,44 @@ html[data-theme='dark'] body .oa-funnel-row:nth-child(2) .oa-stage-dot { backgro
 html[data-theme='dark'] body .oa-funnel-row:nth-child(3) .oa-stage-dot { background:oklch(31% .055 155)!important;color:oklch(87% .045 155)!important; }
 html[data-theme='dark'] body .oa-funnel-row:nth-child(4) .oa-stage-dot { background:oklch(31% .06 25)!important;color:oklch(87% .05 25)!important; }
 
-/* Annotated screenshot pass: unified compact controls and modal surfaces. */
-html[data-theme='dark'] body .ant-modal .ant-modal-content,
-html[data-theme='dark'] body .ant-modal .ant-modal-header,
-html[data-theme='dark'] body .ant-modal .ant-modal-footer {
-  background: var(--preview-s1) !important;
+/* Annotated screenshot pass, corrected after live pixel review. */
+/* Scope modal fixes only to the two annotated forms. No global modal collateral. */
+html[data-theme='dark'] body .unified-form-modal .ant-modal-content,
+html[data-theme='dark'] body .unified-form-modal .ant-modal-header,
+html[data-theme='dark'] body .unified-form-modal .ant-modal-footer { background:var(--preview-s1)!important; }
+html[data-theme='dark'] body .unified-form-modal .ant-modal-header {
+  margin:0 0 16px!important;
+  padding:0 36px 0 0!important;
+  border:0!important;
 }
-html[data-theme='dark'] body .ant-modal .ant-modal-header {
-  margin: 0 0 16px !important;
-  padding: 0 36px 12px 0 !important;
-  border-bottom: 1px solid var(--preview-border) !important;
+html[data-theme='dark'] body .unified-form-modal .ant-modal-title { color:var(--preview-text)!important;line-height:28px!important;background:transparent!important; }
+html[data-theme='dark'] body .unified-form-modal .ant-modal-footer { margin-top:20px!important;padding-top:0!important;border:0!important; }
+html[data-theme='dark'] body .unified-form-modal :where(.ant-picker,.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-input-number,textarea) {
+  background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:none!important;
 }
-html[data-theme='dark'] body .ant-modal .ant-modal-title {
-  color: var(--preview-text) !important;
-  line-height: 28px !important;
+html[data-theme='dark'] body .unified-form-modal :where(.ant-picker-input>input,.ant-input-number-input) {
+  background:transparent!important;border:0!important;color:var(--preview-text)!important;box-shadow:none!important;
 }
-html[data-theme='dark'] body .ant-modal .ant-modal-footer {
-  margin-top: 20px !important;
-  padding-top: 0 !important;
-  border-top: 0 !important;
-}
-html[data-theme='dark'] body .unified-form-modal :where(.ant-picker,.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-input-number,.ant-input-number-input,textarea) {
-  background: var(--preview-s2) !important;
-  border-color: var(--preview-border) !important;
-  color: var(--preview-text) !important;
-  box-shadow: none !important;
-}
-html[data-theme='dark'] body .unified-form-modal .ant-picker-input > input {
-  background: transparent !important;
-  border: 0 !important;
-  color: var(--preview-text) !important;
-}
-html[data-theme='dark'] body .unified-form-modal .ant-picker-suffix { color: var(--preview-muted) !important; }
+html[data-theme='dark'] body .unified-form-modal .ant-picker-suffix { color:var(--preview-muted)!important; }
 
-/* One control vocabulary across Appointments, Clients and Acts. */
-.ui-search-control,
-.apt-toolbar .apt-search-input,
-.clients-search-input,
-.acts-search-input {
-  flex: 0 0 280px !important;
-  width: 280px !important;
-  min-width: 280px !important;
-  max-width: 280px !important;
-  height: 40px !important;
-}
-.ui-compact-toolbar { width: max-content; max-width: 100%; }
+/* Search fields are deliberately compact. Previous pass accidentally widened two of them. */
+.apt-toolbar .apt-search-input { flex:0 0 220px!important;width:220px!important;min-width:220px!important;max-width:220px!important;height:40px!important; }
+.lt-page-clients .clients-search-input { flex:0 0 230px!important;width:230px!important;min-width:230px!important;max-width:230px!important;height:40px!important; }
+.acts-search-input { flex:0 0 220px!important;width:220px!important;min-width:220px!important;max-width:220px!important;height:40px!important; }
+.ui-compact-toolbar { width:max-content;max-width:100%; }
 .apt-date-arrow,.apt-cal-btn { width:40px!important;height:40px!important;border-radius:10px!important; }
 .apt-date-current { min-height:40px!important;display:inline-flex!important;align-items:center!important;padding:0 14px!important;border:1px solid var(--color-border)!important;background:var(--color-bg-elevated)!important; }
 .apt-filter-toggle { min-height:40px!important;padding:0 14px!important;border-radius:10px!important; }
 
+/* Acts controls: compact, one consistent 220x40 vocabulary. */
 .acts-toolbar { align-items:center!important; }
-.acts-filter-row { display:grid!important;grid-template-columns:280px repeat(3,180px)!important;gap:10px!important;width:max-content!important;max-width:100%!important; }
-.acts-filter-control { width:100%!important;min-width:0!important;height:40px!important; }
+.acts-filter-row { display:grid!important;grid-template-columns:repeat(4,220px)!important;gap:10px!important;width:max-content!important;max-width:100%!important; }
+.acts-filter-control { width:220px!important;min-width:220px!important;max-width:220px!important;height:40px!important; }
 .acts-filter-row .ant-picker,.acts-filter-row .ant-select-selector { height:40px!important;min-height:40px!important; }
 .acts-filter-row .ant-select-selection-item,.acts-filter-row .ant-select-selection-placeholder { line-height:38px!important; }
 
 .clients-needs-input-tag { display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-width:104px!important;min-height:30px!important;padding:4px 10px!important;line-height:20px!important;border-radius:8px!important;white-space:nowrap!important; }
+.clients-unified-pagination { display:flex!important;align-items:center!important; }
 .clients-unified-pagination .ant-pagination-item,
 .clients-unified-pagination .ant-pagination-prev,
 .clients-unified-pagination .ant-pagination-next { width:36px!important;min-width:36px!important;height:36px!important;line-height:34px!important;margin-inline-end:6px!important; }
@@ -290,17 +272,16 @@ html[data-theme='dark'] body .unified-form-modal .ant-picker-suffix { color: var
 .clients-unified-pagination .ant-select-selector { height:36px!important;min-height:36px!important; }
 
 .salary-period-toolbar { justify-content:flex-start!important; }
-.salary-period-picker { width:360px!important;height:40px!important; }
-html[data-theme='dark'] body .salary-period-picker,
-html[data-theme='dark'] body .salary-period-picker .ant-picker-input>input { background:var(--preview-s1)!important;color:var(--preview-text)!important; }
-html[data-theme='dark'] body .salary-period-picker .ant-picker-input>input { border:0!important; }
+.salary-period-picker { width:300px!important;height:40px!important; }
+html[data-theme='dark'] body .salary-period-picker { background:var(--preview-s1)!important;color:var(--preview-text)!important; }
+html[data-theme='dark'] body .salary-period-picker .ant-picker-input>input { background:transparent!important;border:0!important;color:var(--preview-text)!important; }
 
-@media(max-width:900px){
- .acts-filter-row{grid-template-columns:repeat(2,minmax(180px,1fr))!important;width:100%!important}
- .ui-search-control,.apt-toolbar .apt-search-input,.clients-search-input,.acts-search-input{flex:1 1 240px!important;width:100%!important;min-width:0!important;max-width:100%!important}
- .salary-period-picker{width:min(100%,360px)!important}
+@media(max-width:980px){
+ .acts-filter-row{grid-template-columns:repeat(2,minmax(180px,220px))!important;width:100%!important}
+ .acts-filter-control{width:100%!important;min-width:0!important;max-width:none!important}
 }
-@media(max-width:560px){
- .acts-filter-row{grid-template-columns:1fr!important}
- .unified-date-time-row{flex-direction:column!important}
+@media(max-width:760px){
+ .apt-toolbar .apt-search-input,.lt-page-clients .clients-search-input,.acts-search-input{flex:1 1 100%!important;width:100%!important;min-width:0!important;max-width:none!important}
+ .salary-period-picker{width:min(100%,300px)!important}
 }
+@media(max-width:560px){.acts-filter-row{grid-template-columns:1fr!important}.unified-date-time-row{flex-direction:column!important}}
