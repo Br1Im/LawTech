@@ -962,15 +962,13 @@ const Clients: React.FC<ClientsProps> = () => {
     {
       title: 'Тема',
       key: 'topic',
-      width: 140,
-      ellipsis: true,
+      width: 165,
       render: (_, r) => <span title={extractTopic(r.contract)}>{extractTopic(r.contract)}</span>,
     },
     {
       title: 'Юрист',
       key: 'lawyer',
-      width: 95,
-      ellipsis: true,
+      width: 110,
       render: (_, r) => {
         const base = isAdmin
           ? (r.contract.signed_by_name || r.contract.lawyer_full_name || r.contract.employee_name)
@@ -978,7 +976,7 @@ const Clients: React.FC<ClientsProps> = () => {
         const label = (r.contract.is_joint && r.contract.second_lawyer_full_name)
           ? `${shortName(base)} / ${shortName(r.contract.second_lawyer_full_name)}`
           : shortName(base);
-        return <span title={label}>{label}</span>;
+        return <span className="clients-lawyer-text" title={label}>{label}</span>;
       },
     },
     {

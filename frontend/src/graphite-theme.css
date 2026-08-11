@@ -285,3 +285,94 @@ html[data-theme='dark'] body .salary-period-picker .ant-picker-input>input { bac
  .salary-period-picker{width:min(100%,300px)!important}
 }
 @media(max-width:560px){.acts-filter-row{grid-template-columns:1fr!important}.unified-date-time-row{flex-direction:column!important}}
+
+
+/* Real-account global audit fixes, verified with a.davtyan. */
+/* One modal vocabulary across every audited workflow. */
+body .unified-form-modal .ant-modal-content { padding:24px!important; }
+body .unified-form-modal .ant-modal-header { margin:0 0 16px!important;padding:0 36px 0 0!important;border:0!important;background:transparent!important; }
+body .unified-form-modal .ant-modal-title { line-height:28px!important;background:transparent!important; }
+body .unified-form-modal .ant-modal-footer { margin-top:20px!important;padding:0!important;border:0!important;background:transparent!important; }
+body .unified-form-modal :where(.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker,.ant-input-number) { min-height:40px!important;height:40px!important; }
+body .unified-form-modal .ant-picker { padding-block:0!important; }
+body .unified-form-modal :where(.ant-picker-input,.ant-picker-input>input,.ant-input-number-input-wrap,.ant-input-number-input) { min-height:0!important;height:38px!important;line-height:38px!important;padding-block:0!important; }
+body .unified-form-modal .ant-input-number { height:40px!important; }
+body .unified-form-modal textarea.ant-input { height:auto!important;min-height:60px!important; }
+html[data-theme='dark'] body .unified-form-modal :where(.ant-modal-content,.ant-modal-header,.ant-modal-footer) { background:var(--preview-s1)!important; }
+html[data-theme='dark'] body .unified-form-modal :where(.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker,.ant-input-number,textarea) { background:var(--preview-s2)!important;border-color:var(--preview-border)!important;color:var(--preview-text)!important;box-shadow:none!important; }
+html[data-theme='dark'] body .unified-form-modal :where(.ant-picker-input>input,.ant-input-number-input) { background:transparent!important;border:0!important;color:var(--preview-text)!important; }
+
+/* Custom employee dialog follows the same no-divider vocabulary. */
+body > .emp-modal-overlay .emp-modal-footer { border-top:0!important;padding-top:0!important; }
+body > .emp-modal-overlay .add-employee-title { margin:0 40px 18px 0!important;padding:0!important;border:0!important; }
+
+/* Real profile data and readable metadata. */
+.sidebar .user-email,.mobile-sidebar .user-email { font-size:11.5px!important;color:var(--color-text-secondary)!important;max-width:100%; }
+.sidebar .user-info,.mobile-sidebar .user-info { min-width:0;flex:1; }
+.sidebar .user-name,.mobile-sidebar .user-name { white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+html[data-theme='dark'] body .sidebar .user-email,html[data-theme='dark'] body .mobile-sidebar .user-email { color:var(--preview-muted)!important; }
+
+/* Office loss label had a light-theme ink color in Graphite. */
+html[data-theme='dark'] body .oa-loss span { color:var(--preview-text)!important; }
+html[data-theme='dark'] body .oa-loss>b { color:var(--preview-accent)!important; }
+
+/* Navigation and actions use the same 40px control height. */
+.plan-cycle-nav-btn,.reset-filter { min-height:40px!important;height:40px!important; }
+.lt-page-acts .ant-btn-sm { min-height:40px!important;height:40px!important; }
+.salary-period-toolbar > .ant-space:first-child > .ant-space-item > .ant-btn { width:40px!important;height:40px!important; }
+.salary-period-picker { width:300px!important;height:40px!important; }
+
+/* Light Balance: total card must retain its branded dark surface. */
+html:not([data-theme='dark']) body .bal2-card--total { background:oklch(35% .16 277)!important;border-color:oklch(35% .16 277)!important;color:oklch(98% .004 277)!important; }
+html:not([data-theme='dark']) body .bal2-card--total :where(.bal2-card-label,.bal2-card-value,.bal2-card-delta,.pos,.neg) { color:oklch(98% .004 277)!important; }
+
+/* Light-mode semantic contrast found under real data. */
+html:not([data-theme='dark']) body .sidebar .user-email { color:oklch(43% .018 277)!important; }
+html:not([data-theme='dark']) body .user-avatar-initials { color:oklch(98% .004 277)!important;background:oklch(50% .18 277)!important; }
+html:not([data-theme='dark']) body .lt-page-clients :where(.clients-needs-input-tag,.ant-tag-warning) { color:oklch(43% .13 65)!important;border-color:oklch(76% .08 65)!important;background:oklch(95% .035 65)!important; }
+html:not([data-theme='dark']) body .tg-channel-preview { color:oklch(43% .018 277)!important; }
+html:not([data-theme='dark']) body .tg-channel-avatar,html:not([data-theme='dark']) body .tg-header-avatar { color:oklch(98% .004 277)!important;background:oklch(50% .16 277)!important; }
+html:not([data-theme='dark']) body .tg-chat-center>span { color:oklch(43% .018 277)!important; }
+
+/* Mobile Chat tap targets. */
+@media(max-width:768px){
+ .tg-icon-btn,.tg-attach-btn { min-width:40px!important;width:40px!important;min-height:40px!important;height:40px!important; }
+ .tg-textarea { min-height:40px!important; }
+}
+
+
+/* Real-account light-mode contrast and register readability. */
+html:not([data-theme='dark']) body .lt-office-dashboard {
+  --oa-muted:oklch(43% .018 286);
+}
+html:not([data-theme='dark']) body .lt-office-dashboard :where(.oa-scroll-hint,.plan-id-tag,.pf-plan,.plan-cycle-nav-range,.employee-stats-table thead th) { color:oklch(43% .018 286)!important; }
+html:not([data-theme='dark']) body .lt-office-dashboard .oa-positive { color:oklch(42% .14 150)!important; }
+html:not([data-theme='dark']) body .lt-office-dashboard .plan-fact-card-pct { color:oklch(43% .16 25)!important; }
+
+html:not([data-theme='dark']) body .lt-page-clients .lt-clients-register-table td { color:oklch(28% .018 277)!important; }
+html:not([data-theme='dark']) body .lt-page-clients .lt-clients-register-table td :where(span,small) { color:inherit; }
+html:not([data-theme='dark']) body .lt-page-clients .lt-clients-register-table td small,
+html:not([data-theme='dark']) body .lt-page-clients .lt-clients-register-table td [style*='color: var(--color-muted)'] { color:oklch(43% .018 277)!important; }
+html:not([data-theme='dark']) body .lt-page-clients .ant-tag-warning { color:oklch(40% .13 65)!important; }
+html:not([data-theme='dark']) body .lt-page-clients .deadline-row :where(.ant-tag,[class*='deadline']) { font-weight:650!important; }
+.lt-page-clients .clients-topic-text,.lt-page-clients .clients-lawyer-text { display:block;white-space:normal;overflow-wrap:anywhere;line-height:1.35; }
+.lt-page-clients .lt-clients-register-table tbody td { vertical-align:top!important; }
+.lt-page-clients .lt-clients-register-table tbody tr { min-height:56px; }
+
+html:not([data-theme='dark']) body .bal2 .pos { color:oklch(42% .14 150)!important; }
+html:not([data-theme='dark']) body .ant-tag-cyan { color:oklch(40% .11 195)!important;border-color:oklch(72% .08 195)!important;background:oklch(95% .03 195)!important; }
+html:not([data-theme='dark']) body .tg-sidebar-section-header { color:oklch(38% .018 277)!important; }
+html:not([data-theme='dark']) body .tg-chat-center p { color:oklch(38% .018 277)!important; }
+
+/* Final real-data semantic contrast corrections. */
+html:not([data-theme='dark']) body .lt-page-clients :where(
+  [style*='background: rgb(240, 253, 244)'],
+  [style*='background: rgb(255, 247, 237)'],
+  [style*='background: rgb(254, 242, 242)']
+) { font-weight:700!important; }
+html:not([data-theme='dark']) body .lt-page-clients [style*='background: rgb(240, 253, 244)'] { color:oklch(38% .14 150)!important; }
+html:not([data-theme='dark']) body .lt-page-clients [style*='background: rgb(255, 247, 237)'] { color:oklch(38% .14 65)!important; }
+html:not([data-theme='dark']) body .lt-page-clients [style*='background: rgb(254, 242, 242)'] { color:oklch(40% .16 25)!important; }
+html:not([data-theme='dark']) body .lt-page-clients :where(.ant-tag-orange,.ant-tag-gold,.ant-tag-warning) { color:oklch(38% .14 65)!important;border-color:oklch(72% .09 65)!important;background:oklch(95% .035 65)!important;font-weight:650!important; }
+html:not([data-theme='dark']) body .lt-office-dashboard [style*='color: rgb(239, 91, 105)'] { color:oklch(40% .17 25)!important; }
+html:not([data-theme='dark']) body .bal2 .bal2-card--total .pos { color:oklch(98% .004 277)!important; }

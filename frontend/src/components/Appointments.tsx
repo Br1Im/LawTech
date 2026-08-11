@@ -650,6 +650,7 @@ const Appointments: React.FC = () => {
 
       {/* New Appointment Modal */}
       <Modal
+        className="unified-form-modal"
         title="Новая запись"
         open={newModal}
         onCancel={() => { setNewModal(false); setNewErrors({}); }}
@@ -704,6 +705,7 @@ const Appointments: React.FC = () => {
 
       {/* Text Edit Modal */}
       <Modal
+        className="unified-form-modal"
         title={editingText?.field === 'comment' ? 'Тема консультации' : 'Комментарий'}
         open={!!editingText}
         onCancel={() => {
@@ -743,6 +745,7 @@ const Appointments: React.FC = () => {
 
       {/* Date/Time Edit Modal */}
       <Modal
+        className="unified-form-modal"
         title="Изменить дату и время"
         open={!!editingDateTime}
         onCancel={() => setEditingDateTime(null)}

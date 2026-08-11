@@ -451,9 +451,6 @@ const Salary: React.FC = () => {
               }}
             />
           </Tooltip>
-          <span style={{ fontSize: 14, fontWeight: 600, minWidth: 220, textAlign: 'center' }}>
-            {customRange[0].format('DD.MM.YYYY')} — {customRange[1].format('DD.MM.YYYY')}
-          </span>
           <Tooltip title="Следующий период">
             <Button
               icon={<RightOutlined />}
@@ -626,6 +623,7 @@ const Salary: React.FC = () => {
 
       {/* Выплата зарплаты: источник списания выбирается после нажатия ₽ */}
       <Modal
+        className="unified-form-modal"
         title="Выплатить зарплату"
         open={!!payDialog}
         onCancel={() => { if (!payingEmployeeId) setPayDialog(null); }}
@@ -674,6 +672,7 @@ const Salary: React.FC = () => {
 
       {/* Настройки расчёта (директор) */}
       <Modal
+        className="unified-form-modal"
         title="Настройки расчёта зарплаты"
         open={settingsOpen}
         onCancel={() => setSettingsOpen(false)}
@@ -713,6 +712,7 @@ const Salary: React.FC = () => {
 
       {/* Настройка зарплаты сотрудника */}
       <Modal
+        className="unified-form-modal"
         title={salaryEditEmp ? `Настройка: ${shortName(salaryEditEmp.full_name)} (${salaryEditEmp.role_label})` : 'Настройка'}
         open={!!salaryEditEmp}
         onCancel={() => { setSalaryEditEmp(null); setSalaryEditForm(null); }}
@@ -789,6 +789,7 @@ const Salary: React.FC = () => {
       </Modal>
 
       <Modal
+        className="unified-form-modal"
         title="Отмена ошибочной выплаты"
         open={!!cancelPaymentId}
         onCancel={() => { setCancelPaymentId(null); setCancelReason(''); setCancelConfirmation(''); }}
@@ -805,6 +806,7 @@ const Salary: React.FC = () => {
 
       {/* Добавление смены */}
       <Modal
+        className="unified-form-modal"
         title="Новая смена"
         open={shiftAddOpen}
         onCancel={() => setShiftAddOpen(false)}

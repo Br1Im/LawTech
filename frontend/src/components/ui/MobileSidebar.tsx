@@ -34,6 +34,9 @@ interface MobileSidebarProps {
   user?: {
     name?: string;
     surname?: string;
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
     email?: string;
     avatar?: string;
     role?: string;
@@ -187,6 +190,10 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
   if (!isMobile) {
     return null;
   }
+  let storedUser: any = {};
+  try { storedUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch { /* ignore malformed storage */ }
+  const profileName = [user?.last_name || user?.surname || storedUser.last_name, user?.first_name || user?.name || storedUser.first_name, user?.middle_name || storedUser.middle_name].filter(Boolean).join(' ') || storedUser.login || user?.email?.split('@')[0] || 'Пользователь';
+  const profileEmail = user?.email || storedUser.email || '';
 
   return (
     <>
@@ -248,9 +255,9 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
               </span>
               <div className="user-info">
                 <span className="user-name">
-                  {user?.name || user?.surname ? `${user.surname || ''} ${user.name || ''}`.trim() : 'Пользователь'}
+                  {profileName}
                 </span>
-                <span className="user-email">{user?.email || ''}</span>
+                <span className="user-email">{profileEmail}</span>
               </div>
             </button>
             

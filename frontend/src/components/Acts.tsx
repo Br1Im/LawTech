@@ -457,6 +457,7 @@ const Acts: React.FC = () => {
 
       {/* Модалка карточки акта */}
       <Modal
+        className="unified-form-modal"
         title={detail.act ? `Акт №${detail.act.id} — ${detail.act.client_name || ''}` : 'Акт'}
         open={detail.open}
         onCancel={() => { setDetail({ open: false, act: null }); setEditMode(false); }}

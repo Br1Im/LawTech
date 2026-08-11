@@ -680,7 +680,7 @@ const OfficeChat: React.FC = () => {
         </div>
 
 
-        <Modal title="Новый чат" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={createChat}
+        <Modal className="unified-form-modal" title="Новый чат" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={createChat}
           okText="Создать" cancelText="Отмена" confirmLoading={savingChat}
           okButtonProps={{ disabled: newChatName.trim().length < 2 }} width={520}>
           <div className="tg-dialog-stack">
@@ -690,7 +690,7 @@ const OfficeChat: React.FC = () => {
           </div>
         </Modal>
 
-        <Modal title="Управление чатом" open={manageOpen} onCancel={() => setManageOpen(false)} footer={null} width={560}>
+        <Modal className="unified-form-modal" title="Управление чатом" open={manageOpen} onCancel={() => setManageOpen(false)} footer={null} width={560}>
           <div className="tg-dialog-stack">
             <div className="tg-manage-chat-title">
               <div><span>Чат</span><strong>{activeChannelLabel}</strong></div>
@@ -713,7 +713,7 @@ const OfficeChat: React.FC = () => {
           </div>
         </Modal>
 
-        <Modal title="Переименовать чат" open={renameOpen} onCancel={() => setRenameOpen(false)} onOk={renameChat}
+        <Modal className="unified-form-modal" title="Переименовать чат" open={renameOpen} onCancel={() => setRenameOpen(false)} onOk={renameChat}
           okText="Сохранить" cancelText="Отмена" confirmLoading={savingChat} okButtonProps={{ disabled: renameValue.trim().length < 2 }}>
           <Input autoFocus maxLength={100} value={renameValue} onChange={e => setRenameValue(e.target.value)} onPressEnter={renameChat} />
         </Modal>

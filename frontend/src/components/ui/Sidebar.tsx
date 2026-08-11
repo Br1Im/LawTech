@@ -43,6 +43,9 @@ interface SidebarProps {
   user?: {
     name?: string;
     surname?: string;
+    first_name?: string;
+    last_name?: string;
+    middle_name?: string;
     email?: string;
     avatar?: string;
     role?: string;
@@ -242,10 +245,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     return null;
   }
 
-  const initials = getInitials(user?.name, user?.surname);
-  const fullName = user?.name || user?.surname
-    ? `${user.surname || ''} ${user.name || ''}`.trim()
-    : 'Пользователь';
+  let storedUser: any = {};
+  try { storedUser = JSON.parse(localStorage.getItem('user') || '{}'); } catch { /* ignore malformed storage */ }
+  const firstName = user?.first_name || user?.name || storedUser.first_name || storedUser.name || '';
+  const lastName = user?.last_name || user?.surname || storedUser.last_name || storedUser.surname || '';
+  const middleName = user?.middle_name || storedUser.middle_name || '';
+  const profileEmail = user?.email || storedUser.email || '';
+  const initials = getInitials(firstName, lastName);
+  const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ') || storedUser.login || profileEmail.split('@')[0] || 'Пользователь';
 
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -318,7 +325,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {!collapsed && (
               <div className="user-info">
                 <span className="user-name">{fullName}</span>
-                <span className="user-email">{user?.email || ''}</span>
+                <span className="user-email">{profileEmail}</span>
               </div>
             )}
           </button>
