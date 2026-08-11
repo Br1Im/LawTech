@@ -73,6 +73,7 @@ type PeriodType = "plan" | "day" | "yesterday" | "week" | "2weeks" | "month" | "
 interface DashboardData {
   period: { label: string; from: string; to: string; today: string; cycle_index?: number | null; current_cycle_index?: number | null; duration_days?: number | null };
   fact: { day: number; period: number };
+  visits: { day: number; period: number };
   plan: {
     id: number;
     day: number; // applied for today (weekday or weekend)
@@ -1211,7 +1212,7 @@ const Office = () => {
           { label: 'Выручка за день', value: money(dayFact), meta: `План: ${dayPlan > 0 ? money(dayPlan) : '—'}`, trend: pct(dayFact, dayPlan), icon: <FaChartLine /> },
           { label: 'Выручка за период', value: money(periodFact), meta: `План: ${periodPlan > 0 ? money(periodPlan) : '—'}`, trend: pct(periodFact, periodPlan), icon: <FaCalendarAlt /> },
           { label: 'Сотрудники', value: String(selectedOffice.employee_count || 0), meta: 'В штате офиса', trend: '', icon: <FaUsers /> },
-          { label: 'Визиты за период', value: String(selectedOffice.data?.[0] || 0), meta: 'По текущему периоду', trend: '', icon: <FaBuilding /> },
+          { label: 'Визиты за период', value: String(dashboard?.visits?.period || 0), meta: 'По текущему периоду', trend: '', icon: <FaBuilding /> },
         ];
         return (
           <div className="lt-office-kpi-grid" aria-label="Ключевые показатели офиса">

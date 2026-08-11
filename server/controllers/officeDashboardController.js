@@ -160,6 +160,7 @@ const officeDashboardController = {
       const dayParam = (req.query.day || '').toString().slice(0, 10);
       const today = dayParam && /^\d{4}-\d{2}-\d{2}$/.test(dayParam) ? dayParam : periodToday;
 
+      // Parallel dashboard sources: finance, plan, employee cash and visits.
       // 7 параллельных запросов: начальная оплата, доплаты, возвраты, план, юристы, доплаты юристов, возвраты юристов
       const [
         [initialRows],
@@ -169,6 +170,7 @@ const officeDashboardController = {
         [lawyersRows],
         [lawyerPaymentRows],
         [lawyerRefundRows],
+        [visitRows],
       ] = await Promise.all([
         // 1. Начальный взнос = paid_amount минус подтверждённые доплаты (на дату договора)
         db.query(
@@ -278,6 +280,15 @@ const officeDashboardController = {
            GROUP BY e.id`,
           [today, from, to, officeId]
         ),
+        // Visits use the appointment date and the same dashboard period.
+        db.query(
+          `SELECT
+             COUNT(DISTINCT CASE WHEN appointment_date = ? AND status = 'arrived' THEN id END) AS day_visits,
+             COUNT(DISTINCT CASE WHEN appointment_date BETWEEN ? AND ? AND status = 'arrived' THEN id END) AS period_visits
+           FROM appointments
+           WHERE office_id = ?`,
+          [today, from, to, officeId]
+        ),
       ]);
 
       const day_fact = Number(initialRows[0]?.day_initial || 0)
@@ -308,6 +319,10 @@ const officeDashboardController = {
             duration_days: duration_days ?? null,
           },
           fact: { day: day_fact, period: period_fact },
+          visits: {
+            day: Number(visitRows[0]?.day_visits || 0),
+            period: Number(visitRows[0]?.period_visits || 0),
+          },
           plan: plan
             ? {
                 id: plan.id,
