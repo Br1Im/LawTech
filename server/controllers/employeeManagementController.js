@@ -213,12 +213,44 @@ const getEmployees = async (req, res) => {
       `;
     }
 
+    // Junior operational roles get a minimal directory, not the full org chart.
+    // Lawyers need expert names for the supported hand-off flow; experts and
+    // representatives only need their own card. Sensitive contact/login fields
+    // are redacted from every junior response below.
+    const viewerRole = String(user.role || '').toLowerCase();
+    const juniorRoles = new Set(['lawyer', 'expert', 'representative']);
+    const isJuniorDirectory = juniorRoles.has(viewerRole) && !isCallCenterUser;
+    if (isJuniorDirectory) {
+      if (viewerRole === 'lawyer') {
+        query += " AND (u.id = ? OR u.role = 'expert')";
+        params.push(user.id);
+      } else {
+        query += ' AND u.id = ?';
+        params.push(user.id);
+      }
+    }
+
     // Не показываем пароли и деактивированных (если не запрошены)
-    if (req.query.include_inactive !== 'true') {
+    if (req.query.include_inactive !== 'true' && !isJuniorDirectory) {
       query += ' AND is_active = 1';
     }
 
     query += isCallCenterUser ? ' ORDER BY u.created_at DESC' : ' ORDER BY created_at DESC';
+
+    const serializeEmployee = (employee) => {
+      const common = {
+        id: employee.id,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        middle_name: employee.middle_name,
+        role: employee.role,
+        role_label: ROLE_LABELS[employee.role] || employee.role,
+        office_id: employee.office_id,
+        is_active: employee.is_active,
+      };
+      if (isJuniorDirectory) return common;
+      return { ...employee, role_label: common.role_label, password: undefined };
+    };
 
     // Пагинация: page и page_size (опциональные)
     const page = parseInt(req.query.page, 10);
@@ -232,7 +264,7 @@ const getEmployees = async (req, res) => {
       params.push(pageSize, offset);
       const [employees] = await db.query(query, params);
       return res.json({
-        employees: employees.map(e => ({ ...e, role_label: ROLE_LABELS[e.role] || e.role, password: undefined })),
+        employees: employees.map(serializeEmployee),
         total, page, page_size: pageSize,
       });
     }
@@ -240,11 +272,7 @@ const getEmployees = async (req, res) => {
     const [employees] = await db.query(query, params);
 
     res.json({
-      employees: employees.map(e => ({
-        ...e,
-        role_label: ROLE_LABELS[e.role] || e.role,
-        password: undefined,
-      })),
+      employees: employees.map(serializeEmployee),
     });
   } catch (error) {
     console.error('Ошибка при получении сотрудников:', error);
