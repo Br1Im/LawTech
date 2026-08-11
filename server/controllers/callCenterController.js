@@ -1054,9 +1054,23 @@ const callCenterController = {
     let offices = [];
     if (isCcRole) {
       try {
-        const [rows] = await db.query('SELECT id, name FROM offices ORDER BY name');
+        // A call-center user may only discover offices explicitly connected to
+        // their own call center. Never expose the workspace-wide office list.
+        const [rows] = await db.query(
+          `SELECT DISTINCT o.id, o.name
+             FROM call_center_members ccm
+             JOIN office_call_centers occ
+               ON occ.call_center_id = ccm.call_center_id
+              AND occ.is_active = 1
+             JOIN offices o ON o.id = occ.office_id
+            WHERE ccm.user_id = ?
+            ORDER BY o.name`,
+          [req.user.id]
+        );
         offices = rows;
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        console.error('Error getting connected call-center offices:', e);
+      }
     }
 
     res.json({
@@ -1066,7 +1080,7 @@ const callCenterController = {
         call_results: CALL_RESULTS,
         is_manager: isManager,
         is_call_center_role: isCcRole,
-        cross_office: isCcRole,
+        cross_office: isCcRole && offices.length > 1,
         offices
       }
     });
