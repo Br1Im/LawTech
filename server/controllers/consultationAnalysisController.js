@@ -68,7 +68,7 @@ const api={
           FROM appointments a LEFT JOIN users u ON u.id=a.assigned_lawyer_id LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
           LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
           WHERE a.office_id=? AND a.status='arrived' AND a.appointment_date BETWEEN ? AND ? GROUP BY a.assigned_lawyer_id,name ORDER BY promising DESC`,[oid,oid,from,to]);
-        return res.json({success:true,data:rows.map(r=>({...r,conversion_promising_pct:Number(r.promising)?Math.round(Number(r.contracts)*10000/Number(r.promising))/100:0}))});
+        return res.json({success:true,data:rows.map(r=>{const analyzed=Number(r.analyzed||0);const promising=analyzed?Number(r.promising||0):null;return {...r,analyzed,promising,conversion_promising_pct:promising?Math.round(Number(r.contracts)*10000/promising)/100:null};})});
       }
       const [rows]=await db.query(`SELECT MIN(a.id) id,COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci name,
         COUNT(*) records,SUM(a.status='arrived') arrived,SUM(a.consultation_result='contract_signed' OR c.contracts>0) contracts,
@@ -77,7 +77,7 @@ const api={
         FROM appointments a LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
         LEFT JOIN (SELECT appointment_id,COUNT(*) contracts,SUM(amount) revenue FROM contracts WHERE office_id=? GROUP BY appointment_id)c ON c.appointment_id=a.id
         WHERE a.office_id=? AND a.appointment_date BETWEEN ? AND ? GROUP BY COALESCE(a.source,'Без источника') COLLATE utf8mb4_unicode_ci ORDER BY promising DESC`,[oid,oid,from,to]);
-      return res.json({success:true,data:rows.map(r=>({...r,conversion_promising_pct:Number(r.promising)?Math.round(Number(r.contracts)*10000/Number(r.promising))/100:0,average_check:Number(r.contracts)?Math.round(Number(r.revenue||0)/Number(r.contracts)):0}))});
+      return res.json({success:true,data:rows.map(r=>{const analyzed=Number(r.analyzed||0);const promising=analyzed?Number(r.promising||0):null;return {...r,analyzed,promising,conversion_promising_pct:promising?Math.round(Number(r.contracts)*10000/promising)/100:null,average_check:Number(r.contracts)?Math.round(Number(r.revenue||0)/Number(r.contracts)):0};})});
     }catch(e){console.error(e);return bad(res,500,'Ошибка рейтинга');}
   },
   async getSettings(req,res){try{if(!manager(req.user))return bad(res,403,'Нет доступа');const [rows]=await db.query('SELECT * FROM consultation_analysis_settings WHERE office_id=?',[office(req.user)]);return res.json({success:true,data:rows[0]||{office_id:office(req.user),min_sample_size:20,coverage_warning_pct:70,revenue_method:'TOPIC_AVG'}});}catch(e){return bad(res,500,'Ошибка настроек');}},
