@@ -190,3 +190,37 @@ html[data-theme='dark'] body .mobile-icon-rail .rail-btn.active {
 html[data-theme='dark'] body .mobile-icon-rail .rail-btn.active .rail-label {
   color: var(--preview-text) !important;
 }
+/* Screenshot review: brand, native dates and sales-funnel markers. */
+html[data-theme='dark'] body .sidebar .logo-text,
+html[data-theme='dark'] body .mobile-sidebar .logo-text {
+  color: oklch(92% 0.012 277) !important;
+  text-shadow: 0 0 18px oklch(72% 0.15 277 / 0.12);
+}
+html[data-theme='dark'] body .sidebar .logo-dot,
+html[data-theme='dark'] body .mobile-sidebar .logo-dot {
+  color: oklch(76% 0.14 277) !important;
+}
+
+/* Native date controls must read as one continuous surface, not a grey patch. */
+html[data-theme='dark'] body input[type='date'] {
+  color-scheme: dark;
+  background-color: var(--preview-s1) !important;
+}
+html[data-theme='dark'] body .oa-period,
+html[data-theme='dark'] body .oa-period input[type='date'] {
+  background: var(--preview-s1) !important;
+}
+html[data-theme='dark'] body .oa-period input[type='date'] {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+html[data-theme='dark'] body input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: .62;
+  filter: none;
+}
+
+/* The pastel stage badges were glaring in Graphite. Keep semantics, lower luminance. */
+html[data-theme='dark'] body .oa-funnel-row:nth-child(1) .oa-stage-dot { background:oklch(31% .07 277)!important;color:oklch(86% .045 277)!important; }
+html[data-theme='dark'] body .oa-funnel-row:nth-child(2) .oa-stage-dot { background:oklch(31% .055 82)!important;color:oklch(87% .05 82)!important; }
+html[data-theme='dark'] body .oa-funnel-row:nth-child(3) .oa-stage-dot { background:oklch(31% .055 155)!important;color:oklch(87% .045 155)!important; }
+html[data-theme='dark'] body .oa-funnel-row:nth-child(4) .oa-stage-dot { background:oklch(31% .06 25)!important;color:oklch(87% .05 25)!important; }
