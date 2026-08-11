@@ -989,7 +989,7 @@ const Clients: React.FC<ClientsProps> = () => {
     ...(user?.role !== 'expert' && !isAdmin ? [{
       title: 'Данные',
       key: 'needs_input',
-      width: 90,
+      width: 128,
       align: 'center' as const,
       render: (_: unknown, r: ContractRow) => {
         if (!r.contract.needs_lawyer_input) return null;

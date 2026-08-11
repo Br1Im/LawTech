@@ -549,7 +549,8 @@ const Appointments: React.FC = () => {
         </div>
       )}
 
-      {/* Date navigation: ← date → + calendar */}
+      {/* Unified date, search and filter controls */}
+      <div className="apt-controls-row">
       <div className="apt-date-nav ui-compact-date-nav">
         <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.subtract(1, 'day'))} title="Предыдущий день">
           <LeftOutlined />
@@ -593,6 +594,7 @@ const Appointments: React.FC = () => {
           Фильтры
           {hasActiveFilters && <span className="apt-filter-dot" />}
         </button>
+      </div>
       </div>
 
       {/* Filter panel */}

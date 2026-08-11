@@ -376,3 +376,22 @@ html:not([data-theme='dark']) body .lt-page-clients [style*='background: rgb(254
 html:not([data-theme='dark']) body .lt-page-clients :where(.ant-tag-orange,.ant-tag-gold,.ant-tag-warning) { color:oklch(38% .14 65)!important;border-color:oklch(72% .09 65)!important;background:oklch(95% .035 65)!important;font-weight:650!important; }
 html:not([data-theme='dark']) body .lt-office-dashboard [style*='color: rgb(239, 91, 105)'] { color:oklch(40% .17 25)!important; }
 html:not([data-theme='dark']) body .bal2 .bal2-card--total .pos { color:oklch(98% .004 277)!important; }
+
+/* New screenshot correction: controls must be usable, not merely compact. */
+.apt-controls-row { background:var(--color-bg-elevated)!important;border-color:var(--color-border)!important; }
+html[data-theme='dark'] body .apt-controls-row { background:var(--preview-s1)!important;border-color:var(--preview-border)!important; }
+.apt-controls-row .apt-search-input { flex:0 0 260px!important;width:260px!important;min-width:260px!important;max-width:260px!important; }
+.lt-page-clients .clients-search-input { flex:0 0 290px!important;width:290px!important;min-width:290px!important;max-width:290px!important; }
+.lt-page-clients .lt-clients-register-table th:nth-child(6),
+.lt-page-clients .lt-clients-register-table td:nth-child(6) { min-width:128px!important;width:128px!important; }
+.lt-page-clients .clients-needs-input-tag { min-width:104px!important;width:104px!important;max-width:104px!important;overflow:visible!important; }
+@media(max-width:760px){
+ .apt-controls-row .apt-search-input,.lt-page-clients .clients-search-input{flex:1 1 100%!important;width:100%!important;min-width:0!important;max-width:none!important}
+}
+
+/* Verified correction for the two latest screenshots. */
+.apt-controls-row { flex-wrap:nowrap!important; }
+.apt-controls-row .apt-date-nav { flex:0 0 auto!important; }
+.apt-controls-row .apt-toolbar { flex:0 0 auto!important;width:auto!important;max-width:none!important;flex-wrap:nowrap!important; }
+.lt-page-clients .clients-needs-input-tag { width:112px!important;min-width:112px!important;max-width:112px!important; }
+@media(max-width:760px){.apt-controls-row{flex-wrap:wrap!important}.apt-controls-row .apt-toolbar{flex:1 1 100%!important;width:100%!important;max-width:100%!important}}.apt-controls-row .apt-date-nav,.apt-controls-row .apt-toolbar { margin:0!important;padding-top:0!important;padding-bottom:0!important; }
