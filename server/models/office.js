@@ -141,12 +141,12 @@ class Office {
 
   static async create(office) {
     try {
-      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false, external_notifications_enabled = true } = office;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false, external_notifications_enabled = true, timezone = process.env.DEFAULT_OFFICE_TIMEZONE || 'Asia/Tomsk' } = office;
       const [result] = await db.query(
-        'INSERT INTO offices (name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test, external_notifications_enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-        [name, address, contact_phone, website, ip_surname || null, ip_name || null, ip_middle_name || null, inn || null, ogrn || null, work_phone || null, work_phone2 || null, is_test ? 1 : 0, external_notifications_enabled ? 1 : 0]
+        'INSERT INTO offices (name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test, external_notifications_enabled, timezone, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+        [name, address, contact_phone, website, ip_surname || null, ip_name || null, ip_middle_name || null, inn || null, ogrn || null, work_phone || null, work_phone2 || null, is_test ? 1 : 0, external_notifications_enabled ? 1 : 0, timezone]
       );
-      return { id: result.insertId, name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: is_test ? 1 : 0, external_notifications_enabled: external_notifications_enabled ? 1 : 0, created_at: new Date() };
+      return { id: result.insertId, name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: is_test ? 1 : 0, external_notifications_enabled: external_notifications_enabled ? 1 : 0, timezone, created_at: new Date() };
     } catch (error) {
       console.error('Error creating office:', error);
       throw error;

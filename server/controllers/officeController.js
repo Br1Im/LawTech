@@ -224,7 +224,7 @@ const officeController = {
    */
   async createOffice(req, res) {
     try {
-      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false } = req.body;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false, timezone } = req.body;
       const userRole = (req.user?.role || "").toLowerCase();
       if (userRole !== "director") {
         return res.status(403).json({ success: false, message: "Доступ запрещён" });
@@ -235,7 +235,7 @@ const officeController = {
         return res.status(400).json({ success: false, message: 'Название офиса обязательно' });
       }
       
-      const officeData = { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: !!is_test, external_notifications_enabled: !is_test };
+      const officeData = { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: !!is_test, external_notifications_enabled: !is_test, timezone: timezone || process.env.DEFAULT_OFFICE_TIMEZONE || 'Asia/Tomsk' };
       const office = await Office.create(officeData);
       
       // Устанавливаем owner_id — привязываем офис к текущему пользователю

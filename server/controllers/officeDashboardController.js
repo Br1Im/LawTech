@@ -20,25 +20,25 @@ function isoDay(d) {
   return d.toISOString().slice(0, 10);
 }
 
-// Per-office timezone (pilot). Returns IANA tz string, or null if not configured.
+// Every office date is evaluated in an explicit IANA timezone. Legacy offices
+// without a value use the workspace default instead of silently falling back to UTC.
+const DEFAULT_OFFICE_TIMEZONE = process.env.DEFAULT_OFFICE_TIMEZONE || 'Asia/Tomsk';
 async function getOfficeTz(officeId) {
   const id = Number(officeId);
-  if (!id) return null;
+  if (!id) return DEFAULT_OFFICE_TIMEZONE;
   try {
     const [rows] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [id]);
-    return rows[0] && rows[0].timezone ? rows[0].timezone : null;
+    return rows[0] && rows[0].timezone ? rows[0].timezone : DEFAULT_OFFICE_TIMEZONE;
   } catch (e) {
-    return null;
+    return DEFAULT_OFFICE_TIMEZONE;
   }
 }
 
 async function resolvePeriod(req) {
   const period = (req.query.period || 'plan').toString().toLowerCase();
-  // Per-office timezone (pilot): if the office has a configured timezone,
-  // "today" (and thus the rolling plan window) is computed in that timezone
-  // instead of UTC. Offices without a timezone keep the previous UTC behaviour.
+  // Today and rolling periods always follow the office timezone.
   const officeTz = await getOfficeTz(req.params.officeId);
-  const todayIso = officeTz ? todayIsoInTz(officeTz) : isoDay(new Date());
+  const todayIso = todayIsoInTz(officeTz);
   const today = new Date(`${todayIso}T12:00:00Z`);
   if (period === 'custom') {
     const from = (req.query.from || todayIso).toString().slice(0, 10);
@@ -79,8 +79,8 @@ async function resolvePeriod(req) {
       }
     }
     // No plan → fallback to current month
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { from: isoDay(monthStart), to: todayIso, today: todayIso, label: 'plan' };
+    const monthStart = `${todayIso.slice(0, 7)}-01`;
+    return { from: monthStart, to: todayIso, today: todayIso, label: 'plan' };
   }
   const days =
     period === 'today' || period === 'day' ? 1 :
