@@ -96,23 +96,6 @@ const SalaryCards = styled.div`
   .sm-total .sm-val { font-size: 19px; font-weight: 800; }
 `;
 
-const StatRow = styled.div`
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-`;
-
-const Stat = styled.div`
-  border-radius: var(--radius-md);
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  padding: 10px 14px;
-  min-width: 200px;
-  .lbl { color: var(--color-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .val { font-weight: 700; font-size: 18px; }
-`;
-
 const formatMoney = (v?: number | string | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : (v ?? 0);
   if (!Number.isFinite(n)) return '0 ₽';
@@ -453,7 +436,7 @@ const Salary: React.FC = () => {
           <p>Начисления, смены и настройки оплаты сотрудников</p>
         </div>
       </div>
-      <ToolRow>
+      <ToolRow className="salary-period-toolbar">
         <Space size={8} wrap align="center">
           <Tooltip title="Предыдущий период">
             <Button
@@ -485,6 +468,7 @@ const Salary: React.FC = () => {
             />
           </Tooltip>
           <DatePicker.RangePicker
+            className="salary-period-picker"
             value={customRange}
             onChange={(v) => { if (v && v[0] && v[1]) { setPeriod('custom'); setCustomRange([v[0], v[1]]); } }}
             format="DD.MM.YYYY"
@@ -497,29 +481,6 @@ const Salary: React.FC = () => {
           )}
         </Space>
       </ToolRow>
-
-      <StatRow>
-        <Stat>
-          <div className="lbl">Период</div>
-          <div className="val">{range[0]} — {range[1]}</div>
-        </Stat>
-        {!isLawyer && (
-          <>
-            <Stat>
-              <div className="lbl">Касса офиса</div>
-              <div className="val">{formatMoney(data?.office_cash)}</div>
-            </Stat>
-            <Stat>
-              <div className="lbl">Расходы офиса</div>
-              <div className="val">{formatMoney(data?.office_expenses)}</div>
-            </Stat>
-            <Stat>
-              <div className="lbl">Прибыль офиса</div>
-              <div className="val">{formatMoney(data?.office_profit)}</div>
-            </Stat>
-          </>
-        )}
-      </StatRow>
 
       <Tabs
         items={[

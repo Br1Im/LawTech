@@ -550,7 +550,7 @@ const Appointments: React.FC = () => {
       )}
 
       {/* Date navigation: ← date → + calendar */}
-      <div className="apt-date-nav">
+      <div className="apt-date-nav ui-compact-date-nav">
         <button className="apt-date-arrow" onClick={() => setSelectedDate(d => d.subtract(1, 'day'))} title="Предыдущий день">
           <LeftOutlined />
         </button>
@@ -576,7 +576,7 @@ const Appointments: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="apt-toolbar">
+      <div className="apt-toolbar ui-compact-toolbar">
         <Input
           prefix={<SearchOutlined />}
           placeholder="Поиск по ФИО, телефону..."

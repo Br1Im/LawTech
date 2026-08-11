@@ -121,10 +121,10 @@
 }
 
 .apt-toolbar .apt-search-input {
-  flex: 0 0 230px !important;
-  width: 230px !important;
-  min-width: 0 !important;
-  max-width: 230px !important;
+  flex: 0 0 280px !important;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
 }
 
 .apt-filter-toggle {

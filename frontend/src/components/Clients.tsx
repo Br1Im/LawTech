@@ -998,7 +998,7 @@ const Clients: React.FC<ClientsProps> = () => {
         // Администратор не видит функцию "Дополнить" — только сотрудник, заключивший договор
         if (isAdmin) return null;
         return (
-          <Tag color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0, cursor: 'pointer' }}>
+          <Tag className="clients-needs-input-tag" color="warning" icon={<ExclamationCircleOutlined />} style={{ margin: 0, cursor: 'pointer' }}>
             Дополнить
           </Tag>
         );
@@ -2873,7 +2873,7 @@ const Clients: React.FC<ClientsProps> = () => {
                   onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.subtract(1, 'day')); }}
                   title="Предыдущий день"
                   style={{
-                    width: 30, height: 30, borderRadius: 8,
+                    width: 40, height: 40, borderRadius: 10,
                     border: '1px solid var(--color-border)',
                     background: 'var(--color-bg-elevated)',
                     cursor: 'pointer', display: 'flex',
@@ -2910,7 +2910,7 @@ const Clients: React.FC<ClientsProps> = () => {
                   onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.add(1, 'day')); }}
                   title="Следующий день"
                   style={{
-                    width: 30, height: 30, borderRadius: 8,
+                    width: 40, height: 40, borderRadius: 8,
                     border: '1px solid var(--color-border)',
                     background: 'var(--color-bg-elevated)',
                     cursor: 'pointer', display: 'flex',
@@ -2924,7 +2924,7 @@ const Clients: React.FC<ClientsProps> = () => {
                     onClick={() => setCalOpen((v) => !v)}
                     title="Выбрать дату"
                     style={{
-                      width: 30, height: 30, borderRadius: 8,
+                      width: 40, height: 40, borderRadius: 8,
                       border: '1px solid var(--color-border)',
                       background: 'var(--color-bg-elevated)',
                       cursor: 'pointer', display: 'flex',
@@ -2944,7 +2944,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 </div>
               </div>
               <Input
-                className="clients-search-input"
+                className="clients-search-input ui-search-control"
                 allowClear
                 prefix={<SearchOutlined style={{ color: '#9CA3AF' }} />}
                 placeholder="Поиск по ФИО, номеру договора или телефону"
@@ -3025,7 +3025,7 @@ const Clients: React.FC<ClientsProps> = () => {
                   return i ? `deadline-row deadline-${i.key}` : '';
                 }}
                 loading={loading}
-                pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+                pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}`, className: 'clients-unified-pagination' }}
                 locale={{ emptyText: <Empty description={dealType === 'docs' ? 'Нет договоров на подготовку документов' : 'Нет договоров на представительство в суде'} /> }}
                 size="small"
                 onRow={(row) => ({
@@ -3050,7 +3050,7 @@ const Clients: React.FC<ClientsProps> = () => {
             dataSource={terminatedContracts}
             loading={terminatedLoading}
             tableLayout="fixed"
-            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
+            pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}`, className: 'clients-unified-pagination' }}
             locale={{ emptyText: <Empty description="Нет расторгнутых договоров" /> }}
             size="small"
             onRow={(row) => ({

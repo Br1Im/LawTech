@@ -2608,10 +2608,10 @@ table {
 
 /* Clients: readable register and a compact search control. */
 .lt-page-clients .clients-search-input {
-  flex: 0 1 290px !important;
-  width: clamp(250px, 20vw, 290px) !important;
-  min-width: 0 !important;
-  max-width: 290px !important;
+  flex: 0 0 280px !important;
+  width: 280px !important;
+  min-width: 280px !important;
+  max-width: 280px !important;
 }
 .lt-page-clients .lt-clients-register-table .ant-table-cell,
 .lt-page-clients .lt-clients-terminated-table .ant-table-cell {

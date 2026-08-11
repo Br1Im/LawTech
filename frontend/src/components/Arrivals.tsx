@@ -747,6 +747,7 @@ const Arrivals: React.FC = () => {
       {/* Новый первичный приход (новый клиент) */}
       <Modal
         title="Добавить приход"
+        className="arrival-create-modal unified-form-modal"
         open={newPrimaryModal}
         onCancel={() => setNewPrimaryModal(false)}
         onOk={handleCreatePrimary}
@@ -764,7 +765,7 @@ const Arrivals: React.FC = () => {
             <div style={{ marginBottom: 4, fontWeight: 500 }}>Телефон</div>
             <Input value={newPrimary.client_phone} onChange={e => setNewPrimary(f => ({ ...f, client_phone: formatRussianPhone(e.target.value) }))} placeholder="+7 (___) ___-__-__" maxLength={18} inputMode="tel" />
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div className="unified-date-time-row" style={{ display: 'flex', gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата</div>
               <DatePicker value={newPrimary.date} onChange={d => setNewPrimary(f => ({ ...f, date: d || dayjs() }))} format="DD.MM.YYYY" style={{ width: '100%' }} />

@@ -356,7 +356,7 @@ const Acts: React.FC = () => {
           <p>Выполненные работы и исполнение обязательств по договорам</p>
         </div>
       </div>
-      <ToolRow>
+      <ToolRow className="acts-toolbar ui-compact-toolbar">
         <Space size={12} wrap>
           <Input
             allowClear
@@ -364,7 +364,7 @@ const Acts: React.FC = () => {
             placeholder="Поиск: ФИО, номер договора"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            style={{ minWidth: 260, maxWidth: 360 }}
+            className="acts-search-input ui-search-control"
           />
         </Space>
         <Space>
@@ -372,8 +372,9 @@ const Acts: React.FC = () => {
         </Space>
       </ToolRow>
 
-      <FiltersRow>
+      <FiltersRow className="acts-filter-row">
         <DatePicker.RangePicker
+          className="acts-filter-control acts-date-filter"
           value={filterDate as any}
           onChange={(v) => { setFilterDate(v as any); setPeriodOffset(0); }}
           format="DD.MM.YYYY"
@@ -383,7 +384,7 @@ const Acts: React.FC = () => {
         <Select
           allowClear
           placeholder="Тип сделки"
-          style={{ minWidth: 160 }}
+          className="acts-filter-control"
           value={filterType}
           onChange={(v) => setFilterType(v)}
           options={[
@@ -394,7 +395,7 @@ const Acts: React.FC = () => {
         <Select
           allowClear
           placeholder="Статус"
-          style={{ minWidth: 150 }}
+          className="acts-filter-control"
           value={filterStatus}
           onChange={(v) => setFilterStatus(v)}
           options={[
@@ -406,7 +407,7 @@ const Acts: React.FC = () => {
           allowClear
           showSearch
           placeholder="Ответственный"
-          style={{ minWidth: 240 }}
+          className="acts-filter-control"
           value={filterResp}
           onChange={(v) => setFilterResp(v)}
           optionFilterProp="label"
@@ -614,6 +615,7 @@ const Acts: React.FC = () => {
       {/* Модалка создания акта */}
       <Modal
         title="Новый акт"
+        className="act-create-modal unified-form-modal"
         open={createModal}
         onCancel={() => setCreateModal(false)}
         onOk={submitCreate}
