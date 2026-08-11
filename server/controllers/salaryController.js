@@ -406,11 +406,11 @@ const calculate = async (req, res) => {
               u.role AS user_role
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
-         LEFT JOIN users u ON u.id = e.user_id
-        WHERE e.office_id = ? AND e.deleted_at IS NULL
-          AND (u.is_active = 1 OR u.is_active IS NULL)
-          AND (u.role IS NULL OR u.role NOT IN ('cc_manager', 'cc_operator'))`,
-      [officeId]
+         JOIN users u ON u.id = e.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+         LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
+        WHERE (u.office_id = ? OR uo.office_id IS NOT NULL) AND e.deleted_at IS NULL
+          AND u.role NOT IN ('director', 'owner', 'cc_manager', 'cc_operator')`,
+      [officeId, officeId]
     );
 
     // 2. Experts are identified by the linked user role, not free-form position text.

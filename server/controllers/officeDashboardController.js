@@ -233,27 +233,20 @@ const officeDashboardController = {
                * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
              ELSE 0 END), 0) AS period_cash
            FROM employees e
-           LEFT JOIN users u ON u.email = e.email
+           JOIN users u ON u.id = e.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+           LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
            LEFT JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id)) AND c.paid_amount > 0
            LEFT JOIN (
              SELECT contract_id, SUM(amount) AS confirmed_total
              FROM contract_payments WHERE confirmed = 1
              GROUP BY contract_id
            ) cp_sum ON cp_sum.contract_id = c.id
-           WHERE e.office_id = ? AND e.deleted_at IS NULL
-             AND (u.is_active = 1 OR u.is_active IS NULL)
-             AND (
-               LOWER(e.position) LIKE '%юрист%'
-               OR LOWER(e.position) LIKE '%адвокат%'
-               OR LOWER(e.position) LIKE '%менеджер%'
-               OR LOWER(e.position) LIKE '%окк%'
-               OR LOWER(e.position) LIKE '%контрол%'
-               OR LOWER(e.position) LIKE '%представит%'
-               OR u.role IN ('lawyer', 'manager', 'okk', 'representative')
-             )
+           WHERE (u.office_id = ? OR uo.office_id IS NOT NULL)
+             AND e.deleted_at IS NULL
+             AND u.role IN ('lawyer', 'manager', 'okk', 'representative')
            GROUP BY e.id, e.last_name, e.first_name, e.middle_name, e.position
            ORDER BY period_cash DESC, today_cash DESC, e.last_name ASC`,
-          [today, from, to, officeId]
+          [today, from, to, officeId, officeId]
         ),
         // 6. Подтверждённые доплаты — по юристам (на дату платежа)
         db.query(

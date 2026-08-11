@@ -60,15 +60,16 @@ class Office {
     // Batch: сотрудники + их статистика (один JOIN)
     const [allEmployees] = await db.query(`
       SELECT DISTINCT e.id, e.first_name, e.last_name, e.email, e.position, e.phone,
-             COALESCE(uo.office_id, e.office_id) AS office_id,
+             COALESCE(uo.office_id, u.office_id) AS office_id,
              COALESCE(SUM(es.revenue), 0) as revenue,
              COALESCE(SUM(es.orders), 0) as orders
       FROM employees e
-      LEFT JOIN users u ON u.id = e.id
-      LEFT JOIN user_offices uo ON uo.user_id = e.id AND uo.office_id IN (${placeholders})
+      JOIN users u ON u.id = e.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+      LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id IN (${placeholders})
       LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = 'month'
-      WHERE (e.office_id IN (${placeholders}) OR uo.office_id IS NOT NULL) AND (u.is_active = 1 OR u.is_active IS NULL)
-      GROUP BY e.id, COALESCE(uo.office_id, e.office_id)
+      WHERE (u.office_id IN (${placeholders}) OR uo.office_id IS NOT NULL)
+        AND e.deleted_at IS NULL
+      GROUP BY e.id, COALESCE(uo.office_id, u.office_id)
       ORDER BY e.last_name ASC
     `, [...ids, ...ids]);
 
@@ -185,10 +186,10 @@ class Office {
                COALESCE(SUM(es.revenue), 0) as revenue,
                COALESCE(SUM(es.orders), 0) as orders
         FROM employees e
-        LEFT JOIN users u ON u.id = e.id
-        LEFT JOIN user_offices uo ON uo.user_id = e.id AND uo.office_id = ?
+        JOIN users u ON u.id = e.user_id AND u.is_active = 1 AND u.deleted_at IS NULL
+        LEFT JOIN user_offices uo ON uo.user_id = u.id AND uo.office_id = ?
         LEFT JOIN employee_stats es ON es.employee_id = e.id AND es.period_type = ?
-        WHERE (e.office_id = ? OR uo.office_id IS NOT NULL) AND (u.is_active = 1 OR u.is_active IS NULL)
+        WHERE (u.office_id = ? OR uo.office_id IS NOT NULL) AND e.deleted_at IS NULL
         GROUP BY e.id
         ORDER BY e.last_name ASC
       `, [officeId, period, officeId]);
