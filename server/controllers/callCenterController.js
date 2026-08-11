@@ -1649,6 +1649,7 @@ const callCenterController = {
     try {
       const { id } = req.params;
       const { status, manager_comment } = req.body;
+      const technicalUpdate = req.body.is_technical === true && req.get('x-internal-operation') === 'technical-cleanup';
 
       const validStatuses = ['waiting', 'confirmed', 'arrived', 'no_show', 'cancelled', 'rescheduled'];
       if (!validStatuses.includes(status)) {
@@ -1666,6 +1667,9 @@ const callCenterController = {
       if (manager_comment !== undefined) {
         updates.push('manager_comment = ?');
         params.push(manager_comment);
+      }
+      if (technicalUpdate) {
+        updates.push('is_technical = 1');
       }
 
       params.push(id, req.user.office_id);

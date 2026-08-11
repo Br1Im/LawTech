@@ -68,7 +68,7 @@ async function resolveOfficeIds(req) {
 
 function appointmentWhere(officeIds, from, to, sourceId) {
   const officePlaceholders = officeIds.map(() => '?').join(',');
-  const conditions = [`a.office_id IN (${officePlaceholders})`, 'DATE(a.appointment_date) BETWEEN ? AND ?'];
+  const conditions = [`a.office_id IN (${officePlaceholders})`, 'DATE(a.appointment_date) BETWEEN ? AND ?', 'COALESCE(a.is_technical, 0) = 0'];
   const params = [...officeIds, from, to];
   if (sourceId) {
     conditions.push(
