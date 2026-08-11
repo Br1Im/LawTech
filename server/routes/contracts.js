@@ -189,10 +189,10 @@ router.patch('/:id/docs-status', async (req, res) => {
     const role = String(user.role || '').toLowerCase();
     // Только назначенный эксперт меняет статус документов.
     let expertEmployeeId = null;
-    if (role === 'expert' && user.email) {
+    if (role === 'expert' && user.id) {
       const [[employee]] = await db.query(
-        'SELECT id FROM employees WHERE email = ? LIMIT 1',
-        [user.email]
+        'SELECT id FROM employees WHERE user_id = ? LIMIT 1',
+        [user.id]
       );
       expertEmployeeId = employee ? Number(employee.id) : null;
     }
