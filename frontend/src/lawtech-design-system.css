@@ -2784,3 +2784,28 @@ table {
     border-left: 0 !important;
   }
 }
+
+/* Fix Ant affix-wrapper geometry globally: the generic input rule gave the inner
+   input its own 40px box inside a padded 40px wrapper, so it protruded below. */
+.ant-input-affix-wrapper {
+  overflow: hidden !important;
+}
+.ant-input-affix-wrapper > input.ant-input,
+.ant-input-affix-wrapper > textarea.ant-input {
+  min-height: 0 !important;
+  height: auto !important;
+  padding-block: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+.ant-input-affix-wrapper > input.ant-input:hover,
+.ant-input-affix-wrapper > input.ant-input:focus,
+.ant-input-affix-wrapper > textarea.ant-input:hover,
+.ant-input-affix-wrapper > textarea.ant-input:focus {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
