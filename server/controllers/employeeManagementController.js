@@ -68,6 +68,7 @@ async function generateUniqueLogin(firstName, lastName) {
 
 // Создание сотрудника
 const createEmployee = async (req, res) => {
+  const connection = await db.getClient();
   try {
     const creator = req.user;
     const { first_name, last_name, middle_name, phone, role, office_id } = req.body;
@@ -76,7 +77,6 @@ const createEmployee = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Обязательные поля: Фамилия, Имя, должность' });
     }
 
-    // Проверяем иерархию
     const allowedRoles = CREATION_HIERARCHY[creator.role];
     if (!allowedRoles || !allowedRoles.includes(role)) {
       return res.status(403).json({
@@ -87,7 +87,7 @@ const createEmployee = async (req, res) => {
     const creatorIsCallCenter = ['cc_manager', 'cc_operator'].includes(String(creator.role || '').toLowerCase());
     let creatorCallCenterId = null;
     if (creatorIsCallCenter) {
-      const [memberships] = await db.query(
+      const [memberships] = await connection.query(
         'SELECT call_center_id FROM call_center_members WHERE user_id = ? LIMIT 1',
         [creator.id]
       );
@@ -97,78 +97,70 @@ const createEmployee = async (req, res) => {
       creatorCallCenterId = memberships[0].call_center_id;
     }
 
-    // Для КЦ принадлежность определяется call_center_members, а не офисом юркомпании.
     const employeeOfficeId = creatorIsCallCenter ? null : (office_id || creator.office_id);
-
-    // Генерируем логин и пароль
     const login = await generateUniqueLogin(first_name, last_name);
     const plainPassword = generatePassword();
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
-
-    const [result] = await db.query(`
-      INSERT INTO users (first_name, last_name, middle_name, email, login, phone, password, role, office_id, is_active, must_change_password, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, NOW(), NOW())
-    `, [first_name, last_name, middle_name || '', `${login}@staff.local`, login, phone || null, hashedPassword, role, employeeOfficeId, creator.id]);
-
-    const newUserId = result.insertId;
-
-    if (creatorIsCallCenter) {
-      await db.query(
-        `INSERT INTO call_center_members (call_center_id, user_id, member_role)
-         VALUES (?, ?, ?)`,
-        [creatorCallCenterId, newUserId, role === 'cc_manager' ? 'manager' : 'operator']
-      );
-    } else if (employeeOfficeId) {
-      try {
-        await db.query(
-          'INSERT IGNORE INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
-          [newUserId, employeeOfficeId, creator.id]
-        );
-      } catch (uoErr) {
-        console.warn('[createEmployee] user_offices sync failed:', uoErr.message);
-      }
-    }
-
-    // Автоматически создаём запись в employees (синхронизация users ↔ employees)
+    const staffEmail = `${login}@staff.local`;
     const positionMap = {
       lawyer: 'Юрист', manager: 'Менеджер', admin: 'Администратор',
       okk: 'ОКК', expert: 'Эксперт', cc_manager: 'Начальник КЦ',
       cc_operator: 'Оператор КЦ', representative: 'Представитель',
       director: 'Генеральный директор',
     };
-    if (!creatorIsCallCenter) {
-      try {
-        await db.query(
-          `INSERT INTO employees (id, user_id, first_name, last_name, middle_name, email, phone, position, office_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE office_id = VALUES(office_id), position = VALUES(position)`,
-          [newUserId, newUserId, first_name, last_name, middle_name || null,
-           `${login}@staff.local`, phone || null,
-           positionMap[role] || role, employeeOfficeId]
-        );
-      } catch (empErr) {
-        console.warn('[createEmployee] employees sync failed:', empErr.message);
+
+    await connection.beginTransaction();
+    const [result] = await connection.query(`
+      INSERT INTO users (first_name, last_name, middle_name, email, login, phone, password, role, office_id, is_active, must_change_password, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, NOW(), NOW())
+    `, [first_name, last_name, middle_name || '', staffEmail, login, phone || null, hashedPassword, role, employeeOfficeId, creator.id]);
+    const newUserId = result.insertId;
+
+    if (creatorIsCallCenter) {
+      await connection.query(
+        `INSERT INTO call_center_members (call_center_id, user_id, member_role)
+         VALUES (?, ?, ?)`,
+        [creatorCallCenterId, newUserId, role === 'cc_manager' ? 'manager' : 'operator']
+      );
+    } else {
+      if (!employeeOfficeId) {
+        const error = new Error('Для сотрудника не определён офис');
+        error.statusCode = 409;
+        throw error;
       }
+      await connection.query(
+        'INSERT INTO user_offices (user_id, office_id, assigned_by, assigned_at) VALUES (?, ?, ?, NOW())',
+        [newUserId, employeeOfficeId, creator.id]
+      );
+      // employees.id has its own lifecycle. Never force it to equal users.id:
+      // legacy employee ids can already occupy that primary key.
+      await connection.query(
+        `INSERT INTO employees (user_id, first_name, last_name, middle_name, email, phone, position, office_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [newUserId, first_name, last_name, middle_name || null, staffEmail, phone || null,
+         positionMap[role] || role, employeeOfficeId]
+      );
     }
 
-    res.status(201).json({
+    await connection.commit();
+    return res.status(201).json({
       message: 'Сотрудник создан',
       employee: {
         id: newUserId,
-        first_name,
-        last_name,
-        middle_name: middle_name || '',
-        phone,
-        role,
+        first_name, last_name, middle_name: middle_name || '', phone, role,
         role_label: ROLE_LABELS[role] || role,
-        office_id: employeeOfficeId,
-        login,
-        password: plainPassword,
+        office_id: employeeOfficeId, login, password: plainPassword,
       },
     });
   } catch (error) {
+    try { await connection.rollback(); } catch (_) { /* noop */ }
     console.error('Ошибка при создании сотрудника:', error);
-    res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.statusCode ? error.message : 'Внутренняя ошибка сервера',
+    });
+  } finally {
+    connection.release();
   }
 };
 
