@@ -2,7 +2,7 @@ const db = require('../db');
 const { checkOfficeAccess } = require('./ensureOffice');
 
 const FINANCE_WRITE_ROLES = new Set(['director', 'manager', 'okk']);
-const FINANCE_READ_ROLES = new Set(['admin', 'administrator', 'director', 'manager', 'okk']);
+const FINANCE_READ_ROLES = new Set(['director', 'manager', 'okk']);
 const BUCKETS = new Set(['cash', 'noncash', 'bank']);
 const MAX_MONEY = 1000000000000;
 

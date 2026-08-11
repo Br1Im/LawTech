@@ -76,17 +76,17 @@ async function resolveUserOfficeId(user) {
 
 const isPrivileged = (user) => {
   const r = String(user.role || '').toLowerCase();
-  return r === 'admin' || r === 'owner' || r === 'director';
+  return r === 'owner' || r === 'director';
 };
 
 const isDirectorLike = (user) => {
   const r = String(user.role || '').toLowerCase();
-  return r === 'admin' || r === 'owner' || r === 'director';
+  return r === 'owner' || r === 'director';
 };
 
 const isManagerOrAbove = (user) => {
   const r = String(user.role || '').toLowerCase();
-  return r === 'admin' || r === 'owner' || r === 'director' || r === 'manager';
+  return r === 'owner' || r === 'director' || r === 'manager';
 };
 
 const DEFAULTS = {
@@ -185,7 +185,7 @@ const getEmployeeSalary = async (req, res) => {
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
     const viewerRole=String(req.user.role||'').toLowerCase();
     const ownEmployeeId=await employeeIdForUser(req.user.id);
-    if (!['admin','administrator','director','manager','okk'].includes(viewerRole) && Number(ownEmployeeId)!==empId) return bad(res,403,'Можно просматривать только свой оклад');
+    if (!['owner','director','manager','okk'].includes(viewerRole) && Number(ownEmployeeId)!==empId) return bad(res,403,'Можно просматривать только свой оклад');
     if (emp.office_id) {
       const allowedEmp = await checkOfficeAccess(req.user, emp.office_id);
       if (!allowedEmp) return bad(res, 403, 'Чужой офис');
@@ -737,8 +737,9 @@ const calculate = async (req, res) => {
     }
 
     const viewerRole=String(req.user.role||'').toLowerCase();
+    const canViewOfficePayroll = ['owner','director','manager','okk'].includes(viewerRole);
     let visibleResults=results;
-    if (!['admin','administrator','director','manager','okk'].includes(viewerRole)) {
+    if (!canViewOfficePayroll) {
       const ownEmployeeId=await employeeIdForUser(req.user.id);
       visibleResults=results.filter(row=>Number(row.employee_id)===Number(ownEmployeeId));
     }
@@ -747,10 +748,12 @@ const calculate = async (req, res) => {
       date_from: dateFrom,
       date_to: dateTo,
       period_label: periodLabel,
-      office_cash: officeCash,
-      office_expenses: officeExpenses,
-      office_profit: officeProfit,
-      settings,
+      // Individual roles receive only their own accrual. Office financial totals
+      // and salary settings are management data and must not leak through API.
+      office_cash: canViewOfficePayroll ? officeCash : null,
+      office_expenses: canViewOfficePayroll ? officeExpenses : null,
+      office_profit: canViewOfficePayroll ? officeProfit : null,
+      settings: canViewOfficePayroll ? settings : null,
       rows: visibleResults,
     });
   } catch (e) {
@@ -779,7 +782,7 @@ async function calculatePayload(req, query) {
 }
 
 const listSalaryPayments = async (req, res) => {
-  if (!['admin','administrator','director','manager','okk'].includes(String(req.user.role||'').toLowerCase())) return bad(res,403,'Нет доступа к журналу выплат');
+  if (!['owner','director','manager','okk'].includes(String(req.user.role||'').toLowerCase())) return bad(res,403,'Нет доступа к журналу выплат');
   try {
     const officeId = Number(req.query.office_id || await resolveUserOfficeId(req.user));
     if (!officeId || !await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');

@@ -29,7 +29,7 @@ const bad = (res, code, message, err) => {
 };
 
 const BUCKETS = ['cash', 'noncash', 'bank'];
-const COMPOSITION_ROLES = ['admin','administrator','director','manager','okk'];
+const COMPOSITION_ROLES = ['director','manager','okk'];
 const BALANCE_ROLES = new Set(COMPOSITION_ROLES); // кто может задавать стартовый остаток
 
 const zero = () => ({ cash: 0, noncash: 0, bank: 0 });
