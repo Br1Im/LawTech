@@ -535,7 +535,11 @@ const contractController = {
       res.json({ success: true, message: 'Возврат подтверждён, касса обновлена', data: contract });
     } catch (error) {
       console.error('Error confirming refund:', error);
-      res.status(500).json({ success: false, message: error.message || 'Ошибка при подтверждении возврата' });
+      res.status(error.statusCode || 500).json({
+        success: false,
+        code: error.code || 'REFUND_CONFIRM_FAILED',
+        message: error.message || 'Ошибка при подтверждении возврата'
+      });
     }
   },
 

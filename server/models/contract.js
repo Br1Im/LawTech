@@ -716,12 +716,31 @@ class Contract {
     try {
       await connection.beginTransaction();
 
+      const [[lockedContract]] = await connection.query(
+        'SELECT * FROM contracts WHERE id = ? FOR UPDATE',
+        [id]
+      );
+      if (!lockedContract) {
+        const error = new Error('Договор не найден');
+        error.statusCode = 404;
+        error.code = 'CONTRACT_NOT_FOUND';
+        throw error;
+      }
+      if (lockedContract.status !== 'terminated') {
+        const error = new Error('Договор не расторгнут');
+        error.statusCode = 409;
+        error.code = 'CONTRACT_NOT_TERMINATED';
+        throw error;
+      }
+      if (lockedContract.refund_confirmed) {
+        const error = new Error('Возврат уже подтверждён');
+        error.statusCode = 409;
+        error.code = 'REFUND_ALREADY_CONFIRMED';
+        throw error;
+      }
+      // Load joined display fields only after the state lock is acquired.
       const contract = await this.getById(id);
-      if (!contract) throw new Error('Contract not found');
-      if (contract.status !== 'terminated') throw new Error('Договор не расторгнут');
-      if (contract.refund_confirmed) throw new Error('Возврат уже подтверждён');
-
-      const refundAmount = parseFloat(contract.refund_amount || 0);
+      const refundAmount = parseFloat(lockedContract.refund_amount || 0);
 
       await connection.query(
         `UPDATE contracts
