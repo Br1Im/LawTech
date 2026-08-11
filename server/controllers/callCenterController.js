@@ -1492,10 +1492,10 @@ const callCenterController = {
       // Для директора — показываем записи всех офисов того же владельца
       let officeFilter = [req.user.office_id];
       if (['director', 'cc_manager'].includes(req.user.role)) {
-        const [myOff] = await db.query('SELECT owner_id FROM offices WHERE id = ?', [req.user.office_id]);
+        const [myOff] = await db.query('SELECT owner_id, is_test FROM offices WHERE id = ?', [req.user.office_id]);
         if (myOff.length && myOff[0].owner_id) {
           const [siblingOffices] = await db.query(
-            'SELECT id FROM offices WHERE owner_id = ?', [myOff[0].owner_id]
+            'SELECT id FROM offices WHERE owner_id = ? AND is_test = ?', [myOff[0].owner_id, Number(myOff[0].is_test || 0)]
           );
           if (siblingOffices.length > 1) {
             officeFilter = siblingOffices.map(o => o.id);
@@ -2045,7 +2045,7 @@ const callCenterController = {
 
       // Находим владельца офиса оператора
       const [myOffice] = await db.query(
-        'SELECT owner_id FROM offices WHERE id = ?',
+        'SELECT owner_id, is_test FROM offices WHERE id = ?',
         [req.user.office_id]
       );
 
@@ -2062,8 +2062,8 @@ const callCenterController = {
 
       // Все офисы того же владельца
       const [offices] = await db.query(
-        'SELECT id, name FROM offices WHERE owner_id = ? ORDER BY id',
-        [ownerId]
+        'SELECT id, name FROM offices WHERE owner_id = ? AND is_test = ? ORDER BY id',
+        [ownerId, Number(myOffice[0].is_test || 0)]
       );
 
       res.json({ success: true, data: offices });

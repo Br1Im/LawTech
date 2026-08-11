@@ -67,6 +67,8 @@ const formatOfficeResponse = (office) => {
     address: office.address || '',
     contact_phone: office.contact_phone || null,
     website: office.website || null,
+    is_test: !!office.is_test,
+    external_notifications_enabled: !!office.external_notifications_enabled,
     online: !!office.online,
     lastActivity,
     employee_count: office.employee_count || 0,

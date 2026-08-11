@@ -135,6 +135,27 @@ const authenticateToken = (req, res, next) => {
       }
     }
 
+    try {
+      if (req.user.office_id) {
+        const [[officeFlags]] = await db.query(
+          'SELECT is_test, external_notifications_enabled FROM offices WHERE id = ? LIMIT 1',
+          [req.user.office_id]
+        );
+        req.user.office_is_test = !!officeFlags?.is_test;
+        req.user.external_notifications_enabled = !req.user.office_is_test && !!officeFlags?.external_notifications_enabled;
+        if (req.user.office_is_test) {
+          res.setHeader('X-LawTech-Test-Office', '1');
+          res.setHeader('Cache-Control', 'no-store');
+        }
+      } else {
+        req.user.office_is_test = false;
+        req.user.external_notifications_enabled = false;
+      }
+    } catch (error) {
+      console.error('[auth] Ошибка определения режима тестового офиса:', error);
+      return res.status(500).json({ success: false, message: 'Не удалось проверить режим офиса' });
+    }
+
     next();
   });
 };

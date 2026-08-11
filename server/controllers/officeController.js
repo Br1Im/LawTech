@@ -35,7 +35,9 @@ const officeController = {
       let officeIds = null;
       // Для директора — только его офисы
       if (user && user.role === 'director') {
-        const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ?', [user.id]);
+        const [[activeOffice]] = await db.query('SELECT is_test FROM offices WHERE id = ? LIMIT 1', [user.office_id]);
+        const testFlag = Number(activeOffice?.is_test || 0);
+        const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ? AND is_test = ?', [user.id, testFlag]);
         officeIds = offices.map(o => o.id);
       } else if (user && ['cc_manager', 'cc_operator'].includes(user.role)) {
         const [connected] = await db.query(
@@ -141,7 +143,7 @@ const officeController = {
       }
 
       const [offices] = await db.query(
-        'SELECT id, name, address, contact_phone, website, created_at FROM offices WHERE owner_id = ? ORDER BY name',
+        'SELECT id, name, address, contact_phone, website, is_test, external_notifications_enabled, created_at FROM offices WHERE owner_id = ? ORDER BY is_test, name',
         [user.id]
       );
       
@@ -166,7 +168,7 @@ const officeController = {
 
       // Проверяем, что директор владеет этим офисом
       const [offices] = await db.query(
-        'SELECT id, name FROM offices WHERE id = ? AND owner_id = ?',
+        'SELECT id, name, is_test, external_notifications_enabled FROM offices WHERE id = ? AND owner_id = ?',
         [officeId, user.id]
       );
 
@@ -181,7 +183,7 @@ const officeController = {
       const jwt = require('jsonwebtoken');
       const config = require('../config');
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: 'director', office_id: officeId },
+        { id: user.id, email: user.email, role: 'director', office_id: officeId, office_is_test: !!offices[0].is_test },
         config.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -222,7 +224,7 @@ const officeController = {
    */
   async createOffice(req, res) {
     try {
-      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 } = req.body;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false } = req.body;
       const userRole = (req.user?.role || "").toLowerCase();
       if (userRole !== "director") {
         return res.status(403).json({ success: false, message: "Доступ запрещён" });
@@ -233,7 +235,7 @@ const officeController = {
         return res.status(400).json({ success: false, message: 'Название офиса обязательно' });
       }
       
-      const officeData = { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 };
+      const officeData = { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: !!is_test, external_notifications_enabled: !is_test };
       const office = await Office.create(officeData);
       
       // Устанавливаем owner_id — привязываем офис к текущему пользователю

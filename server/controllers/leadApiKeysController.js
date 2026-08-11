@@ -23,7 +23,7 @@ async function ensureDirectorOwnsOffice(req, res, officeId) {
     res.status(400).json({ success: false, message: 'Не указан офис' });
     return null;
   }
-  const [offices] = await db.query('SELECT id, name, owner_id FROM offices WHERE id = ? LIMIT 1', [officeId]);
+  const [offices] = await db.query('SELECT id, name, owner_id, is_test, external_notifications_enabled FROM offices WHERE id = ? LIMIT 1', [officeId]);
   if (!offices.length) {
     res.status(404).json({ success: false, message: 'Офис не найден' });
     return null;
@@ -86,6 +86,9 @@ exports.create = async (req, res) => {
     const officeId = resolveOfficeId(req);
     const office = await ensureDirectorOwnsOffice(req, res, officeId);
     if (!office) return;
+    if (office.is_test || !office.external_notifications_enabled) {
+      return res.status(409).json({ success: false, message: 'В тестовом офисе внешние интеграции отключены' });
+    }
 
     const { apiKey, email, password, label, provider } = req.body || {};
     const prov = String(provider || 'pravoved').toLowerCase();
@@ -145,6 +148,9 @@ exports.verify = async (req, res) => {
     }
     const office = await ensureDirectorOwnsOffice(req, res, rows[0].office_id);
     if (!office) return;
+    if (office.is_test || !office.external_notifications_enabled) {
+      return res.status(409).json({ success: false, message: 'В тестовом офисе внешние интеграции отключены' });
+    }
 
     const result = await pravovedService.verifyKey(rows[0].api_key);
     if (result.ok) {

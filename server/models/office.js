@@ -141,12 +141,12 @@ class Office {
 
   static async create(office) {
     try {
-      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2 } = office;
+      const { name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test = false, external_notifications_enabled = true } = office;
       const [result] = await db.query(
-        'INSERT INTO offices (name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-        [name, address, contact_phone, website, ip_surname || null, ip_name || null, ip_middle_name || null, inn || null, ogrn || null, work_phone || null, work_phone2 || null]
+        'INSERT INTO offices (name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test, external_notifications_enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+        [name, address, contact_phone, website, ip_surname || null, ip_name || null, ip_middle_name || null, inn || null, ogrn || null, work_phone || null, work_phone2 || null, is_test ? 1 : 0, external_notifications_enabled ? 1 : 0]
       );
-      return { id: result.insertId, name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, created_at: new Date() };
+      return { id: result.insertId, name, address, contact_phone, website, ip_surname, ip_name, ip_middle_name, inn, ogrn, work_phone, work_phone2, is_test: is_test ? 1 : 0, external_notifications_enabled: external_notifications_enabled ? 1 : 0, created_at: new Date() };
     } catch (error) {
       console.error('Error creating office:', error);
       throw error;
@@ -247,6 +247,9 @@ class Office {
       if (officeIds && officeIds.length > 0) {
         query += ` WHERE o.id IN (${officeIds.map(() => '?').join(',')})`;
         params.push(...officeIds);
+      } else {
+        // Unscoped/global production analytics must never include synthetic test offices.
+        query += ' WHERE o.is_test = 0';
       }
 
       query += ` ORDER BY o.name ASC, os.period_value DESC`;

@@ -50,11 +50,12 @@ async function resolveOfficeIds(req) {
   // Managers and OКК are scoped to their current office.
   if (role !== 'director' && role !== 'admin' && role !== 'administrator') return [ownOffice];
 
-  const [ownerRows] = await db.query('SELECT owner_id FROM offices WHERE id = ? LIMIT 1', [ownOffice]);
+  const [ownerRows] = await db.query('SELECT owner_id, is_test FROM offices WHERE id = ? LIMIT 1', [ownOffice]);
   const ownerId = ownerRows[0]?.owner_id;
+  const testFlag = Number(ownerRows[0]?.is_test || 0);
   if (!ownerId) return [ownOffice];
 
-  const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ? ORDER BY id', [ownerId]);
+  const [offices] = await db.query('SELECT id FROM offices WHERE owner_id = ? AND is_test = ? ORDER BY id', [ownerId, testFlag]);
   const available = offices.map(row => Number(row.id));
   const requested = String(req.query.office_id || '').toLowerCase();
   if (requested && requested !== 'all') {
