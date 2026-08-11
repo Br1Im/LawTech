@@ -181,7 +181,7 @@ const updateSettings = async (req, res) => {
 const getEmployeeSalary = async (req, res) => {
   try {
     const empId = Number(req.params.id);
-    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.id WHERE e.id = ?', [empId]);
+    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = ?', [empId]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
     const viewerRole=String(req.user.role||'').toLowerCase();
     const ownEmployeeId=await employeeIdForUser(req.user.id);
@@ -209,7 +209,7 @@ const getEmployeeSalary = async (req, res) => {
 const upsertEmployeeSalary = async (req, res) => {
   try {
     const empId = Number(req.params.id);
-    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.id WHERE e.id = ?', [empId]);
+    const [[emp]] = await db.query('SELECT e.*, u.role AS user_role FROM employees e LEFT JOIN users u ON u.id = e.user_id WHERE e.id = ?', [empId]);
     if (!emp) return bad(res, 404, 'Сотрудник не найден');
     if (!isManagerOrAbove(req.user)) return bad(res, 403, 'Недостаточно прав');
     const role = normalizeRole(emp.position, emp.user_role);
@@ -406,23 +406,45 @@ const calculate = async (req, res) => {
               u.role AS user_role
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
-         LEFT JOIN users u ON u.id = e.id
+         LEFT JOIN users u ON u.id = e.user_id
         WHERE e.office_id = ? AND e.deleted_at IS NULL
           AND (u.is_active = 1 OR u.is_active IS NULL)
           AND (u.role IS NULL OR u.role NOT IN ('cc_manager', 'cc_operator'))`,
       [officeId]
     );
 
-    // 2. Эксперты (могут не иметь office_id или работать на другие офисы — учтём всех экспертов).
+    // 2. Experts are identified by the linked user role, not free-form position text.
     const [allExperts] = await db.query(
       `SELECT e.*, COALESCE(es.base_salary, 0) AS base_salary,
-              es.custom_percent, es.custom_shift_rate, es.custom_per_doc
+              es.custom_percent, es.custom_shift_rate, es.custom_per_doc,
+              u.role AS user_role
          FROM employees e
          LEFT JOIN employee_salaries es ON es.employee_id = e.id
-         LEFT JOIN users u ON u.id = e.id
-        WHERE e.position LIKE '%ксперт%' AND e.deleted_at IS NULL AND (u.is_active = 1 OR u.is_active IS NULL)`
+         JOIN users u ON u.id = e.user_id
+        WHERE u.role = 'expert' AND u.is_active = 1 AND u.deleted_at IS NULL
+          AND e.deleted_at IS NULL`
     );
     const expertsById = new Map(allExperts.map((e) => [e.id, e]));
+
+    // A completed expert package is a persisted expert document uploaded by the
+    // expert. Count it by employees.user_id, the same identity used everywhere else.
+    const expertPackageWhere = ["m.office_id = ?", "m.file_url LIKE '/uploads/contract-docs/%'"];
+    const expertPackageParams = [officeId];
+    const materialDateCol = officeTz
+      ? "DATE(CONVERT_TZ(m.created_at, '+00:00', ?))"
+      : 'DATE(m.created_at)';
+    if (dateFrom) { expertPackageWhere.push(`${materialDateCol} >= ?`); if (officeTz) expertPackageParams.push(officeTz); expertPackageParams.push(dateFrom); }
+    if (dateTo) { expertPackageWhere.push(`${materialDateCol} <= ?`); if (officeTz) expertPackageParams.push(officeTz); expertPackageParams.push(dateTo); }
+    const [expertPackageRows] = await db.query(
+      `SELECT e.id AS employee_id, COUNT(DISTINCT m.id) AS cnt
+         FROM materials m
+         JOIN employees e ON e.user_id = m.created_by
+         JOIN users u ON u.id = e.user_id AND u.role = 'expert' AND u.is_active = 1
+        WHERE ${expertPackageWhere.join(' AND ')}
+        GROUP BY e.id`,
+      expertPackageParams
+    );
+    const expertPackagesById = new Map(expertPackageRows.map(row => [Number(row.employee_id), Number(row.cnt || 0)]));
 
     // 3. Касса офиса за период.
     const cashWhere = ['c.office_id = ?'];
@@ -661,7 +683,7 @@ const calculate = async (req, res) => {
     // Эксперты — не привязаны к офису, считаем всех с подтв. актами в системе.
     for (const e of allExperts) {
       const exActs = expertActsById.get(e.id) || { docs: { cnt: 0, sum: 0 }, court_rep: { cnt: 0, sum: 0 } };
-      const cnt = exActs.docs.cnt;
+      const cnt = expertPackagesById.get(Number(e.id)) || 0;
       if (!cnt && (!e.office_id || Number(e.office_id) !== Number(officeId))) {
         // Эксперт без актов и без привязки к этому офису — в этом расчёте показываем только если он был активен.
         continue;
@@ -697,7 +719,7 @@ const calculate = async (req, res) => {
       if (r.role === ROLE_EXPERT && !r.bonus_breakdown.length) {
         const e = expertsById.get(r.employee_id);
         const exActs = expertActsById.get(r.employee_id) || { docs: { cnt: 0, sum: 0 }, court_rep: { cnt: 0, sum: 0 } };
-        const cnt = exActs.docs.cnt;
+        const cnt = expertPackagesById.get(Number(r.employee_id)) || 0;
         const customRate = e?.custom_per_doc !== null && e?.custom_per_doc !== undefined ? Number(e.custom_per_doc) : null;
         const perDoc = customRate !== null ? customRate : Number(settings.expert_per_doc_amount);
         const bonus = cnt * perDoc;
