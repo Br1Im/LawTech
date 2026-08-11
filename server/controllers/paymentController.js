@@ -12,7 +12,8 @@ async function getAccessibleContract(req, connection = db, lock = false) {
   const suffix = lock ? ' FOR UPDATE' : '';
   const [rows] = await connection.query(
     `SELECT id, office_id, id_client, id_employee, contract_number, contract_date,
-            amount, paid_amount, registered_by, title
+            amount, paid_amount, registered_by, title, status, terminated_at,
+            refund_amount, refund_confirmed
        FROM contracts
       WHERE id = ?${suffix}`,
     [req.params.id]
@@ -140,6 +141,14 @@ async function addPayment(req, res) {
       return res.status(access.error[0]).json({ success: false, message: access.error[1] });
     }
     const contract = access.contract;
+    if (String(contract.status || '').toLowerCase() === 'terminated' || contract.terminated_at) {
+      await connection.rollback();
+      return res.status(409).json({
+        success: false,
+        code: 'CONTRACT_TERMINATED',
+        message: 'Нельзя добавлять оплату по расторгнутому договору'
+      });
+    }
     const [[current]] = await connection.query(
       `SELECT COALESCE(ROUND(SUM(amount), 2), 0) AS total
          FROM contract_payments
