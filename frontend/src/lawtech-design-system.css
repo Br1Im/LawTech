@@ -2809,3 +2809,21 @@ table {
   background: transparent !important;
   box-shadow: none !important;
 }
+
+/* Ant picker owns the surface. Its nested inputs must not paint separate blocks. */
+.ant-picker-input > input {
+  min-height: 0 !important;
+  height: auto !important;
+  padding-block: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+.ant-picker-input > input:hover,
+.ant-picker-input > input:focus {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}

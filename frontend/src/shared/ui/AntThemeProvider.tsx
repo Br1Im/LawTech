@@ -49,7 +49,7 @@ const AntThemeProvider: React.FC<AntThemeProviderProps> = ({ children }) => {
       window.clearTimeout((window as any).__themeTransitionTimer);
       (window as any).__themeTransitionTimer = window.setTimeout(() => {
         root.classList.remove('theme-transition');
-      }, 420);
+      }, 320);
     }
     isFirstRender.current = false;
     root.setAttribute('data-theme', mode);

@@ -651,3 +651,13 @@
 [data-theme='dark'] .bal2 .bal2-drop-item:hover { background: oklch(26% 0.012 270) !important; }
 [data-theme='dark'] .bal2-modal-bg { background: oklch(8% 0.01 270 / 0.78) !important; backdrop-filter: none !important; }
 [data-theme='dark'] .bal2 .bal2-error { background: oklch(24% 0.055 25) !important; border-color: oklch(42% 0.10 25) !important; color: oklch(82% 0.10 25) !important; }
+
+
+/* Total KPI is one uninterrupted surface, never three nested strips. */
+.bal2-card--total > .bal2-card-top,
+.bal2-card--total > .bal2-card-value,
+.bal2-card--total > .bal2-card-delta {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}

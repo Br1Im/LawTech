@@ -895,38 +895,38 @@ select option {
   color: #8B8FA3 !important;
 }
 
-/* ── Плавное переключение светлой/тёмной темы ──────────────────────
-   Класс .theme-transition вешается на <html> на ~320мс только в момент
-   смены темы. Единая короткая анимация цвета/фона/границ для ВСЕХ
-   элементов => плавный одновременный кросс-фейд без рывков и лагов.
-   Анимируем только дешёвые для отрисовки свойства (без box-shadow/
-   transform), поэтому переход плавный даже на больших таблицах. */
+/* Smooth theme switching without touching every DOM node. The previous
+   universal selector animated thousands of table cells and caused frame drops. */
 html.theme-transition,
-html.theme-transition *,
-html.theme-transition *::before,
-html.theme-transition *::after {
-  transition: background-color 0.35s ease, background 0.35s ease,
-    border-color 0.35s ease, color 0.35s ease, fill 0.35s ease,
-    stroke 0.35s ease !important;
+html.theme-transition body,
+html.theme-transition #root,
+html.theme-transition .ant-app,
+html.theme-transition .lawtech-workspace,
+html.theme-transition :where(
+  .sidebar,.mobile-sidebar,.mobile-icon-rail,
+  .ant-card,.ant-table,.ant-table-container,.ant-table-cell,
+  .ant-modal-content,.ant-modal-header,.ant-modal-footer,
+  .ant-drawer-content,.ant-dropdown-menu,.ant-select-dropdown,.ant-popover-inner,
+  .ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker,.ant-input-number,
+  button,.ant-btn,.apt-toolbar,.oa-panel,.plan-fact-block,.plan-fact-card-v2,
+  .bal2-card,.bal2-day,.tg-sidebar,.tg-header,.tg-input-area,.tg-bubble,
+  .emp-modal-card
+) {
+  transition-property: background-color, border-color, color, fill, stroke !important;
+  transition-duration: 280ms !important;
+  transition-timing-function: cubic-bezier(.22,1,.36,1) !important;
   transition-delay: 0s !important;
 }
-
-/* Анимированный mesh-фон не перерисовываем при смене темы — это главный
-   источник «лагов»; фиксируем его, чтобы переключение было лёгким. */
 html.theme-transition body::before,
-html.theme-transition body::after {
-  transition: none !important;
-}
-
+html.theme-transition body::after { transition:none!important; }
 @media (prefers-reduced-motion: reduce) {
   html.theme-transition,
-  html.theme-transition *,
-  html.theme-transition *::before,
-  html.theme-transition *::after {
-    transition: none !important;
-  }
+  html.theme-transition body,
+  html.theme-transition #root,
+  html.theme-transition .ant-app,
+  html.theme-transition .lawtech-workspace,
+  html.theme-transition :where(.sidebar,.mobile-sidebar,.mobile-icon-rail,.ant-card,.ant-table,.ant-modal-content,.ant-input,.ant-input-affix-wrapper,.ant-select-selector,.ant-picker,.ant-input-number,button,.ant-btn) { transition:none!important; }
 }
-
 
 @media (max-width: 768px) {
   button, [role="button"], .ant-btn, .ant-pagination-item, .ant-pagination-prev, .ant-pagination-next { min-height: 40px; }
