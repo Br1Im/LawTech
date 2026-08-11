@@ -13,7 +13,7 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../db');
 const config = require('../config');
-const { decodeUploadedFilename } = require('../utils/filename');
+const { decodeUploadedFilename, decodeMultipartText } = require('../utils/filename');
 
 router.use(authenticateToken);
 
@@ -52,7 +52,9 @@ router.post('/materials/upload', upload.single('file'), async (req, res) => {
     if (!req.file) return bad(res, 400, 'Файл не получен');
     const officeId = req.user.office_id;
     if (!officeId) return bad(res, 403, 'Пользователь не привязан к офису');
-    const { case_id, contract_id, category, description } = req.body;
+    const { case_id, contract_id } = req.body;
+    const category = decodeMultipartText(req.body.category) || 'Документ';
+    const description = decodeMultipartText(req.body.description) || null;
     const fileUrl = `/uploads/materials/${req.file.filename}`;
     const [r] = await db.query(
       `INSERT INTO materials (office_id, case_id, contract_id, name, category, description, file_url, mime_type, size_bytes, created_by)
@@ -62,8 +64,8 @@ router.post('/materials/upload', upload.single('file'), async (req, res) => {
         case_id ? Number(case_id) : null,
         contract_id ? Number(contract_id) : null,
         req.file.originalname || req.file.filename,
-        category || 'Документ',
-        description || null,
+        category,
+        description,
         fileUrl,
         req.file.mimetype || null,
         req.file.size || 0,

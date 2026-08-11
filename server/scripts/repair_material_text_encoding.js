@@ -1,0 +1,3 @@
+const db=require('../db');
+const {decodeMultipartText}=require('../utils/filename');
+(async()=>{const [rows]=await db.query('SELECT id,category,description FROM materials');let changed=0;for(const row of rows){const category=decodeMultipartText(row.category);const description=decodeMultipartText(row.description);if(category!==row.category||description!==row.description){await db.query('UPDATE materials SET category=?,description=? WHERE id=?',[category,description,row.id]);changed++;}}console.log(JSON.stringify({scanned:rows.length,changed}));process.exit(0);})().catch(e=>{console.error(e);process.exit(1)});
