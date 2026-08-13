@@ -3,7 +3,6 @@ const { ensureUserOffice, checkOfficeAccess, getUserOfficeIds } = require('../ut
 const { REFUND_CONFIRM_ROLES } = require('../constants');
 const TERMINATE_ROLES = ['director', 'manager', 'okk'];
 const socketEmitter = require('../middleware/socketEmitter');
-const { createAutoExpense } = require('./expensesController');
 const { userForEmployee } = require('../utils/employeeIdentity');
 const { canAccessContract } = require('../utils/contractAccess');
 
@@ -514,23 +513,11 @@ const contractController = {
         return res.status(403).json({ success: false, message: 'Доступ запрещен' });
       }
 
-      const contract = await Contract.confirmRefund(id, user.id);
-
-      // Автоматически создаем расход «Возвраты»
-      const refundAmt = parseFloat(contract.refund_amount || existingContract.refund_amount || 0);
-      if (refundAmt > 0) {
-        createAutoExpense({
-          office_id: existingContract.office_id,
-          category: 'Возвраты',
-          title: 'Возврат: ' + (existingContract.client_name || 'Клиент') + ' (Договор ' + (existingContract.contract_number || id) + ')',
-          amount: refundAmt,
-          description: 'Автоматический расход при подтверждении возврата',
-          spent_on: new Date().toISOString().slice(0, 10),
-          source_type: 'refund',
-          source_id: Number(id),
-          created_by: user.id,
-        }).catch(err => console.error('Auto expense for refund failed:', err));
+      const paymentMethod = String(req.body?.payment_method || '');
+      if (!['cash', 'noncash', 'bank'].includes(paymentMethod)) {
+        return res.status(400).json({ success: false, code: 'REFUND_PAYMENT_METHOD_REQUIRED', message: '???????? ???????? ????????' });
       }
+      const contract = await Contract.confirmRefund(id, user.id, paymentMethod);
 
       res.json({ success: true, message: 'Возврат подтверждён, касса обновлена', data: contract });
     } catch (error) {

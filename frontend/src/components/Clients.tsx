@@ -525,10 +525,15 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   };
 
-  const handleConfirmRefund = async (contractId: number) => {
+  const handleConfirmRefund = async () => {
+    if (!refundConfirmContract || !refundPaymentMethod) { message.warning('Выберите источник списания'); return; }
+    const contractId = refundConfirmContract.id;
+    setRefundConfirming(true);
     try {
-      await contractsApi.confirmRefund(contractId);
+      await contractsApi.confirmRefund(contractId, refundPaymentMethod);
       message.success('Возврат подтверждён, касса обновлена');
+      setRefundConfirmContract(null);
+      setRefundPaymentMethod(null);
       load();
       loadTerminated();
       if (detailContract?.id === contractId) {
@@ -538,7 +543,7 @@ const Clients: React.FC<ClientsProps> = () => {
       }
     } catch (e: any) {
       message.error(e?.response?.data?.message || 'Ошибка при подтверждении возврата');
-    }
+    } finally { setRefundConfirming(false); }
   };
 
   const handleConfirmRemainder = async (contractId: number) => {
@@ -2638,16 +2643,9 @@ const Clients: React.FC<ClientsProps> = () => {
           )}
 
           {!c.refund_confirmed && canConfirmRefund && parseFloat(String(c.refund_amount || 0)) > 0 && (
-            <Popconfirm
-              title={`Подтвердить возврат ${formatMoney(c.refund_amount)}? Сумма будет вычтена из кассы офиса и юриста.`}
-              okText="Да, деньги возвращены"
-              cancelText="Отмена"
-              onConfirm={() => handleConfirmRefund(c.id)}
-            >
-              <Button type="primary" danger icon={<DollarOutlined />} size="large" block>
-                Деньги возвращены
-              </Button>
-            </Popconfirm>
+            <Button type="primary" danger icon={<DollarOutlined />} size="large" block onClick={() => { setRefundConfirmContract(c); setRefundPaymentMethod(null); }}>
+              Деньги возвращены
+            </Button>
           )}
 
           <div style={{ marginTop: 8 }}>
@@ -3118,23 +3116,9 @@ const Clients: React.FC<ClientsProps> = () => {
                   if (parseFloat(String(r.refund_amount || 0)) > 0) {
                     if (canConfirmRefund) {
                       return (
-                        <Popconfirm
-                          title={`Подтвердить возврат ${formatMoney(r.refund_amount)}?`}
-                          okText="Да"
-                          cancelText="Нет"
-                          onConfirm={(e) => { e?.stopPropagation(); handleConfirmRefund(r.id); }}
-                          onCancel={(e) => e?.stopPropagation()}
-                        >
-                          <Button
-                            type="primary"
-                            danger
-                            size="small"
-                            icon={<DollarOutlined />}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Деньги возвращены
-                          </Button>
-                        </Popconfirm>
+                        <Button type="primary" danger size="small" icon={<DollarOutlined />} onClick={(e) => { e.stopPropagation(); setRefundConfirmContract(r); setRefundPaymentMethod(null); }}>
+                          Деньги возвращены
+                        </Button>
                       );
                     }
                     return <Tag color="red">Ожидает возврата</Tag>;
@@ -3164,6 +3148,12 @@ const Clients: React.FC<ClientsProps> = () => {
       </Drawer>
 
       {/* ── Preview modal for images ── */}
+      <Modal title="Подтверждение возврата" open={!!refundConfirmContract} okText="Подтвердить возврат" cancelText="Отмена" confirmLoading={refundConfirming} okButtonProps={{ danger: true, disabled: !refundPaymentMethod }} onOk={handleConfirmRefund} onCancel={() => { if (!refundConfirming) { setRefundConfirmContract(null); setRefundPaymentMethod(null); } }}>
+        <p>Сумма возврата: <b>{formatMoney(refundConfirmContract?.refund_amount || 0)}</b></p>
+        <div style={{ marginBottom: 8, fontWeight: 600 }}>Источник списания</div>
+        <Select value={refundPaymentMethod} onChange={setRefundPaymentMethod} placeholder="Выберите источник" style={{ width: '100%' }} options={[{ value: 'cash', label: 'Наличные' }, { value: 'noncash', label: 'Безналичные' }, { value: 'bank', label: 'Расчётный счёт' }]} />
+      </Modal>
+
       <Modal
         open={previewVisible}
         title={previewTitle}

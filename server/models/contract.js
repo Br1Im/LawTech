@@ -1,5 +1,6 @@
 const db = require('../db');
 const contractAssignmentService = require('../services/contractAssignmentService');
+const { availableBalance } = require('../utils/financeSecurity');
 
 /**
  * Модель для работы с договорами
@@ -711,7 +712,7 @@ class Contract {
   /**
    * Подтвердить возврат денег — вычитает refund_amount из кассы офиса и юриста
    */
-  static async confirmRefund(id, userId) {
+  static async confirmRefund(id, userId, paymentMethod) {
     const connection = await db.getClient();
     try {
       await connection.beginTransaction();
@@ -738,22 +739,45 @@ class Contract {
         error.code = 'REFUND_ALREADY_CONFIRMED';
         throw error;
       }
+      const allowedRefundMethods = new Set(['cash', 'noncash', 'bank']);
+      if (!allowedRefundMethods.has(paymentMethod)) {
+        const error = new Error('???????? ???????? ????????: ????????, ??????????? ??? ????????? ????');
+        error.statusCode = 400;
+        error.code = 'REFUND_PAYMENT_METHOD_REQUIRED';
+        throw error;
+      }
+
       // Load joined display fields only after the state lock is acquired.
       const contract = await this.getById(id);
       const refundAmount = parseFloat(lockedContract.refund_amount || 0);
+      const [[officeRow]] = await connection.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [contract.office_id]);
+      let todayStr;
+      try {
+        todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: officeRow?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      } catch (_) {
+        todayStr = new Date().toISOString().slice(0, 10);
+      }
+      if (refundAmount > 0) {
+        const available = await availableBalance(connection, contract.office_id, paymentMethod, todayStr);
+        if (available + 0.000001 < refundAmount) {
+          const error = new Error('???????????? ??????? ? ????????? ?????????');
+          error.statusCode = 409;
+          error.code = 'INSUFFICIENT_REFUND_SOURCE_BALANCE';
+          throw error;
+        }
+      }
 
       await connection.query(
         `UPDATE contracts
          SET refund_confirmed = 1,
              refund_confirmed_by = ?,
-             refund_confirmed_at = NOW()
+             refund_confirmed_at = NOW(),
+             refund_payment_method = ?
          WHERE id = ?`,
-        [userId, id]
+        [userId, paymentMethod, id]
       );
 
       if (refundAmount > 0) {
-        const now = new Date();
-        const todayStr = now.toISOString().slice(0, 10);
         await this.updateOfficeStatsOnDelete(connection, contract.office_id, refundAmount, todayStr);
         await this.updateEmployeeStatsOnDelete(connection, contract.id_employee, refundAmount, todayStr);
 
@@ -763,6 +787,15 @@ class Contract {
           [contract.id_employee]
         );
         const lawyerName = lawyerRows.length > 0 ? lawyerRows[0].full_name : null;
+
+        await connection.query(
+          `INSERT INTO expenses
+           (office_id, category, amount, expense_type, payment_method, is_auto, source_type, source_id, title, description, spent_on, created_by)
+           VALUES (?, '????????', ?, '???????', ?, 1, 'refund', ?, ?, ?, ?, ?)`,
+          [contract.office_id, refundAmount, paymentMethod, Number(id),
+           `???????: ${contract.client_name || '??????'} (??????? ${contract.contract_number || id})`,
+           `?????????????? ?????? ??? ????????????? ????????. ????????: ${paymentMethod}`, todayStr, userId]
+        );
 
         await connection.query(
           `INSERT INTO cash_register

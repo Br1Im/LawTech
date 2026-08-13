@@ -900,7 +900,8 @@ const callCenterController = {
 
       const [operatorRows] = await db.query(
         `SELECT
-           u.id,
+           e.id,
+           u.id AS user_id,
            CONCAT(u.first_name, ' ', u.last_name) AS name,
            u.role,
            COALESCE(s.is_online, 0) AS is_online,
@@ -914,7 +915,7 @@ const callCenterController = {
            ON l.assigned_to = u.id AND l.office_id = u.office_id
          WHERE u.office_id = ?
            AND u.role IN ('cc_operator', 'cc_manager')
-         GROUP BY u.id, u.first_name, u.last_name, u.role, s.is_online, s.current_load
+         GROUP BY e.id, u.id, u.first_name, u.last_name, u.role, s.is_online, s.current_load
          ORDER BY COALESCE(s.is_online, 0) DESC, COALESCE(s.current_load, 0) ASC, name ASC`,
         [officeId]
       );
@@ -1910,6 +1911,7 @@ const callCenterController = {
            SUM(CASE WHEN a.consultation_result = 'not_signed' THEN 1 ELSE 0 END) AS contracts_not_signed,
            SUM(CASE WHEN a.consultation_result IS NULL THEN 1 ELSE 0 END) AS pending
          FROM users u
+         JOIN employees e ON e.user_id = u.id AND e.office_id = u.office_id AND e.deleted_at IS NULL
          LEFT JOIN appointments a ON a.assigned_lawyer_id = u.id AND a.office_id = ?${__dateFilter} AND a.status = 'arrived'
          WHERE u.office_id = ? AND u.is_active = 1
            AND u.role IN ('manager', 'okk', 'lawyer')

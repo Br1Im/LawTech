@@ -181,6 +181,7 @@ export interface CrmContract {
   refund_confirmed_by?: number | null;
   refund_confirmed_at?: string | null;
   refund_confirmed_by_name?: string | null;
+  refund_payment_method?: 'cash' | 'noncash' | 'bank' | null;
   remainder_confirmed?: number | boolean | null;
   remainder_confirmed_by?: number | null;
   remainder_confirmed_at?: string | null;
@@ -216,8 +217,8 @@ export const contractsApi = {
     refund_amount?: number;
     refund_deadline?: string;
   }) => unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/terminate`, payload)),
-  confirmRefund: (id: number) =>
-    unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/confirm-refund`, {})),
+  confirmRefund: (id: number, payment_method: 'cash' | 'noncash' | 'bank') =>
+    unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/confirm-refund`, { payment_method })),
   confirmRemainder: (id: number) =>
     unwrap<CrmContract>(apiInstance.post(`/contracts/${id}/confirm-remainder`, {})),
   listTerminated: () =>
