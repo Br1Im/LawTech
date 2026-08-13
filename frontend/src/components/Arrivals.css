@@ -208,3 +208,7 @@
 [data-theme="dark"] .lt-page-arrivals .arrival-result-actions button.is-danger { background: #3A2025 !important; color: #FF9B9B !important; border-color: #8B3D49 !important; }
 @media(max-width:700px){.lt-page-arrivals .arrival-result-actions button{min-width:44px!important;min-height:44px!important}.lt-page-arrivals .arrival-analysis-row .consultation-analysis-btn{min-height:44px!important}}
 
+
+/* Keep arrival cards readable on wide screens. */
+.lt-page-arrivals .arrival-cards-list { max-width: 1080px; }
+@media(max-width:1100px){.lt-page-arrivals .arrival-cards-list{max-width:none}}
