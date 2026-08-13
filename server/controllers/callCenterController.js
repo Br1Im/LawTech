@@ -900,8 +900,7 @@ const callCenterController = {
 
       const [operatorRows] = await db.query(
         `SELECT
-           e.id,
-           u.id AS user_id,
+           u.id,
            CONCAT(u.first_name, ' ', u.last_name) AS name,
            u.role,
            COALESCE(s.is_online, 0) AS is_online,
@@ -915,7 +914,7 @@ const callCenterController = {
            ON l.assigned_to = u.id AND l.office_id = u.office_id
          WHERE u.office_id = ?
            AND u.role IN ('cc_operator', 'cc_manager')
-         GROUP BY e.id, u.id, u.first_name, u.last_name, u.role, s.is_online, s.current_load
+         GROUP BY u.id, u.first_name, u.last_name, u.role, s.is_online, s.current_load
          ORDER BY COALESCE(s.is_online, 0) DESC, COALESCE(s.current_load, 0) ASC, name ASC`,
         [officeId]
       );
@@ -1903,7 +1902,8 @@ const callCenterController = {
         : [req.user.office_id, req.user.office_id];
       const [rows] = await db.query(
         `SELECT
-           u.id,
+           e.id,
+           u.id AS user_id,
            CONCAT(u.first_name, ' ', u.last_name) AS name,
            u.role,
            COUNT(a.id) AS total_consultations,
@@ -1915,7 +1915,7 @@ const callCenterController = {
          LEFT JOIN appointments a ON a.assigned_lawyer_id = u.id AND a.office_id = ?${__dateFilter} AND a.status = 'arrived'
          WHERE u.office_id = ? AND u.is_active = 1
            AND u.role IN ('manager', 'okk', 'lawyer')
-         GROUP BY u.id, u.first_name, u.last_name, u.role
+         GROUP BY e.id, u.id, u.first_name, u.last_name, u.role
          ORDER BY FIELD(u.role, 'manager', 'okk', 'lawyer'), u.last_name, u.first_name`,
         __params
       );
