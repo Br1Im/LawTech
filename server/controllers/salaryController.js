@@ -837,6 +837,11 @@ const paySalary = async (req, res) => {
   if (!PAYMENT_METHODS.has(paymentMethod)) return bad(res, 400, 'Выберите способ выплаты');
   if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');
 
+  const [[officeSettings]] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [officeId]);
+  let paymentDate;
+  try { paymentDate = new Intl.DateTimeFormat('en-CA', { timeZone: officeSettings?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  catch (_) { paymentDate = new Date().toISOString().slice(0, 10); }
+
   const calculated = await calculatePayload(req, { office_id: officeId, date_from: periodFrom, date_to: periodTo });
   const row = (calculated.rows || []).find(item => Number(item.employee_id) === employeeId);
   if (!row || Number(row.total || 0) <= 0) return bad(res, 400, 'Нет начисления для выплаты');
@@ -847,7 +852,7 @@ const paySalary = async (req, res) => {
     await connection.beginTransaction();
     await claimIdempotency(connection,req,'salary:pay',officeId);
     await connection.query('SELECT id FROM offices WHERE id=? FOR UPDATE',[officeId]);
-    const available=await availableBalance(connection,officeId,paymentMethod,new Date().toISOString().slice(0,10));
+    const available=await availableBalance(connection,officeId,paymentMethod,paymentDate);
     if(available+0.000001<amount){await connection.rollback();return bad(res,400,'Недостаточно средств в выбранном источнике');}
     const [existing] = await connection.query(
       `SELECT id FROM salary_payments WHERE office_id=? AND employee_id=?
@@ -871,10 +876,10 @@ const paySalary = async (req, res) => {
     const [expenseResult] = await connection.query(
       `INSERT INTO expenses
        (office_id,category,amount,expense_type,payment_method,is_auto,source_type,source_id,title,description,spent_on,created_by)
-       VALUES (?,'Зарплаты',?,'Разовый',?,1,'salary_payment',?, ?, ?, CURRENT_DATE(),?)`,
+       VALUES (?,'Зарплаты',?,'Разовый',?,1,'salary_payment',?, ?, ?, ?,?)`,
       [officeId,amount,paymentMethod,paymentId,
        `Выплата зарплаты: ${row.full_name}`,
-       `Период ${periodFrom} — ${periodTo}. Оклад ${row.base_salary}; бонус ${row.bonus}.`,req.user.id]
+       `Период ${periodFrom} — ${periodTo}. Оклад ${row.base_salary}; бонус ${row.bonus}.`,paymentDate,req.user.id]
     );
     await connection.query('UPDATE salary_payments SET expense_id=? WHERE id=?',[expenseResult.insertId,paymentId]);
     await audit(connection,req,'pay','salary_payment',paymentId,officeId,amount,{employee_id:employeeId,period_from:periodFrom,period_to:periodTo,payment_method:paymentMethod,expense_id:expenseResult.insertId});
@@ -897,10 +902,14 @@ const cancelSalaryPayment = async (req, res) => {
     const [[payment]] = await connection.query('SELECT * FROM salary_payments WHERE id=? FOR UPDATE',[req.params.id]);
     if (!payment || !await checkOfficeAccess(req.user, payment.office_id)) { await connection.rollback(); return bad(res,404,'Выплата не найдена'); }
     if (payment.status !== 'paid' || payment.cancelled_at || payment.reversal_income_id) { await connection.rollback(); return bad(res,409,'Выплата уже отменена'); }
+    const [[cancelOffice]] = await connection.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [payment.office_id]);
+    let cancellationDate;
+    try { cancellationDate = new Intl.DateTimeFormat('en-CA', { timeZone: cancelOffice?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+    catch (_) { cancellationDate = new Date().toISOString().slice(0, 10); }
     const [realIncome] = await connection.query(
       `INSERT INTO office_income (office_id,income_date,payment_method,amount,title,description,created_by,source_type,source_id)
-       VALUES (?,CURRENT_DATE(),?,?,?,?,?,'salary_payment_reversal',?)`,
-      [payment.office_id,payment.payment_method,payment.amount,
+       VALUES (?,?,?,?,?,?,?,'salary_payment_reversal',?)`,
+      [payment.office_id,cancellationDate,payment.payment_method,payment.amount,
        `Отмена выплаты зарплаты #${payment.id}`,
        `Возврат в баланс. Причина: ${reason}`,req.user.id,payment.id]
     );
