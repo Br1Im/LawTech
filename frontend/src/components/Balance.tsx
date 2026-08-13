@@ -76,9 +76,9 @@ const clientShortName = (name?: string | null) => {
 };
 const fmtMoney = (n: number) => fmt(n) + ' ₽';
 const fmtSigned = (n: number) => (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + ' ₽';
-const todayStr = () => new Date().toISOString().slice(0, 10);
 const localDateStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const todayStr = localDateStr;
 const ruLongDate = (d: string) => { const [y,m,day] = d.split('-'); return `${day} ${MONTHS[+m-1]} ${y}`; };
 const ruShort = (d: string) => { const [y,m,day] = d.split('-'); return `${day}.${m}.${y}`; };
 
@@ -228,7 +228,8 @@ const Balance: React.FC = () => {
           description: expenseForm.comment.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error('Ошибка добавления расхода');
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message || '?????? ?????????? ???????');
       setShowExpense(false);
       const d = todayStr();
       setExpenseForm({ amount: '', payment_method: 'bank', title: '', comment: '' });
@@ -368,9 +369,9 @@ const Balance: React.FC = () => {
 
       {/* Action buttons */}
       <div className="bal2-actions">
-        <button className="bal2-act bal2-act--income" onClick={() => { setShowIncome(true); setShowExpense(false); }}>+ Поступление</button>
-        <button className="bal2-act bal2-act--expense" onClick={() => { setShowExpense(true); setShowIncome(false); }}>+ Расход</button>
-        <button className="bal2-act bal2-act--transfer" onClick={() => { setShowTransfer(true); setShowIncome(false); setShowExpense(false); }}>↔ Перевод средств</button>
+        <button type="button" className="bal2-act bal2-act--income" onClick={() => { setShowIncome(true); setShowExpense(false); setShowTransfer(false); }}>+ Поступление</button>
+        <button type="button" className="bal2-act bal2-act--expense" onClick={() => { setShowExpense(true); setShowIncome(false); setShowTransfer(false); }}>+ Расход</button>
+        <button type="button" className="bal2-act bal2-act--transfer" onClick={() => { setShowTransfer(true); setShowIncome(false); setShowExpense(false); }}>↔ Перевод средств</button>
       </div>
 
       {/* Навигация по периодам — как во вкладке Офис, опущена перед историей */}
@@ -505,7 +506,7 @@ const Balance: React.FC = () => {
       {showIncome && (
         <div className="bal2-modal-bg" onClick={() => setShowIncome(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новое поступление</h3><button className="bal2-modal-x" onClick={() => setShowIncome(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новое поступление</h3><button type="button" className="bal2-modal-x" onClick={() => setShowIncome(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Способ поступления</span>
               <PmToggle value={incomeForm.payment_method} onChange={v => setIncomeForm(f => ({ ...f, payment_method: v }))} /></div>
             <div className="bal2-fld-b"><span>Сумма</span>
@@ -513,8 +514,8 @@ const Balance: React.FC = () => {
             <div className="bal2-fld-b"><span>Комментарий</span>
               <input value={incomeForm.comment} onChange={e => setIncomeForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: Поступление по договору" /></div>
             <div className="bal2-modal-actions">
-              <button className="bal2-btn-cancel" onClick={() => setShowIncome(false)}>Отмена</button>
-              <button className="bal2-btn-ok bal2-btn-ok--income" onClick={addIncome} disabled={saving || !incomeForm.amount}>Сохранить</button>
+              <button type="button" className="bal2-btn-cancel" onClick={() => setShowIncome(false)}>Отмена</button>
+              <button type="button" className="bal2-btn-ok bal2-btn-ok--income" onClick={addIncome} disabled={saving || !incomeForm.amount}>Сохранить</button>
             </div>
           </div>
         </div>
@@ -524,7 +525,7 @@ const Balance: React.FC = () => {
       {showExpense && (
         <div className="bal2-modal-bg" onClick={() => setShowExpense(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новый расход</h3><button className="bal2-modal-x" onClick={() => setShowExpense(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новый расход</h3><button type="button" className="bal2-modal-x" onClick={() => setShowExpense(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Наименование расхода</span>
               <input value={expenseForm.title} onChange={e => setExpenseForm(f => ({ ...f, title: e.target.value }))} placeholder="Например: Аренда офиса" autoFocus /></div>
             <div className="bal2-fld-b"><span>Источник списания</span>
@@ -534,8 +535,8 @@ const Balance: React.FC = () => {
             <div className="bal2-fld-b"><span>Комментарий</span>
               <input value={expenseForm.comment} onChange={e => setExpenseForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: Оплата аренды за июль" /></div>
             <div className="bal2-modal-actions">
-              <button className="bal2-btn-cancel" onClick={() => setShowExpense(false)}>Отмена</button>
-              <button className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount || !expenseForm.title.trim()}>Сохранить</button>
+              <button type="button" className="bal2-btn-cancel" onClick={() => setShowExpense(false)}>Отмена</button>
+              <button type="button" className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount || !expenseForm.title.trim()}>Сохранить</button>
             </div>
           </div>
         </div>
@@ -544,7 +545,7 @@ const Balance: React.FC = () => {
       {showTransfer && (
         <div className="bal2-modal-bg" onClick={() => setShowTransfer(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Перевод средств</h3><button className="bal2-modal-x" onClick={() => setShowTransfer(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Перевод средств</h3><button type="button" className="bal2-modal-x" onClick={() => setShowTransfer(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Откуда</span>
               <select value={transferForm.source} onChange={e => setTransferForm(f => ({ ...f, source: e.target.value }))}>
                 {TRANSFER_PM_OPTIONS.map(o => <option key={o.value} value={o.value} disabled={o.value === transferForm.destination}>{o.label}</option>)}
@@ -565,8 +566,8 @@ const Balance: React.FC = () => {
               <input value={transferForm.comment} onChange={e => setTransferForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: внесение выручки в кассу" />
             </div>
             <div className="bal2-modal-actions">
-              <button className="bal2-btn-cancel" onClick={() => setShowTransfer(false)}>Отмена</button>
-              <button className="bal2-btn-ok bal2-btn-ok--transfer" onClick={addTransfer} disabled={saving || !transferForm.amount || transferForm.source === transferForm.destination}>Сохранить перевод</button>
+              <button type="button" className="bal2-btn-cancel" onClick={() => setShowTransfer(false)}>Отмена</button>
+              <button type="button" className="bal2-btn-ok bal2-btn-ok--transfer" onClick={addTransfer} disabled={saving || !transferForm.amount || transferForm.source === transferForm.destination}>Сохранить перевод</button>
             </div>
           </div>
         </div>
