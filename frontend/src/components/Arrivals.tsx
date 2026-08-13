@@ -597,57 +597,37 @@ const Arrivals: React.FC = () => {
           ) : primaryByDay.length ? (
             <div className="arrival-cards-list">
               {primaryByDay.map(row => (
-                <article className="apt-card arrival-card" key={row.id}>
-                  <div className="arrival-card-time">
-                    <strong>{fmtArrivedTime(row.arrived_at, row.appointment_time)}</strong>
-                    <span>{fmtDate(row.appointment_date)}</span>
+                <div key={row.id} className="apt-card arrival-card">
+                  <div className="apt-card-time">
+                    <span className="apt-card-time-value">{fmtArrivedTime(row.arrived_at, row.appointment_time)}</span>
+                    <span className="apt-card-time-date">{fmtDate(row.appointment_date)}</span>
                   </div>
-                  <div className="arrival-card-main">
-                    <div className="arrival-card-client">
-                      <span className="apt-card-avatar">{getInitials(row.client_name)}</span>
-                      <div>
-                        <h3>{row.client_name}</h3>
-                        <span>{row.client_phone || 'Телефон не указан'}</span>
+                  <div className="apt-card-body">
+                    <div className="apt-card-row-main">
+                      <div className="apt-card-avatar">{getInitials(row.client_name)}</div>
+                      <div className="apt-card-client">
+                        <span className="apt-card-client-name">{row.client_name}</span>
+                        <span className="apt-card-client-phone">{row.client_phone || '?'}</span>
                       </div>
                     </div>
-                    <div className="arrival-card-details">
-                      <div>
-                        <small>Источник</small>
-                        <span>{row.source || 'Не указан'}</span>
-                      </div>
-                      <div>
-                        <small>Кто записал</small>
-                        <span>{row.operator_name || 'Не указан'}</span>
-                      </div>
-                      <div className="arrival-card-employee">
-                        <small>Сотрудник на консультации</small>
-                        {assignedEmployees(row)}
-                      </div>
-                      {row.comment && (
-                        <div className="arrival-card-comment">
-                          <small>Тема / комментарий</small>
-                          <span>{row.comment}</span>
-                        </div>
-                      )}
+                    <div className="apt-card-details">
+                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">????????</span><span className="apt-card-field-text">{row.source || '?'}</span></div>
+                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">???????</span><span className="apt-card-field-text">{row.operator_name || '?'}</span></div>
+                      <div className="apt-card-field apt-card-field-lawyer"><span className="apt-card-field-label">?????????</span>{assignedEmployees(row)}</div>
+                      {row.comment && <div className="apt-card-field"><span className="apt-card-field-label">????</span><span className="apt-card-field-text apt-card-text-clamp">{row.comment}</span></div>}
                     </div>
                     {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role||'').toLowerCase()) && (
                       <div className="arrival-analysis-row">
-                        <div className="arrival-analysis-state">
-                          <span className="arrival-analysis-dot" />
-                          <span>{row.analysis_id ? 'Разбор консультации выполнен' : 'Причина незаключения ещё не разобрана'}</span>
-                          {row.analysis_id && <Tag color={row.analysis_sufficiency==='INSUFFICIENT'?'orange':'blue'}>{row.analysis_sufficiency==='INSUFFICIENT'?'Нужно уточнить':'Разобрано'}</Tag>}
-                        </div>
-                        <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>
-                          {row.analysis_id ? 'Изменить разбор' : 'Разобрать консультацию'}
-                        </Button>
+                        <div className="arrival-analysis-state"><span className="arrival-analysis-dot" /><span>{row.analysis_id ? '?????? ????????' : '??????? ?? ?????????'}</span></div>
+                        <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>????????? ????????????</Button>
                       </div>
                     )}
                   </div>
-                  <div className="arrival-card-side">
-                    {consultationResult(row)}
+                  <div className="apt-card-right arrival-card-side">
+                    <div className="arrival-result-actions">{consultationResult(row)}</div>
                     {contractAction(row)}
                   </div>
-                </article>
+                </div>
               ))}
             </div>
           ) : (
