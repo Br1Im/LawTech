@@ -203,9 +203,10 @@ const officeDashboardController = {
         // 3. Возвраты — на дату возврата (refund_deadline)
         db.query(
           `SELECT
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
+             COALESCE(SUM(CASE WHEN COALESCE(DATE(re.spent_on), DATE(c.refund_confirmed_at)) = ? THEN c.refund_amount ELSE 0 END), 0) AS day_refund,
+             COALESCE(SUM(CASE WHEN COALESCE(DATE(re.spent_on), DATE(c.refund_confirmed_at)) BETWEEN ? AND ? THEN c.refund_amount ELSE 0 END), 0) AS period_refund
            FROM contracts c
+           LEFT JOIN expenses re ON re.office_id = c.office_id AND re.source_type = 'refund' AND re.source_id = c.id
            WHERE c.office_id = ? AND c.refund_amount > 0 AND c.refund_confirmed = 1 AND c.refund_confirmed_at IS NOT NULL`,
           [today, from, to, officeId]
         ),
@@ -265,10 +266,11 @@ const officeDashboardController = {
         db.query(
           `SELECT
              e.id AS id_employee,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) = ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_refund,
-             COALESCE(SUM(CASE WHEN DATE(c.refund_confirmed_at) BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
+             COALESCE(SUM(CASE WHEN COALESCE(DATE(re.spent_on), DATE(c.refund_confirmed_at)) = ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS day_refund,
+             COALESCE(SUM(CASE WHEN COALESCE(DATE(re.spent_on), DATE(c.refund_confirmed_at)) BETWEEN ? AND ? THEN c.refund_amount * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END) ELSE 0 END), 0) AS period_refund
            FROM employees e
            JOIN contracts c ON (c.id_employee = e.id OR (c.is_joint = 1 AND c.second_employee_id = e.id))
+           LEFT JOIN expenses re ON re.office_id = c.office_id AND re.source_type = 'refund' AND re.source_id = c.id
            WHERE c.office_id = ? AND c.refund_amount > 0 AND c.refund_confirmed = 1 AND c.refund_confirmed_at IS NOT NULL
            GROUP BY e.id`,
           [today, from, to, officeId]
