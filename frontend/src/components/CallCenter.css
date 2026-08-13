@@ -1224,3 +1224,11 @@
 [data-theme="dark"] .cc-stats-total-row td {
   border-top-color: #374151;
 }
+
+
+/* Final dark pass: operator statistics rows. */
+[data-theme="dark"] .cc-stats-table tbody tr { background: #161A22 !important; color: #E6E8EF !important; }
+[data-theme="dark"] .cc-stats-table tbody tr:nth-child(even) { background: #1D2230 !important; }
+[data-theme="dark"] .cc-stats-table tbody tr:hover { background: #26213f !important; }
+[data-theme="dark"] .cc-stats-table td { color: #E6E8EF !important; border-bottom-color: #2A2F3D !important; }
+

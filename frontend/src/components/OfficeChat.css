@@ -987,3 +987,15 @@
     flex:0 0 40px!important;inline-size:40px!important;max-inline-size:40px!important;
   }
 }
+
+/* Final dark pass: late light-theme polish rules must not repaint dark chat. */
+[data-theme="dark"] .tg-office-item:hover,
+[data-theme="dark"] .tg-channel-item:hover { background: #1D2230 !important; color: #E6E8EF !important; }
+[data-theme="dark"] .tg-office-item.active,
+[data-theme="dark"] .tg-channel-item.active { background: #26213f !important; color: #D8CCFF !important; border-color: #7C5CFF !important; box-shadow: inset 0 0 0 1px #7C5CFF !important; }
+[data-theme="dark"] .tg-empty-icon { background: #232936 !important; color: #9BA6B8 !important; }
+[data-theme="dark"] .tg-search-bar { background: #161A22 !important; }
+[data-theme="dark"] .tg-textarea { background: #1D2230 !important; color: #E6E8EF !important; }
+[data-theme="dark"] .tg-textarea:focus { background: #232936 !important; }
+[data-theme="dark"] .tg-participant-row { border-bottom-color: #2A2F3D !important; }
+

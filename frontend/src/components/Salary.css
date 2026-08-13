@@ -25,3 +25,10 @@
 }
 .salary-payment-method:focus-visible { outline: 3px solid color-mix(in oklch, var(--color-primary) 34%, transparent); outline-offset: 2px; }
 @media (max-width: 560px) { .salary-payment-methods { grid-template-columns: 1fr; } }
+
+
+/* Dark theme: compact input suffixes must share the dark surface. */
+[data-theme="dark"] .ant-space-compact .ant-space-addon,
+[data-theme="dark"] .salary-settings .ant-input-group-addon,
+[data-theme="dark"] .salary-settings .ant-input-number-group-addon { background: #1D2230 !important; color: #B8C0D0 !important; border-color: #2A2F3D !important; }
+
