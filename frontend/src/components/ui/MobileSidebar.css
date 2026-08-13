@@ -434,3 +434,8 @@
 [data-theme="dark"] .mobile-user-menu-item:hover {
   background: #1a1a1a;
 }
+
+
+[data-theme="dark"] .mobile-sidebar-item.active { background: #2C2548 !important; color: #F0EBFF !important; }
+[data-theme="dark"] .mobile-sidebar-item.active .mobile-sidebar-icon { color: #C9BCFF !important; }
+

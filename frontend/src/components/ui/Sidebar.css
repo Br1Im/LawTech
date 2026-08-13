@@ -445,3 +445,10 @@
 
 /* WCAG contrast for unread counter. */
 .sidebar-badge { background: oklch(45% .18 25) !important; color: oklch(98% .004 25) !important; }
+
+
+/* Final dark active navigation: readable label and icon on a stable surface. */
+[data-theme="dark"] .sidebar-item.active { background: #2C2548 !important; color: #F0EBFF !important; box-shadow: inset 3px 0 0 #B7A4FF !important; }
+[data-theme="dark"] .sidebar-item.active .sidebar-icon { color: #C9BCFF !important; }
+[data-theme="dark"] .sidebar-item.active:hover { background: #342B55 !important; color: #FFFFFF !important; }
+
