@@ -183,6 +183,12 @@ const getBalance = async (req, res) => {
     if (!officeId) return bad(res, 400, 'Не указан офис');
     if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Доступ запрещён');
 
+    const [[officeSettings]] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [officeId]);
+    let balanceToday;
+    try {
+      balanceToday = new Intl.DateTimeFormat('en-CA', { timeZone: officeSettings?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    } catch (_) { balanceToday = new Date().toISOString().slice(0, 10); }
+
     const [[op]] = await db.query('SELECT * FROM office_balance_opening WHERE office_id = ?', [officeId]);
     const startDate = op ? dstr(op.start_date) : '2000-01-01';
     const opening = op
@@ -206,12 +212,12 @@ const getBalance = async (req, res) => {
              FROM office_plans WHERE office_id = ?
              ORDER BY (period_start <= ?) DESC, period_start DESC, updated_at DESC
              LIMIT 1`,
-          [officeId, today()]
+          [officeId, balanceToday]
         );
         if (prows[0] && prows[0].period_start && prows[0].period_end) {
-          const win = resolveRollingWindow(prows[0].period_start, prows[0].period_end, today(), cycleOffset);
+          const win = resolveRollingWindow(prows[0].period_start, prows[0].period_end, balanceToday, cycleOffset);
           periodInfo = {
-            label: 'plan', from: win.from, to: win.to, today: today(),
+            label: 'plan', from: win.from, to: win.to, today: balanceToday,
             cycle_index: win.cycle_index, current_cycle_index: win.current_cycle_index,
             duration_days: win.duration_days,
           };
@@ -219,7 +225,7 @@ const getBalance = async (req, res) => {
       } catch (_) { /* fallback below */ }
     }
     reqFrom = periodInfo ? periodInfo.from : (explicitFrom || startDate);
-    reqTo = periodInfo ? periodInfo.to : (explicitTo || today());
+    reqTo = periodInfo ? periodInfo.to : (explicitTo || balanceToday);
     const calcTo = reqTo;
 
     const incomeMap = await loadIncome(officeId, startDate, calcTo);
@@ -262,7 +268,7 @@ const getBalance = async (req, res) => {
     const allActiveToToday = Array.from(new Set([
       ...Object.keys(incomeMap), ...Object.keys(expenseMap),
       ...Object.keys(transferMap),
-    ])).filter(d => d >= startDate && d <= today()).sort();
+    ])).filter(d => d >= startDate && d <= balanceToday).sort();
     for (const date of allActiveToToday) {
       const inc = incomeMap[date] || zero();
       const exp = expenseMap[date] || zero();
