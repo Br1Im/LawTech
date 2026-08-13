@@ -407,6 +407,9 @@ const Clients: React.FC<ClientsProps> = () => {
     refund_deadline: dayjs.Dayjs | null;
   }>({ terminated_at: dayjs(), termination_reason: '', refund_amount: 0, refund_deadline: null });
   const [savingTermination, setSavingTermination] = useState(false);
+  const [refundConfirmContract, setRefundConfirmContract] = useState<CrmContract | null>(null);
+  const [refundPaymentMethod, setRefundPaymentMethod] = useState<'cash' | 'noncash' | 'bank' | null>(null);
+  const [refundConfirming, setRefundConfirming] = useState(false);
   const canConfirmRefund = ['director', 'manager', 'okk'].includes(user?.role || '');
   const canTerminate = ['director', 'manager', 'okk'].includes(user?.role || '');
 
