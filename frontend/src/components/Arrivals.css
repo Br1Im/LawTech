@@ -212,3 +212,30 @@
 /* Keep arrival cards readable on wide screens. */
 .lt-page-arrivals .arrival-cards-list { max-width: 1080px; }
 @media(max-width:1100px){.lt-page-arrivals .arrival-cards-list{max-width:none}}
+
+
+/* Compact v2: the arrival is a readable record, not a full-width dashboard card. */
+.lt-page-arrivals .arrival-cards-list { width: min(100%, 1040px) !important; margin-inline: 0 !important; }
+.lt-page-arrivals .arrival-card {
+  width: 100% !important;
+  max-width: 1040px !important;
+  min-height: 0 !important;
+  grid-template-columns: 62px minmax(0,1fr) 88px !important;
+  gap: 12px !important;
+  padding: 12px !important;
+  border-radius: 10px !important;
+}
+.lt-page-arrivals .arrival-card-time { display:grid !important; align-content:center; gap:3px; }
+.lt-page-arrivals .arrival-card-time strong { font-size: 16px !important; line-height:1.1 !important; }
+.lt-page-arrivals .arrival-card-time span { font-size: 10px !important; opacity:.72; }
+.lt-page-arrivals .arrival-card-client h3 { margin:0 !important; font-size:14px !important; line-height:1.2 !important; }
+.lt-page-arrivals .arrival-card-client > div > span { font-size:11px !important; }
+.lt-page-arrivals .arrival-card-details { margin-top:8px !important; grid-template-columns: 92px 132px minmax(0,1fr) !important; gap:6px 14px !important; }
+.lt-page-arrivals .arrival-card-details small { font-size:9px !important; letter-spacing:.07em !important; }
+.lt-page-arrivals .arrival-card-details span { font-size:12px !important; }
+.lt-page-arrivals .arrival-card-comment { display:none !important; }
+.lt-page-arrivals .arrival-card-side { padding:4px 0 4px 10px !important; }
+.lt-page-arrivals .arrival-analysis-row { margin:8px -12px -12px !important; padding:7px 12px !important; }
+@media(max-width:1100px){.lt-page-arrivals .arrival-cards-list{width:100%!important}.lt-page-arrivals .arrival-card{max-width:none!important}}
+@media(max-width:700px){.lt-page-arrivals .arrival-card{grid-template-columns:52px minmax(0,1fr)!important;padding:10px!important}.lt-page-arrivals .arrival-card-details{grid-template-columns:1fr 1fr!important}.lt-page-arrivals .arrival-card-side{grid-column:1/-1;padding:7px 0 0!important}.lt-page-arrivals .arrival-analysis-row{margin:7px -10px -10px!important}}
+
