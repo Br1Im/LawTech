@@ -199,3 +199,12 @@
 [data-theme="dark"] .lt-page-arrivals .consultation-analysis-btn:hover { background: oklch(29% .065 277) !important; color: oklch(91% .07 277) !important; }
 [data-theme="dark"] .lt-page-arrivals .arrival-analysis-row { background: oklch(18% .014 270) !important; border-color: oklch(31% .018 275) !important; }
 
+
+
+[data-theme="dark"] .lt-page-arrivals .arrival-employee-select .ant-select-selector,
+[data-theme="dark"] .lt-page-arrivals .arrival-employee-select .ant-select-selection-item { background: #1D2230 !important; color: #E6E8EF !important; border-color: #2A2F3D !important; }
+[data-theme="dark"] .lt-page-arrivals .arrival-result-actions button { background: #1D2230 !important; color: #B8C0D0 !important; border-color: #2A2F3D !important; }
+[data-theme="dark"] .lt-page-arrivals .arrival-result-actions button.is-success { background: #17362A !important; color: #8BE0B0 !important; border-color: #2B7A50 !important; }
+[data-theme="dark"] .lt-page-arrivals .arrival-result-actions button.is-danger { background: #3A2025 !important; color: #FF9B9B !important; border-color: #8B3D49 !important; }
+@media(max-width:700px){.lt-page-arrivals .arrival-result-actions button{min-width:44px!important;min-height:44px!important}.lt-page-arrivals .arrival-analysis-row .consultation-analysis-btn{min-height:44px!important}}
+

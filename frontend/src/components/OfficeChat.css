@@ -999,3 +999,7 @@
 [data-theme="dark"] .tg-textarea:focus { background: #232936 !important; }
 [data-theme="dark"] .tg-participant-row { border-bottom-color: #2A2F3D !important; }
 
+
+
+@media(max-width:700px){.tg-icon-btn,.tg-attach-btn,.tg-send-btn,.tg-sidebar-icon-btn{min-width:44px!important;min-height:44px!important}}
+

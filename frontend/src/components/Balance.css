@@ -661,3 +661,7 @@
   border-color: transparent !important;
   box-shadow: none !important;
 }
+
+
+@media(max-width:700px){.bal2-act,.bal2-navbtn,.bal2-export-btn,.bal2-btn-ok,.bal2-btn-cancel{min-height:44px!important}}
+
