@@ -11,10 +11,10 @@ services:
     ports:
       - "127.0.0.1:3307:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=lawtech_root_password_2024
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=lawtech_crm
       - MYSQL_USER=lawtech_user
-      - MYSQL_PASSWORD=lawtech_password_2024
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     volumes:
       - mysql-data:/var/lib/mysql
       - ./server/database/migrations:/docker-entrypoint-initdb.d
@@ -61,9 +61,9 @@ services:
       - DB_HOST=db
       - DB_PORT=3306
       - DB_USER=lawtech_user
-      - DB_PASSWORD=lawtech_password_2024
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=lawtech_crm
-      - JWT_SECRET=f88e3310dbc6d3863169fb2d29759dab646626214052b32e61d290b778ff32cc
+      - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d
       - CORS_ORIGIN=*
       - UPLOAD_DIR=/app/uploads
@@ -71,7 +71,7 @@ services:
       - SMTP_HOST=smtp.yandex.ru
       - SMTP_PORT=465
       - SMTP_USER=lawtech.rf@yandex.com
-      - SMTP_PASS=atnlwmmadilurmjf
+      - SMTP_PASS=${SMTP_PASS}
       - MAIL_FROM=Law.Tech <lawtech.rf@yandex.com>
     depends_on:
       - db

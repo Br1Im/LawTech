@@ -117,3 +117,28 @@ archive/
 *.bak-*
 frontend/dist-aibuz/
 !frontend/src/shared/lib/
+
+# --- добавлено при ревизии 21.08.2026 ---
+
+# Выгрузки боевых данных: ФИО, телефоны, суммы договоров, зарплаты.
+# В git им не место — история хранится вечно.
+server/scripts/kemerovo_migration_package.json
+server/scripts/kemerovo_migration_package_v2.json
+server/scripts/kemerovo_arrivals_fixed.json
+server/scripts/novokuznetsk_migration_package.json
+server/scripts/novokuznetsk_balance_package.json
+scripts/novokuznetsk_migration_package.json
+
+# Отладочные скрипты из корня, накопившиеся при разборе прода
+/audit2.js
+/audit3.js
+/audit_select.js
+/probe_select.js
+/runtime_select_audit.js
+/salary_backdate_test.js
+/crm_balance_compare.js
+/crm_day_details.js
+
+# Патчи и бэкапы конфигов
+*.patch
+docker-compose.yml.bak.*
