@@ -142,3 +142,10 @@ scripts/novokuznetsk_migration_package.json
 # Патчи и бэкапы конфигов
 *.patch
 docker-compose.yml.bak.*
+
+# Бэкап-копии, создаваемые скриптами правок прямо в рабочем дереве.
+# Остаются на диске сервера, но в репозиторий не попадают.
+*.prepatch*
+*.live_bak*
+*.broken-bak*
+_sai_backup_*/
