@@ -18,6 +18,30 @@ installTunnelAuthPatch();
 // Настраиваем перехватчик для автоматического выхода при 401
 setupAuthInterceptor();
 
+
+// Legacy-form accessibility bridge. Shared form components already provide labels;
+// this only names controls that have no associated label at all.
+const ensureAccessibleControlNames = (root: ParentNode = document) => {
+  root.querySelectorAll<HTMLElement>('input, select, textarea, button').forEach((el) => {
+    if (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby')) return;
+    const id = el.getAttribute('id');
+    if (id && document.querySelector(`label[for="${CSS.escape(id)}"]`)) return;
+    if (el.closest('label')) return;
+    const text = (el.textContent || '').trim();
+    const hint = el.getAttribute('placeholder') || el.getAttribute('name') || el.getAttribute('title') || text;
+    if (hint) el.setAttribute('aria-label', hint.slice(0, 120));
+  });
+};
+const accessibilityObserver = new MutationObserver((records) => {
+  records.forEach((record) => record.addedNodes.forEach((node) => {
+    if (node instanceof HTMLElement) ensureAccessibleControlNames(node);
+  }));
+});
+requestAnimationFrame(() => {
+  ensureAccessibleControlNames();
+  accessibilityObserver.observe(document.getElementById('root') || document.body, { childList: true, subtree: true });
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -304,3 +304,13 @@ iframe {
     color: black;
   }
 }
+
+/* Full role audit: minimum mobile touch targets */
+@media (max-width:768px){
+  .office-header-add-btn,.plan-edit-btn-v2,.plan-cycle-nav-btn,.oa-link,
+  .apt-new-btn,.apt-date-arrow,.apt-cal-btn,.apt-filter-toggle,
+  .cc-btn,.cc-date-arrow,.cc-date-cal-btn,
+  .ant-input-search-btn,.ant-pagination-item-link,
+  .lt-page-clients button,.lt-page-my-cases button,
+  .mobile-icon-rail .rail-btn{min-width:44px!important;min-height:44px!important}
+}

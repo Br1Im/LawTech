@@ -5,6 +5,7 @@ import { DatePicker } from 'antd';
 import { apiInstance } from '../shared/api/instance';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import './CallCenter.css';
+import { formatRuDateRange } from '../shared/utils/dateFormat';
 
 dayjs.locale('ru');
 
@@ -783,8 +784,8 @@ const CallCenter: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {loading && <tr><td colSpan={colCount} className="cc-td-empty">Загрузка лидов…</td></tr>}
-                {!loading && filteredLeads.length === 0 && <tr><td colSpan={colCount} className="cc-td-empty">Лидов нет по выбранным фильтрам</td></tr>}
+                {loading && <tr><td colSpan={colCount} className="cc-td-empty"><div className="ui-table-loading" aria-label="Загрузка лидов"><i/><i/><i/></div></td></tr>}
+                {!loading && filteredLeads.length === 0 && <tr><td colSpan={colCount} className="cc-td-empty"><div className="ui-actionable-empty"><strong>Лиды не найдены</strong><span>Измените условия поиска или сбросьте фильтры.</span><button type="button" onClick={() => { setSelectedSource('ALL'); setSelectedTemperature('ALL'); setSelectedStatus('ALL'); setSelectedOperatorFilter('ALL'); setSearch(''); }}>Сбросить фильтры</button></div></td></tr>}
                 {paginatedLeads.map((lead) => {
                   const isSelected = selectedIds.has(lead.id);
                   const isOpen = selectedLead?.id === lead.id;
@@ -1019,7 +1020,7 @@ const CallCenter: React.FC = () => {
                     disabled={!canPrev} style={nb(canPrev)} title="Предыдущий период">‹ Пред. период</button>
                   {statsPeriod && (
                     <span className="cc-stats-period-label">
-                      Период: {new Date(statsPeriod.from).toLocaleDateString('ru-RU')} — {new Date(statsPeriod.to).toLocaleDateString('ru-RU')}
+                      Период: {formatRuDateRange(statsPeriod.from, statsPeriod.to)}
                       {!atCurrent && <span style={{ color: '#64748b' }}> (прошлый)</span>}
                     </span>
                   )}

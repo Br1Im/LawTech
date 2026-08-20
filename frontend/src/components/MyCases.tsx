@@ -299,6 +299,7 @@ const MyCases: React.FC = () => {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           allowClear
+          enterButton={<Button aria-label={'\u041d\u0430\u0439\u0442\u0438 \u0434\u0435\u043b\u043e'}>{'\u041d\u0430\u0439\u0442\u0438'}</Button>}
           size="middle"
           style={{ maxWidth: 640 }}
         />
@@ -318,25 +319,32 @@ const MyCases: React.FC = () => {
 
       {loading && cases.length === 0 ? (
         <TableSkeleton rows={6} cols={columns.length} />
+      ) : isMobile ? (
+        filteredCases.length === 0 ? (
+          <EmptyState title="Нет назначенных дел" description="Новые дела появятся здесь после назначения на вас." />
+        ) : (
+          <div className="mobile-case-list">
+            {filteredCases.map((record) => (
+              <button type="button" className="mobile-case-card" key={record.id} onClick={() => openCase(record)}>
+                <span className="mobile-case-card__top">
+                  <strong>{record.client_name || 'Клиент не указан'}</strong>
+                  <Tag color={STATUS_COLORS[record.status] || 'default'}>{record.status === 'active' ? 'Активно' : record.status === 'completed' ? 'Завершено' : record.status}</Tag>
+                </span>
+                <span className="mobile-case-card__topic">{record.title || record.customer_goal || 'Тема не указана'}</span>
+                <span className="mobile-case-card__meta"><span>Договор №{String(record.id).padStart(8, '0')}</span><span>{record.actions_count} действий</span></span>
+              </button>
+            ))}
+          </div>
+        )
       ) : (
         <Table
           columns={columns}
           dataSource={filteredCases}
           rowKey="id"
           loading={loading}
-          onRow={(record) => ({
-            onClick: () => openCase(record),
-            style: { cursor: 'pointer' },
-          })}
+          onRow={(record) => ({ onClick: () => openCase(record), style: { cursor: 'pointer' } })}
           pagination={{ pageSize: 10, showTotal: (total) => `Всего: ${total}` }}
-          locale={{
-            emptyText: (
-              <EmptyState
-                title="Нет назначенных дел"
-                description="Новые дела появятся здесь после назначения на вас."
-              />
-            ),
-          }}
+          locale={{ emptyText: <EmptyState title="Нет назначенных дел" description="Новые дела появятся здесь после назначения на вас." /> }}
           size="middle"
         />
       )}
@@ -435,7 +443,7 @@ const MyCases: React.FC = () => {
             </div>
 
             {actionsLoading ? (
-              <div style={{ textAlign: 'center', padding: 20 }}>Загрузка...</div>
+              <TableSkeleton rows={3} cols={2} />
             ) : actions.length === 0 ? (
               <Empty description="Нет зафиксированных действий" />
             ) : (

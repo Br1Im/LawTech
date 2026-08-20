@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Empty, List, message, Modal, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Input, List, message, Modal, Space, Spin, Tag, Typography } from 'antd';
 import { CheckOutlined, CopyOutlined, LinkOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import apiClient from '../shared/api/apiClient';
+import { useAuth } from '../shared/lib/hooks/useAuth';
+import { useOffice } from '../shared/contexts/OfficeContext';
 
 const { Title, Text } = Typography;
 
@@ -33,7 +35,7 @@ const actionLabels: Record<string, string> = {
   disconnected: 'Офис отключён',
 };
 
-const CallCenterConnections: React.FC = () => {
+const CallCenterManagerConnections: React.FC = () => {
   const [data, setData] = useState<ConnectionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -108,8 +110,8 @@ const CallCenterConnections: React.FC = () => {
             <Text type="secondary">Код подключения</Text>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
               <Text code copyable={false} style={{ fontSize: 18 }}>{data.center.connection_code}</Text>
-              <Button icon={<CopyOutlined />} onClick={copyCode}>Скопировать</Button>
-              <Button icon={<ReloadOutlined />} onClick={rotateCode}>Сгенерировать новый</Button>
+              <Button style={{ height: 44, minHeight: 44 }} icon={<CopyOutlined />} onClick={copyCode}>Скопировать</Button>
+              <Button style={{ height: 44, minHeight: 44 }} icon={<ReloadOutlined />} onClick={rotateCode}>Сгенерировать новый</Button>
             </div>
             {data.center.code_rotated_at && (
               <Text type="secondary">Последнее перевыпускание: {new Date(data.center.code_rotated_at).toLocaleString('ru-RU')}</Text>
@@ -164,6 +166,161 @@ const CallCenterConnections: React.FC = () => {
       </Card>
     </div>
   );
+};
+
+interface OfficeConnectionData {
+  connections: Array<{ id: number; public_id: string; name: string; connected_at: string }>;
+  requests: Array<{ id: number; status: string; call_center_id: number; name: string; created_at: string }>;
+}
+
+const OfficeConnections: React.FC<{ officeId: string; officeName: string }> = ({ officeId, officeName }) => {
+  const [data, setData] = useState<OfficeConnectionData>({ connections: [], requests: [] });
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [code, setCode] = useState('');
+  const [found, setFound] = useState<{ id: number; public_id: string; name: string; chief_name?: string } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.get(`/call-center-connections/offices/${officeId}`);
+      setData(response.data?.data || { connections: [], requests: [] });
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Не удалось загрузить подключения офиса');
+    } finally {
+      setLoading(false);
+    }
+  }, [officeId]);
+
+  useEffect(() => {
+    setCode('');
+    setFound(null);
+    load();
+  }, [load]);
+
+  const verifyCode = async () => {
+    if (!code.trim()) return message.warning('Введите ключ подключения');
+    setBusy(true);
+    try {
+      const response = await apiClient.post('/call-center-connections/lookup', { code: code.trim() });
+      setFound(response.data?.data || null);
+    } catch (error: any) {
+      setFound(null);
+      message.error(error?.response?.data?.message || 'Колл-центр с таким ключом не найден');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestConnection = async () => {
+    if (!found) return;
+    setBusy(true);
+    try {
+      await apiClient.post(`/call-center-connections/offices/${officeId}/requests`, { call_center_id: found.id });
+      message.success('Заявка отправлена начальнику колл-центра');
+      setCode('');
+      setFound(null);
+      await load();
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || 'Не удалось отправить заявку');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = (center: OfficeConnectionData['connections'][number]) => {
+    Modal.confirm({
+      title: `Отключить «${center.name}»?`,
+      content: 'Сотрудники этого колл-центра потеряют доступ к данным и чатам офиса.',
+      okText: 'Отключить',
+      okButtonProps: { danger: true },
+      cancelText: 'Отмена',
+      onOk: async () => {
+        await apiClient.delete(`/call-center-connections/offices/${officeId}/${center.id}`);
+        message.success('Колл-центр отключён');
+        await load();
+      },
+    });
+  };
+
+  if (loading) return <div style={{ padding: 48, textAlign: 'center' }}><Spin size="large" /></div>;
+
+  return (
+    <div className="lt-page lt-page-connections" style={{ maxWidth: 1100, margin: '0 auto', padding: '8px 0 32px' }}>
+      <Title level={2} style={{ marginTop: 0 }}>Подключения</Title>
+      <Text type="secondary">Офис: {officeName}</Text>
+
+      <Card title="Подключить колл-центр по ключу" style={{ marginTop: 16, marginBottom: 16 }}>
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Text type="secondary">Введите ключ, который сформировал начальник колл-центра.</Text>
+          <Input.Search
+            value={code}
+            onChange={(event) => { setCode(event.target.value.toUpperCase()); setFound(null); }}
+            onSearch={verifyCode}
+            enterButton="Проверить ключ"
+            loading={busy}
+            placeholder="LAWTECH-XXXX-XXXX"
+            maxLength={64}
+          />
+          {found && (
+            <Alert
+              type="success"
+              showIcon
+              message={found.name}
+              description={
+                <Space direction="vertical" size={8}>
+                  <Text>{found.public_id}{found.chief_name ? ` · Начальник: ${found.chief_name}` : ''}</Text>
+                  <Button type="primary" loading={busy} onClick={requestConnection}>Отправить заявку на подключение</Button>
+                </Space>
+              }
+            />
+          )}
+        </Space>
+      </Card>
+
+      <Card title={`Подключённые колл-центры (${data.connections.length})`} style={{ marginBottom: 16 }}>
+        <List
+          locale={{ emptyText: 'У этого офиса пока нет подключённых колл-центров' }}
+          dataSource={data.connections}
+          renderItem={(center) => (
+            <List.Item actions={[<Button key="disconnect" danger size="small" onClick={() => disconnect(center)}>Отключить</Button>]}>
+              <List.Item.Meta title={center.name} description={center.public_id} />
+              <Tag color="green">Подключён</Tag>
+            </List.Item>
+          )}
+        />
+      </Card>
+
+      <Card title={`Заявки на подключение (${data.requests.length})`}>
+        <List
+          locale={{ emptyText: 'Нет заявок, ожидающих подтверждения' }}
+          dataSource={data.requests}
+          renderItem={(request) => (
+            <List.Item>
+              <List.Item.Meta title={request.name} description={`Отправлена ${new Date(request.created_at).toLocaleString('ru-RU')}`} />
+              <Tag color="gold">Ожидает подтверждения</Tag>
+            </List.Item>
+          )}
+        />
+      </Card>
+    </div>
+  );
+};
+
+const CallCenterConnections: React.FC = () => {
+  const { user } = useAuth();
+  const { selectedOffice } = useOffice();
+  const role = String((user as any)?.role || '').toLowerCase();
+  const officeId = String(selectedOffice?.id || localStorage.getItem('activeOfficeId') || (user as any)?.office_id || '');
+  const officeName = selectedOffice?.title || 'Текущий офис';
+
+  if (['director', 'manager', 'okk'].includes(role)) {
+    return officeId
+      ? <OfficeConnections officeId={officeId} officeName={officeName} />
+      : <Empty description="Сначала выберите офис" />;
+  }
+
+  return <CallCenterManagerConnections />;
 };
 
 export default CallCenterConnections;

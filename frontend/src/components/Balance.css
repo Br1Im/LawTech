@@ -665,3 +665,84 @@
 
 @media(max-width:700px){.bal2-act,.bal2-navbtn,.bal2-export-btn,.bal2-btn-ok,.bal2-btn-cancel{min-height:44px!important}}
 
+
+
+/* Compact mobile balance history */
+@media (max-width: 720px) {
+  .bal2 { padding: 12px 10px 28px; }
+  .bal2-head { align-items: stretch; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .bal2-title { font-size: 21px; }
+  .bal2-office { width: 100%; min-width: 0; }
+  .bal2-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .bal2-card { min-width: 0; padding: 11px 12px; border-radius: 12px; }
+  .bal2-card-top { gap: 7px; margin-bottom: 8px; }
+  .bal2-card-ic { width: 30px; height: 30px; border-radius: 8px; }
+  .bal2-card-ic svg { width: 17px; height: 17px; }
+  .bal2-card-label { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .bal2-card-value { font-size: 18px; }
+  .bal2-card-delta { margin-top: 5px; font-size: 10.5px; line-height: 1.3; }
+  .bal2-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+  .bal2-act { width: 100%; min-width: 0; height: 42px; padding: 0 6px; border-radius: 10px; font-size: 11.5px; }
+  .bal2-periodbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-bottom: 12px; }
+  .bal2-periodnav { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 6px; min-width: 0; }
+  .bal2-navbtn { width: 42px; min-width: 42px; height: 42px; padding: 0; justify-content: center; }
+  .bal2-navbtn > span, .bal2-navbtn--now { display: none; }
+  .bal2-periodlabel { min-width: 0; height: 42px; padding: 0 9px; gap: 6px; justify-content: center; font-size: 11.5px; }
+  .bal2-periodlabel svg { width: 15px; height: 15px; }
+  .bal2-periodlabel em { display: none; }
+  .bal2-periodbar-spacer { display: none; }
+  .bal2-export { width: auto; }
+  .bal2-export-btn { width: 42px; min-width: 42px; height: 42px; padding: 0; }
+  .bal2-export-btn span { display: none; }
+  .bal2-days { gap: 7px; }
+  .bal2-day { border-radius: 11px; }
+  .bal2-day-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    min-height: 0;
+    padding: 11px 12px;
+    align-items: center;
+  }
+  .bal2-day-date { min-width: 0; gap: 7px; font-size: 13px; white-space: nowrap; }
+  .bal2-day-cal { width: 26px; height: 26px; border-radius: 7px; }
+  .bal2-day-cal svg { width: 14px; height: 14px; }
+  .bal2-badge { padding: 2px 6px; font-size: 9px; }
+  .bal2-day-metrics {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  .bal2-day-metrics .bal2-m { min-width: 0; align-items: flex-start; gap: 1px; }
+  .bal2-day-metrics .bal2-m:nth-last-child(1) { align-items: flex-end; }
+  .bal2-m i { font-size: 9px; white-space: nowrap; }
+  .bal2-m b { max-width: 100%; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .bal2-day-chev { grid-column: 2; grid-row: 1; width: 24px; height: 24px; }
+  .bal2-day-body { grid-template-columns: 1fr; gap: 10px; padding: 2px 10px 12px; }
+  .bal2-col { padding-top: 10px; }
+  .bal2-op { grid-template-columns: 28px minmax(0, 1fr) auto; padding: 8px; column-gap: 8px; }
+  .bal2-op-ic { width: 28px; height: 28px; }
+  .bal2-op-title { grid-column: 2 / -1; font-size: 12.5px; }
+  .bal2-op-sub { grid-column: 2; font-size: 10.5px; }
+  .bal2-op-amt { grid-column: 3; font-size: 12px; }
+  .bal2-op-pm, .bal2-op-time, .bal2-op-del { display: none; }
+  .bal2-modal-bg { align-items: flex-end; padding: 0; }
+  .bal2-modal { width: 100%; max-height: 92vh; overflow-y: auto; padding: 18px 16px 20px; border-radius: 18px 18px 0 0; }
+  .bal2-pm { gap: 6px; }
+  .bal2-pm-opt { min-width: 0; padding: 10px 4px; font-size: 11px; }
+  .bal2-pm-ic { width: 34px; height: 34px; }
+}
+
+
+/* Backdated finance operations */
+.bal2-fld-b input[type="date"] { color-scheme: light; font-variant-numeric: tabular-nums; }
+.bal2-date-hint { margin-top:-2px;padding:9px 11px;border-radius:8px;background:oklch(97% .012 275);color:var(--color-muted);font-size:11px;line-height:1.45; }
+[data-theme="dark"] .bal2-fld-b input[type="date"] { color-scheme: dark; }
+[data-theme="dark"] .bal2-date-hint { background:var(--color-bg-alt); }
+
+/* Balance modal portal: always covers sidebar and viewport */
+body > .bal2-modal-bg { z-index: 5000; width: 100vw; height: 100dvh; overscroll-behavior: contain; }
+body > .bal2-modal-bg .bal2-modal { position: relative; z-index: 1; }

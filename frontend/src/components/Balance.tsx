@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from 'react-dom';
+import { Modal } from 'antd';
 import { buildApiUrl, getAuthHeaders } from '../shared/utils/apiUtils';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { TableSkeleton } from './ui';
@@ -60,7 +62,7 @@ const PM_LABEL: Record<string, string> = {
   cash: 'Наличные',
   noncash: 'Р/С',
   bank: 'Банковский перевод',
-  sbp: 'СБП',
+  sbp: 'Расчётный счёт',
 };
 const TRANSFER_PM_OPTIONS = [
   { value: 'cash', label: 'Наличные' },
@@ -132,12 +134,19 @@ const Balance: React.FC = () => {
   const [exportOpen, setExportOpen] = useState(false);
 
   const [showIncome, setShowIncome] = useState(false);
-  const [incomeForm, setIncomeForm] = useState({ amount: '', payment_method: 'cash', comment: '' });
+  const [incomeForm, setIncomeForm] = useState({ amount: '', payment_method: 'cash', operation_date: localDateStr(), comment: '' });
   const [showExpense, setShowExpense] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ amount: '', payment_method: 'bank', title: '', comment: '' });
+  const [expenseForm, setExpenseForm] = useState({ amount: '', payment_method: 'bank', operation_date: localDateStr(), title: '', comment: '' });
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferForm, setTransferForm] = useState({ source: 'bank', destination: 'cash', amount: '', transfer_date: localDateStr(), comment: '' });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!showIncome && !showExpense && !showTransfer) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [showIncome, showExpense, showTransfer]);
 
   const [expanded, setExpanded] = useState<string | null>(null);
   const [dayDetail, setDayDetail] = useState<Record<string, DayDetail>>({});
@@ -195,20 +204,20 @@ const Balance: React.FC = () => {
   };
 
   const addIncome = async () => {
-    if (!incomeForm.amount) return;
+    if (!incomeForm.amount || !incomeForm.operation_date) { setError('Укажите сумму и дату поступления'); return; }
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl(`/office/${selectedOfficeId}/income`), {
         method: 'POST', headers: { ...getAuthHeaders(), 'Idempotency-Key': financeRequestKey() },
         body: JSON.stringify({
           amount: Number(incomeForm.amount), payment_method: incomeForm.payment_method,
-          income_date: todayStr(), title: incomeForm.comment.trim() || 'Поступление',
+          income_date: incomeForm.operation_date, title: incomeForm.comment.trim() || 'Поступление',
         }),
       });
       if (!res.ok) throw new Error('Ошибка добавления поступления');
       setShowIncome(false);
-      setIncomeForm({ amount: '', payment_method: 'cash', comment: '' });
-      const d = todayStr();
+      setIncomeForm({ amount: '', payment_method: 'cash', operation_date: localDateStr(), comment: '' });
+      const d = incomeForm.operation_date;
       setDayDetail(prev => { const c = { ...prev }; delete c[d]; return c; });
       await fetchBalance();
     } catch (err) { setError((err as Error).message); }
@@ -216,23 +225,23 @@ const Balance: React.FC = () => {
   };
 
   const addExpense = async () => {
-    if (!expenseForm.amount || !expenseForm.title.trim()) return;
+    if (!expenseForm.amount || !expenseForm.title.trim() || !expenseForm.operation_date) { setError('Укажите название, сумму и дату расхода'); return; }
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl('/expenses'), {
         method: 'POST', headers: { ...getAuthHeaders(), 'Idempotency-Key': financeRequestKey() },
         body: JSON.stringify({
           office_id: Number(selectedOfficeId), amount: Number(expenseForm.amount),
-          payment_method: expenseForm.payment_method, spent_on: todayStr(),
+          payment_method: expenseForm.payment_method, spent_on: expenseForm.operation_date,
           title: expenseForm.title.trim(), category: 'Прочее',
           description: expenseForm.comment.trim() || null,
         }),
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.message || '?????? ?????????? ???????');
+      if (!res.ok) throw new Error(body?.message || 'Ошибка добавления расхода');
       setShowExpense(false);
-      const d = todayStr();
-      setExpenseForm({ amount: '', payment_method: 'bank', title: '', comment: '' });
+      const d = expenseForm.operation_date;
+      setExpenseForm({ amount: '', payment_method: 'bank', operation_date: localDateStr(), title: '', comment: '' });
       setDayDetail(prev => { const c = { ...prev }; delete c[d]; return c; });
       await fetchBalance();
     } catch (err) { setError((err as Error).message); }
@@ -240,7 +249,7 @@ const Balance: React.FC = () => {
   };
 
   const addTransfer = async () => {
-    if (!transferForm.amount || transferForm.source === transferForm.destination) return;
+    if (!transferForm.amount || !transferForm.transfer_date || transferForm.source === transferForm.destination) { setError('Укажите сумму, дату и разные источники перевода'); return; }
     setSaving(true);
     try {
       const res = await fetch(buildApiUrl(`/office/${selectedOfficeId}/transfers`), {
@@ -262,7 +271,18 @@ const Balance: React.FC = () => {
   };
 
   const delExpense = async (date: string, id: number) => {
-    if (!window.confirm('Удалить расход?')) return;
+    const confirmed = await new Promise<boolean>((resolve) => {
+      Modal.confirm({
+        title: 'Удалить расход?',
+        content: 'Операция исчезнет из баланса. Это действие нельзя отменить.',
+        okText: 'Удалить',
+        cancelText: 'Отмена',
+        okButtonProps: { danger: true },
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+    if (!confirmed) return;
     await fetch(buildApiUrl(`/expenses/${id}`), { method: 'DELETE', headers: getAuthHeaders() });
     await fetchBalance(); await loadDay(date);
   };
@@ -427,7 +447,7 @@ const Balance: React.FC = () => {
                     <span className="bal2-m"><i>Поступило</i><b className="pos">+ {fmt(inc)} ₽</b></span>
                     <span className="bal2-m"><i>Потрачено</i><b className="neg">{exp ? '− ' + fmt(exp) : '− 0'} ₽</b></span>
                     {transferTotal > 0 && <span className="bal2-m"><i>Переводы</i><b className="transfer">↔ {fmt(transferTotal)} ₽</b></span>}
-                    <span className="bal2-m"><i>Итого за день</i><b className="tot">+ {fmt(total)} ₽</b></span>
+                    <span className="bal2-m"><i>Итого за день</i><b className={total >= 0 ? "tot pos" : "tot neg"}>{total >= 0 ? '+ ' : '− '}{fmt(Math.abs(total))} ₽</b></span>
                   </span>
                   <span className="bal2-day-chev"><IcChevron /></span>
                 </button>
@@ -470,7 +490,7 @@ const Balance: React.FC = () => {
                           <span className="bal2-op-amt">{fmt(it.amount)} ₽</span>
                           <span className="bal2-op-pm">{PM_LABEL[it.payment_method] || it.payment_method}</span>
                           <span className="bal2-op-time">{it.time || ''}</span>
-                          {!it.is_auto && <button className="bal2-op-del" onClick={() => delExpense(d.date, it.id)}>✕</button>}
+                          {!it.is_auto && <button className="bal2-op-del" aria-label="Удалить расход" title="Удалить расход" onClick={() => delExpense(d.date, it.id)}>✕</button>}
                         </div>
                       ))}
                       {det && expAll.length === 0 && <div className="bal2-op-empty">нет расходов</div>}
@@ -503,49 +523,57 @@ const Balance: React.FC = () => {
       )}
 
       {/* Income modal — как на макете */}
-      {showIncome && (
+      {showIncome && createPortal(
         <div className="bal2-modal-bg" onClick={() => setShowIncome(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новое поступление</h3><button type="button" className="bal2-modal-x" onClick={() => setShowIncome(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новое поступление</h3><button type="button" className="bal2-modal-x" aria-label="Закрыть" title="Закрыть" onClick={() => setShowIncome(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Способ поступления</span>
               <PmToggle value={incomeForm.payment_method} onChange={v => setIncomeForm(f => ({ ...f, payment_method: v }))} /></div>
             <div className="bal2-fld-b"><span>Сумма</span>
               <input type="number" value={incomeForm.amount} onChange={e => setIncomeForm(f => ({ ...f, amount: e.target.value }))} placeholder="15 000 ₽" autoFocus /></div>
+            <div className="bal2-fld-b"><span>Дата операции</span>
+              <input type="date" max={localDateStr()} value={incomeForm.operation_date} onChange={e => setIncomeForm(f => ({ ...f, operation_date: e.target.value }))} /></div>
             <div className="bal2-fld-b"><span>Комментарий</span>
               <input value={incomeForm.comment} onChange={e => setIncomeForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: Поступление по договору" /></div>
+            <div className="bal2-date-hint">Можно выбрать любую прошедшую дату. Операция попадёт в баланс выбранного дня.</div>
             <div className="bal2-modal-actions">
               <button type="button" className="bal2-btn-cancel" onClick={() => setShowIncome(false)}>Отмена</button>
               <button type="button" className="bal2-btn-ok bal2-btn-ok--income" onClick={addIncome} disabled={saving || !incomeForm.amount}>Сохранить</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Expense modal — как на макете */}
-      {showExpense && (
+      {showExpense && createPortal(
         <div className="bal2-modal-bg" onClick={() => setShowExpense(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новый расход</h3><button type="button" className="bal2-modal-x" onClick={() => setShowExpense(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Новый расход</h3><button type="button" className="bal2-modal-x" aria-label="Закрыть" title="Закрыть" onClick={() => setShowExpense(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Наименование расхода</span>
               <input value={expenseForm.title} onChange={e => setExpenseForm(f => ({ ...f, title: e.target.value }))} placeholder="Например: Аренда офиса" autoFocus /></div>
             <div className="bal2-fld-b"><span>Источник списания</span>
               <PmToggle value={expenseForm.payment_method} onChange={v => setExpenseForm(f => ({ ...f, payment_method: v }))} /></div>
             <div className="bal2-fld-b"><span>Сумма</span>
               <input type="number" value={expenseForm.amount} onChange={e => setExpenseForm(f => ({ ...f, amount: e.target.value }))} placeholder="15 000 ₽" /></div>
+            <div className="bal2-fld-b"><span>Дата операции</span>
+              <input type="date" max={localDateStr()} value={expenseForm.operation_date} onChange={e => setExpenseForm(f => ({ ...f, operation_date: e.target.value }))} /></div>
             <div className="bal2-fld-b"><span>Комментарий</span>
               <input value={expenseForm.comment} onChange={e => setExpenseForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: Оплата аренды за июль" /></div>
+            <div className="bal2-date-hint">Можно выбрать любую прошедшую дату. Операция попадёт в баланс выбранного дня.</div>
             <div className="bal2-modal-actions">
               <button type="button" className="bal2-btn-cancel" onClick={() => setShowExpense(false)}>Отмена</button>
               <button type="button" className="bal2-btn-ok bal2-btn-ok--expense" onClick={addExpense} disabled={saving || !expenseForm.amount || !expenseForm.title.trim()}>Сохранить</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showTransfer && (
+      {showTransfer && createPortal(
         <div className="bal2-modal-bg" onClick={() => setShowTransfer(false)}>
           <div className="bal2-modal" onClick={e => e.stopPropagation()}>
-            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Перевод средств</h3><button type="button" className="bal2-modal-x" onClick={() => setShowTransfer(false)}>✕</button></div>
+            <div className="bal2-modal-head"><h3 className="bal2-modal-title">Перевод средств</h3><button type="button" className="bal2-modal-x" aria-label="Закрыть" title="Закрыть" onClick={() => setShowTransfer(false)}>✕</button></div>
             <div className="bal2-fld-b"><span>Откуда</span>
               <select value={transferForm.source} onChange={e => setTransferForm(f => ({ ...f, source: e.target.value }))}>
                 {TRANSFER_PM_OPTIONS.map(o => <option key={o.value} value={o.value} disabled={o.value === transferForm.destination}>{o.label}</option>)}
@@ -559,18 +587,20 @@ const Balance: React.FC = () => {
             <div className="bal2-fld-b"><span>Сумма</span>
               <input type="number" min="0.01" step="0.01" value={transferForm.amount} onChange={e => setTransferForm(f => ({ ...f, amount: e.target.value }))} placeholder="50 000 ₽" autoFocus />
             </div>
-            <div className="bal2-fld-b"><span>Дата</span>
-              <input type="date" value={transferForm.transfer_date} onChange={e => setTransferForm(f => ({ ...f, transfer_date: e.target.value }))} />
+            <div className="bal2-fld-b"><span>Дата операции</span>
+              <input type="date" max={localDateStr()} value={transferForm.transfer_date} onChange={e => setTransferForm(f => ({ ...f, transfer_date: e.target.value }))} />
             </div>
             <div className="bal2-fld-b"><span>Комментарий <small>(необязательно)</small></span>
               <input value={transferForm.comment} onChange={e => setTransferForm(f => ({ ...f, comment: e.target.value }))} placeholder="Например: внесение выручки в кассу" />
             </div>
+            <div className="bal2-date-hint">Можно выбрать любую прошедшую дату. Операция попадёт в баланс выбранного дня.</div>
             <div className="bal2-modal-actions">
               <button type="button" className="bal2-btn-cancel" onClick={() => setShowTransfer(false)}>Отмена</button>
               <button type="button" className="bal2-btn-ok bal2-btn-ok--transfer" onClick={addTransfer} disabled={saving || !transferForm.amount || transferForm.source === transferForm.destination}>Сохранить перевод</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -9,39 +9,18 @@ interface LoginFormValues {
   password: string;
 }
 
-type UserType = 'lawyer' | 'office' | 'call_center' | 'manager' | 'okk' | 'expert' | 'admin' | 'representative';
-
-interface RegisterFormValues {
-  name: string;
+interface AccessRequestFormValues {
+  full_name: string;
   email: string;
-  password: string;
-  userType: UserType;
-  officeType?: 'new' | 'existing' | '';
-  officeId?: string;
-  officeName?: string;
-  callCenterName?: string;
-  phone?: string;
+  phone: string;
 }
 
 const REMEMBER_KEY = 'rememberedLogin';
 
-const USER_TYPES: { value: UserType; label: string }[] = [
-  { value: 'office', label: 'Юридический офис' },
-  { value: 'call_center', label: 'Колл-центр' },
-  { value: 'lawyer', label: 'Частный юрист' },
-  { value: 'manager', label: 'Менеджер' },
-  { value: 'okk', label: 'Руководитель' },
-  { value: 'expert', label: 'Эксперт' },
-  { value: 'representative', label: 'Представитель' },
-  { value: 'admin', label: 'Администратор' },
-];
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [mode, setMode] = useState<'register' | 'login'>('login');
-  const [userType, setUserType] = useState<UserType | ''>('');
-  const [officeType, setOfficeType] = useState<'new' | 'existing' | ''>('');
-  const [userTypeError, setUserTypeError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loginError, setLoginError] = useState(false);
@@ -78,66 +57,26 @@ const AuthPage = () => {
     if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
   };
 
-  const selectUserType = (v: UserType) => {
-    setUserType(v);
-    setUserTypeError(false);
-    if (v !== 'office') setOfficeType('');
-  };
-
   const switchMode = (m: 'register' | 'login') => {
     setMode(m);
     setLoginError(false);
-    setUserTypeError(false);
   };
 
-  const handleRegisterSubmit = async (raw: Omit<RegisterFormValues, 'userType' | 'officeType'>) => {
-    if (!userType) {
-      setUserTypeError(true);
-      message.error('Выберите тип пользователя');
-      return;
-    }
-    const values: RegisterFormValues = { ...raw, userType, officeType: officeType || '' };
+  const handleAccessRequestSubmit = async (values: AccessRequestFormValues) => {
     setLoading(true);
     try {
-      const response = await fetch(buildApiUrl('/auth/register'), {
+      const response = await fetch(buildApiUrl('/access-requests'), {
         method: 'POST',
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, consent: true, website: '' }),
         headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       });
-      if (!response.ok) {
-        let err = '';
-        try { err = (await response.json()).error || ''; } catch { /* noop */ }
-        if (response.status === 409) throw new Error('Пользователь с таким email уже существует');
-        if (response.status === 400) throw new Error(err || 'Проверьте заполнение полей');
-        if (response.status >= 500) throw new Error('Ошибка сервера. Попробуйте позже');
-        throw new Error(err || `Ошибка: ${response.statusText}`);
-      }
-      const data = await response.json();
-      if (data.requiresVerification) {
-        setVerifyEmail(data.email || values.email);
-        setVerifyCode('');
-        setVerifyStep(true);
-        message.success('Мы отправили код подтверждения на ' + (data.email || values.email), 6);
-        return;
-      }
-      persistSession(data);
-      message.success('Регистрация выполнена. Добро пожаловать!');
-      if (data.user?.needs_office_setup || data.user?.role === 'director') {
-        navigate('/welcome');
-      } else {
-        navigate('/crm');
-      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Не удалось отправить заявку');
+      message.success('Заявка отправлена. Мы свяжемся с вами в рабочее время', 6);
       form.resetFields();
-      setUserType('');
-      setOfficeType('');
+      setMode('login');
     } catch (e) {
-      if (e instanceof TypeError && e.message.includes('fetch')) {
-        message.error('Не удалось подключиться к серверу', 5);
-      } else if (e instanceof Error) {
-        message.error(e.message, 5);
-      } else {
-        message.error('Произошла ошибка при регистрации', 5);
-      }
+      message.error(e instanceof Error ? e.message : 'Не удалось отправить заявку', 5);
     } finally {
       setLoading(false);
     }
@@ -268,12 +207,12 @@ const AuthPage = () => {
               {mode === 'login' ? (
                 <>С <em>возвращением</em></>
               ) : (
-                <>Создать <em>аккаунт</em></>
+                <>Запросить <em>доступ</em></>
               )}
             </h1>
             <div className="auth-rule" aria-hidden><span /></div>
             <p className="auth-subtitle">
-              {mode === 'login' ? 'Войдите в свой рабочий кабинет' : 'Присоединяйтесь к LawTech'}
+              {mode === 'login' ? 'Войдите в свой рабочий кабинет' : 'Оставьте контакты, мы свяжемся с вами'}
             </p>
           </>
         )}
@@ -347,94 +286,35 @@ const AuthPage = () => {
               <Button htmlType="submit" block loading={loading} className="auth-submit">Войти</Button>
 
               <div className="auth-switch">
-                Нет аккаунта?<button type="button" onClick={() => switchMode('register')}>Создать</button>
+                Нет доступа?<button type="button" onClick={() => switchMode('register')}>Оставить заявку</button>
               </div>
             </Form>
           ) : (
-            <Form key="register" form={form} layout="vertical" onFinish={handleRegisterSubmit} requiredMark={false}>
+            <Form key="request" form={form} layout="vertical" onFinish={handleAccessRequestSubmit} requiredMark={false}>
               <div className="auth-field">
-                <label className="auth-label">{userType === 'call_center' ? 'ФИО начальника' : 'Ваше имя'}</label>
-                <Form.Item name="name" rules={[{ required: true, message: 'Введите имя' }]} style={{ marginBottom: 0 }}>
-                  <Input placeholder="Как к вам обращаться" autoComplete="name" autoFocus />
+                <label className="auth-label" htmlFor="request-name">ФИО</label>
+                <Form.Item name="full_name" rules={[{ required: true, message: 'Введите ФИО' }, { min: 5, message: 'Укажите полное имя' }]} style={{ marginBottom: 0 }}>
+                  <Input id="request-name" placeholder="Иванов Иван Иванович" autoComplete="name" autoFocus />
                 </Form.Item>
               </div>
               <div className="auth-field">
-                <label className="auth-label">Электронная почта</label>
-                <Form.Item name="email" rules={[{ required: true, message: 'Введите почту', type: 'email' }]} style={{ marginBottom: 0 }}>
-                  <Input autoComplete="email" placeholder="you@example.com" />
+                <label className="auth-label" htmlFor="request-email">Электронная почта</label>
+                <Form.Item name="email" rules={[{ required: true, message: 'Введите почту' }, { type: 'email', message: 'Проверьте адрес почты' }]} style={{ marginBottom: 0 }}>
+                  <Input id="request-email" type="email" autoComplete="email" placeholder="you@example.com" />
                 </Form.Item>
               </div>
               <div className="auth-field">
-                <label className="auth-label">Пароль</label>
-                <Form.Item name="password" rules={[{ required: true, message: 'Введите пароль' }, { min: 6, message: 'Минимум 6 символов' }]} style={{ marginBottom: 0 }}>
-                  <Input.Password autoComplete="new-password" placeholder="Минимум 6 символов" />
+                <label className="auth-label" htmlFor="request-phone">Номер телефона</label>
+                <Form.Item name="phone" rules={[{ required: true, message: 'Введите телефон' }, { pattern: /^(?:\D*\d){10,15}\D*$/, message: 'Проверьте номер телефона' }]} style={{ marginBottom: 0 }}>
+                  <Input id="request-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" />
                 </Form.Item>
               </div>
-
-              {userType === 'call_center' && (
-                <>
-                  <div className="auth-field">
-                    <label className="auth-label">Название колл-центра</label>
-                    <Form.Item name="callCenterName" rules={[{ required: true, message: 'Введите название колл-центра' }]} style={{ marginBottom: 0 }}>
-                      <Input placeholder="Например, Контакт-центр Право" />
-                    </Form.Item>
-                  </div>
-                  <div className="auth-field">
-                    <label className="auth-label">Телефон</label>
-                    <Form.Item name="phone" rules={[{ required: true, message: 'Введите телефон' }]} style={{ marginBottom: 0 }}>
-                      <Input autoComplete="tel" placeholder="+7 999 000-00-00" />
-                    </Form.Item>
-                  </div>
-                </>
-              )}
-
-              <div className="auth-field">
-                <label className="auth-label">Тип пользователя</label>
-                <div className={`auth-pills${userTypeError ? ' has-error' : ''}`}>
-                  {USER_TYPES.map((t) => (
-                    <button
-                      type="button"
-                      key={t.value}
-                      className={`auth-pill${userType === t.value ? ' active' : ''}`}
-                      onClick={() => selectUserType(t.value)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                {userTypeError && <div className="auth-pill-error">Выберите тип пользователя</div>}
-              </div>
-
-              {userType === 'office' && (
-                <div className="auth-field">
-                  <label className="auth-label">Тип офиса</label>
-                  <div className="auth-pills">
-                    <button type="button" className={`auth-pill${officeType === 'new' ? ' active' : ''}`} onClick={() => setOfficeType('new')}>Создать новый</button>
-                    <button type="button" className={`auth-pill${officeType === 'existing' ? ' active' : ''}`} onClick={() => setOfficeType('existing')}>Присоединиться</button>
-                  </div>
-                </div>
-              )}
-              {userType === 'office' && officeType === 'new' && (
-                <div className="auth-field">
-                  <label className="auth-label">Название офиса</label>
-                  <Form.Item name="officeName" rules={[{ required: true, message: 'Введите название офиса' }]} style={{ marginBottom: 0 }}>
-                    <Input placeholder='Например, "Право и Партнёры"' />
-                  </Form.Item>
-                </div>
-              )}
-              {userType === 'office' && officeType === 'existing' && (
-                <div className="auth-field">
-                  <label className="auth-label">ID офиса</label>
-                  <Form.Item name="officeId" rules={[{ required: true, message: 'Введите ID офиса' }]} style={{ marginBottom: 0 }}>
-                    <Input placeholder="ID офиса" />
-                  </Form.Item>
-                </div>
-              )}
+              <p className="auth-request-note">Отправка заявки не создаёт аккаунт. Доступ подключает команда LawTech после согласования.</p>
               <Button htmlType="submit" block loading={loading} className="auth-submit" style={{ marginTop: 8 }}>
-                Создать аккаунт
+                Отправить заявку
               </Button>
               <div className="auth-switch">
-                Уже есть аккаунт?<button type="button" onClick={() => switchMode('login')}>Войти</button>
+                Уже есть доступ?<button type="button" onClick={() => switchMode('login')}>Войти</button>
               </div>
             </Form>
           )}

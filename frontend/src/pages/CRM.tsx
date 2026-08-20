@@ -138,7 +138,7 @@ const SRM = () => {
       oscillator.type = 'sine';
       oscillator.frequency.value = frequency;
       gain.gain.setValueAtTime(0.0001, now + index * 0.09);
-      gain.gain.exponentialRampToValueAtTime(0.05625, now + index * 0.09 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.48, now + index * 0.09 + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.09 + 0.16);
       oscillator.connect(gain).connect(context.destination);
       oscillator.start(now + index * 0.09);

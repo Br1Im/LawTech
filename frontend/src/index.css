@@ -943,3 +943,71 @@ html.theme-transition body::after { transition:none!important; }
 html.theme-view-transition.theme-transition,
 html.theme-view-transition.theme-transition :where(*) { transition:none!important; }
 @media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root){animation:none!important}}
+
+
+/* Full role audit: enforce touch geometry after component overrides */
+@media (max-width:768px){
+  html body .office-header-add-btn,html body .plan-edit-btn-v2,html body .plan-cycle-nav-btn,html body .oa-link,
+  html body .apt-new-btn,html body .apt-date-arrow,html body .apt-cal-btn,html body .apt-filter-toggle,
+  html body .cc-btn,html body .cc-date-arrow,html body .cc-date-cal-btn,
+  html body .ant-input-search-btn,html body .ant-pagination-item-link,
+  html body .lt-page-clients button,html body .lt-page-my-cases button{
+    min-width:44px!important;min-height:44px!important;height:44px!important;transform:none!important;
+  }
+}
+
+@media(max-width:768px){html body .lawtech-workspace button{min-height:44px!important}}
+
+@media(max-width:768px){html body button:not(.ant-switch){min-height:44px!important}}
+
+
+/* Simplified client contract drawer */
+.client-card-overview,.client-card-task,.client-card-payments{display:flex;flex-direction:column;gap:20px;max-width:760px}
+.client-card-overview__hero,.client-card-task__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:16px;border-bottom:1px solid var(--color-border)}
+.client-card-overview__hero span,.client-card-task__heading span{display:block;margin-bottom:4px;color:var(--color-text-secondary);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.client-card-overview__hero h2,.client-card-task__heading h3{margin:0;color:var(--color-text);font-size:22px;line-height:1.2}
+.client-card-overview__hero p{margin:6px 0 0;color:var(--color-text-secondary)}
+.client-card-overview__facts .ant-descriptions-item{padding-bottom:10px}.client-card-overview__facts .ant-descriptions-item-label{width:110px;color:var(--color-text-secondary);font-weight:600}
+.client-card-overview__actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:4px}
+.client-card-task__core{display:grid;grid-template-columns:1.4fr .8fr;gap:16px}.client-card-task label,.client-card-task__field{display:grid;gap:7px}.client-card-task label>span,.client-card-task__docs>span{font-size:12px;font-weight:650;color:var(--color-text)}
+.client-card-task__docs{display:grid;gap:10px;padding:16px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-bg-alt)}.client-card-task__docs .ant-checkbox-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.client-card-payments__summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.client-card-payments__summary>div{padding:14px;border:1px solid var(--color-border);border-radius:10px;background:var(--color-bg-alt)}.client-card-payments__summary span{display:block;margin-bottom:4px;color:var(--color-text-secondary);font-size:11px}.client-card-payments__summary strong{font-size:17px}
+.client-card-payments__form{display:grid;grid-template-columns:1fr 150px 150px auto;gap:8px;align-items:center}.client-card-payments__history{display:grid;gap:8px}.client-card-payments__history h3{margin:4px 0;font-size:15px}.client-card-payment-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--color-border)}.client-card-payment-row strong,.client-card-payment-row small{display:block}.client-card-payment-row small{margin-top:3px;color:var(--color-text-secondary);font-size:11px}
+@media(max-width:640px){.client-card-overview__hero,.client-card-task__heading{gap:12px}.client-card-overview__hero h2,.client-card-task__heading h3{font-size:19px}.client-card-task__core,.client-card-payments__summary,.client-card-payments__form{grid-template-columns:1fr}.client-card-task__docs .ant-checkbox-group{grid-template-columns:1fr}.client-card-overview__actions .ant-btn{width:100%;min-height:44px}}
+
+
+/* Compact expert-task document checklist */
+.client-card-task__docs{
+  gap:8px!important;
+  padding:12px 14px!important;
+  border-radius:10px!important;
+}
+.client-card-task__docs>span{margin:0!important;font-size:12px!important}
+.client-card-task__docs .ant-checkbox-group{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:6px 8px!important;
+}
+.client-card-task__docs .ant-checkbox-wrapper{
+  display:inline-flex!important;
+  align-items:center!important;
+  width:auto!important;
+  min-height:34px!important;
+  margin:0!important;
+  padding:6px 10px!important;
+  border:1px solid var(--color-border)!important;
+  border-radius:8px!important;
+  background:var(--color-bg-elevated)!important;
+  color:var(--color-text)!important;
+  line-height:1.2!important;
+}
+.client-card-task__docs .ant-checkbox-wrapper:has(.ant-checkbox-checked){
+  border-color:var(--color-primary)!important;
+  background:color-mix(in oklch,var(--color-primary) 8%,var(--color-bg-elevated))!important;
+}
+.client-card-task__docs .ant-checkbox{top:0!important}
+.client-card-task__docs .ant-checkbox+span{padding-inline-start:7px!important;padding-inline-end:0!important;font-size:12px!important;white-space:nowrap}
+@media(max-width:640px){
+  .client-card-task__docs .ant-checkbox-group{display:grid!important;grid-template-columns:1fr!important}
+  .client-card-task__docs .ant-checkbox-wrapper{width:100%!important;min-height:44px!important}
+}

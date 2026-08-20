@@ -2827,3 +2827,810 @@ table {
   background: transparent !important;
   box-shadow: none !important;
 }
+
+
+/* Ideal client card 2026-08-16 */
+.client-card-drawer .ant-drawer-header {
+  min-height: 72px;
+  padding: 14px 22px !important;
+  border-bottom: 1px solid var(--color-border, #e7e9ef) !important;
+}
+.client-card-drawer .ant-drawer-body { padding: 0 !important; }
+.client-card-drawer-title { display: grid; gap: 3px; min-width: 0; }
+.client-card-drawer-title strong { overflow: hidden; font-size: 18px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.client-card-drawer-title span { color: var(--color-text-secondary, #667085); font-size: 12px; font-weight: 500; }
+.client-card-drawer .ant-tabs-nav { margin: 0 !important; padding: 0 18px; background: var(--color-bg-elevated, #fff); }
+.client-card-drawer .ant-tabs-tab { min-height: 50px; margin: 0 18px 0 0 !important; padding: 0 2px !important; font-size: 13px; font-weight: 600; }
+.client-card-drawer .ant-tabs-content-holder { padding: 24px; }
+.client-card-drawer .ant-tabs-nav-wrap { scrollbar-width: none; }
+.client-card-drawer .ant-tabs-nav-wrap::-webkit-scrollbar { display: none; }
+.client-card-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+.client-card-section-heading > div > span { color: var(--color-primary, #4f46e5); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.client-card-section-heading h3 { margin: 3px 0 2px; font-size: 20px; line-height: 1.25; letter-spacing: -.02em; }
+.client-card-section-heading p { margin: 0; color: var(--color-text-secondary, #667085); font-size: 13px; }
+.client-card-task { max-width: 760px; }
+.client-card-task__assignment { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 18px; align-items: stretch; }
+.client-card-task__core { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, .55fr); gap: 12px; }
+.client-card-task__core label, .client-card-task__field { display: grid; align-content: start; gap: 6px; }
+.client-card-task__core label > span, .client-card-task__field > span { color: var(--color-text, #20242d); font-size: 13px; font-weight: 600; }
+.client-card-task__core label b { color: #dc2626; }
+.client-card-deadline-preview { display: grid; align-content: center; min-height: 82px; padding: 14px 16px; border: 1px solid #f4d59b; border-radius: 12px; background: #fff9ed; color: #7c4a03; }
+.client-card-deadline-preview > span { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.client-card-deadline-preview strong { margin-top: 4px; font-size: 20px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.client-card-deadline-preview small { margin-top: 3px; color: #96631b; font-size: 11px; }
+.client-card-deadline-preview.is-empty { border-color: var(--color-border, #e7e9ef); background: var(--color-bg-alt, #f7f8fa); color: var(--color-text-secondary, #667085); }
+.client-card-task__documents { display: grid; gap: 12px; margin: 20px 0; padding: 18px; border: 1px solid var(--color-border, #e7e9ef); border-radius: 14px; background: var(--color-bg-alt, #fafbfc); }
+.client-card-subheading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.client-card-subheading > div { display: grid; gap: 2px; }
+.client-card-subheading strong { font-size: 14px; }
+.client-card-subheading > div span, .client-card-subheading > span { color: var(--color-text-secondary, #667085); font-size: 11px; }
+.client-card-doc-options { display: flex !important; flex-wrap: wrap; gap: 8px !important; }
+.client-card-doc-options .ant-checkbox-wrapper { min-height: 40px; margin: 0 !important; padding: 8px 12px 8px 9px; border: 1px solid var(--color-border, #e7e9ef); border-radius: 999px; background: var(--color-bg-elevated, #fff); font-size: 12px; transition: border-color .14s, background .14s; }
+.client-card-doc-options .ant-checkbox-wrapper:has(.ant-checkbox-checked) { border-color: #a8b8ff; background: #f0f3ff; color: #3346a8; }
+.client-card-custom-docs { display: flex; flex-wrap: wrap; gap: 7px; }
+.client-card-custom-docs .ant-tag { min-height: 32px; margin: 0; padding: 4px 9px; border-radius: 999px; line-height: 22px; }
+.client-card-add-doc { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; max-width: 430px; }
+.client-card-add-doc .ant-btn { width: 40px; height: 40px; padding: 0; border-radius: 10px; color: var(--color-primary, #4f46e5); }
+.client-card-task__field { margin-top: 14px; }
+.client-card-save-row { display: flex; justify-content: flex-end; margin-top: 18px; }
+.client-card-save-row .ant-btn { min-width: 170px; min-height: 42px; }
+.client-card-readonly-docs { display: grid; gap: 10px; margin-top: 16px; }
+.client-card-readonly-docs .ant-tag { margin-bottom: 6px; }
+.client-card-overview { max-width: 740px; }
+.client-card-overview__hero { padding-bottom: 18px; border-bottom: 1px solid var(--color-border, #e7e9ef); }
+.client-card-overview__hero h2 { margin: 3px 0; font-size: 22px; line-height: 1.25; letter-spacing: -.025em; }
+.client-card-overview__facts { margin-top: 10px; }
+.client-card-overview__facts .ant-descriptions-row > th, .client-card-overview__facts .ant-descriptions-row > td { padding-block: 10px !important; border-bottom: 1px solid var(--color-border, #e7e9ef); }
+.client-card-overview__facts .ant-descriptions-item-label { width: 115px; color: var(--color-text-secondary, #667085); }
+.client-card-overview__actions { display: flex; gap: 10px; margin-top: 18px; }
+.client-card-payments__summary { border-radius: 14px !important; }
+
+@media (max-width: 700px) {
+  .client-card-drawer .ant-drawer-header { min-height: 66px; padding: 12px 14px !important; }
+  .client-card-drawer .ant-tabs-nav { padding: 0 8px; }
+  .client-card-drawer .ant-tabs-tab { min-height: 48px; margin-right: 14px !important; }
+  .client-card-drawer .ant-tabs-content-holder { padding: 18px 14px 28px; }
+  .client-card-task__assignment { grid-template-columns: 1fr; }
+  .client-card-deadline-preview { grid-row: 1; }
+  .client-card-task__core { grid-template-columns: 1fr; }
+  .client-card-task__documents { padding: 14px; }
+  .client-card-doc-options { display: grid !important; grid-template-columns: 1fr; }
+  .client-card-doc-options .ant-checkbox-wrapper { min-height: 44px; border-radius: 10px; }
+  .client-card-subheading { align-items: flex-start; }
+  .client-card-save-row .ant-btn { width: 100%; min-height: 44px; }
+  .client-card-overview__actions { display: grid; }
+}
+
+
+/* Client card rescue 2026-08-16 */
+.client-card-drawer, .client-card-drawer * { box-sizing: border-box; }
+.client-card-drawer .ant-drawer-content { overflow: hidden; background: var(--color-bg-elevated, #fdfdfe); }
+.client-card-drawer .ant-drawer-header { min-height: 68px; padding: 12px 18px !important; }
+.client-card-drawer .ant-drawer-header-title { min-width: 0; flex-direction: row-reverse; gap: 12px; }
+.client-card-drawer .ant-drawer-title { min-width: 0; }
+.client-card-drawer .ant-drawer-close { flex: 0 0 40px; width: 40px; height: 40px; margin: 0; border-radius: 10px; }
+.client-card-drawer-title strong { font-size: 17px; }
+.client-card-drawer .ant-drawer-body { min-width: 0; overflow-x: hidden !important; overflow-y: auto !important; }
+.client-card-drawer > .ant-drawer-content-wrapper { max-width: 100vw; }
+.client-card-drawer .ant-tabs { width: 100%; min-width: 0; }
+.client-card-drawer .ant-tabs-nav { position: sticky; top: 0; z-index: 3; width: 100% !important; min-width: 0; margin: 0 !important; padding: 0 16px; overflow: hidden; border-bottom: 1px solid var(--color-border, #e7e9ef); background: var(--color-bg-elevated, #fdfdfe); }
+.client-card-drawer .ant-tabs-nav::before { display: none; }
+.client-card-drawer .ant-tabs-nav-wrap { min-width: 0; overflow-x: auto !important; overflow-y: hidden !important; scrollbar-width: none; }
+.client-card-drawer .ant-tabs-nav-wrap::-webkit-scrollbar { display: none; }
+.client-card-drawer .ant-tabs-nav-list { flex: 0 0 max-content; min-width: max-content; }
+.client-card-drawer .ant-tabs-nav-operations { display: none !important; }
+.client-card-drawer .ant-tabs-tab { min-height: 48px; margin-right: 20px !important; padding: 0 !important; white-space: nowrap; }
+.client-card-drawer .ant-tabs-content-holder,
+.client-card-drawer .ant-tabs-body,
+.client-card-drawer .ant-tabs-content,
+.client-card-drawer .ant-tabs-tabpane { width: 100%; min-width: 0; max-width: 100%; overflow-x: hidden; }
+.client-card-drawer .ant-tabs-content-holder { padding: 20px 22px 28px; }
+.client-card-overview { width: 100%; max-width: 680px; }
+.client-card-overview__summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border, #e7e9ef); }
+.client-card-overview__contact { display: grid; min-width: 0; gap: 2px; }
+.client-card-overview__contact > span { color: var(--color-text-secondary, #667085); font-size: 11px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; }
+.client-card-overview__contact strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.client-card-facts { margin: 0; }
+.client-card-facts > div { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: 18px; padding: 12px 0; border-bottom: 1px solid var(--color-border, #e7e9ef); }
+.client-card-facts dt { color: var(--color-text-secondary, #667085); font-size: 12px; font-weight: 550; }
+.client-card-facts dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--color-text, #20242d); font-size: 14px; font-weight: 600; }
+.client-card-facts dd > span:not(.client-card-muted) { display: block; margin-top: 2px; color: var(--color-text-secondary, #667085); font-size: 11px; font-weight: 500; }
+.client-card-facts dd small { margin-left: 8px; color: var(--color-text-secondary, #667085); font-size: 11px; font-weight: 500; }
+.client-card-muted { color: var(--color-text-secondary, #667085); font-weight: 500; }
+.client-card-payment-strip { display: grid; gap: 8px; margin-top: 20px; padding: 16px; border: 1px solid var(--color-border, #e7e9ef); border-radius: 12px; background: var(--color-bg-alt, #f8f9fb); }
+.client-card-payment-strip__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.client-card-payment-strip__top > div { display: grid; gap: 2px; }
+.client-card-payment-strip__top span { color: var(--color-text-secondary, #667085); font-size: 11px; font-weight: 650; }
+.client-card-payment-strip__top strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.client-card-payment-strip__top strong small { color: var(--color-text-secondary, #667085); font-size: 12px; font-weight: 500; }
+.client-card-payment-strip__meta { color: var(--color-text-secondary, #667085); font-size: 11px; }
+.client-card-payment-strip__meta strong { color: var(--color-text, #20242d); }
+.client-card-payment-strip__meta .is-paid { color: #26865b; font-weight: 650; }
+.client-card-overview__actions { margin-top: 18px; }
+.client-card-overview__actions .ant-btn { min-height: 42px; padding-inline: 16px; }
+.client-card-drawer .ant-input,
+.client-card-drawer .ant-input-affix-wrapper,
+.client-card-drawer .ant-input-number,
+.client-card-drawer .ant-picker,
+.client-card-drawer .ant-select { max-width: 100% !important; }
+.client-card-drawer .ant-input-number-handler-wrap { display: none !important; }
+.client-card-drawer .ant-select-content { min-height: 22px !important; height: auto !important; overflow: hidden; }
+.client-card-drawer .ant-select-selection-item { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.client-card-drawer .ant-table-wrapper { max-width: 100%; overflow: hidden; }
+.client-card-drawer .ant-table-content { max-width: 100%; overflow-x: auto !important; }
+
+@media (max-width: 700px) {
+  .client-card-drawer .ant-drawer-content-wrapper { width: 100vw !important; }
+  .client-card-drawer .ant-drawer-header { min-height: 64px; padding: 10px 12px !important; }
+  .client-card-drawer-title strong { font-size: 15px; }
+  .client-card-drawer-title span { max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .client-card-drawer .ant-tabs-nav { width: 100% !important; padding: 0 12px; overflow: hidden !important; }
+  .client-card-drawer .ant-tabs-nav-wrap { width: 100% !important; max-width: 100% !important; overflow-x: auto !important; }
+  .client-card-drawer .ant-tabs-nav-list { width: max-content !important; min-width: max-content !important; transform: none !important; }
+  .client-card-drawer .ant-tabs-tab { min-height: 46px; margin-right: 18px !important; font-size: 12px; }
+  .client-card-drawer .ant-tabs-content-holder { width: 100% !important; padding: 16px 14px 24px; overflow-x: hidden !important; }
+  .client-card-drawer .ant-tabs-content,
+  .client-card-drawer .ant-tabs-tabpane { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  .client-card-facts > div { grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 11px 0; }
+  .client-card-facts dd { font-size: 13px; }
+  .client-card-facts dd small { display: block; margin: 4px 0 0; }
+  .client-card-payment-strip { margin-top: 16px; padding: 14px; }
+  .client-card-overview__actions { display: grid; grid-template-columns: 1fr; }
+  .client-card-overview__actions .ant-btn { width: 100%; min-height: 44px; }
+  .client-card-section-heading { margin-bottom: 16px; }
+  .client-card-section-heading h3 { font-size: 18px; }
+  .client-card-section-heading p { max-width: 31ch; }
+  .client-card-task__assignment { width: 100%; max-width: 100%; }
+  .client-card-task__core, .client-card-task__documents, .client-card-task__field, .client-card-add-doc { width: 100%; max-width: 100%; min-width: 0; }
+  .client-card-add-doc { grid-template-columns: minmax(0, 1fr) 44px; }
+  .client-card-add-doc .ant-btn { width: 44px; height: 44px; }
+  .client-card-drawer .ant-table { min-width: 520px; }
+  .client-card-drawer .ant-table-cell { padding: 8px !important; font-size: 11px !important; }
+}
+
+
+/* Client card final overflow and termination */
+.client-card-drawer .ant-tabs { overflow: hidden !important; }
+.client-card-drawer input, .client-card-drawer textarea { min-width: 0 !important; max-width: 100% !important; }
+.client-card-termination { display: grid; gap: 20px; width: 100%; max-width: 680px; }
+.client-card-termination__status { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #f2d89d; border-radius: 12px; background: #fff9ed; color: #7b4b08; }
+.client-card-termination__status > span { font-size: 20px; }
+.client-card-termination__status > div { display: grid; gap: 2px; }
+.client-card-termination__status strong { font-size: 15px; }
+.client-card-termination__status span { font-size: 11px; }
+.client-card-termination__warning { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid #f0d7a7; border-radius: 10px; background: #fffaf0; color: #80500b; font-size: 12px; line-height: 1.45; }
+.client-card-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.client-card-form-grid label { display: grid; gap: 6px; min-width: 0; }
+.client-card-form-grid label > span { font-size: 12px; font-weight: 600; }
+.client-card-form-grid .is-wide { grid-column: 1 / -1; }
+.client-card-form-grid .ant-picker, .client-card-form-grid .ant-input-number { width: 100% !important; }
+.client-card-terminate-button { justify-self: end; min-width: 190px; min-height: 42px; }
+.client-card-edit-button { justify-self: start; }
+.client-card-acts { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--color-border, #e7e9ef); }
+.client-card-acts .ant-empty { margin-block: 14px; }
+.client-card-acts-list { display: grid; gap: 8px; }
+.client-card-act-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; padding: 12px; border: 1px solid var(--color-border, #e7e9ef); border-radius: 10px; }
+.client-card-act-row > div { display: grid; }
+.client-card-act-row span, .client-card-act-row p { color: var(--color-text-secondary, #667085); font-size: 11px; }
+.client-card-act-row p { grid-column: 1 / -1; margin: 4px 0 0; }
+@media (max-width:700px){
+ .client-card-drawer .ant-drawer-body, .client-card-drawer .ant-tabs { width:100% !important; max-width:100% !important; overflow-x:hidden !important; }
+ .client-card-drawer .ant-tabs-nav { contain:inline-size; }
+ .client-card-form-grid { grid-template-columns:1fr; }
+ .client-card-form-grid .is-wide { grid-column:auto; }
+ .client-card-terminate-button { width:100%; min-height:44px; }
+ .client-card-termination { gap:16px; }
+ .client-card-acts .ant-table-wrapper { display:none; }
+ .client-card-task__field > .ant-input, .client-card-task__field > textarea.ant-input { width:100% !important; max-width:100% !important; }
+}
+
+
+/* Ant v6 uses body-holder, this is the real card content container */
+.client-card-drawer .ant-tabs-body-holder {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 20px 22px 28px !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+.client-card-drawer .ant-tabs-content-holder { padding: 0 !important; }
+@media (max-width:700px){
+  .client-card-drawer .ant-tabs-body-holder { padding: 16px 14px 24px !important; }
+}
+
+
+/* Compact task documents and explicit save state */
+.client-card-task__documents {
+  gap: 10px !important;
+  margin: 16px 0 !important;
+  padding: 12px 14px !important;
+  border-radius: 10px !important;
+  background: var(--color-bg-elevated, #fdfdfe) !important;
+}
+.client-card-doc-options {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px !important;
+}
+.client-card-doc-options .ant-checkbox-wrapper {
+  width: 100%;
+  min-height: 34px !important;
+  padding: 5px 9px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  line-height: 1.25;
+}
+.client-card-doc-options .ant-checkbox { align-self: flex-start; margin-top: 1px; }
+.client-card-doc-options .ant-checkbox-inner { width: 15px; height: 15px; }
+.client-card-custom-docs .ant-tag { min-height: 28px !important; padding: 2px 8px !important; }
+.client-card-add-doc { max-width: 360px !important; grid-template-columns: minmax(0, 1fr) 36px !important; }
+.client-card-add-doc .ant-input { min-height: 36px !important; height: 36px !important; font-size: 12px; }
+.client-card-add-doc .ant-btn { width: 36px !important; height: 36px !important; }
+.client-card-field-note { display: block; color: var(--color-text-secondary, #667085); font-size: 11px; font-weight: 500; line-height: 1.35; }
+.client-card-field-note.is-warning { color: #9a5c05; }
+.client-card-save-row { align-items: center; justify-content: space-between !important; gap: 12px; }
+.client-card-save-row > span { color: var(--color-text-secondary, #667085); font-size: 11px; }
+@media (max-width:700px){
+ .client-card-task__documents { padding: 10px !important; }
+ .client-card-doc-options { grid-template-columns: 1fr; gap: 5px !important; }
+ .client-card-doc-options .ant-checkbox-wrapper { min-height: 38px !important; }
+ .client-card-save-row { display: grid !important; }
+ .client-card-save-row > span { order: 2; text-align: center; }
+}
+
+
+/* Ant checkbox clearfix must not participate in compact document rows */
+.client-card-doc-options .ant-checkbox-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  height: 34px !important;
+  min-height: 34px !important;
+}
+.client-card-doc-options .ant-checkbox-wrapper::after { display: none !important; content: none !important; }
+.client-card-doc-options .ant-checkbox { align-self: center !important; margin-top: 0 !important; }
+@media (max-width:700px){
+ .client-card-doc-options .ant-checkbox-wrapper { height: 38px !important; min-height: 38px !important; }
+}
+
+
+/* Clients layout matched to approved Paint mockup */
+.lt-page-clients { gap: 0 !important; padding-top: 0 !important; }
+.lt-page-clients .clients-main-tabs {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  min-height: 62px;
+  padding: 0 18px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+  scrollbar-width: none;
+}
+.lt-page-clients .clients-main-tabs::-webkit-scrollbar { display: none; }
+.lt-page-clients .clients-main-tabs button {
+  position: relative;
+  min-height: 62px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lt-page-clients .clients-main-tabs button::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+}
+.lt-page-clients .clients-main-tabs button.active { color: var(--color-text); }
+.lt-page-clients .clients-main-tabs button.active::after { background: var(--color-primary); }
+.lt-page-clients .clients-control-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 66px;
+  padding: 12px 0;
+}
+.lt-page-clients .clients-date-nav { display: flex; align-items: center; gap: 8px; flex: none; }
+.lt-page-clients .clients-date-nav > button,
+.lt-page-clients .clients-calendar-trigger > button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.lt-page-clients .clients-date-nav > .clients-date-current {
+  display: flex;
+  width: auto;
+  min-width: 104px;
+  padding: 0 14px;
+  justify-content: center;
+  color: var(--color-text);
+  font-weight: 650;
+}
+.lt-page-clients .clients-calendar-trigger { position: relative; display: inline-block; }
+.lt-page-clients .clients-calendar-trigger > button { color: var(--color-primary); }
+.lt-page-clients .clients-search-input {
+  flex: 0 1 326px !important;
+  width: 326px !important;
+  min-width: 240px !important;
+  max-width: 326px !important;
+  min-height: 42px;
+  border-radius: 10px !important;
+}
+.lt-page-clients > div:has(> .lt-clients-register-table),
+.lt-page-clients > div:has(> .lt-clients-terminated-table) {
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: none !important;
+}
+.lt-page-clients .lt-clients-register-table .ant-table-thead > tr > th,
+.lt-page-clients .lt-clients-terminated-table .ant-table-thead > tr > th {
+  height: 50px;
+  background: var(--color-bg-alt) !important;
+}
+.lt-page-clients .lt-clients-register-table .ant-table-tbody > tr > td,
+.lt-page-clients .lt-clients-terminated-table .ant-table-tbody > tr > td {
+  height: 68px;
+  border-bottom-color: var(--color-border) !important;
+}
+.lt-page-clients .clients-unified-pagination { padding-inline: 14px; }
+
+@media (max-width: 760px) {
+  .lt-page-clients .clients-main-tabs { gap: 22px; min-height: 50px; padding: 0 8px; }
+  .lt-page-clients .clients-main-tabs button { min-height: 50px; font-size: 12px; }
+  .lt-page-clients .clients-control-row { align-items: stretch; flex-direction: column; gap: 8px; padding: 10px 0; }
+  .lt-page-clients .clients-date-nav { width: 100%; }
+  .lt-page-clients .clients-date-nav > .clients-date-current { flex: 1; }
+  .lt-page-clients .clients-search-input { width: 100% !important; min-width: 0 !important; max-width: none !important; }
+}
+
+
+/* Global Ant Design v6 Select value visibility fix.
+   Keep the library's own layout intact and only restore the selected label. */
+.lawtech-workspace .ant-select,
+.ant-modal-root .ant-select,
+.ant-drawer-root .ant-select {
+  color: var(--lt-ink, #20242d) !important;
+}
+.lawtech-workspace .ant-select-content,
+.ant-modal-root .ant-select-content,
+.ant-drawer-root .ant-select-content {
+  min-width: 0 !important;
+  color: var(--lt-ink, #20242d) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.lawtech-workspace .ant-select-content-has-value:not(.ant-select-content-has-search-value),
+.ant-modal-root .ant-select-content-has-value:not(.ant-select-content-has-search-value),
+.ant-drawer-root .ant-select-content-has-value:not(.ant-select-content-has-search-value) {
+  opacity: 1 !important;
+}
+/* Searchable Selects in AntD 6 can retain a search state after an option is
+   chosen. Keep the actual search input readable instead of rendering an
+   apparently empty field. Reported single-selects also clear searchValue on
+   selection, so their selected label is restored immediately. */
+.lawtech-workspace .ant-select-content-has-search-value > .ant-select-input,
+.ant-modal-root .ant-select-content-has-search-value > .ant-select-input,
+.ant-drawer-root .ant-select-content-has-search-value > .ant-select-input,
+.ant-drawer .ant-select-content-has-search-value > .ant-select-input {
+  color: var(--lt-ink, #20242d) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.lt-visible-search-select .ant-select-content-has-value:not(.ant-select-content-has-search-value),
+.lt-visible-search-select .ant-select-content-has-value:not(.ant-select-content-has-search-value) > .ant-select-content-value {
+  color: var(--lt-ink, #20242d) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+[data-theme="dark"] .ant-select-content-has-search-value > .ant-select-input,
+[data-theme="dark"] .lt-visible-search-select .ant-select-content-value {
+  color: var(--color-text, #eef0f7) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.lawtech-workspace .ant-select-content-has-value:not(.ant-select-content-has-search-value) > .ant-select-content-value,
+.ant-modal-root .ant-select-content-has-value:not(.ant-select-content-has-search-value) > .ant-select-content-value,
+.ant-drawer-root .ant-select-content-has-value:not(.ant-select-content-has-search-value) > .ant-select-content-value,
+.lawtech-workspace .ant-select-selection-item,
+.ant-modal-root .ant-select-selection-item,
+.ant-drawer-root .ant-select-selection-item,
+.lawtech-workspace .ant-select-selection-item-content,
+.ant-modal-root .ant-select-selection-item-content,
+.ant-drawer-root .ant-select-selection-item-content {
+  color: var(--lt-ink, #20242d) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+[data-theme="dark"] .ant-select-content,
+[data-theme="dark"] .ant-select-content-has-value,
+[data-theme="dark"] .ant-select-content-value,
+[data-theme="dark"] .ant-select-selection-item,
+[data-theme="dark"] .ant-select-selection-item-content {
+  color: var(--color-text, #eef0f7) !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.ant-select-disabled .ant-select-content { opacity: .55 !important; }
+
+
+/* AntD v6 open-state selected value visibility */
+/* v6 dims the chosen value to 25% while the dropdown is open, which reads as an empty field. */
+/* Keep it fully readable until the user actually starts typing a search query. */
+.ant-select-open .ant-select-content.ant-select-content-has-value:not(.ant-select-content-has-search-value),
+.ant-select-open .ant-select-content.ant-select-content-has-value:not(.ant-select-content-has-search-value) > .ant-select-content-value {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+/* v6 drawers render without .ant-drawer-root, so legacy scoped fixes never matched there. */
+.ant-drawer .ant-select-content,
+.ant-drawer .ant-select-content-has-value,
+.ant-drawer .ant-select-content-value,
+.ant-drawer .ant-select-selection-item,
+.ant-drawer .ant-select-selection-item-content {
+  color: var(--lt-ink, #20242d) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+[data-theme="dark"] .ant-drawer .ant-select-content,
+[data-theme="dark"] .ant-drawer .ant-select-content-has-value,
+[data-theme="dark"] .ant-drawer .ant-select-content-value,
+[data-theme="dark"] .ant-drawer .ant-select-selection-item,
+[data-theme="dark"] .ant-drawer .ant-select-selection-item-content {
+  color: var(--color-text, #eef0f7) !important;
+}
+
+
+/* ===== UI consistency pass 2026-08-18 =====
+   Office analytics/funnel/source ranking are deliberately untouched. */
+:root {
+  --lt-space-1: 4px;
+  --lt-space-2: 8px;
+  --lt-space-3: 12px;
+  --lt-space-4: 16px;
+  --lt-space-6: 24px;
+  --lt-space-8: 32px;
+  --lt-control-sm: 32px;
+  --lt-control-md: 40px;
+  --lt-control-touch: 44px;
+  --lt-z-sticky: 100;
+  --lt-z-dropdown: 300;
+  --lt-z-backdrop: 500;
+  --lt-z-modal: 600;
+  --lt-z-toast: 800;
+  --lt-motion-fast: 120ms;
+  --lt-motion-base: 220ms;
+}
+
+/* Stable content measure on wide monitors, excluding Office. */
+:where(.clients-container,.documents-container,.employees-v2,.apt-container,.bal2,
+.call-center-container,.materials-container,.reception-container,.expenses-container,
+.lawyers-container,.experts-container,.calendar-container,.acts-page,.salary-page,
+.my-cases-page,.tg-chat-wrap) {
+  max-width: 1440px !important;
+  margin-inline: auto !important;
+}
+
+/* One page-heading vocabulary outside Office. */
+:where(.clients-container,.documents-container,.employees-v2,.apt-container,.bal2,
+.call-center-container,.materials-container,.expenses-container,.acts-page,.salary-page,
+.my-cases-page) :where(h1,.lt-page-heading) {
+  font-size: 28px !important;
+  line-height: 34px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.035em !important;
+  color: var(--lt-ink) !important;
+}
+
+/* Unified action hierarchy. */
+:where(.btn-primary,.btn-secondary,.btn-danger,.ant-btn,.page-action,
+.add-button,.create-button,.filter-button) {
+  min-height: var(--lt-control-md) !important;
+  border-radius: 8px !important;
+  padding-inline: 14px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  font-weight: 650 !important;
+  box-shadow: none !important;
+  transition: color var(--lt-motion-fast) var(--lt-ease),
+              background-color var(--lt-motion-fast) var(--lt-ease),
+              border-color var(--lt-motion-fast) var(--lt-ease),
+              transform var(--lt-motion-fast) var(--lt-ease) !important;
+}
+:where(.btn-primary,.ant-btn-primary,.page-action) {
+  color: #fff !important;
+  background: var(--lt-brand-600) !important;
+  border-color: var(--lt-brand-600) !important;
+}
+:where(.btn-primary,.ant-btn-primary,.page-action):hover {
+  background: var(--lt-brand-700) !important;
+  border-color: var(--lt-brand-700) !important;
+}
+:where(.btn-secondary,.ant-btn-default) {
+  color: var(--lt-ink-soft) !important;
+  background: var(--lt-surface) !important;
+  border-color: var(--lt-line) !important;
+}
+:where(.btn-danger,.ant-btn-dangerous) {
+  color: var(--lt-danger) !important;
+  background: var(--lt-danger-soft) !important;
+  border-color: #fecdca !important;
+}
+:where(.btn-primary,.btn-secondary,.btn-danger,.ant-btn):active { transform: scale(.98); }
+:where(.btn-primary,.btn-secondary,.btn-danger,.ant-btn):disabled {
+  opacity: 1 !important;
+  color: #98a2b3 !important;
+  background: #f2f4f7 !important;
+  border-color: #eaecf0 !important;
+  cursor: not-allowed !important;
+}
+
+/* Forms: label is structural, placeholder stays secondary. */
+:where(.unified-form-modal,.emp-modal-card,.client-card-inline-edit,.salary-page,.acts-page)
+:where(input,select,textarea,.ant-input,.ant-select-selector,.ant-picker) {
+  min-height: var(--lt-control-md) !important;
+  border-radius: 8px !important;
+  border-color: var(--lt-line) !important;
+  background: var(--lt-surface) !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+}
+:where(.unified-form-modal,.emp-modal-card,.client-card-inline-edit,.salary-page,.acts-page)
+:where(label,.ant-form-item-label > label) {
+  color: var(--lt-ink-soft) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 650 !important;
+}
+:where(input,textarea)::placeholder { color: #98a2b3 !important; opacity: 1; }
+
+/* Tables: predictable density and scanning. */
+:where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page,
+.bal2,.my-cases-page,.materials-container) table {
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums;
+}
+:where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page,
+.bal2,.my-cases-page,.materials-container) thead th {
+  height: 40px !important;
+  padding: 10px 12px !important;
+  color: var(--lt-muted) !important;
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--lt-line) !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: .035em !important;
+}
+:where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page,
+.bal2,.my-cases-page,.materials-container) tbody td {
+  min-height: 48px !important;
+  padding: 11px 12px !important;
+  border-bottom: 1px solid var(--lt-line-soft) !important;
+}
+:where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page,
+.bal2,.my-cases-page,.materials-container) tbody tr:hover { background: #fafbff !important; }
+
+/* Filter bars become secondary, not the visual headline. */
+:where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page)
+:where(.filters,.filter-bar,.acts-filters,.employee-filters,.cc-filters) {
+  gap: var(--lt-space-2) !important;
+  padding: var(--lt-space-3) !important;
+  border: 1px solid var(--lt-line-soft) !important;
+  border-radius: 10px !important;
+  background: var(--lt-surface-soft) !important;
+}
+
+/* Semantic status chips replace emoji-only signals. */
+:where(.deadline-badge,.status-badge,.ant-tag) {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 26px !important;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+  font-weight: 650 !important;
+}
+.deadline-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 7px;
+}
+
+/* Chat icon actions: named, consistent, touch-safe. */
+:where(.tg-icon-btn,.tg-sidebar-icon-btn,.tg-search-close,.tg-participants-close,
+.tg-attach-btn,.tg-send-btn,.tg-member-remove,.tg-header-members) {
+  min-width: 40px !important;
+  min-height: 40px !important;
+  border-radius: 8px !important;
+}
+
+/* Modal scale and hierarchy. */
+:where(.ant-modal-content,.emp-modal-card,.unified-form-modal .ant-modal-content) {
+  border-radius: 14px !important;
+  box-shadow: var(--lt-shadow-lg) !important;
+}
+:where(.ant-modal-header,.emp-modal-header) { border-bottom: 1px solid var(--lt-line-soft) !important; }
+:where(.ant-modal-title,.emp-modal-title) {
+  font-size: 20px !important;
+  line-height: 28px !important;
+  font-weight: 750 !important;
+  letter-spacing: -.025em !important;
+}
+
+/* Empty and error states share one readable pattern. */
+:where(.no-data,.no-employees,.empty-state,.tg-channel-list-empty,.tg-participants-empty,
+.acts-empty,.salary-empty) {
+  min-height: 180px !important;
+  padding: 32px 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  color: var(--lt-muted) !important;
+  background: var(--lt-surface) !important;
+  border: 1px dashed #d0d5dd !important;
+  border-radius: 12px !important;
+}
+
+/* Mobile: same terminology, real touch targets, stable bottom navigation. */
+@media (max-width: 768px) {
+  .mobile-icon-rail { min-height: calc(72px + env(safe-area-inset-bottom)) !important; }
+  .mobile-icon-rail .rail-btn {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 6px 4px !important;
+    border-radius: 8px !important;
+  }
+  .mobile-icon-rail .rail-label {
+    max-width: 68px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px !important;
+  }
+  :where(button,a,[role="button"],input,select,textarea):not(.ant-switch) {
+    min-height: 44px;
+  }
+  :where(.clients-container,.employees-v2,.call-center-container,.acts-page,.salary-page,
+  .bal2,.my-cases-page,.materials-container) {
+    padding-inline: 12px !important;
+  }
+}
+
+
+/* ===== UI consistency pass, phase 2 ===== */
+:where(.clients-container,.documents-container,.employees-v2,.apt-container,.bal2,
+.call-center-container,.materials-container,.reception-container,.expenses-container,
+.lawyers-container,.experts-container,.calendar-container,.acts-page,.salary-page,
+.my-cases-page,.tg-chat-wrap) * {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform !important;
+  transition-duration: var(--lt-motion-fast) !important;
+  transition-timing-function: var(--lt-ease) !important;
+}
+:where(.clients-container,.documents-container,.employees-v2,.apt-container,.bal2,
+.call-center-container,.materials-container,.reception-container,.expenses-container,
+.lawyers-container,.experts-container,.calendar-container,.acts-page,.salary-page,
+.my-cases-page,.tg-chat-wrap) :focus-visible {
+  outline: 2px solid var(--lt-brand-600) !important;
+  outline-offset: 2px !important;
+}
+.emp-modal-overlay,.ant-modal-mask { z-index: var(--lt-z-backdrop) !important; }
+.emp-modal-card,.ant-modal-wrap,.mobile-sidebar { z-index: var(--lt-z-modal) !important; }
+.mobile-sidebar-overlay { z-index: calc(var(--lt-z-modal) - 1) !important; }
+.floating-calendar-root { z-index: var(--lt-z-dropdown) !important; }
+:where(.ant-message,.ant-notification,.toast-container) { z-index: var(--lt-z-toast) !important; }
+
+/* Professional user fallback and denser employee metadata. */
+.user-avatar-initials { font-size: 12px !important; }
+.employees-v2 :where(.emp-position,.emp-meta) {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+/* Dates and monetary values use stable numerals. */
+:where(.clients-container,.employees-v2,.apt-container,.call-center-container,.acts-page,
+.salary-page,.bal2,.my-cases-page) :where(time,.date,.period,.amount,[class*="date"],[class*="amount"]) {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+
+/* ===== UI consistency pass, phase 3: perceived speed ===== */
+.ui-table-loading {
+  display: grid;
+  gap: 10px;
+  width: min(680px, 100%);
+  margin: 4px auto;
+  padding: 8px 0;
+}
+.ui-table-loading i {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg,#f2f4f7 20%,#e9ecf2 40%,#f2f4f7 60%);
+  background-size: 240% 100%;
+  animation: lt-skeleton 1.25s ease-in-out infinite;
+}
+.ui-table-loading i:nth-child(2) { width: 82%; }
+.ui-table-loading i:nth-child(3) { width: 68%; }
+@keyframes lt-skeleton { to { background-position-x: -240%; } }
+.table-skeleton,.ui-table-loading { min-height: 96px; }
+
+
+/* ===== UI consistency pass, phase 4: date and empty-state language ===== */
+.ui-actionable-empty {
+  min-height: 156px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  color: var(--lt-muted);
+}
+.ui-actionable-empty strong { color: var(--lt-ink); font-size: 15px; }
+.ui-actionable-empty span { font-size: 13px; }
+.ui-actionable-empty button {
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 0 13px;
+  border: 1px solid var(--lt-line);
+  border-radius: 8px;
+  color: var(--lt-ink-soft);
+  background: var(--lt-surface);
+  cursor: pointer;
+}
+.no-employees strong { color: var(--lt-ink); font-size: 15px; }
+.no-employees p { margin: 4px 0 12px; font-size: 13px; }
+
+
+/* ===== Mobile containment pass 2026-08-18 ===== */
+@media (max-width: 768px) {
+  .mobile-icon-rail { display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;overflow:hidden!important;padding-inline:4px!important; }
+  .mobile-icon-rail .rail-btn { width:100%!important;min-width:0!important;max-width:none!important; }
+  .mobile-icon-rail .rail-label { max-width:100%!important; }
+  .acts-page .ant-table-wrapper,.acts-page .ant-table-container,.call-center-page .cc-table-wrap { width:100%!important;max-width:100%!important;overflow-x:auto!important;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch; }
+  .call-center-page .cc-table { min-width:620px; }
+  .salary-page .ant-tabs-nav-wrap { overflow:hidden!important; }
+  .salary-page .ant-tabs-nav-list { min-width:max-content; }
+  .mobile-case-list { display:grid;gap:10px; }
+  .mobile-case-card { width:100%;min-height:0!important;padding:14px;border:1px solid var(--lt-line);border-radius:10px;background:var(--lt-surface);color:var(--lt-ink);text-align:left;box-shadow:var(--lt-shadow-xs); }
+  .mobile-case-card__top,.mobile-case-card__meta { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+  .mobile-case-card__top strong { font-size:14px; }
+  .mobile-case-card__topic { display:block;margin:8px 0;color:var(--lt-ink-soft);font-size:13px;line-height:18px; }
+  .mobile-case-card__meta { color:var(--lt-muted);font-size:12px; }
+}

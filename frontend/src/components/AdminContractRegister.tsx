@@ -16,6 +16,7 @@ interface AppointmentInfo {
   assigned_lawyer_id_2?: number | null;
   assigned_lawyer_name?: string | null;
   assigned_lawyer_name_2?: string | null;
+  appointment_date?: string | null;
 }
 
 interface Props {
@@ -36,7 +37,6 @@ const PAYMENT_OPTIONS = [
   { value: 'cash', label: 'Наличные' },
   { value: 'noncash', label: 'Банковская карта (терминал)' },
   { value: 'bank', label: 'Банковский перевод' },
-  { value: 'sbp', label: 'СБП' },
 ];
 
 const makePaymentRow = (): PaymentRow => ({
@@ -49,6 +49,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
   const { message } = App.useApp();
   const [saving, setSaving] = useState(false);
   const [payments, setPayments] = useState<PaymentRow[]>([makePaymentRow()]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     lastName: '',
@@ -74,19 +75,10 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
 
   const loadSigners = useCallback(async () => {
     try {
-      const res = await apiInstance.get('/visits/employees');
-      const all: { id: number; name: string; role: string }[] = res.data?.data || [];
+      const res = await apiInstance.get('/employees');
+      const all: CrmEmployee[] = res.data?.data || [];
       const signerRoles = new Set(['manager', 'okk', 'director', 'lawyer']);
-      setSigners(all.filter((e) => signerRoles.has(e.role)).map(e => {
-        const parts = (e.name || '').split(' ');
-        return {
-          id: e.id,
-          first_name: parts[0] || '',
-          last_name: parts.slice(1).join(' ') || '',
-          position: ROLE_LABELS[e.role] || e.role,
-          user_role: e.role,
-        } as CrmEmployee;
-      }));
+      setSigners(all.filter((e) => e.user_id && signerRoles.has(String(e.user_role || '').toLowerCase())));
     } catch {
       setSigners([]);
     }
@@ -108,7 +100,8 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
       // Only initialize form when modal first opens (not on re-renders)
       prevOpenRef.current = true;
       loadSigners();
-      const today = dayjs();
+      const appointmentDay = appointmentData?.appointment_date ? dayjs(appointmentData.appointment_date) : dayjs();
+      const contractDay = appointmentDay.isValid() ? appointmentDay : dayjs();
 
       // Pre-fill from appointment data if available
       let lastName = '', firstName = '', middleName = '';
@@ -120,25 +113,37 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
       }
       const presetPhone = appointmentData?.client_phone || '';
       const presetTitle = (appointmentData?.comment || '').trim();
-      const presetSigner = appointmentData?.assigned_lawyer_id ?? null;
-      const presetSecond = appointmentData?.assigned_lawyer_id_2 ?? null;
+      const toEmployeeId = (raw?: number | null) => { const n = Number(raw || 0); const found = signers.find(s => Number(s.id) === n || Number(s.user_id) === n); return found ? Number(found.id) : null; };
+      const presetSigner = toEmployeeId(appointmentData?.assigned_lawyer_id);
+      const presetSecond = toEmployeeId(appointmentData?.assigned_lawyer_id_2);
 
       setForm({
         lastName, firstName, middleName,
         clientPhone: presetPhone,
         onBehalfOf: '',
-        contractDate: today, contractNumber: '', title: presetTitle,
+        contractDate: contractDay, contractNumber: '', title: presetTitle,
         contractType: 'docs', signedById: presetSigner, amount: null,
         additionalPaymentDate: null,
         isJoint: !!presetSecond, secondLawyerId: presetSecond,
       });
       setPayments([makePaymentRow()]);
-      generateNumber(today);
+      setFieldErrors({});
+      generateNumber(contractDay);
     }
     if (!open) {
       prevOpenRef.current = false;
     }
   }, [open, loadSigners, generateNumber, appointmentData]);
+
+
+  useEffect(() => {
+    if (!open || !signers.length || !appointmentData) return;
+    setForm(prev => ({
+      ...prev,
+      signedById: signers.find(s => Number(s.id) === Number(appointmentData.assigned_lawyer_id) || Number(s.user_id) === Number(appointmentData.assigned_lawyer_id))?.id ?? prev.signedById,
+      secondLawyerId: signers.find(s => Number(s.id) === Number(appointmentData.assigned_lawyer_id_2) || Number(s.user_id) === Number(appointmentData.assigned_lawyer_id_2))?.id ?? prev.secondLawyerId,
+    }));
+  }, [open, signers, appointmentData]);
 
   const totalPaid = Math.round(
     payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0) * 100
@@ -147,12 +152,19 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
   const needAdditionalPayment = Number(form.amount || 0) > 0 && remaining > 0;
 
   const handleSave = async () => {
-    if (!form.lastName.trim()) { message.warning('Укажите фамилию клиента'); return; }
-    if (!form.firstName.trim()) { message.warning('Укажите имя клиента'); return; }
-    if (!form.signedById) { message.warning('Юрист не назначен. Назначение выполняет Директор / Менеджер / Руководитель во вкладке «Приёмы».'); return; }
-    if (!form.amount || form.amount <= 0) { message.warning('Укажите сумму договора'); return; }
-    if (form.isJoint && !form.secondLawyerId) { message.warning('Укажите второго юриста'); return; }
-    if (form.isJoint && form.secondLawyerId === form.signedById) { message.warning('Второй юрист должен отличаться от первого'); return; }
+    const errors: Record<string, string> = {};
+    if (!form.lastName.trim()) errors.lastName = 'required';
+    if (!form.firstName.trim()) errors.firstName = 'required';
+    if (!form.signedById) errors.signedById = 'required';
+    if (!form.amount || form.amount <= 0) errors.amount = 'required';
+    if (form.isJoint && !form.secondLawyerId) errors.secondLawyerId = 'required';
+    if (form.isJoint && form.secondLawyerId === form.signedById) errors.secondLawyerId = 'same';
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      message.warning(String.fromCharCode(1055,1088,1086,1074,1077,1088,1100,1090,1077,32,1086,1073,1103,1079,1072,1090,1077,1083,1100,1085,1099,1077,32,1087,1086,1083,1103));
+      requestAnimationFrame(() => document.querySelector('.contract-register-modal .field-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      return;
+    }
     const filledPayments = payments.filter((payment) => payment.amount !== null);
     if (filledPayments.some((payment) => !payment.amount || payment.amount <= 0)) {
       message.warning('Сумма каждого платежа должна быть больше 0.');
@@ -208,6 +220,9 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
 
   return (
     <Modal
+      className="contract-register-modal unified-form-modal"
+      keyboard
+      maskClosable={false}
       title="Зарегистрировать договор"
       open={open}
       onCancel={onClose}
@@ -224,12 +239,16 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--color-muted)' }}>ФИО клиента</div>
         <Space.Compact style={{ width: '100%' }}>
           <Input
+            aria-invalid={!!fieldErrors.lastName}
+            className={fieldErrors.lastName ? 'field-error' : ''}
             placeholder="Фамилия *"
             value={form.lastName}
             onChange={(e) => set('lastName', e.target.value)}
             style={{ width: '38%' }}
           />
           <Input
+            aria-invalid={!!fieldErrors.firstName}
+            className={fieldErrors.firstName ? 'field-error' : ''}
             placeholder="Имя *"
             value={form.firstName}
             onChange={(e) => set('firstName', e.target.value)}
@@ -242,6 +261,7 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
             style={{ width: '30%' }}
           />
         </Space.Compact>
+        {(fieldErrors.lastName || fieldErrors.firstName) && <div className="contract-field-error">{String.fromCharCode(1059,1082,1072,1078,1080,1090,1077,32,1092,1072,1084,1080,1083,1080,1102,32,1080,32,1080,1084,1103,32,1082,1083,1080,1077,1085,1090,1072)}</div>}
 
         <Input
           placeholder="+7 (___) ___-__-__"
@@ -301,16 +321,17 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         <div>
           <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Кто заключил договор *</div>
           <Select
+            status={fieldErrors.signedById ? 'error' : undefined}
             showSearch
-            placeholder="Выберите юриста"
+            placeholder="Выберите сотрудника"
             value={form.signedById ?? undefined}
-            onChange={(v) => set('signedById', (v as number | undefined) ?? null)}
+            onChange={(v) => { set('signedById', (v as number | undefined) ?? null); setFieldErrors(e => ({ ...e, signedById: '' })); }}
             style={{ width: '100%' }}
             optionFilterProp="label"
             notFoundContent="Нет доступных сотрудников"
             options={signers.map((s) => ({
               value: s.id,
-              label: `${s.last_name || ''} ${s.first_name || ''}`.trim() + (s.position ? ` — ${s.position}` : ''),
+              label: `${s.last_name || ''} ${s.first_name || ''}`.trim() + (s.user_role ? ` · ${ROLE_LABELS[String(s.user_role).toLowerCase()] || s.user_role}` : ''),
             }))}
           />
           <div style={{ marginTop: 8 }}>
@@ -345,8 +366,9 @@ const AdminContractRegister: React.FC<Props> = ({ open, onClose, onSuccess, appo
         <div>
           <div style={{ fontSize: 12, color: 'var(--color-muted)', marginBottom: 4 }}>Сумма договора *</div>
           <InputNumber
+            status={fieldErrors.amount ? 'error' : undefined}
             value={form.amount}
-            onChange={(v) => set('amount', v)}
+            onChange={(v) => { set('amount', v); if (fieldErrors.amount) setFieldErrors(e => ({ ...e, amount: '' })); }}
             min={0}
             style={{ width: 220 }}
             formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}

@@ -5,7 +5,7 @@ import "./OfficeAnimated.css";
 import "./OfficeMobile.css";
 import "./OfficePolish.css";
 import StatCard from "./StatCard";
-import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaEllipsisH, FaPlus } from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCalendarAlt, FaBuilding, FaTimes, FaArrowRight, FaEdit, FaMapMarkerAlt, FaStar, FaEllipsisH, FaPlus, FaLink } from "react-icons/fa";
 import { GrAdd } from "react-icons/gr";
 import { Modal, Form, Input, Button, message, Tag, Space, Alert } from "antd";
 import { buildApiUrl, getAuthHeaders } from "../shared/utils/apiUtils";
@@ -156,7 +156,9 @@ const AddOfficeModal = memo(({ open, onClose, onSubmit, isSubmitting, isOfficeLi
 
 const Office = () => {
   const { user: authUser } = useAuth();
+  const canViewOfficeAnalytics = ['director', 'manager', 'okk'].includes(authUser?.role || '');
   const userRole = authUser?.role || '';
+  const canManageCallCenterConnections = ['director', 'manager', 'okk'].includes(userRole);
   // Менеджер привязан к офису директором — не может создавать/добавлять офисы
   const canManageOffices = userRole === 'director';
 
@@ -190,6 +192,7 @@ const Office = () => {
   const [showRevenueModal, setShowRevenueModal] = useState(false);
   const [showOfficeInfoModal, setShowOfficeInfoModal] = useState(false);
   const [callCenterState, setCallCenterState] = useState<OfficeCallCenterState>({ connections: [], requests: [] });
+  const [showOfficeConnectionsModal, setShowOfficeConnectionsModal] = useState(false);
   const [showConnectCallCenter, setShowConnectCallCenter] = useState(false);
   const [connectionCode, setConnectionCode] = useState('');
   const [foundCallCenter, setFoundCallCenter] = useState<{ id: number; public_id: string; name: string; chief_name: string } | null>(null);
@@ -476,18 +479,22 @@ const Office = () => {
   })();
 
   const loadOfficeCallCenters = useCallback(async () => {
-    if (!selectedOffice?.id || !isDirector) return;
+    if (!selectedOffice?.id || !canManageCallCenterConnections) return;
     try {
       const response = await apiInstance.get(`/call-center-connections/offices/${selectedOffice.id}`);
       setCallCenterState(response.data?.data || { connections: [], requests: [] });
     } catch (error) {
       console.error('Failed to load office call centers', error);
     }
-  }, [selectedOffice?.id, isDirector]);
+  }, [selectedOffice?.id, canManageCallCenterConnections]);
 
   useEffect(() => {
-    if (showOfficeInfoModal) loadOfficeCallCenters();
-  }, [showOfficeInfoModal, loadOfficeCallCenters]);
+    if (canManageCallCenterConnections && selectedOffice?.id) {
+      loadOfficeCallCenters();
+    } else {
+      setCallCenterState({ connections: [], requests: [] });
+    }
+  }, [selectedOffice?.id, canManageCallCenterConnections, loadOfficeCallCenters]);
 
   const verifyConnectionCode = async () => {
     if (!connectionCode.trim()) return message.warning('Введите код подключения');
@@ -515,6 +522,7 @@ const Office = () => {
       setConnectionCode('');
       setFoundCallCenter(null);
       await loadOfficeCallCenters();
+      setShowOfficeConnectionsModal(true);
     } catch (error: any) {
       message.error(error?.response?.data?.message || 'Не удалось отправить заявку');
     } finally {
@@ -657,7 +665,7 @@ const Office = () => {
   // Загружаем договоры офиса (для аналитики юристов)
   useEffect(() => {
     const fetchContracts = async () => {
-      if (!selectedOffice?.id) return;
+      if (!selectedOffice?.id || isCcRole) { setContracts([]); return; }
       try {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -673,7 +681,7 @@ const Office = () => {
       }
     };
     fetchContracts();
-  }, [selectedOffice?.id]);
+  }, [selectedOffice?.id, isCcRole]);
 
   // Загружаем статистику консультаций по сотрудникам (без polling)
   useEffect(() => {
@@ -1132,6 +1140,20 @@ const Office = () => {
 
         </div>
         <div className="lt-office-header-actions">
+          {canManageCallCenterConnections && selectedOffice && (
+            <button
+              className="office-header-connections-btn"
+              onClick={() => setShowOfficeConnectionsModal(true)}
+              title="Подключения колл-центра"
+              aria-label="Открыть подключения колл-центра"
+            >
+              <FaLink aria-hidden="true" />
+              <span>КЦ</span>
+              {(callCenterState.connections.length + callCenterState.requests.length) > 0 && (
+                <b>{callCenterState.connections.length + callCenterState.requests.length}</b>
+              )}
+            </button>
+          )}
           <OfficeSourceManager />
           <OfficePeriod
             from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
@@ -1227,7 +1249,7 @@ const Office = () => {
         );
       })()}
 
-      {selectedOffice && !isCcRole && (
+      {selectedOffice && canViewOfficeAnalytics && (
         <OfficeAnalyticsTop
           officeId={selectedOffice.id}
           from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
@@ -1486,7 +1508,7 @@ const Office = () => {
         </div>
       )}
 
-      {selectedOffice && !isCcRole && (
+      {selectedOffice && canViewOfficeAnalytics && (
         <OfficeAnalyticsBottom
           officeId={selectedOffice.id}
           from={period === 'custom' ? customFrom : (dashboard?.period?.from || customFrom)}
@@ -1687,28 +1709,6 @@ const Office = () => {
                 <p><strong>ОГРН:</strong> {selectedOffice.ogrn || 'Не указан'}</p>
               </div>
 
-              {isDirector && (
-                <div className="info-section" style={{ gridColumn: '1 / -1' }}>
-                  <h4>📞 Колл-центры</h4>
-                  {callCenterState.connections.length === 0 && callCenterState.requests.length === 0 && (
-                    <p style={{ color: 'var(--color-muted)' }}>Не подключены</p>
-                  )}
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    {callCenterState.connections.map((center) => (
-                      <div key={center.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--color-border)' }}>
-                        <span><Tag color="green">Подключён</Tag><strong>{center.name}</strong> <small>{center.public_id}</small></span>
-                        <Button danger size="small" onClick={() => disconnectCallCenter(center.id, center.name)}>Отключить</Button>
-                      </div>
-                    ))}
-                    {callCenterState.requests.map((request) => (
-                      <div key={request.id} style={{ padding: '8px 0' }}>
-                        <Tag color="gold">Ожидает подтверждения</Tag>{request.name}
-                      </div>
-                    ))}
-                    <Button type="primary" onClick={() => setShowConnectCallCenter(true)}>Подключить колл-центр</Button>
-                  </Space>
-                </div>
-              )}
             </div>
             
             {offices.length > 1 && (
@@ -1750,6 +1750,61 @@ const Office = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title={`Подключения КЦ · ${selectedOffice?.title || 'Офис'}`}
+        open={showOfficeConnectionsModal}
+        onCancel={() => setShowOfficeConnectionsModal(false)}
+        footer={null}
+        width={620}
+        destroyOnClose
+      >
+        <div className="office-cc-panel">
+          <div className="office-cc-summary">
+            <span>
+              Подключено: <strong>{callCenterState.connections.length}</strong>
+              {callCenterState.requests.length > 0 && (
+                <> · На подтверждении: <strong>{callCenterState.requests.length}</strong></>
+              )}
+            </span>
+            <Button
+              type="primary"
+              size="small"
+              icon={<FaLink />}
+              onClick={() => {
+                setShowOfficeConnectionsModal(false);
+                setShowConnectCallCenter(true);
+              }}
+            >
+              Подключить по ключу
+            </Button>
+          </div>
+
+          {callCenterState.connections.length === 0 && callCenterState.requests.length === 0 ? (
+            <div className="office-cc-empty">Колл-центр не подключён</div>
+          ) : (
+            <div className="office-cc-list">
+              {callCenterState.connections.map((center) => (
+                <div key={center.id} className="office-cc-row">
+                  <div className="office-cc-row-main">
+                    <Tag color="green">Подключён</Tag>
+                    <span><strong>{center.name}</strong><small>{center.public_id}</small></span>
+                  </div>
+                  <Button danger size="small" onClick={() => disconnectCallCenter(center.id, center.name)}>Отключить</Button>
+                </div>
+              ))}
+              {callCenterState.requests.map((request) => (
+                <div key={request.id} className="office-cc-row">
+                  <div className="office-cc-row-main">
+                    <Tag color="gold">Ожидает</Tag>
+                    <span><strong>{request.name}</strong><small>Заявка отправлена</small></span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Modal>
 
       <Modal

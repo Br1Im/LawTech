@@ -441,6 +441,7 @@ const Acts: React.FC = () => {
             columns={columns}
             dataSource={acts}
             loading={loading}
+            scroll={{ x: 'max-content' }}
             pagination={{ pageSize: 12, showSizeChanger: true, showTotal: (t) => `Всего: ${t}` }}
             locale={{
               emptyText: (

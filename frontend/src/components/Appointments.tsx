@@ -34,10 +34,8 @@ interface AppointmentData {
   comment: string | null;
   operator_id: number;
   operator_name: string | null;
-  lawyer_name: string | null;
   status: AppointmentStatus;
   manager_comment: string | null;
-  assigned_lawyer_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -99,7 +97,6 @@ const Appointments: React.FC = () => {
   const isAdmin = ['admin','administrator'].includes(user?.role || '');
   const canManage = ['admin','administrator','director','manager','okk','cc_manager','cc_operator'].includes(user?.role || '');
   const canChangeStatus = isAdmin;
-  const canAssignLawyer = ['admin','administrator','director','manager','okk'].includes(user?.role || '');
   const isCCRole = ['cc_manager', 'cc_operator'].includes(user?.role || '');
   const canEditText = isCCRole;
   const isDirector = user?.role === 'director';
@@ -107,18 +104,16 @@ const Appointments: React.FC = () => {
 
 
   const [appointments, setAppointments] = useState<AppointmentData[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(dayjs());
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterLawyer, setFilterLawyer] = useState<string>('all');
   const [filterSource, setFilterSource] = useState<string>('all');
   const [filterOperator, setFilterOperator] = useState<string>('all');
   const [filterOfficeId, setFilterOfficeId] = useState<number | 'all'>(() => user?.office_id || 'all');
   const [newModal, setNewModal] = useState(false);
-  const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null as number | null, assigned_lawyer_id: null as number | null });
+  const [newForm, setNewForm] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null as number | null });
   const [appointmentSources, setAppointmentSources] = useState<Array<{ id: number; name: string; is_active: number }>>([]);
   const [creating, setCreating] = useState(false);
   const [newErrors, setNewErrors] = useState<{ client_name?: string; client_phone?: string; source_id?: string }>({});
@@ -139,13 +134,6 @@ const Appointments: React.FC = () => {
     } finally {
       if (initial) setLoading(false);
     }
-  }, []);
-
-  const fetchEmployees = useCallback(async () => {
-    try {
-      const res = await apiInstance.get('/visits/employees');
-      if (res.data?.success) setEmployees(res.data.data || []);
-    } catch { /* ignore */ }
   }, []);
 
   const [operators, setOperators] = useState<Employee[]>([]);
@@ -179,12 +167,11 @@ const Appointments: React.FC = () => {
 
   useEffect(() => {
     fetchAppointments(true);
-    fetchEmployees();
     fetchOperators();
     fetchAppointmentSources();
     const iv = setInterval(() => fetchAppointments(), 15000);
     return () => clearInterval(iv);
-  }, [fetchAppointments, fetchEmployees, fetchOperators, fetchAppointmentSources]);
+  }, [fetchAppointments, fetchOperators, fetchAppointmentSources]);
 
   const updateStatus = async (id: number, status: AppointmentStatus) => {
     try {
@@ -215,11 +202,10 @@ const Appointments: React.FC = () => {
         comment: newForm.comment || null,
         source: selectedSource?.name || null,
         source_id: newForm.source_id,
-        assigned_lawyer_id: newForm.assigned_lawyer_id,
       });
       notification.success({ message: 'Запись создана' });
       setNewModal(false);
-      setNewForm({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null, assigned_lawyer_id: null });
+      setNewForm({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', source_id: null });
       fetchAppointments();
     } catch (e: any) {
       notification.error({ message: 'Не удалось создать запись', description: e?.response?.data?.message || 'Проверьте данные и повторите попытку' });
@@ -232,7 +218,6 @@ const Appointments: React.FC = () => {
 
   const uniqueSources = useMemo(() => [...new Set(appointments.map(a => a.source).filter(Boolean) as string[])], [appointments]);
   const uniqueOperators = useMemo(() => [...new Set(appointments.map(a => a.operator_name).filter(Boolean) as string[])], [appointments]);
-  const uniqueLawyers = useMemo(() => [...new Set(appointments.map(a => a.lawyer_name).filter(Boolean) as string[])], [appointments]);
   const uniqueOffices = useMemo(() => {
     const map = new Map<number, string>();
     appointments.forEach(a => { if (a.office_id && a.office_name) map.set(a.office_id, a.office_name); });
@@ -243,7 +228,6 @@ const Appointments: React.FC = () => {
   const applyFilters = useCallback((list: AppointmentData[]) => {
     let r = list;
     if (filterStatus !== 'all') r = r.filter(a => a.status === filterStatus);
-    if (filterLawyer !== 'all') r = r.filter(a => a.lawyer_name === filterLawyer);
     if (filterSource !== 'all') r = r.filter(a => a.source === filterSource);
     if (filterOperator !== 'all') r = r.filter(a => a.operator_name === filterOperator);
     if (filterOfficeId !== 'all') r = r.filter(a => a.office_id === filterOfficeId);
@@ -252,7 +236,7 @@ const Appointments: React.FC = () => {
       r = r.filter(a => a.client_name.toLowerCase().includes(q) || (a.client_phone || '').includes(q));
     }
     return r;
-  }, [filterStatus, filterLawyer, filterSource, filterOperator, filterOfficeId, search]);
+  }, [filterStatus, filterSource, filterOperator, filterOfficeId, search]);
 
   /* Date-filtered list. When a search query is active, search across ALL dates
      so "lost" records (e.g. booked for another day) can always be found. */
@@ -271,44 +255,12 @@ const Appointments: React.FC = () => {
     return applyFilters(filtered).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
   }, [selectedDate, appointments, applyFilters, isSearching]);
 
-  const lawyers = employees.filter(e => ['lawyer', 'manager', 'okk'].includes(e.role));
-
-
-
   const updateAppointmentField = async (appointmentId: number, field: string, value: string | null) => {
     try {
       await apiInstance.patch(`/appointments/${appointmentId}`, { [field]: value });
       setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, [field]: value } : a));
     } catch {
       notification.error({ message: 'Ошибка', description: 'Не удалось обновить запись' });
-    }
-  };
-
-  const assignLawyer = async (appointmentId: number, lawyerId: number | null) => {
-    const previous = appointments.find(appointment => appointment.id === appointmentId);
-    const employee = lawyerId ? employees.find(item => Number(item.id) === Number(lawyerId)) : null;
-    const employeeName = employee
-      ? (employee.name || `${employee.last_name || ''} ${employee.first_name || ''}`.trim())
-      : null;
-
-    setAppointments(current => current.map(appointment => appointment.id === appointmentId
-      ? {
-          ...appointment,
-          assigned_lawyer_id: lawyerId,
-          lawyer_name: lawyerId ? (employeeName || appointment.lawyer_name || `Сотрудник #${lawyerId}`) : null,
-        }
-      : appointment
-    ));
-
-    try {
-      await apiInstance.patch(`/appointments/${appointmentId}/assign-lawyer`, { assigned_lawyer_id: lawyerId });
-      notification.success({ message: lawyerId ? 'Юрист назначен' : 'Назначение снято' });
-      fetchAppointments();
-    } catch {
-      if (previous) {
-        setAppointments(current => current.map(appointment => appointment.id === appointmentId ? previous : appointment));
-      }
-      notification.error({ message: 'Ошибка', description: 'Не удалось назначить юриста' });
     }
   };
 
@@ -328,7 +280,7 @@ const Appointments: React.FC = () => {
     setEditingDateTime(null);
   };
 
-  const hasActiveFilters = filterStatus !== 'all' || filterLawyer !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
+  const hasActiveFilters = filterStatus !== 'all' || filterSource !== 'all' || filterOperator !== 'all';
 
   const statusMenuItems = (apt: AppointmentData): MenuProps['items'] => {
     const allStatuses: { key: AppointmentStatus; label: string }[] = [
@@ -447,42 +399,6 @@ const Appointments: React.FC = () => {
               <span className="apt-card-field-text">{apt.operator_name || '—'}</span>
             </div>
 
-            {/* Lawyer (only for non-CC roles) */}
-            {!isCCRole && (
-              <div className="apt-card-field apt-card-field-small apt-card-field-lawyer">
-                <span className="apt-card-field-label">Юрист</span>
-                {canAssignLawyer ? (
-                  (() => {
-                    const options = lawyers.map(employee => ({
-                      value: employee.id,
-                      label: employee.name || `${employee.last_name || ''} ${employee.first_name || ''}`.trim() || `Сотрудник #${employee.id}`,
-                    }));
-                    if (apt.assigned_lawyer_id && !options.some(option => Number(option.value) === Number(apt.assigned_lawyer_id))) {
-                      options.push({
-                        value: apt.assigned_lawyer_id,
-                        label: apt.lawyer_name || `Сотрудник #${apt.assigned_lawyer_id}`,
-                      });
-                    }
-                    return (
-                      <Select
-                        optionFilterProp="label"
-                        value={apt.assigned_lawyer_id ?? undefined}
-                        onChange={(value: number | undefined) => assignLawyer(apt.id, value ?? null)}
-                        allowClear
-                        placeholder="Назначить"
-                        size="small"
-                        className="apt-lawyer-select"
-                        popupMatchSelectWidth={false}
-                        onClick={event => event.stopPropagation()}
-                        options={options}
-                      />
-                    );
-                  })()
-                ) : (
-                  <span className="apt-card-field-text">{apt.lawyer_name || '—'}</span>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
@@ -609,12 +525,6 @@ const Appointments: React.FC = () => {
             <Select.Option value="rescheduled">Перенесена</Select.Option>
             <Select.Option value="cancelled">Отменено</Select.Option>
           </Select>
-          {!isCCRole && (
-            <Select value={filterLawyer} onChange={setFilterLawyer} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
-              <Select.Option value="all">Юрист: Все</Select.Option>
-              {uniqueLawyers.map(l => <Select.Option key={l} value={l}>{l}</Select.Option>)}
-            </Select>
-          )}
           <Select value={filterSource} onChange={setFilterSource} style={{ minWidth: 140 }} size="small" popupMatchSelectWidth={false}>
             <Select.Option value="all">Источник: Все</Select.Option>
             {uniqueSources.map(s => <Select.Option key={s} value={s}>{s}</Select.Option>)}
@@ -624,7 +534,7 @@ const Appointments: React.FC = () => {
             {uniqueOperators.map(o => <Select.Option key={o} value={o}>{o}</Select.Option>)}
           </Select>
           {hasActiveFilters && (
-            <button className="apt-filter-reset" onClick={() => { setFilterStatus('all'); setFilterLawyer('all'); setFilterSource('all'); setFilterOperator('all'); }}>
+            <button className="apt-filter-reset" onClick={() => { setFilterStatus('all'); setFilterSource('all'); setFilterOperator('all'); }}>
               Сбросить
             </button>
           )}

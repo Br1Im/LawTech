@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import './Salary.css';
+import { TableSkeleton } from './ui';
 import dayjs, { Dayjs } from 'dayjs';
 import {
   ReloadOutlined,
@@ -150,7 +151,7 @@ const Salary: React.FC = () => {
   const [shiftForm, setShiftForm] = useState<{ employee_id?: number; shift_date: Dayjs; note: string }>(
     { employee_id: undefined, shift_date: dayjs(), note: '' }
   );
-  const [payDialog, setPayDialog] = useState<{ row: SalaryRow; paymentMethod?: 'cash' | 'noncash' | 'bank' } | null>(null);
+  const [payDialog, setPayDialog] = useState<{ row: SalaryRow; paymentMethod?: 'cash' | 'noncash' | 'bank'; paymentDate: Dayjs } | null>(null);
   const [payingEmployeeId, setPayingEmployeeId] = useState<number | null>(null);
   const [cancelPaymentId, setCancelPaymentId] = useState<number | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -306,9 +307,9 @@ const Salary: React.FC = () => {
   );
 
   const paymentMethodLabel = (method?: string) => ({ cash: 'Наличные', noncash: 'Безнал', bank: 'Расчётный счёт' } as Record<string,string>)[method || ''] || method || '—';
-  const openPayDialog = (row: SalaryRow) => setPayDialog({ row, paymentMethod: undefined });
+  const openPayDialog = (row: SalaryRow) => setPayDialog({ row, paymentMethod: undefined, paymentDate: dayjs() });
   const confirmSalaryPayment = async () => {
-    if (!data || !payDialog?.paymentMethod) return;
+    if (!data || !payDialog?.paymentMethod || !payDialog.paymentDate) return;
     const { row, paymentMethod } = payDialog;
     setPayingEmployeeId(row.employee_id);
     try {
@@ -318,6 +319,7 @@ const Salary: React.FC = () => {
         period_from: range[0],
         period_to: range[1],
         payment_method: paymentMethod,
+        payment_date: payDialog.paymentDate.format('YYYY-MM-DD'),
       });
       message.success(`Зарплата выплачена из источника «${paymentMethodLabel(paymentMethod)}» и добавлена в Баланс`);
       setPayDialog(null);
@@ -337,7 +339,7 @@ const Salary: React.FC = () => {
     if (!canPaySalary) return <>{row.active_payment ? <Tag color="green">Выплачено</Tag> : null}{history}</>;
     if (row.active_payment) return <><Space size={6} wrap><Tag color="green">Выплачено · {paymentMethodLabel(row.active_payment.payment_method)}</Tag><Button size="small" danger icon={<CloseCircleOutlined />} onClick={() => { setCancelPaymentId(row.active_payment!.id); setCancelReason(''); setCancelConfirmation(''); }}>Отменить</Button></Space>{history}</>;
     if (Number(row.total || 0) <= 0) return <>{<Tag>Нет начисления</Tag>}{history}</>;
-    return <><Button size="small" type="primary" shape="circle" title="Выплатить зарплату" aria-label="Выплатить зарплату" loading={payingEmployeeId===row.employee_id} onClick={() => openPayDialog(row)}><span aria-hidden="true" style={{ fontSize: 17, lineHeight: 1, fontWeight: 500 }}>₽</span></Button>{history}</>;
+    return <><Button size="small" type="primary" title={'\u0412\u044b\u043f\u043b\u0430\u0442\u0438\u0442\u044c \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u0443'} aria-label={`${'\u0412\u044b\u043f\u043b\u0430\u0442\u0438\u0442\u044c \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u0443'}: ${shortName(row.full_name)}`} loading={payingEmployeeId===row.employee_id} onClick={() => openPayDialog(row)}>{'\u0412\u044b\u043f\u043b\u0430\u0442\u0438\u0442\u044c'}</Button>{history}</>;
   };
 
   const columns: ColumnsType<SalaryRow> = [
@@ -414,13 +416,11 @@ const Salary: React.FC = () => {
     },
   ];
 
-  // Юрист видит только свою зарплату
-  const visibleRows = isLawyer && user?.id
-    ? (data?.rows || []).filter(r => r.employee_id === user.id)
-    : (data?.rows || []);
+  // API уже ограничивает индивидуальные роли по employees.user_id -> employees.id.
+  const visibleRows = data?.rows || [];
   const paymentHistory = useMemo(() =>
     visibleRows.flatMap(row => (row.salary_payments || []).map(payment => ({ ...payment, employee_name: row.full_name })))
-      .sort((a, b) => dayjs(b.paid_at).valueOf() - dayjs(a.paid_at).valueOf()),
+      .sort((a, b) => dayjs(b.payment_date || b.paid_at).valueOf() - dayjs(a.payment_date || a.paid_at).valueOf()),
     [visibleRows]
   );
 
@@ -486,7 +486,7 @@ const Salary: React.FC = () => {
             label: <span><CalculatorOutlined /> Расчёт</span>,
             children: isMobile ? (
               loading ? (
-                <div style={{ textAlign: 'center', padding: 24, color: 'var(--color-muted)' }}>Загрузка…</div>
+                <TableSkeleton rows={5} cols={3} />
               ) : visibleRows.length === 0 ? (
                 <Empty description="Нет сотрудников или акт за период" />
               ) : (
@@ -583,7 +583,7 @@ const Salary: React.FC = () => {
                         title: '', key: 'actions', width: 60,
                         render: (_, r) => (
                           <Popconfirm title="Удалить смену?" okText="Удалить" cancelText="Отмена" onConfirm={() => removeShift(r.id)}>
-                            <Button size="small" danger icon={<DeleteOutlined />} disabled={!isManagerOrAbove} />
+                            <Button size="small" danger icon={<DeleteOutlined />} aria-label={'\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0441\u043c\u0435\u043d\u0443'} title={'\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0441\u043c\u0435\u043d\u0443'} disabled={!isManagerOrAbove} />
                           </Popconfirm>
                         ),
                       },
@@ -609,7 +609,7 @@ const Salary: React.FC = () => {
                     { title: 'Сумма', dataIndex: 'amount', align: 'right' as const, render: (v) => <b>{formatMoney(v)}</b> },
                     { title: 'Способ', dataIndex: 'payment_method', render: (v) => paymentMethodLabel(v) },
                     { title: 'Статус', dataIndex: 'status', render: (v) => v === 'paid' ? <Tag color="green">Выплачено</Tag> : <Tag color="red">Отменено</Tag> },
-                    { title: 'Выплачено', dataIndex: 'paid_at', render: (v) => dayjs(v).format('DD.MM.YYYY HH:mm') },
+                    { title: 'Дата выплаты', dataIndex: 'payment_date', render: (v, row) => dayjs(v || row.paid_at).format('DD.MM.YYYY') },
                     { title: 'Кем', dataIndex: 'paid_by_name' },
                     { title: 'Причина отмены', dataIndex: 'cancellation_reason', render: (v) => v || '—' },
                   ]}
@@ -631,7 +631,7 @@ const Salary: React.FC = () => {
         okText="Выплатить"
         cancelText="Отмена"
         confirmLoading={!!payingEmployeeId}
-        okButtonProps={{ disabled: !payDialog?.paymentMethod }}
+        okButtonProps={{ disabled: !payDialog?.paymentMethod || !payDialog?.paymentDate }}
         destroyOnClose
       >
         {payDialog && (
@@ -640,6 +640,21 @@ const Salary: React.FC = () => {
               <div style={{ fontWeight: 600 }}>{shortName(payDialog.row.full_name)}</div>
               <div style={{ marginTop: 4, color: 'var(--color-text-secondary)' }}>
                 К выплате: <b style={{ color: 'var(--color-text)' }}>{formatMoney(payDialog.row.total)}</b> · период {range[0]} — {range[1]}
+              </div>
+            </div>
+            <div>
+              <div style={{ marginBottom: 8, fontWeight: 600 }}>Дата выплаты</div>
+              <DatePicker
+                value={payDialog.paymentDate}
+                onChange={(value) => value && setPayDialog({ ...payDialog, paymentDate: value })}
+                disabledDate={(current) => !!current && current.endOf('day').isAfter(dayjs().endOf('day'))}
+                format="DD.MM.YYYY"
+                allowClear={false}
+                style={{ width: '100%' }}
+                placeholder="Выберите дату выплаты"
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-muted)' }}>
+                Расход попадёт в баланс выбранной даты. Будущую дату выбрать нельзя.
               </div>
             </div>
             <div>

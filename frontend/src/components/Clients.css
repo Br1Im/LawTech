@@ -448,3 +448,64 @@
 [data-theme="dark"] .clients-container strong {
   color: var(--color-accent);
 }
+
+.lt-clients-register-table .payment-overdue-row > td { background: oklch(97% 0.025 25) !important; }
+.lt-clients-register-table .payment-overdue-row:hover > td { background: oklch(94% 0.045 25) !important; }
+
+.client-card-phone-book { align-items: flex-start !important; }
+.client-card-phone-list { display: grid; gap: 6px; margin-top: 6px; }
+.client-card-phone-list > div { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.client-card-phone-list a { color: var(--color-text); font-weight: 650; }
+.client-card-phone-list small { color: var(--color-muted); font-size: 11px; }
+.client-card-phone-add { display: flex; gap: 8px; margin-top: 10px; width: min(430px, 100%); }
+.client-card-payment-schedule { display: grid; grid-template-columns: minmax(180px,1fr) auto auto; gap: 10px; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.client-card-payment-schedule > div { display: grid; gap: 2px; }
+.client-card-payment-schedule span { font-size: 13px; font-weight: 650; color: var(--color-text); }
+.client-card-payment-schedule small { color: var(--color-muted); font-size: 11px; }
+@media (max-width: 640px) { .client-card-phone-add, .client-card-payment-schedule { grid-template-columns: 1fr; display: grid; } .client-card-payment-schedule .ant-picker, .client-card-payment-schedule .ant-btn { width: 100%; } }
+
+
+/* Client contact and payment schedule polish */
+.client-card-overview__summary { align-items: flex-start !important; }
+.client-card-phone-book { flex: 1; max-width: 470px; gap: 0 !important; }
+.client-card-phone-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 28px; }
+.client-card-phone-head > span { color: oklch(54% 0.012 275); font-size: 11px; font-weight: 700; letter-spacing: .065em; text-transform: uppercase; }
+.client-card-phone-trigger { min-height: 32px; padding: 0 8px; border: 0; border-radius: 7px; background: transparent; color: oklch(50% 0.16 285); cursor: pointer; font: inherit; font-size: 12px; font-weight: 650; transition: background-color 140ms cubic-bezier(.22,1,.36,1), color 140ms cubic-bezier(.22,1,.36,1); }
+.client-card-phone-trigger:hover { background: oklch(96% 0.025 285); color: oklch(43% 0.19 285); }
+.client-card-phone-trigger:focus-visible, .client-card-phone-remove:focus-visible { outline: 2px solid oklch(62% 0.19 285); outline-offset: 2px; }
+.client-card-phone-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.client-card-phone-list > div { min-height: 34px; }
+.client-card-phone-row { display: inline-flex !important; align-items: center; gap: 7px !important; padding: 3px 4px 3px 11px; border: 1px solid oklch(89% 0.012 275); border-radius: 9px; background: oklch(98.5% 0.006 275); transition: border-color 140ms cubic-bezier(.22,1,.36,1), background-color 140ms cubic-bezier(.22,1,.36,1); }
+.client-card-phone-row:hover { border-color: oklch(82% 0.035 285); background: oklch(97% 0.014 285); }
+.client-card-phone-row a { color: oklch(31% 0.015 275); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.client-card-phone-row small { padding: 2px 6px; border-radius: 5px; background: oklch(93% 0.022 285); color: oklch(48% 0.08 285); font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.client-card-phone-remove { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: oklch(61% 0.015 275); cursor: pointer; opacity: .45; transition: opacity 140ms cubic-bezier(.22,1,.36,1), background-color 140ms cubic-bezier(.22,1,.36,1), color 140ms cubic-bezier(.22,1,.36,1); }
+.client-card-phone-row:hover .client-card-phone-remove, .client-card-phone-remove:focus-visible { opacity: 1; }
+.client-card-phone-remove:hover { background: oklch(94% 0.035 25); color: oklch(53% 0.18 25); }
+.client-card-phone-empty { padding-block: 5px; color: oklch(58% 0.012 275); font-size: 13px; }
+.client-card-phone-add { display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 8px; width: min(390px,100%); margin-top: 10px; animation: clientContactIn 220ms cubic-bezier(.16,1,.3,1); }
+.client-card-phone-add .ant-input, .client-card-phone-add .ant-btn { min-height: 38px !important; }
+@keyframes clientContactIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.client-card-payment-strip { padding: 18px !important; border-color: oklch(90% 0.012 275) !important; border-radius: 14px !important; background: oklch(98.5% 0.006 275) !important; }
+.client-card-payment-schedule { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 12px; padding-top: 14px; border-top: 1px solid oklch(90% 0.012 275); }
+.client-card-payment-schedule__label { display: flex !important; align-items: center; gap: 10px !important; min-width: 0; }
+.client-card-payment-schedule__label > .anticon { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 8px; background: oklch(94% 0.025 285); color: oklch(50% 0.15 285); font-size: 14px; }
+.client-card-payment-schedule__label > div { display: grid; gap: 2px; }
+.client-card-payment-schedule__label span { color: oklch(32% 0.015 275); font-size: 12px; font-weight: 700; }
+.client-card-payment-schedule__label small { color: oklch(57% 0.012 275); font-size: 10px; }
+.client-card-payment-schedule__controls { display: flex; align-items: center; gap: 7px; }
+.client-card-payment-schedule__controls .ant-picker { width: 132px; min-height: 36px !important; background: oklch(99% 0.004 275); }
+.client-card-payment-schedule__controls .ant-picker-input input { text-align: center; font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.client-card-payment-schedule__controls .ant-btn { min-height: 36px !important; padding-inline: 13px; }
+.client-card-payment-schedule.is-overdue .client-card-payment-schedule__label > .anticon { background: oklch(94% 0.04 25); color: oklch(53% 0.18 25); }
+.client-card-payment-schedule.is-overdue .client-card-payment-schedule__label small { color: oklch(53% 0.16 25); font-weight: 650; }
+@media (max-width: 640px) {
+  .client-card-overview__summary { gap: 10px !important; }
+  .client-card-phone-book { max-width: 100%; }
+  .client-card-phone-row { width: 100%; }
+  .client-card-phone-row a { flex: 1; }
+  .client-card-phone-add { grid-template-columns: 1fr; }
+  .client-card-payment-schedule { display: grid; gap: 12px; }
+  .client-card-payment-schedule__controls { display: grid; grid-template-columns: 1fr auto; }
+  .client-card-payment-schedule__controls .ant-picker { width: 100%; }
+}

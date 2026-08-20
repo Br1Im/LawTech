@@ -55,7 +55,7 @@ interface SidebarProps {
 const getInitials = (name?: string, surname?: string) => {
   const s = (surname || '').charAt(0).toUpperCase();
   const n = (name || '').charAt(0).toUpperCase();
-  return s + n || '?';
+  return s + n || 'П';
 };
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -166,7 +166,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       case 'cc_manager':
         return [
-          allItems.office,
           allItems.callCenter,
           allItems.connections,
           allItems.appointments,
@@ -176,7 +175,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       case 'cc_operator':
         return [
-          allItems.office,
           allItems.callCenter,
           allItems.appointments,
           allItems.employees,

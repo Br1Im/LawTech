@@ -82,6 +82,8 @@ export interface CrmEmployee {
   position?: string | null;
   office_id?: number | null;
   user_role?: string | null;
+  user_id?: number | null;
+  employee_id?: number | null;
 }
 
 type Envelope<T> = { success: boolean; data: T; message?: string };
@@ -141,6 +143,8 @@ export interface CrmContract {
   id: number;
   id_client: number;
   id_employee: number;
+  signer_user_id?: number | null;
+  second_signer_user_id?: number | null;
   office_id?: number | null;
   contract_date?: string | null;
   amount?: number | string | null;
@@ -325,6 +329,7 @@ export interface SalaryPayment {
   payment_method: 'cash' | 'noncash' | 'bank';
   status: 'paid' | 'cancelled';
   paid_at: string;
+  payment_date?: string | null;
   paid_by_name?: string | null;
   cancelled_at?: string | null;
   cancelled_by_name?: string | null;
@@ -391,7 +396,7 @@ export const salaryApi = {
   removeShift: (id: number) => unwrap<{ id: number }>(apiInstance.delete(`/shifts/${id}`)),
   listPayments: (params: { office_id?: number; date_from?: string; date_to?: string; employee_id?: number }) =>
     unwrap<SalaryPayment[]>(apiInstance.get('/salary-payments', { params })),
-  pay: (payload: { office_id: number; employee_id: number; period_from: string; period_to: string; payment_method: 'cash' | 'noncash' | 'bank' }) =>
+  pay: (payload: { office_id: number; employee_id: number; period_from: string; period_to: string; payment_method: 'cash' | 'noncash' | 'bank'; payment_date: string }) =>
     unwrap<SalaryPayment>(apiInstance.post('/salary-payments', payload, financeConfig())),
   cancelPayment: (id: number, reason: string) =>
     unwrap<{ id: number; status: 'cancelled'; reversal_income_id: number }>(apiInstance.post(`/salary-payments/${id}/cancel`, { reason })),

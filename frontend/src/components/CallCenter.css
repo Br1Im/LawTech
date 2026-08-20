@@ -1232,3 +1232,32 @@
 [data-theme="dark"] .cc-stats-table tbody tr:hover { background: #26213f !important; }
 [data-theme="dark"] .cc-stats-table td { color: #E6E8EF !important; border-bottom-color: #2A2F3D !important; }
 
+
+/* Mobile date controls: fit 320px without clipping. */
+@media (max-width: 480px) {
+  .cc-date-nav {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+    width: 100%;
+    gap: 4px;
+    padding: 10px 12px 0;
+  }
+  .cc-date-arrow,.cc-date-cal-btn {
+    width: 44px;
+    height: 44px;
+    margin-left: 0;
+  }
+  .cc-date-current {
+    min-width: 0;
+    padding-inline: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-size: 12px;
+  }
+  .cc-date-nav .ant-picker {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+  }
+}

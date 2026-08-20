@@ -1,3 +1,5 @@
+import { formatRuDate } from '../shared/utils/dateFormat';
+import './ClientCardReference.css';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/styled';
 import dayjs from 'dayjs';
@@ -15,11 +17,11 @@ function getDeadlineInfo(deadline?: string | null): DeadlineInfo | null {
   if (diff < 0) {
     const n = Math.abs(diff);
     const w = (n % 10 === 1 && n % 100 !== 11) ? 'день' : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'дня' : 'дней');
-    return { key: 'red', color: '#dc2626', bg: '#fef2f2', label: `Просрочено (${n} ${w})`, icon: '🔴' };
+    return { key: 'red', color: '#dc2626', bg: '#fef2f2', label: `Просрочено (${n} ${w})`, icon: '' };
   }
-  if (diff === 0) return { key: 'orange', color: '#ea580c', bg: '#fff7ed', label: 'Сегодня', icon: '🟠' };
+  if (diff === 0) return { key: 'orange', color: '#ea580c', bg: '#fff7ed', label: 'Сегодня', icon: '' };
   if (diff === 1) return { key: 'yellow', color: '#ca8a04', bg: '#fefce8', label: 'Завтра', icon: '🟡' };
-  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: 'В срок', icon: '🟢' };
+  return { key: 'green', color: '#16a34a', bg: '#f0fdf4', label: 'В срок', icon: '' };
 }
 import {
   Table,
@@ -180,7 +182,15 @@ const lawyersLabel = (c?: Partial<CrmContract> | null): string => {
   return first;
 };
 
+const employeeOptionId = (e: Partial<CrmEmployee>): number | null => {
+  const id = Number(e.employee_id ?? e.id);
+  return Number.isFinite(id) && id > 0 ? id : null;
+};
+const employeeName = (e: Partial<CrmEmployee>): string =>
+  [e.last_name, e.first_name, e.middle_name].filter(Boolean).join(' ') || String((e as any).name || 'Сотрудник');
+
 type DealType = 'docs' | 'court_rep';
+type PaymentFilter = 'all' | 'upcoming' | 'overdue';
 type ClientsView = 'contracts' | 'terminated';
 
 interface ContractRow {
@@ -215,6 +225,8 @@ const Clients: React.FC<ClientsProps> = () => {
   const isAdmin = user?.role === 'admin' || user?.role === 'administrator';
   const isLawyer = user?.role === 'lawyer';
   const isManagementRole = ['director', 'manager', 'okk'].includes(user?.role || '');
+  const canEditClientContacts = ['admin', 'administrator', 'director', 'manager', 'okk', 'lawyer'].includes(user?.role || '');
+  const canEditPaymentSchedule = canEditClientContacts;
 
   // --- Payment tracking state ---
   interface ContractPayment {
@@ -241,7 +253,6 @@ const Clients: React.FC<ClientsProps> = () => {
     amount: null as number | null,
     date: dayjs(),
     method: 'cash' as 'cash' | 'noncash' | 'bank' | 'sbp',
-    comment: '',
   });
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
 
@@ -262,11 +273,10 @@ const Clients: React.FC<ClientsProps> = () => {
         amount: paymentFormData.amount,
         payment_date: paymentFormData.date.format('YYYY-MM-DD'),
         payment_method: paymentFormData.method,
-        comment: paymentFormData.comment || null,
       }, { headers: { 'Idempotency-Key': globalThis.crypto?.randomUUID?.() || `fin-${Date.now()}-${Math.random().toString(36).slice(2)}` } });
       message.success('Оплата добавлена и учтена в балансе');
       setShowPaymentForm(false);
-      setPaymentFormData({ amount: null, date: dayjs(), method: 'cash', comment: '' });
+      setPaymentFormData({ amount: null, date: dayjs(), method: 'cash' });
       await loadPayments(contractId);
       load();
       const updated = await contractsApi.getById(contractId);
@@ -298,6 +308,7 @@ const Clients: React.FC<ClientsProps> = () => {
   const [contracts, setContracts] = useState<CrmContract[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all');
   const isMobile = useIsMobile();
   const [dealType, setDealType] = useState<DealType>('docs');
   useEffect(() => { if (user?.role === 'expert' && dealType !== 'docs') setDealType('docs'); }, [user?.role, dealType]);
@@ -331,8 +342,25 @@ const Clients: React.FC<ClientsProps> = () => {
   const [savingLawyers, setSavingLawyers] = useState(false);
   const [detailClient, setDetailClient] = useState<CrmClient | null>(null);
   const [detailTab, setDetailTab] = useState('info');
+  interface ClientPhone { id: number; phone: string; label?: string | null; is_primary: number | boolean; }
+  const [clientPhones, setClientPhones] = useState<ClientPhone[]>([]);
   const [phoneDraft, setPhoneDraft] = useState('');
+  const [showPhoneForm, setShowPhoneForm] = useState(false);
+  const [showAllPhones, setShowAllPhones] = useState(false);
   const [savingPhone, setSavingPhone] = useState(false);
+  const [paymentDueDraft, setPaymentDueDraft] = useState<dayjs.Dayjs | null>(null);
+  interface Installment { id: number; amount: number | string; paid_amount: number | string; due_date: string; status: 'pending'|'partial'|'paid'; note?: string | null; }
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [installmentsLoading, setInstallmentsLoading] = useState(false);
+  const [installmentDraft, setInstallmentDraft] = useState<{amount:number|null;due_date:dayjs.Dayjs|null}>({amount:null,due_date:null});
+  const [editingInstallment, setEditingInstallment] = useState<number|null>(null);
+  const [installmentEdit, setInstallmentEdit] = useState<{amount:number|null;due_date:dayjs.Dayjs|null}>({amount:null,due_date:null});
+  const [savingInstallment, setSavingInstallment] = useState(false);
+  const [editingPhoneId, setEditingPhoneId] = useState<number|null>(null);
+  const [phoneEditDraft, setPhoneEditDraft] = useState('');
+  const [editingTopic, setEditingTopic] = useState(false);
+  const [topicDraft, setTopicDraft] = useState('');
+  const [savingTopic, setSavingTopic] = useState(false);
 
   // Document types for the contract info tab
   const DOCUMENT_TYPE_OPTIONS = [
@@ -350,14 +378,14 @@ const Clients: React.FC<ClientsProps> = () => {
   const [newCustomDoc, setNewCustomDoc] = useState('');
   const [circumstances, setCircumstances] = useState('');
   const [cardExpertId, setCardExpertId] = useState<number | null>(null);
+  const [cardExpertSearch, setCardExpertSearch] = useState('');
   const [cardDataChanged, setCardDataChanged] = useState(false);
   const [cardTitle, setCardTitle] = useState('');
   const [cardCustomerGoal, setCardCustomerGoal] = useState('');
   const [cardLegalCostComp, setCardLegalCostComp] = useState<string>('');
   const [cardMoralComp, setCardMoralComp] = useState<string>('');
   const [cardSaving, setCardSaving] = useState(false);
-  const [cardDeadlineDate, setCardDeadlineDate] = useState<dayjs.Dayjs | null>(null);
-  const [cardDeadlineTime, setCardDeadlineTime] = useState<dayjs.Dayjs | null>(null);
+  const [cardDeadlineDays, setCardDeadlineDays] = useState<number | null>(null);
   const [cardDeadlineComment, setCardDeadlineComment] = useState('');
 
   // Expert documents (inside detail drawer)
@@ -432,6 +460,7 @@ const Clients: React.FC<ClientsProps> = () => {
   }, [message]);
 
   const loadCashStats = useCallback(async (date: dayjs.Dayjs) => {
+    if (!canManagePayments) { setCashStats(null); return; }
     try {
       const dateStr = date.format('YYYY-MM-DD');
       const stats = await cashRegisterApi.stats({ date_from: dateStr, date_to: dateStr });
@@ -439,7 +468,7 @@ const Clients: React.FC<ClientsProps> = () => {
     } catch {
       setCashStats(null);
     }
-  }, []);
+  }, [canManagePayments]);
 
   useEffect(() => { load(); loadCashStats(cashStatsDate); }, [load, loadCashStats, cashStatsDate]);
 
@@ -577,8 +606,8 @@ const Clients: React.FC<ClientsProps> = () => {
         // Расторгнутые договоры не попадают в рабочий список (они в отдельной вкладке «Расторжение»)
         if ((c.status || '').toString() === 'terminated') return false;
         // Юрист видит свои договоры (включая совместные, где он второй юрист)
-        if (isLawyer && user?.id && c.id_employee !== user.id
-            && !(c.is_joint && c.second_employee_id === user.id)) return false;
+        if (isLawyer && user?.id && Number((c as any).signer_user_id) !== Number(user.id)
+            && !(c.is_joint && Number((c as any).second_signer_user_id) === Number(user.id))) return false;
         // Фильтр по дате (если включён)
         if (dateFilterEnabled) {
           const cd = (c.contract_date || '').toString().slice(0, 10);
@@ -594,13 +623,22 @@ const Clients: React.FC<ClientsProps> = () => {
   }, [contracts, clientsById, dealType, isLawyer, user, dateFilterEnabled, selectedDate]);
 
   const filtered = useMemo(() => {
+    const paymentRows = rows.filter((r) => {
+      if (paymentFilter === 'all') return true;
+      const c = r.contract;
+      const remaining = Number(c.amount || 0) - Number(c.paid_amount || 0);
+      const due = c.additional_payment_date ? dayjs(c.additional_payment_date).startOf('day') : null;
+      if (remaining <= 0 || !due?.isValid()) return false;
+      const diff = due.diff(dayjs().startOf('day'), 'day');
+      return paymentFilter === 'overdue' ? diff < 0 : diff >= 0;
+    });
     const q = searchText.trim().toLowerCase();
-    if (!q) return rows;
+    if (!q) return paymentRows;
     const qDigits = q.replace(/\D/g, '');
     const qLatinToCyr = q
       .replace(/dog/g, 'дог')
       .replace(/d/g, 'д').replace(/o/g, 'о').replace(/g/g, 'г');
-    return rows.filter((r) => {
+    return paymentRows.filter((r) => {
       const name = (r.client?.name || r.contract.client_name || '').toLowerCase();
       const phone = (r.client?.phone || r.contract.client_phone || '').toLowerCase();
       const num = contractNumber(r.contract.id, r.contract.contract_number).toLowerCase();
@@ -611,7 +649,7 @@ const Clients: React.FC<ClientsProps> = () => {
       if (qDigits && String(r.contract.id).padStart(8, '0').includes(qDigits)) return true;
       return false;
     });
-  }, [rows, searchText]);
+  }, [rows, searchText, paymentFilter]);
 
   const setDocsStatus = async (c: CrmContract, next: 'pending' | 'ready') => {
     if ((c.docs_status || 'pending') === next) return;
@@ -838,26 +876,98 @@ const Clients: React.FC<ClientsProps> = () => {
     }
   };
 
+  const loadClientPhones = useCallback(async (clientId?: number | null) => {
+    if (!clientId) { setClientPhones([]); return; }
+    try {
+      const response = await apiInstance.get(`/clients/${clientId}/phones`);
+      setClientPhones(response.data?.data || []);
+    } catch { setClientPhones([]); }
+  }, []);
+
   const handleSaveClientPhone = async () => {
     const clientId = detailClient?.id ?? detailContract?.id_client;
     const value = phoneDraft.trim();
     if (!clientId || !value) { message.warning('Введите номер телефона'); return; }
     setSavingPhone(true);
     try {
-      const base = detailClient || ({ id: clientId } as any);
-      const updated = await clientsApi.update(Number(clientId), { ...base, phone: value });
+      await apiInstance.post(`/clients/${clientId}/phones`, { phone: value });
+      setPhoneDraft('');
+      setShowPhoneForm(false);
+      await loadClientPhones(Number(clientId));
+      const updated = await clientsApi.getById(Number(clientId));
       setDetailClient(updated);
-      message.success('Телефон сохранён');
-    } catch {
-      message.error('Не удалось сохранить телефон');
-    } finally {
-      setSavingPhone(false);
-    }
+      message.success('Телефон добавлен');
+    } catch (e: any) {
+      message.error(e?.response?.data?.message || 'Не удалось добавить телефон');
+    } finally { setSavingPhone(false); }
+  };
+
+  const handleDeleteClientPhone = async (phoneId: number) => {
+    const clientId = detailClient?.id ?? detailContract?.id_client;
+    if (!clientId) return;
+    try {
+      await apiInstance.delete(`/clients/${clientId}/phones/${phoneId}`);
+      await loadClientPhones(Number(clientId));
+      const updated = await clientsApi.getById(Number(clientId));
+      setDetailClient(updated);
+      message.success('Телефон удалён');
+    } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось удалить телефон'); }
+  };
+
+  const loadInstallments = useCallback(async (contractId?: number | null) => {
+    if (!contractId) { setInstallments([]); return; }
+    setInstallmentsLoading(true);
+    try { const r=await apiInstance.get(`/contracts/${contractId}/installments`);setInstallments(r.data?.data||[]); }
+    catch { setInstallments([]); }
+    finally { setInstallmentsLoading(false); }
+  }, []);
+  const addInstallment = async () => {
+    if(!detailContract||!installmentDraft.amount||!installmentDraft.due_date){message.warning('Укажите сумму и дату');return;}
+    setSavingInstallment(true);
+    try{await apiInstance.post(`/contracts/${detailContract.id}/installments`,{amount:installmentDraft.amount,due_date:installmentDraft.due_date.format('YYYY-MM-DD')});setInstallmentDraft({amount:null,due_date:null});await loadInstallments(detailContract.id);const updated=await contractsApi.getById(detailContract.id);setDetailContract(updated);message.success('Доплата добавлена в график');}
+    catch(e:any){message.error(e?.response?.data?.message||'Не удалось добавить доплату');}
+    finally{setSavingInstallment(false);}
+  };
+  const saveInstallment = async (item:Installment) => {
+    if(!detailContract||!installmentEdit.amount||!installmentEdit.due_date)return;
+    setSavingInstallment(true);
+    try{await apiInstance.put(`/contracts/${detailContract.id}/installments/${item.id}`,{amount:installmentEdit.amount,due_date:installmentEdit.due_date.format('YYYY-MM-DD')});setEditingInstallment(null);await loadInstallments(detailContract.id);message.success('Доплата изменена');}
+    catch(e:any){message.error(e?.response?.data?.message||'Не удалось изменить доплату');}
+    finally{setSavingInstallment(false);}
+  };
+  const removeInstallment = async (item:Installment) => {
+    if(!detailContract)return;
+    try{await apiInstance.delete(`/contracts/${detailContract.id}/installments/${item.id}`);await loadInstallments(detailContract.id);message.success('Доплата удалена');}
+    catch(e:any){message.error(e?.response?.data?.message||'Не удалось удалить доплату');}
+  };
+  const savePhoneEdit = async (item:ClientPhone) => {
+    const clientId=detailClient?.id??detailContract?.id_client;if(!clientId||!phoneEditDraft.trim())return;
+    try{await apiInstance.patch(`/clients/${clientId}/phones/${item.id}`,{phone:phoneEditDraft.trim(),label:item.label});setEditingPhoneId(null);await loadClientPhones(Number(clientId));const updated=await clientsApi.getById(Number(clientId));setDetailClient(updated);message.success('Телефон изменён');}
+    catch(e:any){message.error(e?.response?.data?.message||'Не удалось изменить телефон');}
+  };
+  const saveTopic = async () => {
+    if(!detailContract)return;setSavingTopic(true);
+    try{await apiInstance.patch(`/contracts/${detailContract.id}/card-data`,{title:topicDraft.trim()||null});const updated=await contractsApi.getById(detailContract.id);setDetailContract(updated);setContracts(v=>v.map(x=>x.id===updated.id?updated:x));setEditingTopic(false);message.success('Тема сохранена');}
+    catch(e:any){message.error(e?.response?.data?.message||'Не удалось изменить тему');}
+    finally{setSavingTopic(false);}
   };
 
   const openDetail = (contract: CrmContract, client: CrmClient | null) => {
+    setCardExpertSearch('');
     setDetailContract(contract);
     setDetailClient(client);
+    setClientPhones([]);
+    setPhoneDraft('');
+    setShowPhoneForm(false);
+    setShowAllPhones(false);
+    setInstallments([]);
+    setInstallmentDraft({amount:null,due_date:null});
+    setEditingInstallment(null);
+    setEditingPhoneId(null);
+    setEditingTopic(false);
+    setTopicDraft(extractTopic(contract) === '—' ? '' : (extractTopic(contract) || ''));
+    loadClientPhones(client?.id || contract.id_client);
+    loadInstallments(contract.id);
     setContractHistory([]);
     setEditJoint(!!contract.is_joint);
     setEditSecondLawyer(contract.second_employee_id ?? null);
@@ -913,22 +1023,25 @@ const Clients: React.FC<ClientsProps> = () => {
     );
     setCardExpertId(contract.expert_id || null);
     setCardTitle(contract.title || '');
-    setCardDeadlineDate((contract as any).expert_deadline ? dayjs((contract as any).expert_deadline) : null);
-    setCardDeadlineTime((contract as any).expert_deadline_time ? dayjs(`1970-01-01 ${(contract as any).expert_deadline_time}`) : null);
+    setCardDeadlineDays((contract as any).expert_deadline_days != null ? Number((contract as any).expert_deadline_days) : null);
     setCardDeadlineComment((contract as any).expert_deadline_comment || '');
     setNewCustomDoc('');
     setCardDataChanged(false);
-    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (((contract as any).id_employee === user.id) || ((contract as any).expert_id === user.id));
-    const isAssignedEmployee = user?.id != null && (contract as any).id_employee === user.id;
+    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (Number((contract as any).signer_user_id) === Number(user.id) || Number((contract as any).second_signer_user_id) === Number(user.id));
+    const isAssignedEmployee = user?.id != null && Number((contract as any).signer_user_id) === Number(user.id);
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
     const canEditCard = !isAdmin && (isOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     if (canEditCard) loadExperts();
   };
 
   const closeDetail = () => {
+    setCardExpertSearch('');
     setDetailOpen(false);
     setDetailContract(null);
     setDetailClient(null);
+    setClientPhones([]);
+    setInstallments([]);
+    setEditingTopic(false);
     setDocsList([]);
     setContractMaterials([]);
     load();
@@ -1023,12 +1136,16 @@ const Clients: React.FC<ClientsProps> = () => {
       render: (_: unknown, r: ContractRow) => {
         const info = getDeadlineInfo(r.contract.expert_deadline);
         if (!info) return <span style={{ color: 'var(--color-muted)' }}>—</span>;
-        const exact = dayjs(r.contract.expert_deadline).format('DD.MM.YYYY');
+        const deadline = dayjs(r.contract.expert_deadline).startOf('day');
+        const remaining = deadline.diff(dayjs().startOf('day'), 'day');
+        const exact = deadline.format('DD.MM.YYYY');
+        const daysWord = (n: number) => (n % 10 === 1 && n % 100 !== 11) ? '\u0434\u0435\u043d\u044c' : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? '\u0434\u043d\u044f' : '\u0434\u043d\u0435\u0439');
+        const countdown = remaining > 0 ? `${remaining} ${daysWord(remaining)}` : remaining === 0 ? '\u0421\u0435\u0433\u043e\u0434\u043d\u044f' : `\u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e \u043d\u0430 ${Math.abs(remaining)} ${daysWord(Math.abs(remaining))}`;
         const cmt = (r.contract as any).expert_deadline_comment || undefined;
         return (
-          <span className="lt-client-deadline" title={cmt || `${info.label}, ${exact}`} style={{ background: info.bg, color: info.color }}>
-            <strong>{info.icon} {exact}</strong>
-            <small>{info.label}</small>
+          <span className="lt-client-deadline" title={[countdown, exact, cmt].filter(Boolean).join(' ? ')} style={{ background: info.bg, color: info.color }}>
+            <strong>{info.icon} {countdown}</strong>
+            <small>{'\u0434\u043e'} {exact}</small>
           </span>
         );
       },
@@ -1282,35 +1399,60 @@ const Clients: React.FC<ClientsProps> = () => {
     });
   };
 
+  const addCustomDocument = () => {
+    const value = newCustomDoc.trim();
+    if (!value) return;
+    if (customDocs.length >= CUSTOM_DOCS_LIMIT) {
+      message.warning(`Можно добавить не более ${CUSTOM_DOCS_LIMIT} документов`);
+      return;
+    }
+    if (customDocs.some((item) => item.toLocaleLowerCase('ru-RU') === value.toLocaleLowerCase('ru-RU'))) {
+      message.warning('Такой документ уже добавлен');
+      return;
+    }
+    setCustomDocs((prev) => [...prev, value]);
+    setNewCustomDoc('');
+    setCardDataChanged(true);
+  };
+
   const saveCardData = async () => {
     if (!detailContract) return;
-    if ((cardDeadlineTime || cardDeadlineComment) && !cardDeadlineDate) { message.error('Укажите дату выполнения дедлайна'); return; }
+    const hasExpert = cardExpertId != null && Number(cardExpertId) > 0;
+    const hasValidDeadline = Number.isInteger(cardDeadlineDays) && Number(cardDeadlineDays) >= 1 && Number(cardDeadlineDays) <= 365;
+    if (hasExpert && !hasValidDeadline) {
+      message.error('Укажите срок от 1 до 365 дней');
+      return;
+    }
     setCardSaving(true);
     try {
-      await apiInstance.patch(`/contracts/${detailContract.id}/card-data`, {
+      const payload: Record<string, unknown> = {
         document_types: selectedDocTypes,
         custom_documents: customDocs,
-        circumstances: circumstances,
-        expert_id: cardExpertId,
+        circumstances,
         title: cardTitle,
         customer_goal: cardCustomerGoal,
         legal_cost_comp: cardLegalCostComp === '' ? null : Number(cardLegalCostComp),
         moral_comp: cardMoralComp === '' ? null : Number(cardMoralComp),
-        expert_deadline: cardDeadlineDate ? cardDeadlineDate.format('YYYY-MM-DD') : null,
-        expert_deadline_time: cardDeadlineTime ? cardDeadlineTime.format('HH:mm:ss') : null,
         expert_deadline_comment: cardDeadlineComment || null,
-      });
-      message.success('Данные сохранены');
+      };
+      // Назначение отправляем только полной парой. Без эксперта сохраняется черновик задания.
+      if (hasExpert && hasValidDeadline) {
+        payload.expert_id = Number(cardExpertId);
+        payload.expert_deadline_days = Number(cardDeadlineDays);
+      }
+      await apiInstance.patch(`/contracts/${detailContract.id}/card-data`, payload);
+      message.success(hasExpert ? 'Задание сохранено и назначено' : 'Черновик задания сохранён. Для запуска выберите эксперта');
       setDocTypesChanged(false);
       setCardDataChanged(false);
-      // Обновляем detailContract чтобы при следующем сохранении не затереть данные
       try {
         const updated = await contractsApi.getById(detailContract.id);
         if (updated) setDetailContract(updated);
       } catch {}
       load();
     } catch (e: any) {
-      message.error(e?.response?.data?.message || 'Ошибка при сохранении');
+      const status = Number(e?.response?.status || 0);
+      const fallback = status === 403 ? 'У вас нет права изменять это задание' : 'Не удалось сохранить задание';
+      message.error(e?.response?.data?.message || fallback);
     } finally {
       setCardSaving(false);
     }
@@ -1318,6 +1460,150 @@ const Clients: React.FC<ClientsProps> = () => {
 
   // ===== Render helper: Detail drawer tab contents =====
   const isDocsType = (detailContract?.contract_type || 'docs') === 'docs';
+
+  const renderCompactOverview = () => {
+    if (!detailContract) return null;
+    const c = detailContract;
+    const cl = detailClient;
+    const total = Number(c.amount || 0);
+    const paid = Number(c.paid_amount || 0);
+    const remaining = Math.max(0, total - paid);
+    const progress = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+    const deadline = c.expert_deadline ? dayjs(c.expert_deadline).startOf('day') : null;
+    const days = deadline?.isValid() ? deadline.diff(dayjs().startOf('day'), 'day') : null;
+    const deadlineText = days == null ? 'Не задан' : days > 1 ? `${days} дня` : days === 1 ? '1 день' : days === 0 ? 'Сегодня' : `Просрочено на ${Math.abs(days)} дн.`;
+    const statusReady = c.docs_status === 'ready';
+    return (
+      <div className="client-card-overview">
+        <div className="client-card-overview__summary">
+          <div className="client-card-overview__contact client-card-phone-book">
+            <div className="client-card-phone-head"><span>Телефоны</span></div>
+            <div className="client-card-phone-primary">
+              {editingPhoneId===clientPhones[0]?.id ? <div className="client-card-inline-edit"><Input value={phoneEditDraft} onChange={e=>setPhoneEditDraft(e.target.value)} onPressEnter={()=>savePhoneEdit(clientPhones[0])} autoFocus /><Button type="text" loading={savingPhone} onClick={()=>savePhoneEdit(clientPhones[0])}>Сохранить</Button><Button type="text" onClick={()=>setEditingPhoneId(null)}>Отмена</Button></div> : <><a href={`tel:${clientPhones[0]?.phone || cl?.phone || (c as any).client_phone || ''}`}>{clientPhones[0]?.phone || cl?.phone || (c as any).client_phone || 'Телефон не указан'}</a>{clientPhones[0] && <small>основной</small>}{canEditClientContacts&&clientPhones[0]&&<button type="button" className="client-card-pencil" onClick={()=>{setEditingPhoneId(clientPhones[0].id);setPhoneEditDraft(clientPhones[0].phone)}}><EditOutlined /></button>}</>}
+              {clientPhones.length > 1 && <button type="button" className="client-card-phone-more" onClick={() => setShowAllPhones((value) => !value)}>{showAllPhones ? 'скрыть' : `ещё ${clientPhones.length - 1}`} <span>{showAllPhones ? '⌃' : '⌄'}</span></button>}
+              {canEditClientContacts && <button type="button" className="client-card-phone-trigger" onClick={() => setShowPhoneForm((value) => !value)}>{showPhoneForm ? 'Отмена' : '+ номер'}</button>}
+            </div>
+            {showAllPhones && clientPhones.length > 1 && <div className="client-card-phone-list">
+              {clientPhones.slice(1).map((item) => <div className="client-card-phone-row" key={item.id}>{editingPhoneId===item.id?<div className="client-card-inline-edit"><Input value={phoneEditDraft} onChange={e=>setPhoneEditDraft(e.target.value)} onPressEnter={()=>savePhoneEdit(item)} autoFocus/><Button type="text" onClick={()=>savePhoneEdit(item)}>Сохранить</Button><Button type="text" onClick={()=>setEditingPhoneId(null)}>Отмена</Button></div>:<><a href={`tel:${item.phone}`}>{item.phone}</a>{canEditClientContacts&&<button type="button" className="client-card-pencil" onClick={()=>{setEditingPhoneId(item.id);setPhoneEditDraft(item.phone)}}><EditOutlined/></button>}{canEditClientContacts&&<button type="button" className="client-card-phone-remove" aria-label={`Удалить ${item.phone}`} onClick={()=>handleDeleteClientPhone(item.id)}><DeleteOutlined/></button>}</>}</div>)}
+            </div>}
+            {canEditClientContacts && showPhoneForm && <div className="client-card-phone-add"><Input value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} onPressEnter={handleSaveClientPhone} placeholder="+7 999 000-00-00" type="tel" autoFocus /><Button type="primary" loading={savingPhone} onClick={handleSaveClientPhone}>Добавить</Button></div>}
+          </div>
+        </div>
+
+        <dl className="client-card-facts">
+          <div><dt>Договор</dt><dd>{contractNumber(c.id, c.contract_number)}<span>{isDocsType ? 'Подготовка документов' : 'Представительство в суде'}</span></dd></div>
+          <div><dt>Тема</dt><dd>{editingTopic?<div className="client-card-topic-edit"><Input value={topicDraft} onChange={e=>setTopicDraft(e.target.value)} onPressEnter={saveTopic} placeholder="Укажите тему" autoFocus/><Button type="text" loading={savingTopic} onClick={saveTopic}>Сохранить</Button><Button type="text" onClick={()=>setEditingTopic(false)}>Отмена</Button></div>:<div className="client-card-topic-value"><span className={!extractTopic(c)||extractTopic(c)==='—'?'client-card-empty-value':''}>{(!extractTopic(c)||extractTopic(c)==='—')?'Не указана':extractTopic(c)}</span>{canEditClientContacts&&<button type="button" className="client-card-pencil" onClick={()=>{setTopicDraft(extractTopic(c)==='—'?'':extractTopic(c));setEditingTopic(true)}}><EditOutlined/></button>}</div>}</dd></div>
+          <div><dt>{c.is_joint ? 'Юристы' : 'Юрист'}</dt><dd>{lawyersLabel(c) || 'Не назначен'}</dd></div>
+          {isDocsType && <div><dt>Эксперт</dt><dd>{c.expert_full_name ? shortName(c.expert_full_name) : <span className="client-card-muted">Не назначен</span>}</dd></div>}
+          {isDocsType && <div><dt>Срок</dt><dd><Tag color={days != null && days < 0 ? 'red' : days === 0 ? 'orange' : days == null ? 'default' : 'blue'}>{deadlineText}</Tag>{deadline && <small>до {deadline.format('DD.MM.YYYY')}</small>}</dd></div>}
+        </dl>
+
+        <div className="client-card-payment-strip">
+          <div className="client-card-payment-strip__top"><div><span>Оплата</span><strong>{formatMoney(paid)} <small>из {formatMoney(total)}</small></strong></div><span>{progress}%</span></div>
+          <Progress percent={progress} showInfo={false} strokeColor={remaining > 0 ? '#5b5bd6' : '#35a36f'} trailColor="#eceef3" size="small" />
+          <div className="client-card-payment-strip__meta">{remaining > 0 ? <>Осталось оплатить <strong>{formatMoney(remaining)}</strong></> : <span className="is-paid">Оплачено полностью</span>}</div>
+          {remaining > 0 && canEditPaymentSchedule && (
+            <div className="client-card-installments">
+              <div className="client-card-installments__head"><div><span>График доплат</span><small>Каждая сумма получит отдельные напоминания</small></div><strong>{installments.length} {installments.length===1?'платёж':'платежа'}</strong></div>
+              {installmentsLoading ? <Spin size="small" /> : installments.map(item => <div className={`client-card-installment ${item.status==='paid'?'is-paid':item.status==='partial'?'is-partial':''}`} key={item.id}>
+                {editingInstallment===item.id ? <><InputNumber value={installmentEdit.amount} onChange={v=>setInstallmentEdit(x=>({...x,amount:v==null?null:Number(v)}))} min={Number(item.paid_amount)||1} addonAfter="₽"/><DatePicker value={installmentEdit.due_date} onChange={d=>setInstallmentEdit(x=>({...x,due_date:d}))} format="DD.MM.YYYY"/><Button type="text" loading={savingInstallment} onClick={()=>saveInstallment(item)}>Сохранить</Button><Button type="text" onClick={()=>setEditingInstallment(null)}>Отмена</Button></> : <><div><strong>{formatMoney(item.amount)}</strong>{Number(item.paid_amount)>0&&<small>оплачено {formatMoney(item.paid_amount)}</small>}</div><span>{dayjs(item.due_date).format('DD.MM.YYYY')}</span><Tag color={item.status==='paid'?'green':item.status==='partial'?'blue':dayjs(item.due_date).isBefore(dayjs(),'day')?'red':'gold'}>{item.status==='paid'?'Оплачено':item.status==='partial'?'Частично':dayjs(item.due_date).isBefore(dayjs(),'day')?'Просрочено':'Запланировано'}</Tag>{item.status!=='paid'&&<button className="client-card-pencil" onClick={()=>{setEditingInstallment(item.id);setInstallmentEdit({amount:Number(item.amount),due_date:dayjs(item.due_date)})}}><EditOutlined/></button>}{item.status==='pending'&&<button className="client-card-phone-remove" onClick={()=>removeInstallment(item)}><DeleteOutlined/></button>}</>}
+              </div>)}
+              <div className="client-card-installment-add"><InputNumber value={installmentDraft.amount} onChange={v=>setInstallmentDraft(x=>({...x,amount:v==null?null:Number(v)}))} min={1} max={remaining} addonAfter="₽" placeholder="Сумма"/><DatePicker value={installmentDraft.due_date} onChange={d=>setInstallmentDraft(x=>({...x,due_date:d}))} format="DD.MM.YYYY" placeholder="Дата"/><Button type="primary" loading={savingInstallment} onClick={addInstallment}>Добавить доплату</Button></div>
+            </div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
+
+  const renderExpertTaskTab = () => {
+    if (!detailContract || !isDocsType) return <Empty description="Для этого договора задание эксперту не требуется" />;
+    const c = detailContract;
+    const isContractOwner = !!(user?.id && c.registered_by === user.id);
+    const isAssignedLawyer = user?.role === 'lawyer' && (Number((c as any).signer_user_id) === Number(user.id) || Number((c as any).second_signer_user_id) === Number(user.id));
+    const canEdit = !isAdmin && (isContractOwner || isAssignedLawyer || ['director','manager','okk'].includes(user?.role || ''));
+    const previewDays = Number(cardDeadlineDays || 0);
+    const previewDate = previewDays > 0 ? dayjs().add(previewDays, 'day') : null;
+    const allRequestedDocs = [...selectedDocTypes, ...customDocs];
+
+    return (
+      <div className="client-card-task">
+        <div className="client-card-section-heading">
+          <div><span>Ответственность</span><h3>Эксперт и задание</h3><p>Эксперт, срок и комплект документов сохраняются одним действием.</p></div>
+          <Tag color={c.docs_status === 'ready' ? 'green' : 'orange'}>{c.docs_status === 'ready' ? 'Готово' : 'В работе'}</Tag>
+        </div>
+        {canEdit ? (
+          <>
+            <div className="client-card-task__assignment">
+              <div className="client-card-task__core">
+                <label><span>Эксперт <b>*</b></span><Select className="lt-visible-search-select" value={cardExpertId ?? undefined} searchValue={cardExpertSearch} onSearch={setCardExpertSearch} onOpenChange={(open) => { if (!open) setCardExpertSearch(''); }} onChange={(v) => { setCardExpertId(Number(v)); setCardExpertSearch(''); setCardDataChanged(true); }} showSearch optionFilterProp="label" placeholder="Выберите эксперта" notFoundContent="В этом офисе нет экспертов" options={[...experts.map((e) => ({ value: employeeOptionId(e)!, label: employeeName(e) })).filter(o => o.value), ...(cardExpertId && !experts.some(e => employeeOptionId(e) === Number(cardExpertId)) ? [{ value: Number(cardExpertId), label: c.expert_full_name ? shortName(c.expert_full_name) : `Эксперт #${cardExpertId}` }] : [])]} />{experts.length === 0 && <small className="client-card-field-note is-warning">В этом офисе нет сотрудников с ролью «Эксперт». Задание сохранится как черновик.</small>}</label>
+                <label><span>Срок, календарных дней <b>*</b></span><InputNumber value={cardDeadlineDays} onChange={(v) => { setCardDeadlineDays(v == null ? null : Number(v)); setCardDataChanged(true); }} min={1} max={365} precision={0} addonAfter="дней" style={{ width: '100%' }} placeholder="Например, 3" /></label>
+              </div>
+              <aside className={`client-card-deadline-preview${previewDays ? '' : ' is-empty'}`}>
+                <span>Дедлайн</span>
+                <strong>{previewDays ? `${previewDays} ${previewDays === 1 ? 'день' : previewDays < 5 ? 'дня' : 'дней'}` : 'Не задан'}</strong>
+                <small>{previewDate ? `до ${previewDate.format('D MMMM YYYY')}` : 'Укажите срок в днях'}</small>
+              </aside>
+            </div>
+
+            <div className="client-card-task__documents">
+              <div className="client-card-subheading"><div><strong>Что подготовить</strong><span>Выберите базовые документы или добавьте свой</span></div><span>{allRequestedDocs.length} выбрано</span></div>
+              <Checkbox.Group value={selectedDocTypes} onChange={(vals) => { setSelectedDocTypes(vals as string[]); setDocTypesChanged(true); setCardDataChanged(true); }} className="client-card-doc-options">
+                {DOCUMENT_TYPE_OPTIONS.map((type) => <Checkbox key={type} value={type}>{type}</Checkbox>)}
+              </Checkbox.Group>
+              {customDocs.length > 0 && <div className="client-card-custom-docs">{customDocs.map((doc, index) => <Tag key={`${doc}-${index}`} closable onClose={() => { setCustomDocs((prev) => prev.filter((_, i) => i !== index)); setCardDataChanged(true); }}>{doc}</Tag>)}</div>}
+              {customDocs.length < CUSTOM_DOCS_LIMIT && (
+                <div className="client-card-add-doc">
+                  <Input value={newCustomDoc} onChange={(e) => setNewCustomDoc(e.target.value)} onPressEnter={addCustomDocument} placeholder="Добавить другой документ" maxLength={160} />
+                  <Tooltip title="Добавить документ"><Button aria-label="Добавить документ" icon={<PlusOutlined />} onClick={addCustomDocument} /></Tooltip>
+                </div>
+              )}
+            </div>
+
+            <label className="client-card-task__field"><span>Тема</span><Input value={cardTitle} onChange={(e) => { setCardTitle(e.target.value); setCardDataChanged(true); }} /></label>
+            <label className="client-card-task__field"><span>Цель заказчика</span><Input.TextArea rows={2} value={cardCustomerGoal} onChange={(e) => { setCardCustomerGoal(e.target.value); setCardDataChanged(true); }} /></label>
+            <label className="client-card-task__field"><span>Обстоятельства и комментарий эксперту</span><Input.TextArea rows={4} value={circumstances} onChange={(e) => { setCircumstances(e.target.value); setCardDataChanged(true); }} placeholder="Ключевые обстоятельства, требования и особенности подготовки" /></label>
+            <label className="client-card-task__field"><span>Комментарий к сроку</span><Input.TextArea rows={2} value={cardDeadlineComment} onChange={(e) => { setCardDeadlineComment(e.target.value); setCardDataChanged(true); }} maxLength={1000} placeholder="Необязательно" /></label>
+            <div className="client-card-save-row"><span>{!cardExpertId ? 'Без эксперта задание сохранится как черновик' : 'Эксперт получит задание после сохранения'}</span><Button type="primary" loading={cardSaving} onClick={saveCardData}>{cardExpertId ? 'Сохранить и назначить' : 'Сохранить черновик'}</Button></div>
+          </>
+        ) : (
+          <>
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="Эксперт">{c.expert_full_name || 'Не назначен'}</Descriptions.Item>
+              <Descriptions.Item label="Срок">{c.expert_deadline ? dayjs(c.expert_deadline).format('DD.MM.YYYY') : 'Не задан'}</Descriptions.Item>
+              <Descriptions.Item label="Цель">{c.customer_goal || 'Не указана'}</Descriptions.Item>
+              <Descriptions.Item label="Обстоятельства">{c.circumstances || 'Не указаны'}</Descriptions.Item>
+            </Descriptions>
+            {allRequestedDocs.length > 0 && <div className="client-card-readonly-docs"><strong>Документы к подготовке</strong><div>{allRequestedDocs.map((doc) => <Tag key={doc}>{doc}</Tag>)}</div></div>}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderPaymentEntryForm = (contractId: number, remaining: number) => (
+    <div className="client-card-payment-entry" aria-label="Добавление платежа">
+      <label><span>Сумма</span><InputNumber value={paymentFormData.amount} onChange={(value) => setPaymentFormData(prev => ({ ...prev, amount: value == null ? null : Number(value) }))} min={1} max={remaining} controls={false} addonAfter="₽" placeholder="10 000" formatter={(value) => value ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''} parser={(value) => value ? Number(value.replace(/\s/g, '')) : 0} /></label>
+      <label><span>Дата</span><DatePicker value={paymentFormData.date} onChange={(date) => date && setPaymentFormData(prev => ({ ...prev, date }))} format="DD.MM.YYYY" allowClear={false} /></label>
+      <label><span>Способ оплаты</span><Select value={paymentFormData.method} onChange={(method) => setPaymentFormData(prev => ({ ...prev, method }))} options={[{ value: 'cash', label: 'Наличные' }, { value: 'noncash', label: 'Безналичные' }, { value: 'bank', label: 'Расчётный счёт' }]} /></label>
+      <Button type="primary" loading={paymentSubmitting} disabled={!paymentFormData.amount || paymentFormData.amount <= 0} onClick={() => handleAddPayment(contractId)}>Сохранить платёж</Button>
+    </div>
+  );
+
+  const renderPaymentsTab = () => {
+    if (!detailContract) return null;
+    const c = detailContract;
+    const total = Number(c.amount || 0), paid = Number(c.paid_amount || 0), remaining = Math.max(0, total - paid);
+    return (
+      <div className="client-card-payments">
+        <div className="client-card-payments__summary"><div><span>Сумма договора</span><strong>{formatMoney(total)}</strong></div><div><span>Оплачено</span><strong>{formatMoney(paid)}</strong></div><div><span>Остаток</span><strong>{formatMoney(remaining)}</strong></div></div>
+        {canManagePayments && remaining > 0 && <Button type="dashed" icon={<PlusOutlined />} onClick={() => setShowPaymentForm(v => !v)}>{showPaymentForm ? 'Скрыть форму' : 'Добавить платёж'}</Button>}
+        {showPaymentForm && canManagePayments && renderPaymentEntryForm(c.id, remaining)}
+        <div className="client-card-payments__history"><h3>История платежей</h3>{paymentsLoading ? <Spin /> : contractPayments.length ? contractPayments.map(p => <div className="client-card-payment-row" key={p.id}><span>{p.confirmed ? '\u2713' : '\u23f3'}</span><div><strong>{formatMoney(p.amount)}</strong><small>{dayjs(p.payment_date).format('DD.MM.YYYY')} ? {p.created_by_name || 'Сотрудник'}</small></div><Tag color={p.confirmed ? 'green' : 'orange'}>{p.confirmed ? 'Подтверждён' : 'Ожидает'}</Tag></div>) : <Empty description="Платежей пока нет" />}</div>
+      </div>
+    );
+  };
 
   const renderInfoTab = () => {
     if (!detailContract) return null;
@@ -1329,8 +1615,8 @@ const Clients: React.FC<ClientsProps> = () => {
     const totalPaid = parseFloat(String(c.paid_amount || 0));
     const remaining = Math.max(0, parseFloat(String(c.amount || 0)) - totalPaid);
     const isContractOwner = !!(user?.id && c.registered_by === user.id);
-    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && ((detailContract as any).id_employee === user.id || (detailContract as any).expert_id === user.id);
-    const isAssignedEmployee = user?.id != null && (detailContract as any).id_employee === user.id;
+    const isAssignedLawyer = user?.role === 'lawyer' && user?.id != null && (Number((detailContract as any).signer_user_id) === Number(user.id) || Number((detailContract as any).second_signer_user_id) === Number(user.id));
+    const isAssignedEmployee = user?.id != null && Number((detailContract as any).signer_user_id) === Number(user.id);
     const isManagement = ['director', 'manager', 'okk'].includes(user?.role || '');
     const canEditCard = !isAdmin && (isContractOwner || isAssignedLawyer || isAssignedEmployee || isManagement);
     const canAssignExpert = ['director', 'manager', 'okk', 'lawyer'].includes(user?.role || '');
@@ -1402,7 +1688,7 @@ const Clients: React.FC<ClientsProps> = () => {
 
         <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
           <Descriptions.Item label="ФИО клиента">{cl?.name || c.client_name || '—'}</Descriptions.Item>
-          <Descriptions.Item label="Телефон">{(cl?.phone || (c as any).client_phone) ? (cl?.phone || (c as any).client_phone) : (<span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><Input value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)} placeholder="Введите номер телефона" size="small" style={{ maxWidth: 220 }} /><Button size="small" type="primary" loading={savingPhone} onClick={handleSaveClientPhone}>Сохранить</Button></span>)}</Descriptions.Item>
+          <Descriptions.Item label="Телефоны">{clientPhones.length ? clientPhones.map((item) => item.phone).join(', ') : (cl?.phone || (c as any).client_phone || 'Не указаны')}</Descriptions.Item>
           <Descriptions.Item label="Тема">
             {canEditCard ? (
               <Input
@@ -1422,7 +1708,7 @@ const Clients: React.FC<ClientsProps> = () => {
             </Tag>
           </Descriptions.Item>
           <Descriptions.Item label="Дата договора">
-            {c.contract_date ? new Date(c.contract_date).toLocaleDateString('ru-RU') : '—'}
+            {c.contract_date ? formatRuDate(c.contract_date) : '—'}
           </Descriptions.Item>
           <Descriptions.Item label="Сумма договора">
             <span style={{ fontWeight: 600, fontSize: 15 }}>{formatMoney(c.amount)}</span>
@@ -1444,7 +1730,7 @@ const Clients: React.FC<ClientsProps> = () => {
           </Descriptions.Item>
           {(c as any).additional_payment_date && (
             <Descriptions.Item label="Дата внесения остатка">
-              {new Date((c as any).additional_payment_date).toLocaleDateString('ru-RU')}
+              {formatRuDate((c as any).additional_payment_date)}
             </Descriptions.Item>
           )}
           {remaining > 0 && (c as any).additional_payment_date && (
@@ -1496,23 +1782,7 @@ const Clients: React.FC<ClientsProps> = () => {
           </Descriptions.Item>
           {isDocsType && !isAdmin && (
             <Descriptions.Item label="Эксперт">
-              {canAssignExpert ? (
-                <Select
-                  value={cardExpertId}
-                  onChange={(v) => { setCardExpertId(v); setCardDataChanged(true); }}
-                  placeholder="Выберите эксперта"
-                  allowClear
-                  size="small"
-                  style={{ width: '100%', minWidth: 180 }}
-                  options={experts.map((e) => ({
-                    value: e.id,
-                    label: `${e.last_name || ''} ${e.first_name || ''}`.trim(),
-                  }))}
-                  notFoundContent="Нет экспертов"
-                />
-              ) : (
-                c.expert_full_name ? shortName(c.expert_full_name) : <Tag color="default">не назначен</Tag>
-              )}
+              {c.expert_full_name ? shortName(c.expert_full_name) : <Tag color="default">не назначен</Tag>}
             </Descriptions.Item>
           )}
           {!isAdmin && (
@@ -1649,25 +1919,35 @@ const Clients: React.FC<ClientsProps> = () => {
                   )}
                 </div>
 
-                {/* ── Дедлайн подготовки документов ── */}
+                {/* unified expert and deadline fields */}
                 {canAssignExpert && (
-                <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Дедлайн подготовки документов</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="expert-deadline-days-panel" style={{ border: '1px solid var(--color-border)', borderRadius: 8, padding: 16, background: 'var(--color-bg-alt)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{'\u0421\u0440\u043e\u043a \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432'}</div>
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{'\u0423\u043a\u0430\u0436\u0438\u0442\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e \u043a\u0430\u043b\u0435\u043d\u0434\u0430\u0440\u043d\u044b\u0445 \u0434\u043d\u0435\u0439. \u041e\u0441\u0442\u0430\u0442\u043e\u043a \u0431\u0443\u0434\u0435\u0442 \u0443\u043c\u0435\u043d\u044c\u0448\u0430\u0442\u044c\u0441\u044f \u0435\u0436\u0435\u0434\u043d\u0435\u0432\u043d\u043e.'}</div>
                     <div>
-                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Дата выполнения <span style={{ color: '#dc2626' }}>*</span></div>
-                      <DatePicker value={cardDeadlineDate} onChange={(d) => { setCardDeadlineDate(d); setCardDataChanged(true); }} format="DD.MM.YYYY" style={{ width: '100%' }} placeholder="Выберите дату" />
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Эксперт <span style={{ color: '#dc2626' }}>*</span></div>
+                      <Select
+                        className="lt-visible-search-select"
+                        value={cardExpertId ?? undefined}
+                        searchValue={cardExpertSearch}
+                        onSearch={setCardExpertSearch}
+                        onOpenChange={(open) => { if (!open) setCardExpertSearch(''); }}
+                        onChange={(v) => { setCardExpertId(Number(v)); setCardExpertSearch(''); setCardDataChanged(true); }}
+                        placeholder="Выберите эксперта"
+                        showSearch
+                        optionFilterProp="label"
+                        style={{ width: '100%' }}
+                        options={[...experts.map((e) => ({ value: employeeOptionId(e)!, label: employeeName(e) })).filter(o => o.value), ...(cardExpertId && !experts.some(e => employeeOptionId(e) === Number(cardExpertId)) ? [{ value: Number(cardExpertId), label: c.expert_full_name ? shortName(c.expert_full_name) : `Эксперт #${cardExpertId}` }] : [])]}
+                        notFoundContent="Нет доступных экспертов"
+                      />
                     </div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>Срок, календарных дней <span style={{ color: '#dc2626' }}>*</span></div>
+                    <InputNumber value={cardDeadlineDays} onChange={(v) => { setCardDeadlineDays(v == null ? null : Number(v)); setCardDataChanged(true); }} min={1} max={365} precision={0} addonAfter={'\u0434\u043d\u0435\u0439'} style={{ width: '100%' }} placeholder={'\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440, 3'} />
                     <div>
-                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Время (необязательно)</div>
-                      <TimePicker value={cardDeadlineTime} onChange={(t) => { setCardDeadlineTime(t); setCardDataChanged(true); }} format="HH:mm" style={{ width: '100%' }} placeholder="—" />
+                      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>{'\u041a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439 (\u043d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e)'}</div>
+                      <Input.TextArea value={cardDeadlineComment} onChange={(ev) => { setCardDeadlineComment(ev.target.value); setCardDataChanged(true); }} rows={2} maxLength={1000} />
                     </div>
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 13 }}>Комментарий (необязательно)</div>
-                    <Input.TextArea value={cardDeadlineComment} onChange={(ev) => { setCardDeadlineComment(ev.target.value); setCardDataChanged(true); }} rows={2} maxLength={1000} placeholder="Например: подготовить исковое заявление" />
-                  </div>
-                </div>
                 )}
 
                 {/* ── Цель и возмещения ── */}
@@ -1833,44 +2113,8 @@ const Clients: React.FC<ClientsProps> = () => {
               )}
             </div>
 
-            {/* Форма добавления доплаты */}
-            {showPaymentForm && canManagePayments && (
-              <div style={{ background: 'var(--color-bg-alt, #f9fafb)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 120px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Сумма *</div>
-                  <InputNumber
-                    value={paymentFormData.amount}
-                    onChange={(v) => setPaymentFormData(p => ({ ...p, amount: v }))}
-                    min={1} max={remaining}
-                    style={{ width: '100%' }}
-                    placeholder="10 000"
-                    formatter={(v) => v ? `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : ''}
-                    parser={(v) => v ? Number(v.replace(/\s/g, '')) : 0}
-                  />
-                </div>
-                <div style={{ flex: '1 1 120px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Дата</div>
-                  <DatePicker value={paymentFormData.date} onChange={(d) => d && setPaymentFormData(p => ({ ...p, date: d }))} style={{ width: '100%' }} />
-                </div>
-                <div style={{ flex: '1 1 100px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Способ</div>
-                  <Select value={paymentFormData.method} onChange={(v) => setPaymentFormData(p => ({ ...p, method: v }))} style={{ width: '100%' }}
-                    options={[
-                      { value: 'cash', label: 'Наличные' },
-                      { value: 'noncash', label: 'Банковская карта (терминал)' },
-                      { value: 'bank', label: 'Банковский перевод' },
-                      { value: 'sbp', label: 'СБП' },
-                    ]} />
-                </div>
-                <div style={{ flex: '2 1 160px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--color-muted)', marginBottom: 2, textTransform: 'uppercase' }}>Комментарий</div>
-                  <Input value={paymentFormData.comment} onChange={(e) => setPaymentFormData(p => ({ ...p, comment: e.target.value }))} placeholder="Необязательно" />
-                </div>
-                <Button type="primary" loading={paymentSubmitting} onClick={() => handleAddPayment(c.id)} style={{ height: 32 }}>
-                  Сохранить
-                </Button>
-              </div>
-            )}
+            {/* Единая форма добавления платежа */}
+            {showPaymentForm && canManagePayments && renderPaymentEntryForm(c.id, remaining)}
 
             {/* Список платежей */}
             {paymentsLoading ? <Spin size="small" /> : (
@@ -1889,9 +2133,9 @@ const Clients: React.FC<ClientsProps> = () => {
                           <Tag color={p.payment_method === 'cash' ? 'green' : p.payment_method === 'bank' || p.payment_method === 'sbp' ? 'purple' : 'blue'} style={{ marginLeft: 6, fontSize: 11 }}>
                             {{
                               cash: 'Наличные',
-                              noncash: 'Банковская карта',
-                              bank: 'Банковский перевод',
-                              sbp: 'СБП',
+                              noncash: 'Безналичные',
+                              bank: 'Расчётный счёт',
+                              sbp: 'Расчётный счёт',
                             }[p.payment_method]}
                           </Tag>
                           <Tag style={{ marginLeft: 4, fontSize: 11 }}>
@@ -1899,7 +2143,7 @@ const Clients: React.FC<ClientsProps> = () => {
                           </Tag>
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--color-muted)' }}>
-                          {new Date(p.payment_date).toLocaleDateString('ru-RU')}
+                          {formatRuDate(p.payment_date, true)}
                           {p.created_at ? `, ${new Date(p.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : ''}
                           {p.created_by_name ? ` · ${p.created_by_name}` : ''}
                           {p.comment && <> · {p.comment}</>}
@@ -1983,7 +2227,7 @@ const Clients: React.FC<ClientsProps> = () => {
       return <Empty description="Техническое задание ещё не заполнено" />;
     }
 
-    const expertObj = experts.find((e) => e.id === c.expert_id);
+    const expertObj = experts.find((e) => employeeOptionId(e) === Number(c.expert_id));
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {dtParsed.length > 0 && (
@@ -2342,14 +2586,16 @@ const Clients: React.FC<ClientsProps> = () => {
 
   const handleSupplementSave = async () => {
     if (!detailContract) return;
+    const isDocs = (detailContract.contract_type || 'docs') === 'docs';
+    if (isDocs && !supplementForm.expert_id) { message.error(String.fromCharCode(1042,1099,1073,1077,1088,1080,1090,1077,32,1101,1082,1089,1087,1077,1088,1090,1072)); return; }
+    if (isDocs && (!Number.isInteger(supplementForm.expert_deadline_days) || Number(supplementForm.expert_deadline_days) < 1 || Number(supplementForm.expert_deadline_days) > 365)) { message.error(String.fromCharCode(1059,1082,1072,1078,1080,1090,1077,32,1089,1088,1086,1082,32,1086,1090,32,49,32,1076,1086,32,51,54,53,32,1076,1085,1077,1081)); return; }
     setSupplementSaving(true);
     try {
       const payload: Record<string, unknown> = {};
       if (supplementForm.title) payload.title = supplementForm.title;
       if (supplementForm.customer_goal) payload.customer_goal = supplementForm.customer_goal;
       if (supplementForm.situation_description) payload.situation_description = supplementForm.situation_description;
-      if (supplementForm.expert_id) payload.expert_id = supplementForm.expert_id;
-      if (supplementForm.expert_deadline_days) payload.expert_deadline_days = supplementForm.expert_deadline_days;
+      if (isDocs) { payload.expert_id = supplementForm.expert_id; payload.expert_deadline_days = supplementForm.expert_deadline_days; }
       if (supplementForm.legal_cost_comp) payload.legal_cost_comp = supplementForm.legal_cost_comp;
       if (supplementForm.moral_comp) payload.moral_comp = supplementForm.moral_comp;
       if (docTypesChanged) payload.document_types = selectedDocTypes;
@@ -2424,10 +2670,7 @@ const Clients: React.FC<ClientsProps> = () => {
                 placeholder="Выберите эксперта"
                 allowClear
                 style={{ width: '100%' }}
-                options={experts.map((e) => ({
-                  value: e.id,
-                  label: `${e.last_name} ${e.first_name}`,
-                }))}
+                options={[...experts.map((e) => ({ value: employeeOptionId(e)!, label: employeeName(e) })).filter(o => o.value), ...(supplementForm.expert_id && !experts.some(e => employeeOptionId(e) === Number(supplementForm.expert_id)) ? [{ value: Number(supplementForm.expert_id), label: detailContract?.expert_full_name ? shortName(detailContract.expert_full_name) : `Эксперт #${supplementForm.expert_id}` }] : [])]}
                 notFoundContent="Нет экспертов в офисе"
               />
             </div>
@@ -2437,6 +2680,9 @@ const Clients: React.FC<ClientsProps> = () => {
                 value={supplementForm.expert_deadline_days}
                 onChange={(v) => setSupplementForm((f) => ({ ...f, expert_deadline_days: v }))}
                 min={1}
+                max={365}
+                precision={0}
+                addonAfter={'\u0434\u043d\u0435\u0439'}
                 style={{ width: '100%' }}
                 placeholder="Количество дней"
               />
@@ -2533,233 +2779,72 @@ const Clients: React.FC<ClientsProps> = () => {
     );
   };
 
+  const renderContractActsCompact = () => {
+    if (contractActsLoading) return <Spin />;
+    if (!contractActs.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Актов по договору пока нет" />;
+    if (isMobile) return (
+      <div className="client-card-acts-list">
+        {contractActs.map((act) => <div className="client-card-act-row" key={act.id}><div><strong>{formatMoney(act.amount)}</strong><span>{act.act_date ? formatRuDate(act.act_date, true) : 'Дата не указана'}</span></div><Tag color={act.status === 'confirmed' ? 'green' : 'gold'}>{act.status === 'confirmed' ? 'Подтверждён' : 'Черновик'}</Tag>{act.description && <p>{act.description}</p>}</div>)}
+      </div>
+    );
+    return <Table rowKey="id" dataSource={contractActs} size="small" pagination={false} columns={[
+      { title: 'Дата', dataIndex: 'act_date', width: 110, render: (v: string) => v ? new Date(v).toLocaleDateString('ru-RU') : 'Не указана' },
+      { title: 'Сумма', dataIndex: 'amount', width: 120, render: (v: number | string) => formatMoney(v) },
+      { title: 'Статус', dataIndex: 'status', width: 120, render: (v: string) => v === 'confirmed' ? <Tag color="green">Подтверждён</Tag> : <Tag color="gold">Черновик</Tag> },
+      { title: 'Описание', dataIndex: 'description', ellipsis: true },
+    ]} />;
+  };
+
   const renderTerminateTab = () => {
     if (!detailContract) return null;
     const c = detailContract;
     const isAlreadyTerminated = c.status === 'terminated';
-
     const isManagementForEdit = ['director', 'manager', 'okk'].includes(user?.role || '');
 
-    if (isAlreadyTerminated) {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <Result
-            status="warning"
-            title="Договор расторгнут"
-            subTitle={c.terminated_at ? `Дата расторжения: ${new Date(c.terminated_at).toLocaleDateString('ru-RU')}` : undefined}
-          />
-
-          {/* Режим редактирования для руководства */}
-          {editingTermination && isManagementForEdit ? (
-            <InfoBlock>
-              <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <EditOutlined />
-                Редактирование данных расторжения
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата расторжения</div>
-                  <DatePicker
-                    value={editTermForm.terminated_at}
-                    onChange={(d) => setEditTermForm((f) => ({ ...f, terminated_at: d || dayjs() }))}
-                    format="DD.MM.YYYY"
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Сумма возврата клиенту</div>
-                  <InputNumber
-                    value={editTermForm.refund_amount}
-                    onChange={(v) => setEditTermForm((f) => ({ ...f, refund_amount: v || 0 }))}
-                    min={0}
-                    style={{ width: '100%' }}
-                    formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                    addonAfter="₽"
-                  />
-                </div>
-                <div>
-                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Срок возврата</div>
-                  <DatePicker
-                    value={editTermForm.refund_deadline}
-                    onChange={(d) => setEditTermForm((f) => ({ ...f, refund_deadline: d }))}
-                    format="DD.MM.YYYY"
-                    style={{ width: '100%' }}
-                    placeholder="Выберите дату"
-                  />
-                </div>
-                <div>
-                  <div style={{ marginBottom: 4, fontWeight: 500 }}>Причина расторжения</div>
-                  <Input.TextArea
-                    value={editTermForm.termination_reason}
-                    onChange={(e) => setEditTermForm((f) => ({ ...f, termination_reason: e.target.value }))}
-                    rows={3}
-                    placeholder="Укажите причину расторжения"
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <Button type="primary" loading={savingTermination} onClick={handleSaveTerminationData}>
-                  Сохранить
-                </Button>
-                <Button onClick={() => setEditingTermination(false)}>
-                  Отмена
-                </Button>
-              </div>
-            </InfoBlock>
-          ) : (
-            <>
-              <Descriptions column={1} bordered size="small" labelStyle={{ fontWeight: 600, width: 200 }}>
-                {c.termination_reason && (
-                  <Descriptions.Item label="Причина">{c.termination_reason}</Descriptions.Item>
-                )}
-                <Descriptions.Item label="Сумма возврата">
-                  <span style={{ fontWeight: 600, color: '#e74c3c' }}>{formatMoney(c.refund_amount)}</span>
-                </Descriptions.Item>
-                {c.refund_deadline && (
-                  <Descriptions.Item label="Срок возврата">{new Date(c.refund_deadline).toLocaleDateString('ru-RU')}</Descriptions.Item>
-                )}
-                <Descriptions.Item label="Статус возврата">
-                  {c.refund_confirmed
-                    ? <Tag color="green">Деньги возвращены{c.refund_confirmed_by_name ? ` (${c.refund_confirmed_by_name})` : ''}</Tag>
-                    : <Tag color="red">Ожидает возврата</Tag>}
-                </Descriptions.Item>
-              </Descriptions>
-
-              {isManagementForEdit && (
-                <Button
-                  type="dashed"
-                  icon={<EditOutlined />}
-                  onClick={() => {
-                    setEditTermForm({
-                      terminated_at: c.terminated_at ? dayjs(c.terminated_at) : dayjs(),
-                      termination_reason: c.termination_reason || '',
-                      refund_amount: parseFloat(String(c.refund_amount || 0)),
-                      refund_deadline: c.refund_deadline ? dayjs(c.refund_deadline) : null,
-                    });
-                    setEditingTermination(true);
-                  }}
-                >
-                  Редактировать данные расторжения
-                </Button>
-              )}
-            </>
-          )}
-
-          {!c.refund_confirmed && canConfirmRefund && parseFloat(String(c.refund_amount || 0)) > 0 && (
-            <Button type="primary" danger icon={<DollarOutlined />} size="large" block onClick={() => { setRefundConfirmContract(c); setRefundPaymentMethod(null); }}>
-              Деньги возвращены
-            </Button>
-          )}
-
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Сданные акты по договору ({contractActs.length})</div>
-            {contractActsLoading ? <Spin /> : (
-              <Table
-                rowKey="id"
-                dataSource={contractActs}
-                size="small"
-                pagination={false}
-                locale={{ emptyText: <Empty description="Акты не найдены" /> }}
-                columns={[
-                  { title: 'Дата', dataIndex: 'act_date', width: 110, render: (v: string) => v ? new Date(v).toLocaleDateString('ru-RU') : '—' },
-                  { title: 'Сумма', dataIndex: 'amount', width: 120, render: (v: number | string) => formatMoney(v) },
-                  { title: 'Статус', dataIndex: 'status', width: 120, render: (v: string) => v === 'confirmed' ? <Tag color="green">Подтверждён</Tag> : <Tag color="gold">Черновик</Tag> },
-                  { title: 'Описание', dataIndex: 'description', ellipsis: true },
-                ]}
-              />
-            )}
+    if (isAlreadyTerminated) return (
+      <div className="client-card-termination">
+        <div className="client-card-termination__status"><StopOutlined /><div><strong>Договор расторгнут</strong><span>{c.terminated_at ? `Дата: ${formatRuDate(c.terminated_at)}` : 'Дата не указана'}</span></div></div>
+        {editingTermination && isManagementForEdit ? (
+          <div className="client-card-termination__form">
+            <div className="client-card-section-heading"><div><span>Редактирование</span><h3>Данные расторжения</h3></div></div>
+            <div className="client-card-form-grid">
+              <label><span>Дата расторжения</span><DatePicker value={editTermForm.terminated_at} onChange={(d) => setEditTermForm((f) => ({ ...f, terminated_at: d || dayjs() }))} format="DD.MM.YYYY" /></label>
+              <label><span>Сумма возврата</span><InputNumber value={editTermForm.refund_amount} onChange={(v) => setEditTermForm((f) => ({ ...f, refund_amount: v || 0 }))} min={0} controls={false} addonAfter="₽" /></label>
+              <label><span>Срок возврата</span><DatePicker value={editTermForm.refund_deadline} onChange={(d) => setEditTermForm((f) => ({ ...f, refund_deadline: d }))} format="DD.MM.YYYY" placeholder="Выберите дату" /></label>
+              <label className="is-wide"><span>Причина</span><Input.TextArea value={editTermForm.termination_reason} onChange={(e) => setEditTermForm((f) => ({ ...f, termination_reason: e.target.value }))} rows={3} /></label>
+            </div>
+            <div className="client-card-save-row"><Button onClick={() => setEditingTermination(false)}>Отмена</Button><Button type="primary" loading={savingTermination} onClick={handleSaveTerminationData}>Сохранить</Button></div>
           </div>
-        </div>
-      );
-    }
+        ) : (
+          <>
+            <dl className="client-card-facts">
+              <div><dt>Причина</dt><dd>{c.termination_reason || 'Не указана'}</dd></div>
+              <div><dt>Возврат</dt><dd>{formatMoney(c.refund_amount)}</dd></div>
+              <div><dt>Срок возврата</dt><dd>{c.refund_deadline ? formatRuDate(c.refund_deadline) : 'Не задан'}</dd></div>
+              <div><dt>Статус</dt><dd>{c.refund_confirmed ? <Tag color="green">Деньги возвращены</Tag> : <Tag color="red">Ожидает возврата</Tag>}</dd></div>
+            </dl>
+            {isManagementForEdit && <Button className="client-card-edit-button" icon={<EditOutlined />} onClick={() => { setEditTermForm({ terminated_at: c.terminated_at ? dayjs(c.terminated_at) : dayjs(), termination_reason: c.termination_reason || '', refund_amount: parseFloat(String(c.refund_amount || 0)), refund_deadline: c.refund_deadline ? dayjs(c.refund_deadline) : null }); setEditingTermination(true); }}>Изменить данные</Button>}
+          </>
+        )}
+        {!c.refund_confirmed && canConfirmRefund && parseFloat(String(c.refund_amount || 0)) > 0 && <Button type="primary" danger block onClick={() => { setRefundConfirmContract(c); setRefundPaymentMethod(c.payment_method === 'cash' || c.payment_method === 'noncash' || c.payment_method === 'bank' ? c.payment_method : c.payment_method === 'sbp' ? 'bank' : null); }}>Подтвердить возврат денег</Button>}
+        <section className="client-card-acts"><div className="client-card-subheading"><div><strong>Акты по договору</strong><span>{contractActs.length} шт.</span></div></div>{renderContractActsCompact()}</section>
+      </div>
+    );
 
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>Сданные акты по договору ({contractActs.length})</div>
-          {contractActsLoading ? <Spin /> : (
-            <Table
-              rowKey="id"
-              dataSource={contractActs}
-              size="small"
-              pagination={false}
-              locale={{ emptyText: <Empty description="Акты не найдены" /> }}
-              columns={[
-                { title: 'Дата', dataIndex: 'act_date', width: 110, render: (v: string) => v ? new Date(v).toLocaleDateString('ru-RU') : '—' },
-                { title: 'Сумма', dataIndex: 'amount', width: 120, render: (v: number | string) => formatMoney(v) },
-                { title: 'Статус', dataIndex: 'status', width: 120, render: (v: string) => v === 'confirmed' ? <Tag color="green">Подтверждён</Tag> : <Tag color="gold">Черновик</Tag> },
-                { title: 'Описание', dataIndex: 'description', ellipsis: true },
-              ]}
-            />
-          )}
+      <div className="client-card-termination">
+        <div className="client-card-section-heading"><div><span>Завершение договора</span><h3>Расторжение</h3><p>После подтверждения договор перейдёт в отдельный реестр.</p></div></div>
+        <div className="client-card-termination__warning"><ExclamationCircleOutlined /><span>Проверьте сумму и срок возврата. Отменить расторжение после подтверждения нельзя.</span></div>
+        <div className="client-card-form-grid">
+          <label><span>Дата расторжения *</span><DatePicker value={terminateForm.terminated_at} onChange={(d) => setTerminateForm((f) => ({ ...f, terminated_at: d || dayjs() }))} format="DD.MM.YYYY" /></label>
+          <label><span>Сумма возврата</span><InputNumber value={terminateForm.refund_amount} onChange={(v) => setTerminateForm((f) => ({ ...f, refund_amount: v || 0 }))} min={0} controls={false} addonAfter="₽" /></label>
+          <label><span>Срок возврата</span><DatePicker value={terminateForm.refund_deadline} onChange={(d) => setTerminateForm((f) => ({ ...f, refund_deadline: d }))} format="DD.MM.YYYY" placeholder="Выберите дату" /></label>
+          <label className="is-wide"><span>Причина расторжения</span><Input.TextArea value={terminateForm.termination_reason} onChange={(e) => setTerminateForm((f) => ({ ...f, termination_reason: e.target.value }))} rows={3} placeholder="Опишите причину" /></label>
         </div>
-
-        <InfoBlock>
-          <div style={{ fontWeight: 600, marginBottom: 12, fontSize: 15, color: '#e74c3c' }}>
-            <ExclamationCircleOutlined style={{ marginRight: 8 }} />
-            Условия расторжения
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <div style={{ marginBottom: 4, fontWeight: 500 }}>Дата расторжения *</div>
-              <DatePicker
-                value={terminateForm.terminated_at}
-                onChange={(d) => setTerminateForm((f) => ({ ...f, terminated_at: d || dayjs() }))}
-                format="DD.MM.YYYY"
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div>
-              <div style={{ marginBottom: 4, fontWeight: 500 }}>Сумма возврата клиенту</div>
-              <InputNumber
-                value={terminateForm.refund_amount}
-                onChange={(v) => setTerminateForm((f) => ({ ...f, refund_amount: v || 0 }))}
-                min={0}
-                style={{ width: '100%' }}
-                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}
-                addonAfter="₽"
-              />
-            </div>
-            <div>
-              <div style={{ marginBottom: 4, fontWeight: 500 }}>Срок возврата</div>
-              <DatePicker
-                value={terminateForm.refund_deadline}
-                onChange={(d) => setTerminateForm((f) => ({ ...f, refund_deadline: d }))}
-                format="DD.MM.YYYY"
-                style={{ width: '100%' }}
-                placeholder="Выберите дату"
-              />
-            </div>
-            <div>
-              <div style={{ marginBottom: 4, fontWeight: 500 }}>Причина расторжения</div>
-              <Input.TextArea
-                value={terminateForm.termination_reason}
-                onChange={(e) => setTerminateForm((f) => ({ ...f, termination_reason: e.target.value }))}
-                rows={3}
-                placeholder="Укажите причину расторжения (необязательно)"
-              />
-            </div>
-          </div>
-        </InfoBlock>
-
-        <Popconfirm
-          title="Вы уверены, что хотите расторгнуть договор? Это действие нельзя отменить."
-          okText="Расторгнуть"
-          cancelText="Отмена"
-          okButtonProps={{ danger: true }}
-          onConfirm={handleTerminate}
-        >
-          <Button
-            type="primary"
-            danger
-            icon={<StopOutlined />}
-            size="large"
-            block
-            loading={terminating}
-          >
-            Расторгнуть договор
-          </Button>
+        <Popconfirm title="Расторгнуть договор? Это действие нельзя отменить." okText="Расторгнуть" cancelText="Отмена" okButtonProps={{ danger: true }} onConfirm={handleTerminate}>
+          <Button className="client-card-terminate-button" type="primary" danger icon={<StopOutlined />} loading={terminating}>Расторгнуть договор</Button>
         </Popconfirm>
+        <section className="client-card-acts"><div className="client-card-subheading"><div><strong>Акты по договору</strong><span>{contractActs.length} шт.</span></div></div>{renderContractActsCompact()}</section>
       </div>
     );
   };
@@ -2789,170 +2874,92 @@ const Clients: React.FC<ClientsProps> = () => {
   // Build drawer tabs (no memo — fresh on every render to avoid stale state bugs)
   const buildDrawerTabs = () => {
     const tabs: { key: string; label: string; children: React.ReactNode }[] = [
-      { key: 'info', label: 'Информация', children: renderInfoTab() },
+      { key: 'info', label: 'Обзор', children: renderCompactOverview() },
     ];
-    // Дополнить данные — только сотрудник, заключивший договор (не админ)
     const isContractOwner = !!(user?.id && detailContract?.registered_by === user.id);
-    if (detailContract?.needs_lawyer_input && !isAdmin && isContractOwner) {
-      tabs.push({ key: 'supplement', label: '⚠ Дополнить данные', children: renderSupplementTab() });
-    }
-    if (!isAdmin) {
-      tabs.push({ key: 'materials', label: `Материалы (${contractMaterials.length})`, children: renderMaterialsTab() });
-    }
-    if (isDocsType && !isAdmin) {
-      tabs.push({ key: 'docs', label: `Документы (${docsList.length})`, children: renderDocsTab() });
-    }
-    if (!isAdmin && (detailContract?.status === 'terminated' || canTerminate)) {
-      if ((detailContract?.contract_type || 'docs') === 'court_rep') {
-        tabs.push({ key: 'case-actions', label: `Проц. действия (${caseActions.length})`, children: renderCaseActionsTab() });
-      }
-      tabs.push({ key: 'terminate', label: detailContract?.status === 'terminated' ? 'Расторжение' : 'Расторжение', children: renderTerminateTab() });
-    }
+    if (detailContract?.needs_lawyer_input && !isAdmin && isContractOwner) tabs.push({ key: 'supplement', label: 'Дополнить', children: renderSupplementTab() });
+    else if (isDocsType && !isAdmin) tabs.push({ key: 'task', label: 'Задание', children: renderExpertTaskTab() });
+    if (!isDocsType && !isAdmin) tabs.push({ key: 'case', label: 'Дело', children: renderCaseActionsTab() });
+    if (!isAdmin) tabs.push({ key: 'payments', label: 'Оплата', children: renderPaymentsTab() });
+    if (!isAdmin) tabs.push({ key: 'materials', label: `Материалы ${contractMaterials.length}`, children: renderMaterialsTab() });
+    if (isDocsType && !isAdmin) tabs.push({ key: 'docs', label: `Документы ${docsList.length}`, children: renderDocsTab() });
+    if (!isAdmin && (detailContract?.status === 'terminated' || canTerminate)) tabs.push({ key: 'termination', label: 'Расторжение', children: renderTerminateTab() });
     return tabs;
   };
 
   return (
     <Page className="lt-page lt-page-clients">
-      {canTerminate && (
-        <ToolRow className="clients-view-toolbar">
-          <div className="clients-switch-row">
-            <button
-              onClick={() => setView(view === 'contracts' ? 'terminated' : 'contracts')}
-              style={{
-                padding: '8px 16px',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: view === 'terminated' ? '2px solid var(--color-primary)' : '2px solid transparent',
-                color: view === 'terminated' ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                fontWeight: view === 'terminated' ? 600 : 400,
-                fontSize: 14,
-                cursor: 'pointer',
-                transition: 'color 0.15s, border-color 0.15s',
-              }}
-            >
-              {view === 'contracts' ? 'Расторжение договора' : '← К клиентам'}
-            </button>
-          </div>
-        </ToolRow>
-      )}
+      <nav className="clients-main-tabs" aria-label="Разделы договоров">
+        <button
+          type="button"
+          className={view === 'contracts' && dealType === 'docs' ? 'active' : ''}
+          onClick={() => { setView('contracts'); setDealType('docs'); }}
+        >Подготовка документов</button>
+        {user?.role !== 'expert' && (
+          <button
+            type="button"
+            className={view === 'contracts' && dealType === 'court_rep' ? 'active' : ''}
+            onClick={() => { setView('contracts'); setDealType('court_rep'); }}
+          >Представительство в суде</button>
+        )}
+        {canTerminate && (
+          <button
+            type="button"
+            className={view === 'terminated' ? 'active' : ''}
+            onClick={() => setView('terminated')}
+          >Расторжение договора</button>
+        )}
+      </nav>
+
       {view === 'contracts' && (
         <>
-          <ToolRow>
-            <Space size={12} wrap>
-              <div className="clients-switch-row clients-switch-row--types">
-                {([
-                  { label: 'Подготовка документов', value: 'docs' as DealType },
-                  { label: 'Представительство в суде', value: 'court_rep' as DealType },
-                ].filter(t => user?.role !== 'expert' || t.value === 'docs')).map((tab) => (
-                  <button
-                    key={tab.value}
-                    onClick={() => setDealType(tab.value)}
-                    style={{
-                      padding: '8px 16px',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: dealType === tab.value ? '2px solid var(--color-primary)' : '2px solid transparent',
-                      color: dealType === tab.value ? 'var(--color-text)' : 'var(--color-text-secondary)',
-                      fontWeight: dealType === tab.value ? 600 : 400,
-                      fontSize: 14,
-                      cursor: 'pointer',
-                      transition: 'color 0.15s, border-color 0.15s',
-                    }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+          <div className="clients-control-row">
+            <div className="clients-date-nav">
+              <button type="button" onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.subtract(1, 'day')); }} title="Предыдущий день"><LeftOutlined /></button>
+              <button
+                type="button"
+                className="clients-date-current"
+                onClick={() => {
+                  if (dateFilterEnabled && selectedDate.format('YYYY-MM-DD') === todayStr) setDateFilterEnabled(false);
+                  else { setDateFilterEnabled(true); setSelectedDate(dayjs()); }
+                }}
+                title={dateFilterEnabled ? 'Вернуться к сегодня или показать все даты' : 'Включить фильтр по дате'}
+              >
+                {!dateFilterEnabled ? 'Все даты' : selectedDate.format('YYYY-MM-DD') === todayStr ? `Сегодня, ${selectedDate.format('D MMM')}` : selectedDate.format('D MMMM, dd')}
+              </button>
+              <button type="button" onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.add(1, 'day')); }} title="Следующий день"><RightOutlined /></button>
+              <div className="clients-calendar-trigger">
+                <button type="button" onClick={() => setCalOpen((v) => !v)} title="Выбрать дату"><CalendarOutlined /></button>
+                <DatePicker
+                  value={selectedDate}
+                  onChange={(d) => { if (d) { setDateFilterEnabled(true); setSelectedDate(d); setCalOpen(false); } }}
+                  open={calOpen}
+                  onOpenChange={setCalOpen}
+                  allowClear={false}
+                  style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
+                />
               </div>
-              <div className="clients-date-nav" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button
-                  onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.subtract(1, 'day')); }}
-                  title="Предыдущий день"
-                  style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-elevated)',
-                    cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-text-secondary)', fontSize: 12,
-                    flexShrink: 0,
-                  }}
-                ><LeftOutlined /></button>
-                <span
-                  onClick={() => {
-                    if (dateFilterEnabled && selectedDate.format('YYYY-MM-DD') === todayStr) {
-                      setDateFilterEnabled(false);
-                    } else {
-                      setDateFilterEnabled(true);
-                      setSelectedDate(dayjs());
-                    }
-                  }}
-                  title={dateFilterEnabled ? 'Нажмите, чтобы вернуться к «сегодня» или выключить фильтр' : 'Включить фильтр по дате'}
-                  style={{
-                    padding: '5px 14px', fontSize: 14, fontWeight: 600,
-                    color: 'var(--color-text)',
-                    cursor: 'pointer', borderRadius: 8,
-                    whiteSpace: 'nowrap', userSelect: 'none',
-                    background: dateFilterEnabled ? 'var(--color-bg-alt)' : 'transparent',
-                  }}
-                >
-                  {!dateFilterEnabled
-                    ? 'Все даты'
-                    : selectedDate.format('YYYY-MM-DD') === todayStr
-                      ? `Сегодня, ${selectedDate.format('D MMM')}`
-                      : selectedDate.format('D MMMM, dd')}
-                </span>
-                <button
-                  onClick={() => { setDateFilterEnabled(true); setSelectedDate((d) => d.add(1, 'day')); }}
-                  title="Следующий день"
-                  style={{
-                    width: 40, height: 40, borderRadius: 8,
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-elevated)',
-                    cursor: 'pointer', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--color-text-secondary)', fontSize: 12,
-                    flexShrink: 0,
-                  }}
-                ><RightOutlined /></button>
-                <div style={{ position: 'relative', display: 'inline-block' }}>
-                  <button
-                    onClick={() => setCalOpen((v) => !v)}
-                    title="Выбрать дату"
-                    style={{
-                      width: 40, height: 40, borderRadius: 8,
-                      border: '1px solid var(--color-border)',
-                      background: 'var(--color-bg-elevated)',
-                      cursor: 'pointer', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
-                      color: '#3B82F6', fontSize: 14,
-                      flexShrink: 0, marginLeft: 4,
-                    }}
-                  ><CalendarOutlined /></button>
-                  <DatePicker
-                    value={selectedDate}
-                    onChange={(d) => { if (d) { setDateFilterEnabled(true); setSelectedDate(d); setCalOpen(false); } }}
-                    open={calOpen}
-                    onOpenChange={setCalOpen}
-                    allowClear={false}
-                    style={{ position: 'absolute', left: 0, top: 0, width: 0, height: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none' }}
-                  />
-                </div>
-              </div>
-              <Input
-                className="clients-search-input ui-search-control"
-                allowClear
-                prefix={<SearchOutlined style={{ color: '#9CA3AF' }} />}
-                placeholder="Поиск по ФИО, номеру договора или телефону"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                style={{ borderRadius: 8 }}
-              />
-            </Space>
-          </ToolRow>
+            </div>
+            <Select<PaymentFilter>
+              value={paymentFilter}
+              onChange={setPaymentFilter}
+              aria-label="Контроль доплат"
+              style={{ minWidth: 185 }}
+              options={[
+                { value: 'all', label: 'Все договоры' },
+                { value: 'upcoming', label: 'Доплаты впереди' },
+                { value: 'overdue', label: 'Просроченные доплаты' },
+              ]}
+            />
+            <Input
+              className="clients-search-input ui-search-control"
+              allowClear
+              prefix={<SearchOutlined style={{ color: '#9CA3AF' }} />}
+              placeholder="Поиск по ФИО, номеру договора или телефону"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+          </div>
 
           {isMobile ? (
             <div className="mobile-card-list">
@@ -2980,6 +2987,14 @@ const Clients: React.FC<ClientsProps> = () => {
                     <span className="mc-label">Сумма</span>
                     <span>{Number(row.contract.amount || 0).toLocaleString('ru-RU')} ₽</span>
                   </div>
+                  {Number(row.contract.amount || 0) > Number(row.contract.paid_amount || 0) && row.contract.additional_payment_date && (
+                    <div className="mc-row">
+                      <span className="mc-label">Доплата</span>
+                      <Tag color={dayjs(row.contract.additional_payment_date).startOf('day').isBefore(dayjs().startOf('day')) ? 'red' : 'gold'} style={{ margin: 0 }}>
+                        {dayjs(row.contract.additional_payment_date).startOf('day').isBefore(dayjs().startOf('day')) ? 'Просрочена' : dayjs(row.contract.additional_payment_date).format('DD.MM.YYYY')}
+                      </Tag>
+                    </div>
+                  )}
                   <div className="mc-row">
                     <span className="mc-label">Статус</span>
                     <Tag color={STATUS_COLORS[row.contract.status as keyof typeof STATUS_COLORS] || 'default'} style={{ margin: 0 }}>
@@ -2996,21 +3011,6 @@ const Clients: React.FC<ClientsProps> = () => {
             </div>
           ) : (
             <TableCard>
-              {!isAdmin && dealType === 'docs' && (() => {
-                const withDl = filtered.filter((r) => r.contract.expert_deadline);
-                let ontime = 0, today = 0, overdue = 0;
-                withDl.forEach((r) => { const i = getDeadlineInfo(r.contract.expert_deadline); if (!i) return; if (i.key === 'red') overdue++; else if (i.key === 'orange') today++; else ontime++; });
-                const chip = (bg: string, color: string, text: string) => (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 8, background: bg, color, fontSize: 13, fontWeight: 600 }}>{text}</div>
-                );
-                return (
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-                    {chip('#f0fdf4', '#16a34a', `🟢 В срок — ${ontime}`)}
-                    {chip('#fff7ed', '#ea580c', `🟠 Сегодня дедлайн — ${today}`)}
-                    {chip('#fef2f2', '#dc2626', `🔴 Просрочено — ${overdue}`)}
-                  </div>
-                );
-              })()}
               <Table<ContractRow>
                 className="lt-clients-register-table"
                 rowKey="key"
@@ -3019,9 +3019,15 @@ const Clients: React.FC<ClientsProps> = () => {
                 tableLayout="fixed"
                 showSorterTooltip={false}
                 rowClassName={(r) => {
-                  if (isAdmin) return '';
-                  const i = getDeadlineInfo(r.contract.expert_deadline);
-                  return i ? `deadline-row deadline-${i.key}` : '';
+                  const classes: string[] = [];
+                  const c = r.contract;
+                  const paymentDue = c.additional_payment_date ? dayjs(c.additional_payment_date).startOf('day') : null;
+                  if (Number(c.amount || 0) > Number(c.paid_amount || 0) && paymentDue?.isValid() && paymentDue.isBefore(dayjs().startOf('day'))) classes.push('payment-overdue-row');
+                  if (!isAdmin) {
+                    const i = getDeadlineInfo(c.expert_deadline);
+                    if (i) classes.push(`deadline-row deadline-${i.key}`);
+                  }
+                  return classes.join(' ');
                 }}
                 loading={loading}
                 pagination={{ pageSize: 10, showSizeChanger: true, showTotal: (t) => `Всего: ${t}`, className: 'clients-unified-pagination' }}
@@ -3119,7 +3125,7 @@ const Clients: React.FC<ClientsProps> = () => {
                   if (parseFloat(String(r.refund_amount || 0)) > 0) {
                     if (canConfirmRefund) {
                       return (
-                        <Button type="primary" danger size="small" icon={<DollarOutlined />} onClick={(e) => { e.stopPropagation(); setRefundConfirmContract(r); setRefundPaymentMethod(null); }}>
+                        <Button type="primary" danger size="small" icon={<DollarOutlined />} onClick={(e) => { e.stopPropagation(); setRefundConfirmContract(r); setRefundPaymentMethod(r.payment_method === 'cash' || r.payment_method === 'noncash' || r.payment_method === 'bank' ? r.payment_method : r.payment_method === 'sbp' ? 'bank' : null); }}>
                           Деньги возвращены
                         </Button>
                       );
@@ -3136,10 +3142,11 @@ const Clients: React.FC<ClientsProps> = () => {
 
       {/* Detail drawer */}
       <Drawer
-        title="Карточка договора"
+        className="client-card-drawer"
+        title={detailContract ? <div className="client-card-drawer-title"><div><strong>{detailClient?.name || detailContract.client_name || 'Карточка клиента'}</strong><span>{contractNumber(detailContract.id, detailContract.contract_number)} · {isDocsType ? 'Подготовка документов' : 'Представительство в суде'}</span></div><span className="client-card-header-status">В работе</span></div> : 'Карточка клиента'}
         open={detailOpen}
         onClose={closeDetail}
-        width={isMobile ? '100vw' : Math.min(720, window.innerWidth - 40)}
+        width={isMobile ? '100vw' : Math.min(800, window.innerWidth - 24)}
         destroyOnClose
       >
         <Tabs

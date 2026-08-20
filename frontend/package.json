@@ -14,11 +14,11 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@ant-design/icons": "*",
+    "@ant-design/icons": "6.3.2",
     "@emotion/react": "*",
     "@emotion/styled": "*",
     "@tanstack/react-query": "^5.100.10",
-    "antd": "*",
+    "antd": "6.6.1",
     "axios": "*",
     "chart.js": "*",
     "lucide-react": "*",

@@ -859,7 +859,9 @@
 
 .tg-messages {
   background: var(--chat-canvas) !important;
-  scroll-behavior: smooth;
+  /* Opening a chat must jump to the latest message before paint. Smooth
+     scrolling here animated every programmatic initial scroll from the top. */
+  scroll-behavior: auto !important;
 }
 .tg-message-row { animation: chatMessageIn 180ms var(--chat-ease); }
 .tg-message-bubble {
@@ -1002,4 +1004,3 @@
 
 
 @media(max-width:700px){.tg-icon-btn,.tg-attach-btn,.tg-send-btn,.tg-sidebar-icon-btn{min-width:44px!important;min-height:44px!important}}
-

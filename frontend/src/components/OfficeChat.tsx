@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Spin, Modal, Input, Select, Button, App as AntApp } from 'antd';
 import { useAuth } from '../shared/lib/hooks/useAuth';
 import { officeAPI } from '../shared/api/office';
@@ -70,6 +70,7 @@ const OfficeChat: React.FC = () => {
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [candidates, setCandidates] = useState<ChatCandidate[]>([]);
   const [memberToAdd, setMemberToAdd] = useState<number | undefined>();
+  const [memberSearch, setMemberSearch] = useState('');
   const [savingChat, setSavingChat] = useState(false);
   const [activeChannel, setActiveChannel] = useState<ChatChannel>('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
@@ -86,6 +87,13 @@ const OfficeChat: React.FC = () => {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMsgCountRef = useRef(0);
   const lastChannelRef = useRef<string>('');
+  const selectedOfficeRef = useRef<string | null>(null);
+  const activeChannelRef = useRef<ChatChannel>('');
+  const channelsRequestRef = useRef(0);
+  const messagesRequestRef = useRef(0);
+
+  selectedOfficeRef.current = selectedOfficeId;
+  activeChannelRef.current = activeChannel;
 
   const formatMsgTime = (createdAt?: string, fallback?: string): string => {
     if (!createdAt) return fallback || '';
@@ -103,29 +111,57 @@ const OfficeChat: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const channelChanged = lastChannelRef.current !== String(activeChannel);
+  useLayoutEffect(() => {
+    const channelKey = `${selectedOfficeId || ''}_${activeChannel || ''}`;
+    const channelChanged = lastChannelRef.current !== channelKey;
     const wasEmpty = prevMsgCountRef.current === 0;
-    if (channelChanged || wasEmpty) {
-      // При загрузке / смене канала — сразу к последним сообщениям, без анимации
-      scrollToBottom(false);
+    if (messages.length > 0 && (channelChanged || wasEmpty)) {
+      // До первого отображения канала ставим прокрутку сразу на свежие сообщения.
+      const container = msgContainerRef.current;
+      if (container) container.scrollTop = container.scrollHeight;
     } else if (messages.length > prevMsgCountRef.current) {
       scrollToBottom(true);
     }
     prevMsgCountRef.current = messages.length;
-    lastChannelRef.current = String(activeChannel);
-  }, [messages, activeChannel, scrollToBottom]);
+    lastChannelRef.current = channelKey;
+  }, [messages, selectedOfficeId, activeChannel, scrollToBottom]);
 
   const loadChannels = useCallback(async (preferred?: string) => {
-    if (!selectedOfficeId) return;
+    const officeId = selectedOfficeId;
+    if (!officeId) return;
+    const requestId = ++channelsRequestRef.current;
     try {
-      const result = await receptionAPI.getChannels(selectedOfficeId);
+      const result = await receptionAPI.getChannels(officeId);
+      if (requestId !== channelsRequestRef.current || selectedOfficeRef.current !== officeId) return;
       setChannels(result.channels);
       setCanManageChat(result.canManage);
-      const next = preferred || activeChannel;
-      if (result.channels.some(ch => ch.key === next)) setActiveChannel(next);
-      else if (result.channels.length) setActiveChannel(result.channels[0].key);
-      else {
+      setLastMessages(prev => {
+        const hydrated = { ...prev };
+        result.channels.forEach(ch => {
+          const cacheKey = `${officeId}_${ch.key}`;
+          if (ch.lastMessageId) {
+            hydrated[cacheKey] = {
+              sender: ch.lastSender?.split(' ')[0] || '',
+              text: ch.lastText || '',
+              time: '',
+              createdAt: ch.lastCreatedAt || undefined,
+            };
+          } else {
+            delete hydrated[cacheKey];
+          }
+        });
+        return hydrated;
+      });
+      const currentChannel = activeChannelRef.current;
+      const requestedChannel = preferred || currentChannel;
+      const nextChannel = result.channels.some(ch => ch.key === requestedChannel)
+        ? requestedChannel
+        : result.channels[0]?.key || '';
+      if (nextChannel !== currentChannel) {
+        messagesRequestRef.current += 1;
+        setActiveChannel(nextChannel);
+      }
+      if (!nextChannel) {
         setActiveChannel('');
         setMessages([]);
         setMessagesError('');
@@ -133,16 +169,29 @@ const OfficeChat: React.FC = () => {
         setLoadingMsgs(false);
       }
     } catch {
-      setChannels([]);
-      setActiveChannel('');
-      setMessages([]);
-      setMessagesError('');
-      setLoadingMsgs(false);
-      setCanManageChat(false);
+      // Кратковременный сетевой сбой не должен скрывать уже доступные пользователю чаты.
+      // Следующий фоновый запрос обновит список после восстановления соединения.
     }
-  }, [selectedOfficeId, activeChannel]);
+  }, [selectedOfficeId]);
 
-  useEffect(() => { if (selectedOfficeId) loadChannels(); }, [selectedOfficeId]);
+  useEffect(() => {
+    channelsRequestRef.current += 1;
+    messagesRequestRef.current += 1;
+    setChannels([]);
+    setActiveChannel('');
+    setMessages([]);
+    setParticipants([]);
+    setHasMoreMessages(false);
+    setMessagesError('');
+    setParticipantsError('');
+    if (!selectedOfficeId) return;
+    loadChannels();
+    const channelPoll = setInterval(() => loadChannels(), 15000);
+    return () => {
+      clearInterval(channelPoll);
+      channelsRequestRef.current += 1;
+    };
+  }, [selectedOfficeId, loadChannels]);
 
   // Fetch offices
   useEffect(() => {
@@ -166,9 +215,13 @@ const OfficeChat: React.FC = () => {
 
   // Fetch messages
   const fetchMessages = useCallback(async () => {
-    if (!selectedOfficeId || !activeChannel) return;
+    const officeId = selectedOfficeId;
+    const channel = activeChannel;
+    if (!officeId || !channel) return;
+    const requestId = ++messagesRequestRef.current;
     try {
-      const page=await receptionAPI.getMessages(selectedOfficeId,activeChannel);
+      const page=await receptionAPI.getMessages(officeId,channel);
+      if (requestId !== messagesRequestRef.current || selectedOfficeRef.current !== officeId || activeChannelRef.current !== channel) return;
       const arr=page.messages;
       setMessages(prev => {
         const older=prev.filter(old=>!arr.some(fresh=>fresh.id===old.id));
@@ -181,7 +234,7 @@ const OfficeChat: React.FC = () => {
         const last = arr[arr.length - 1];
         setLastMessages(prev => ({
           ...prev,
-          [`${selectedOfficeId}_${activeChannel}`]: {
+          [`${officeId}_${channel}`]: {
             sender: last.sender?.split(' ')[0] || '',
             text: last.text || last.fileName || '',
             time: last.timestamp || '',
@@ -189,24 +242,32 @@ const OfficeChat: React.FC = () => {
           }
         }));
       }
-    } catch { setMessagesError('Не удалось загрузить сообщения'); setLoadingMsgs(false); }
+    } catch {
+      if (requestId !== messagesRequestRef.current || selectedOfficeRef.current !== officeId || activeChannelRef.current !== channel) return;
+      setMessagesError('Не удалось загрузить сообщения'); setLoadingMsgs(false);
+    }
   }, [selectedOfficeId, activeChannel]);
 
   // Fetch unread counts
   const fetchUnread = useCallback(async () => {
-    if (!selectedOfficeId) return;
+    const officeId = selectedOfficeId;
+    if (!officeId) return;
     try {
-      const counts = await receptionAPI.getUnreadCounts(selectedOfficeId);
+      const counts = await receptionAPI.getUnreadCounts(officeId);
+      if (selectedOfficeRef.current !== officeId) return;
       setUnreadCounts(counts);
     } catch { /* skip */ }
   }, [selectedOfficeId]);
 
   // Fetch participants
   const fetchParticipants = useCallback(async () => {
-    if (!selectedOfficeId) return;
+    const officeId = selectedOfficeId;
+    const channel = activeChannel;
+    if (!officeId) return;
     try {
-      if (!activeChannel) { setParticipants([]); return; }
-      const result = await receptionAPI.getParticipants(selectedOfficeId, activeChannel);
+      if (!channel) { setParticipants([]); return; }
+      const result = await receptionAPI.getParticipants(officeId, channel);
+      if (selectedOfficeRef.current !== officeId || activeChannelRef.current !== channel) return;
       setParticipants(result.participants);
       setCanManageChat(result.canManage); setParticipantsError('');
     } catch { setParticipantsError('Не удалось загрузить участников'); }
@@ -326,7 +387,7 @@ const OfficeChat: React.FC = () => {
   };
 
   const openManageMembers = async () => {
-    setManageOpen(true); setMemberToAdd(undefined); await loadCandidates();
+    setManageOpen(true); setMemberToAdd(undefined); setMemberSearch(''); await loadCandidates();
   };
 
   const addMember = async () => {
@@ -334,7 +395,7 @@ const OfficeChat: React.FC = () => {
     setSavingChat(true);
     try {
       await receptionAPI.addMember(selectedOfficeId, activeChannel, memberToAdd);
-      setMemberToAdd(undefined); await Promise.all([fetchParticipants(), loadCandidates(), loadChannels(activeChannel)]);
+      setMemberToAdd(undefined); setMemberSearch(''); await Promise.all([fetchParticipants(), loadCandidates(), loadChannels(activeChannel)]);
       message.success('Участник добавлен');
     } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось добавить участника'); }
     finally { setSavingChat(false); }
@@ -373,6 +434,8 @@ const OfficeChat: React.FC = () => {
   }, {} as Record<string, { label: string; value: number; disabled?: boolean }[]>)).map(([label, options]) => ({ label, options }));
 
   const switchChannel = (ch: ChatChannel) => {
+    if (ch === activeChannelRef.current) return;
+    messagesRequestRef.current += 1;
     setActiveChannel(ch);
     setMessages([]); setHasMoreMessages(false); setMessagesError('');
     setLoadingMsgs(true);
@@ -547,13 +610,13 @@ const OfficeChat: React.FC = () => {
             </div>
             <div className="tg-header-info">
               <div className="tg-header-title">{activeChannelLabel}</div>
-              <button className="tg-header-members" onClick={() => { setShowParticipants(!showParticipants); if (!showParticipants) fetchParticipants(); }}>
+              <button className="tg-header-members" aria-label="Участники чата" title="Участники чата" onClick={() => { setShowParticipants(!showParticipants); if (!showParticipants) fetchParticipants(); }}>
                 {participants.length} участников
               </button>
             </div>
           </div>
           <div className="tg-header-actions">
-            <button className="tg-icon-btn" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); setSearchResults([]); }}>
+            <button className="tg-icon-btn" aria-label="Поиск по сообщениям" title="Поиск по сообщениям" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(''); setSearchResults([]); }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
             </button>
             {canManageChat && activeChannel && (
@@ -575,7 +638,7 @@ const OfficeChat: React.FC = () => {
               autoFocus
             />
             {searching && <Spin size="small" />}
-            <button className="tg-search-close" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }}>
+            <button className="tg-search-close" aria-label="Закрыть поиск" title="Закрыть поиск" onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]); }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
             </button>
           </div>
@@ -619,7 +682,7 @@ const OfficeChat: React.FC = () => {
             <div className="tg-participants-panel">
               <div className="tg-participants-header">
                 <span>Участники чата</span>
-                <button className="tg-participants-close" onClick={() => setShowParticipants(false)}>
+                <button className="tg-participants-close" aria-label="Закрыть участников" title="Закрыть участников" onClick={() => setShowParticipants(false)}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -657,7 +720,7 @@ const OfficeChat: React.FC = () => {
 
         {/* Input */}
         <div className="tg-input-area">
-          <button className="tg-attach-btn" onClick={() => fileInputRef.current?.click()}>
+          <button className="tg-attach-btn" aria-label="Прикрепить файл" title="Прикрепить файл" onClick={() => fileInputRef.current?.click()}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.8"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
           </button>
           <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileSelect} />
@@ -671,7 +734,7 @@ const OfficeChat: React.FC = () => {
             rows={1}
             disabled={sending || !activeChannel}
           />
-          <button className="tg-send-btn" onClick={() => handleSend()} disabled={!activeChannel || !newMessage.trim() || sending}>
+          <button className="tg-send-btn" aria-label="Отправить сообщение" title="Отправить сообщение" onClick={() => handleSend()} disabled={!activeChannel || !newMessage.trim() || sending}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -700,14 +763,25 @@ const OfficeChat: React.FC = () => {
               </div>
             </div>
             <div className="tg-add-member-row">
-              <Select showSearch optionFilterProp="label" placeholder="Добавить сотрудника" value={memberToAdd} onChange={setMemberToAdd} options={candidateOptions} />
+              <Select
+                className="lt-visible-search-select"
+                showSearch
+                optionFilterProp="label"
+                placeholder="Добавить сотрудника"
+                value={memberToAdd}
+                searchValue={memberSearch}
+                onSearch={setMemberSearch}
+                onOpenChange={(open) => { if (!open) setMemberSearch(''); }}
+                onChange={(value) => { setMemberToAdd(value); setMemberSearch(''); }}
+                options={candidateOptions}
+              />
               <Button type="primary" disabled={!memberToAdd} loading={savingChat} onClick={addMember}>Добавить</Button>
             </div>
             <div className="tg-manage-list">
               {participants.map(p => <div className="tg-manage-person" key={p.id}>
                 <div className="tg-participant-avatar" style={{ background: ROLE_COLORS[p.role] || '#6B7280' }}>{p.name[0]?.toUpperCase()}</div>
                 <div><strong>{p.name}</strong><span>{ROLE_LABELS[p.role] || p.role}{p.callCenterName ? ` · ${p.callCenterName}` : ''}</span></div>
-                <button className="tg-member-remove" title="Удалить из чата" onClick={() => removeMember(p.id)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+                <button className="tg-member-remove" title="Удалить из чата" aria-label="Удалить из чата" onClick={() => removeMember(p.id)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
               </div>)}
             </div>
           </div>

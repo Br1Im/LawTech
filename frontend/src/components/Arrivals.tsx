@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import styled from '@emotion/styled';
-import { Table, Select, Button, Space, App, Input, Tabs, DatePicker, TimePicker, Modal } from 'antd';
+import { Table, Select, Button, Space, App, Input, Tabs, DatePicker, TimePicker, Modal, Alert } from 'antd';
 import { TableSkeleton, EmptyState } from './ui';
 import type { ColumnsType } from 'antd/es/table';
 import ConsultationAnalysisModal from './ConsultationAnalysisModal';
-import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled, LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, CheckCircleFilled, CloseCircleFilled, LeftOutlined, RightOutlined, CalendarOutlined, FileDoneOutlined, FileSearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { apiInstance } from '../shared/api/instance';
@@ -156,6 +156,7 @@ interface VisitsStats {
 }
 
 interface Employee { id: number; name: string; role: string; }
+interface AppointmentSource { id: number; name: string; is_active: number | boolean; }
 
 /* ─── helpers ─── */
 
@@ -177,7 +178,7 @@ const fmtArrivedTime = (arrivedAt: string | null, scheduled: string) => {
   return fmtTime(scheduled);
 };
 // День из даты/датавремени в формате YYYY-MM-DD (как в «Записях»).
-const toDayKey = (d: string) => { try { return new Date(d).toISOString().slice(0, 10); } catch { return (d || '').slice(0, 10); } };
+const toDayKey = (d: string) => { const x = String(d || ''); const m = x.match(/^([0-9]{4}-[0-9]{2}-[0-9]{2})/); return m ? m[1] : (dayjs(d).isValid() ? dayjs(d).format('YYYY-MM-DD') : ''); };
 const getInitials = (name: string) => name
   .trim()
   .split(/\s+/)
@@ -203,7 +204,9 @@ const Arrivals: React.FC = () => {
   const [existingVisits, setExistingVisits] = useState<ExistingVisit[]>([]);
   const [stats, setStats] = useState<VisitsStats | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [sources, setSources] = useState<AppointmentSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState('');
@@ -213,22 +216,25 @@ const Arrivals: React.FC = () => {
 
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerAppointment, setRegisterAppointment] = useState<PrimaryVisit | null>(null);
+  const [resultUpdatingId, setResultUpdatingId] = useState<number | null>(null);
   // Новый первичный приход (новый клиент) — тот же функционал, что и "Новая запись"
   const [newPrimaryModal, setNewPrimaryModal] = useState(false);
   const [creatingPrimary, setCreatingPrimary] = useState(false);
-  const [newPrimary, setNewPrimary] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null as number | null });
+  const [newPrimary, setNewPrimary] = useState({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source_id: null as number | null, assigned_lawyer_ids: [] as number[] });
+  const selectedDayKey = selectedDate.format('YYYY-MM-DD');
 
-  const fetchPrimary = useCallback(async () => { try { const r = await apiInstance.get('/visits/primary'); setPrimaryVisits(r.data?.data || []); } catch {} }, []);
-  const fetchExisting = useCallback(async () => { try { const r = await apiInstance.get('/visits/existing'); setExistingVisits(r.data?.data || []); } catch {} }, []);
-  const fetchStats = useCallback(async () => { try { const r = await apiInstance.get('/visits/stats'); setStats(r.data?.data || null); } catch {} }, []);
-  const fetchEmployees = useCallback(async () => { try { const r = await apiInstance.get('/visits/employees'); setEmployees(r.data?.data || []); } catch {} }, []);
+  const fetchPrimary = useCallback(async () => { try { const r = await apiInstance.get('/visits/primary', { params: { date: selectedDayKey } }); setPrimaryVisits(r.data?.data || []); setLoadError(null); } catch { setLoadError('Не удалось загрузить приходы. Проверьте соединение и обновите страницу.'); } }, [selectedDayKey]);
+  const fetchExisting = useCallback(async () => { try { const r = await apiInstance.get('/visits/existing'); setExistingVisits(r.data?.data || []); setLoadError(null); } catch { setLoadError('Не удалось загрузить действующих клиентов.'); } }, []);
+  const fetchStats = useCallback(async () => { try { const r = await apiInstance.get('/visits/stats', { params: { date: selectedDayKey } }); setStats(r.data?.data || null); } catch { setLoadError('Не удалось загрузить статистику приходов.'); } }, [selectedDayKey]);
+  const fetchEmployees = useCallback(async () => { try { const r = await apiInstance.get('/visits/employees'); setEmployees(r.data?.data || []); } catch { setLoadError('Не удалось загрузить список сотрудников.'); } }, []);
+  const fetchSources = useCallback(async () => { try { const r = await apiInstance.get('/appointment-sources'); setSources((r.data?.data || []).filter((x: AppointmentSource) => Boolean(x.is_active))); } catch { setLoadError('Не удалось загрузить список источников.'); } }, []);
 
   const initialLoadRef = React.useRef(true);
   const reload = useCallback(async () => {
     if (initialLoadRef.current) setLoading(true);
-    await Promise.all([fetchPrimary(), fetchExisting(), fetchStats(), fetchEmployees()]);
+    await Promise.all([fetchPrimary(), fetchExisting(), fetchStats(), fetchEmployees(), fetchSources()]);
     if (initialLoadRef.current) { setLoading(false); initialLoadRef.current = false; }
-  }, [fetchPrimary, fetchExisting, fetchStats, fetchEmployees]);
+  }, [fetchPrimary, fetchExisting, fetchStats, fetchEmployees, fetchSources]);
 
   useEffect(() => {
     reload();
@@ -236,15 +242,27 @@ const Arrivals: React.FC = () => {
     return () => clearInterval(iv);
   }, [reload, fetchPrimary, fetchExisting, fetchStats]);
 
-  const handleSetResult = async (id: number, result: 'contract_signed' | 'not_signed') => {
-    try {
-      await apiInstance.patch(`/appointments/${id}/consultation-result`, { consultation_result: result });
-      message.success(result === 'contract_signed' ? 'Договор заключён' : 'Не заключён');
-      fetchPrimary(); fetchStats();
-    } catch { message.error('Не удалось обновить результат'); }
+  const handleSetResult = (row: PrimaryVisit, result: 'contract_signed' | 'not_signed') => {
+    if (resultUpdatingId !== null || row.consultation_result === result) return;
+    if (result === 'not_signed' && (row.linked_contracts || []).length > 0) { message.error('Нельзя отметить «Не заключён»: к консультации уже привязан договор.'); return; }
+    Modal.confirm({
+      title: result === 'contract_signed' ? 'Подтвердить результат консультации' : 'Подтвердите, что договор не заключён', content: row.client_name,
+      okText: 'Подтвердить', cancelText: 'Отмена', okButtonProps: result === 'not_signed' ? { danger: true } : undefined,
+      async onOk() {
+        setResultUpdatingId(row.id);
+        try {
+          await apiInstance.patch(`/appointments/${row.id}/consultation-result`, { consultation_result: result });
+          message.success(result === 'contract_signed' ? 'Договор заключён' : 'Договор не заключён');
+          await Promise.all([fetchPrimary(), fetchStats()]);
+          if (result === 'contract_signed' && isAdmin && !(row.linked_contracts || []).length) { setRegisterAppointment({ ...row, consultation_result: 'contract_signed' }); setRegisterOpen(true); }
+        } catch (e: any) { message.error(e?.response?.data?.message || 'Не удалось сохранить результат'); throw e; }
+        finally { setResultUpdatingId(null); }
+      },
+    });
   };
 
   const handleAssignLawyers = async (id: number, lawyerIds: number[]) => {
+    if (!canAssignLawyer) { message.error('Назначение юристов доступно только руководству'); return; }
     try {
       await apiInstance.patch(`/appointments/${id}/assign-lawyer`, {
         assigned_lawyer_id: lawyerIds[0] ?? null,
@@ -271,7 +289,6 @@ const Arrivals: React.FC = () => {
 
   /* ─── разграничение по дням (как во вкладке «Записи») ─── */
   const todayStr = dayjs().format('YYYY-MM-DD');
-  const selectedDayKey = selectedDate.format('YYYY-MM-DD');
   const handleCreatePrimary = async () => {
     if (!newPrimary.client_name.trim()) { message.warning('Укажите ФИО клиента'); return; }
     setCreatingPrimary(true);
@@ -282,12 +299,14 @@ const Arrivals: React.FC = () => {
         appointment_date: newPrimary.date.format('YYYY-MM-DD'),
         appointment_time: newPrimary.time.format('HH:mm'),
         comment: newPrimary.comment || null,
-        source: newPrimary.source || null,
-        assigned_lawyer_id: newPrimary.assigned_lawyer_id,
+        source_id: newPrimary.source_id,
+        assigned_lawyer_id: canAssignLawyer ? (newPrimary.assigned_lawyer_ids[0] ?? null) : null,
+        assigned_lawyer_id_2: canAssignLawyer ? (newPrimary.assigned_lawyer_ids[1] ?? null) : null,
+        mark_arrived: true,
       });
       message.success('Приход добавлен');
       setNewPrimaryModal(false);
-      setNewPrimary({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source: '', assigned_lawyer_id: null });
+      setNewPrimary({ client_name: '', client_phone: '', date: dayjs(), time: dayjs().hour(10).minute(0), comment: '', source_id: null as number | null, assigned_lawyer_ids: [] });
       fetchPrimary();
       fetchStats();
     } catch (e: any) {
@@ -360,11 +379,11 @@ const Arrivals: React.FC = () => {
               style={{ width: '100%' }}
               placeholder="Не назначен"
               allowClear
-              maxTagCount="responsive"
+              maxTagCount={1}
               value={assignedItems}
               onChange={(items: { value: number; label: string }[]) => {
                 // не более 2 юристов одновременно
-                const next = items.map(i => i.value).slice(-2);
+                const selected = items.map(i => i.value); if (selected.length > 2) { message.warning('Можно назначить не более двух юристов'); return; } const next = selected;
                 handleAssignLawyers(row.id, next);
               }}
               options={employees.map(e => ({ value: e.id, label: e.name }))}
@@ -389,7 +408,7 @@ const Arrivals: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'color 0.2s, transform 0.15s',
                 }}
-                onClick={() => handleSetResult(row.id, 'contract_signed')}
+                onClick={() => handleSetResult(row, 'contract_signed')}
                 title="Договор заключён"
               />
               <CloseCircleFilled
@@ -399,7 +418,7 @@ const Arrivals: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'color 0.2s, transform 0.15s',
                 }}
-                onClick={() => handleSetResult(row.id, 'not_signed')}
+                onClick={() => handleSetResult(row, 'not_signed')}
                 title="Договор не заключён"
               />
             </Space>
@@ -474,62 +493,46 @@ const Arrivals: React.FC = () => {
 
     if (canAssignLawyer) {
       return (
-        <Select
-          size="small"
-          mode="multiple"
-          labelInValue
-          optionFilterProp="label"
-          className="arrival-employee-select"
-          placeholder="Не назначен"
-          allowClear
-          maxTagCount="responsive"
-          value={assignedItems}
-          onChange={(items: { value: number; label: string }[]) => {
-            handleAssignLawyers(row.id, items.map(item => item.value).slice(-2));
-          }}
-          options={employees.map(employee => ({ value: employee.id, label: employee.name }))}
-        />
+        <div className="arrival-lawyer-control">
+          <Select
+            size="small"
+            mode="multiple"
+            labelInValue
+            optionFilterProp="label"
+            className="arrival-employee-select"
+            placeholder="Не назначен"
+            allowClear
+            maxTagCount={0}
+            maxTagPlaceholder={() => assignedItems.length === 1 ? '1 юрист' : `${assignedItems.length} юриста`}
+            value={assignedItems}
+            onChange={(items: { value: number; label: string }[]) => {
+              const selected = items.map(item => item.value); if (selected.length > 2) { message.warning('Можно назначить не более двух юристов'); return; } handleAssignLawyers(row.id, selected);
+            }}
+            options={employees.map(employee => ({ value: employee.id, label: employee.name }))}
+          />
+          {assignedItems.length > 0 && (
+            <div className="arrival-lawyer-names">
+              {assignedItems.map((item, index) => <span key={item.value}>{index + 1}. {item.label}</span>)}
+            </div>
+          )}
+        </div>
       );
     }
 
     const names = [row.assigned_lawyer_name, row.assigned_lawyer_name_2].filter(Boolean);
-    return <span>{names.length ? names.join(', ') : 'Не назначен'}</span>;
+    return names.length ? <div className="arrival-lawyer-names">{names.map((name, index) => <span key={`${name}-${index}`}>{index + 1}. {name}</span>)}</div> : <span>Не назначен</span>;
   };
 
   const consultationResult = (row: PrimaryVisit) => {
-    if (canSetResult) {
-      return (
-        <div className="arrival-result-actions" aria-label="Результат консультации">
-          <button
-            type="button"
-            className={row.consultation_result === 'contract_signed' ? 'is-success' : ''}
-            onClick={() => handleSetResult(row.id, 'contract_signed')}
-            title="Договор заключён"
-            aria-label="Договор заключён"
-            aria-pressed={row.consultation_result === 'contract_signed'}
-          >
-            <CheckCircleFilled />
-          </button>
-          <button
-            type="button"
-            className={row.consultation_result === 'not_signed' ? 'is-danger' : ''}
-            onClick={() => handleSetResult(row.id, 'not_signed')}
-            title="Договор не заключён"
-            aria-label="Договор не заключён"
-            aria-pressed={row.consultation_result === 'not_signed'}
-          >
-            <CloseCircleFilled />
-          </button>
-        </div>
-      );
-    }
-    if (row.consultation_result === 'contract_signed') {
-      return <BadgeStatic bg="#ECFDF5" border="#A7F3D0" color="#047857">Договор заключён</BadgeStatic>;
-    }
-    if (row.consultation_result === 'not_signed') {
-      return <BadgeStatic bg="#FEF2F2" border="#FECACA" color="#B91C1C">Не заключён</BadgeStatic>;
-    }
-    return <BadgeStatic bg="#F8FAFC" border="#E2E8F0" color="#64748B">Ожидает результата</BadgeStatic>;
+    if (canSetResult) return (
+      <div className="arrival-result-actions" aria-label="Результат консультации">
+        <button type="button" className={row.consultation_result === 'contract_signed' ? 'is-success' : ''} onClick={() => handleSetResult(row, 'contract_signed')} disabled={resultUpdatingId === row.id} title="Договор заключён" aria-label="Договор заключён" aria-pressed={row.consultation_result === 'contract_signed'}><CheckCircleFilled /></button>
+        <button type="button" className={row.consultation_result === 'not_signed' ? 'is-danger' : ''} onClick={() => handleSetResult(row, 'not_signed')} disabled={resultUpdatingId === row.id || (row.linked_contracts || []).length > 0} title={(row.linked_contracts || []).length ? 'Нельзя изменить: договор уже зарегистрирован' : 'Договор не заключён'} aria-label="Договор не заключён" aria-pressed={row.consultation_result === 'not_signed'}><CloseCircleFilled /></button>
+      </div>
+    );
+    if (row.consultation_result === 'contract_signed') return <CheckCircleFilled className="arrival-result-static is-success" title="Договор заключён" />;
+    if (row.consultation_result === 'not_signed') return <CloseCircleFilled className="arrival-result-static is-danger" title="Договор не заключён" />;
+    return null;
   };
 
   const contractAction = (row: PrimaryVisit) => {
@@ -539,28 +542,23 @@ const Arrivals: React.FC = () => {
       return (
         <div className="arrival-contracts">
           {contracts.map(contract => (
-            <BadgeStatic
+            <span
               key={contract.id}
-              bg={contract.contract_type === 'docs' ? '#EFF6FF' : '#F5F3FF'}
-              border={contract.contract_type === 'docs' ? '#BFDBFE' : '#DDD6FE'}
-              color={contract.contract_type === 'docs' ? '#1D4ED8' : '#6D28D9'}
+              className="arrival-contract-number"
+              title={`${contract.contract_type === 'docs' ? 'Документы' : 'Представление'} · №${contract.contract_number || contract.id}`}
             >
-              {contract.contract_type === 'docs' ? 'Документы' : 'Представление'} · №{contract.contract_number || contract.id}
-            </BadgeStatic>
+              №{contract.contract_number || contract.id}
+            </span>
           ))}
           {isAdmin && (
-            <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}>
-              Ещё договор
-            </Button>
+            <Button className="arrival-contract-more" size="small" type="text" icon={<PlusOutlined />} onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }} title="Добавить ещё договор" aria-label="Добавить ещё договор" />
           )}
         </div>
       );
     }
     return isAdmin ? (
-      <Button size="small" type="primary" onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }}>
-        Зарегистрировать договор
-      </Button>
-    ) : <span className="arrival-muted">Договор ещё не зарегистрирован</span>;
+      <Button className="arrival-register-contract-btn" type="primary" icon={<FileDoneOutlined />} onClick={() => { setRegisterAppointment(row); setRegisterOpen(true); }} title="Зарегистрировать договор" aria-label="Зарегистрировать договор" />
+    ) : null;
   };
 
   return (
@@ -571,33 +569,37 @@ const Arrivals: React.FC = () => {
           <p>Фактические визиты клиентов и результат консультаций</p>
         </div>
       </div>
-      {/* ─── Tabs ─── */}
-      <Tabs
-        activeKey={tab}
-        onChange={setTab}
-        items={[
-          { key: 'primary', label: `Первичные (${primaryByDay.length})` },
-          { key: 'existing', label: `Действующие клиенты (${existingByDay.length})` },
-        ]}
+      <div className="arrival-topbar">
+        <Tabs
+          activeKey={tab}
+          onChange={setTab}
+          items={[
+            { key: 'primary', label: `Первичные (${primaryByDay.length})` },
+            { key: 'existing', label: `Действующие клиенты (${existingByDay.length})` },
+          ]}
         />
-
-      {/* ─── Разграничение по дням (как во вкладке «Записи») ─── */}
-      {DateNav}
+        <div className="arrival-control-row">
+          <div className="arrival-topbar-date">{DateNav}</div>
+          <Button className="arrival-topbar-add" type="primary" icon={<PlusOutlined />} onClick={() => {
+            if (tab === 'primary') { setNewPrimary(f => ({ ...f, date: selectedDate })); setNewPrimaryModal(true); }
+            else setShowForm(v => !v);
+          }}>{tab === 'existing' && showForm ? 'Отменить' : 'Добавить приход'}</Button>
+        </div>
+      </div>
 
       {/* ─── Primary ─── */}
       {tab === 'primary' && (
         <>
-          <ToolRow className="arrival-toolbar">
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setNewPrimaryModal(true)}>
-              Добавить приход
-            </Button>
-          </ToolRow>
+          {loadError && <Alert type="error" showIcon message={loadError} closable onClose={() => setLoadError(null)} style={{ marginBottom: 12 }} />}
           {loading && primaryVisits.length === 0 ? (
             <TableSkeleton rows={5} cols={4} />
           ) : primaryByDay.length ? (
             <div className="arrival-cards-list">
               {primaryByDay.map(row => (
-                <div key={row.id} className="apt-card arrival-card">
+                <div
+                  key={row.id}
+                  className="apt-card arrival-card"
+                >
                   <div className="apt-card-time">
                     <span className="apt-card-time-value">{fmtArrivedTime(row.arrived_at, row.appointment_time)}</span>
                     <span className="apt-card-time-date">{fmtDate(row.appointment_date)}</span>
@@ -607,25 +609,30 @@ const Arrivals: React.FC = () => {
                       <div className="apt-card-avatar">{getInitials(row.client_name)}</div>
                       <div className="apt-card-client">
                         <span className="apt-card-client-name">{row.client_name}</span>
-                        <span className="apt-card-client-phone">{row.client_phone || '?'}</span>
+                        <span className="apt-card-client-phone">{row.client_phone || 'Не указано'}</span>
                       </div>
+                      {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role || '').toLowerCase()) && (
+                        <button
+                          type="button"
+                          className="arrival-analysis-trigger"
+                          onClick={() => setAnalysisVisit(row)}
+                          title="Разобрать консультацию"
+                          aria-label={`Разобрать консультацию: ${row.client_name}`}
+                        >
+                          <FileSearchOutlined />
+                        </button>
+                      )}
                     </div>
                     <div className="apt-card-details">
-                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">????????</span><span className="apt-card-field-text">{row.source || '?'}</span></div>
-                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">???????</span><span className="apt-card-field-text">{row.operator_name || '?'}</span></div>
-                      <div className="apt-card-field apt-card-field-lawyer"><span className="apt-card-field-label">?????????</span>{assignedEmployees(row)}</div>
-                      {row.comment && <div className="apt-card-field"><span className="apt-card-field-label">????</span><span className="apt-card-field-text apt-card-text-clamp">{row.comment}</span></div>}
+                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">Источник</span><span className="apt-card-field-text">{row.source || 'Не указано'}</span></div>
+                      <div className="apt-card-field apt-card-field-small"><span className="apt-card-field-label">Оператор</span><span className="apt-card-field-text">{row.operator_name || 'Не указано'}</span></div>
+                      <div className="apt-card-field apt-card-field-lawyer"><span className="apt-card-field-label">Юрист</span>{assignedEmployees(row)}</div>
+                      {row.comment && <div className="apt-card-field apt-card-field-comment"><span className="apt-card-field-label">Комментарий</span><span className="apt-card-field-text apt-card-comment-full">{row.comment}</span></div>}
                     </div>
-                    {row.consultation_result === 'not_signed' && ['director','manager','okk'].includes(String(user?.role||'').toLowerCase()) && (
-                      <div className="arrival-analysis-row">
-                        <div className="arrival-analysis-state"><span className="arrival-analysis-dot" /><span>{row.analysis_id ? '?????? ????????' : '??????? ?? ?????????'}</span></div>
-                        <Button className="consultation-analysis-btn" size="small" onClick={() => setAnalysisVisit(row)}>????????? ????????????</Button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="apt-card-right arrival-card-side">
-                    <div className="arrival-result-actions">{consultationResult(row)}</div>
                     {contractAction(row)}
+                  </div>
+                  <div className="apt-card-right arrival-card-side" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <div className="arrival-result-actions">{consultationResult(row)}</div>
                   </div>
                 </div>
               ))}
@@ -644,12 +651,6 @@ const Arrivals: React.FC = () => {
       {/* ─── Existing ─── */}
       {tab === 'existing' && (
         <>
-          <ToolRow className="arrival-toolbar">
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowForm(!showForm)}>
-              {showForm ? 'Отменить' : 'Добавить приход'}
-            </Button>
-          </ToolRow>
-
           {showForm && (
             <FormCard>
               <FormField style={{ minWidth: 240 }}>
@@ -761,19 +762,34 @@ const Arrivals: React.FC = () => {
           </div>
           <div>
             <div style={{ marginBottom: 4, fontWeight: 500 }}>Источник</div>
-            <Input value={newPrimary.source} onChange={e => setNewPrimary(f => ({ ...f, source: e.target.value }))} placeholder="Правовед, Gainet и т.д." />
-          </div>
-          <div>
-            <div style={{ marginBottom: 4, fontWeight: 500 }}>Ответственный сотрудник</div>
             <Select
-              allowClear
-              placeholder="Не указан"
-              value={newPrimary.assigned_lawyer_id}
-              onChange={v => setNewPrimary(f => ({ ...f, assigned_lawyer_id: v }))}
-              options={employees.map(e => ({ value: e.id, label: e.name }))}
+              showSearch
+              optionFilterProp="label"
+              placeholder="Выберите источник"
+              value={newPrimary.source_id}
+              onChange={v => setNewPrimary(f => ({ ...f, source_id: v }))}
+              options={sources.map(source => ({ value: source.id, label: source.name }))}
               style={{ width: '100%' }}
             />
           </div>
+          {canAssignLawyer && (
+            <div>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Юристы на консультации (до 2)</div>
+              <Select
+                mode="multiple"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                maxCount={2}
+                maxTagCount={2}
+                placeholder="Не назначены"
+                value={newPrimary.assigned_lawyer_ids}
+                onChange={(ids: number[]) => setNewPrimary(f => ({ ...f, assigned_lawyer_ids: ids.slice(0, 2) }))}
+                options={employees.map(e => ({ value: e.id, label: e.name }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -787,6 +803,7 @@ const Arrivals: React.FC = () => {
           client_name: registerAppointment.client_name,
           client_phone: registerAppointment.client_phone,
           comment: registerAppointment.comment,
+          appointment_date: registerAppointment.appointment_date,
           assigned_lawyer_id: registerAppointment.assigned_lawyer_id,
           assigned_lawyer_id_2: registerAppointment.assigned_lawyer_id_2,
           assigned_lawyer_name: registerAppointment.assigned_lawyer_name,

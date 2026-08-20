@@ -673,10 +673,14 @@ const Documents: React.FC<DocumentsProps> = ({ contractId, headless = false, can
         })
       });
 
-      let employeeId = user.id; // По умолчанию используем user.id
-      if (employeeResponse.ok) {
-        const employeeResult = await employeeResponse.json();
-        employeeId = employeeResult.data?.id || user.id;
+      if (!employeeResponse.ok) {
+        const employeeError = await employeeResponse.json().catch(() => null);
+        throw new Error(employeeError?.message || 'Не удалось определить карточку сотрудника');
+      }
+      const employeeResult = await employeeResponse.json();
+      const employeeId = Number(employeeResult.data?.id);
+      if (!Number.isInteger(employeeId) || employeeId <= 0) {
+        throw new Error('Сервер вернул некорректную карточку сотрудника');
       }
 
       const contractType = newDocument.subjectType === 'representation' ? 'court_rep' : 'docs';

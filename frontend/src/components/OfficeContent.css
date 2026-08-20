@@ -118,6 +118,39 @@
 }
 .office-header-add-btn:hover { background: #1E3A8A; }
 
+.office-header-connections-btn {
+  height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.office-header-connections-btn:hover { border-color: #1E40AF; color: #1E40AF; background: #F8FAFF; }
+.office-header-connections-btn b {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #EEF2FF;
+  color: #1E40AF;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 /* ── V2: Office cards row ──────────────────── */
 .office-cards-row {
   display: flex;
@@ -586,6 +619,17 @@
 .office-list-item.active { background: #EFF6FF; color: #1E40AF; font-weight: 600; border-color: #1E40AF; }
 .select-office-icon { font-size: 13px; opacity: 0.6; }
 
+.office-cc-panel { display: flex; flex-direction: column; gap: 14px; }
+.office-cc-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #5A5E72; font-size: 13px; }
+.office-cc-list { display: flex; flex-direction: column; border: 1px solid #E5E7EB; border-radius: 8px; overflow: hidden; }
+.office-cc-row { min-height: 56px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #FFFFFF; }
+.office-cc-row + .office-cc-row { border-top: 1px solid #E5E7EB; }
+.office-cc-row-main { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.office-cc-row-main > span { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.office-cc-row-main strong { color: #111827; font-size: 13px; overflow-wrap: anywhere; }
+.office-cc-row-main small { color: #8B8FA3; font-size: 11px; }
+.office-cc-empty { padding: 22px 14px; border: 1px dashed #D1D5DB; border-radius: 8px; color: #8B8FA3; text-align: center; font-size: 13px; }
+
 /* ── ERROR STATE ────────────────────────────── */
 .error-container { display: flex; justify-content: center; align-items: center; min-height: 50vh; padding: 2rem; }
 .error-content { text-align: center; background: #FFFFFF; padding: 2.5rem; border-radius: 12px; border: 1px solid #E5E7EB; max-width: 460px; width: 100%; }
@@ -628,6 +672,8 @@
   .modal-section select, .modal-section input { width: 100%; margin: 6px 0 0 0; }
   .modal-buttons { flex-direction: column; }
   .modal-edit-btn, .modal-save-btn, .modal-close-btn { width: 100%; }
+  .office-cc-summary { align-items: stretch; flex-direction: column; }
+  .office-cc-summary .ant-btn { width: 100%; }
 }
 
 @media (max-width: 480px) {
@@ -646,6 +692,9 @@
 
 [data-theme="dark"] .office-header-add-btn { background: #7C5CFF; }
 [data-theme="dark"] .office-header-add-btn:hover { background: #6A4AED; }
+[data-theme="dark"] .office-header-connections-btn { background: #1D2230; border-color: #2A2F3D; color: #E6E8EF; }
+[data-theme="dark"] .office-header-connections-btn:hover { background: #2A2F3D; border-color: #7C5CFF; color: #7C5CFF; }
+[data-theme="dark"] .office-header-connections-btn b { background: rgba(124,92,255,0.16); color: #B9A9FF; }
 
 [data-theme="dark"] .office-left-column,
 [data-theme="dark"] .chart-box-container,
@@ -721,5 +770,10 @@
 [data-theme="dark"] .office-list-item { background: #161A22; border-color: #2A2F3D; color: #E6E8EF; }
 [data-theme="dark"] .office-list-item:hover { background: #2A2F3D; }
 [data-theme="dark"] .office-list-item.active { background: rgba(124,92,255,0.12); color: #7C5CFF; border-color: #7C5CFF; }
+[data-theme="dark"] .office-cc-list { border-color: #2A2F3D; }
+[data-theme="dark"] .office-cc-row { background: #161A22; }
+[data-theme="dark"] .office-cc-row + .office-cc-row { border-color: #2A2F3D; }
+[data-theme="dark"] .office-cc-row-main strong { color: #E6E8EF; }
+[data-theme="dark"] .office-cc-empty { border-color: #363C4E; color: #8B8FA3; }
 [data-theme="dark"] .error-content { background: #161A22; border-color: #2A2F3D; }
 [data-theme="dark"] .error-content h2 { color: #E6E8EF; }

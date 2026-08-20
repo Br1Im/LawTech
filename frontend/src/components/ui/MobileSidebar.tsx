@@ -109,50 +109,14 @@ const MobileSidebar: React.FC<MobileSidebarProps> = ({
     };
 
     switch (role) {
-      case 'representative':
-        return [allItems.myCases, allItems.acts];
-      case 'expert':
-        return [allItems.employees, allItems.clients];
-      case 'lawyer':
-        return [allItems.office, allItems.clients];
-      case 'administrator':
-      case 'admin':
-        return [allItems.appointments, allItems.revenue, allItems.cashRegister, allItems.clients, allItems.reception];
-      case 'cc_manager':
-        return [
-          allItems.office,
-          allItems.callCenter,
-          allItems.connections,
-          allItems.employees,
-          allItems.reception,
-        ];
-      case 'cc_operator':
-        // Колл-центр: Офис, Колл-центр, Сотрудники, Чат
-        return [
-          allItems.office,
-          allItems.callCenter,
-          allItems.employees,
-          allItems.reception,
-        ];
-      case 'director':
-        return [
-          allItems.office, allItems.clients,
-          allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception,
-        ];
-      case 'manager':
-      case 'okk':
-        return [
-          allItems.office, allItems.clients,
-          allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception,
-        ];
-      default:
-        return [
-          allItems.office, allItems.clients,
-          allItems.appointments, allItems.employees, allItems.revenue, allItems.expenses,
-          allItems.reception,
-        ];
+      case 'representative': return [allItems.myCases, allItems.acts];
+      case 'expert': return [allItems.clients, allItems.employees];
+      case 'lawyer': return [allItems.clients, allItems.acts, allItems.salary];
+      case 'administrator': case 'admin': return [allItems.appointments, allItems.revenue, allItems.cashRegister, allItems.clients, allItems.reception];
+      case 'cc_manager': return [allItems.callCenter, allItems.connections, allItems.appointments, allItems.employees, allItems.reception];
+      case 'cc_operator': return [allItems.callCenter, allItems.appointments, allItems.employees, allItems.reception];
+      case 'director': case 'manager': case 'okk': return [allItems.office, allItems.employees, allItems.clients, allItems.appointments, allItems.revenue, allItems.acts, allItems.salary, allItems.expenses, allItems.reception];
+      default: return [allItems.office, allItems.clients, allItems.reception];
     }
   };
 

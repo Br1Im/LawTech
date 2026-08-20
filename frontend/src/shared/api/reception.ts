@@ -37,6 +37,10 @@ export interface ChatChannelInfo {
   isSystem?: boolean;
   createdBy?: number | null;
   memberCount?: number;
+  lastMessageId?: number | null;
+  lastSender?: string | null;
+  lastText?: string | null;
+  lastCreatedAt?: string | null;
 }
 
 export interface ChatCandidate extends ChatParticipant {

@@ -8,6 +8,7 @@ import "./Lawyers.css";
 import "./Experts.css";
 import "./Employees.css";
 import "./EmployeesPolish.css";
+import { TableSkeleton } from './ui';
 
 interface StaffMember {
   id: number;
@@ -908,7 +909,7 @@ const Employees = () => {
       </div>
 
       {loading ? (
-        <div className="no-employees"><p>Загрузка…</p></div>
+        <TableSkeleton rows={6} cols={3} />
       ) : filteredEmployees.length > 0 ? (
         <div className="employees-grid">
           {filteredEmployees.map((emp) => (
@@ -918,7 +919,7 @@ const Employees = () => {
           ))}
         </div>
       ) : (
-        <div className="no-employees"><p>Сотрудники не найдены</p></div>
+        <div className="no-employees"><strong>Сотрудники не найдены</strong><p>Измените поиск или сбросьте выбранные фильтры.</p><button className="btn-secondary" onClick={() => { setSelectedRole('all'); setSearch(''); }}>Сбросить фильтры</button></div>
       )}
 
       {selectedEmployee && (
