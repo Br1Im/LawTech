@@ -1,7 +1,7 @@
 const request = require('supertest');
 const { app } = require('./setup/app');
 const db = require('../db');
-const { registerDirectorWithOffice } = require('./setup/factories');
+const { registerDirectorWithOffice, registerLawyer } = require('./setup/factories');
 
 describe('chat', () => {
   it('GET /api/chat/channels — директор видит reception и call_center', async () => {
@@ -14,6 +14,43 @@ describe('chat', () => {
     expect(keys).toContain('reception');
     expect(keys).toContain('call_center');
     expect(keys).not.toContain('cc_internal');
+  });
+
+  it('GET /api/chat/candidates — руководство видит КЦ, подключённый к другому офису той же организации', async () => {
+    const dir = await registerDirectorWithOffice(app);
+    const ccOperator = await registerLawyer(app, { name: 'Sibling Call Center Operator' });
+    await db.query("UPDATE users SET role='cc_operator', office_id=NULL WHERE id=?", [ccOperator.user.id]);
+
+    const [siblingOffice] = await db.query(
+      'INSERT INTO offices (name, owner_id) VALUES (?, ?)',
+      ['Sibling Office With Call Center', dir.user.id]
+    );
+    const [callCenter] = await db.query(
+      'INSERT INTO call_centers (name, owner_user_id, connection_code) VALUES (?, ?, ?)',
+      ['Shared Call Center', dir.user.id, `chat-shared-${Date.now()}-${dir.user.id}`]
+    );
+    await db.query(
+      'INSERT INTO office_call_centers (office_id, call_center_id, is_active, connected_by) VALUES (?, ?, 1, ?)',
+      [siblingOffice.insertId, callCenter.insertId, dir.user.id]
+    );
+    await db.query(
+      "INSERT INTO call_center_members (call_center_id, user_id, member_role) VALUES (?, ?, 'operator')",
+      [callCenter.insertId, ccOperator.user.id]
+    );
+
+    const res = await request(app)
+      .get(`/api/chat/candidates?officeId=${dir.officeId}&channel=__new__`)
+      .set(dir.authHeaders);
+
+    expect(res.status).toBe(200);
+    expect(res.body.candidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: ccOperator.user.id,
+        role: 'cc_operator',
+        source: 'call_center',
+        callCenterId: callCenter.insertId,
+      }),
+    ]));
   });
 
   it('POST /api/offices/:officeId/messages — отправляет сообщение в reception, сохраняется в БД', async () => {

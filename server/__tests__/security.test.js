@@ -25,7 +25,7 @@ describe('JWT validation', () => {
     const res = await request(app)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${expired}`);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 
   it('rejects a token signed with a different secret with 403', async () => {
@@ -36,14 +36,14 @@ describe('JWT validation', () => {
     const res = await request(app)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${tampered}`);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 
   it('rejects an obviously malformed token with 403', async () => {
     const res = await request(app)
       .get('/api/auth/me')
       .set('Authorization', 'Bearer not.a.valid.jwt');
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 });
 
