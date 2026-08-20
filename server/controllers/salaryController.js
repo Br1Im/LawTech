@@ -838,9 +838,15 @@ const paySalary = async (req, res) => {
   if (!await checkOfficeAccess(req.user, officeId)) return bad(res, 403, 'Нет доступа к офису');
 
   const [[officeSettings]] = await db.query('SELECT timezone FROM offices WHERE id = ? LIMIT 1', [officeId]);
-  let paymentDate;
-  try { paymentDate = new Intl.DateTimeFormat('en-CA', { timeZone: officeSettings?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
-  catch (_) { paymentDate = new Date().toISOString().slice(0, 10); }
+  let officeToday;
+  try { officeToday = new Intl.DateTimeFormat('en-CA', { timeZone: officeSettings?.timezone || 'Asia/Tomsk', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+  catch (_) { officeToday = new Date().toISOString().slice(0, 10); }
+  const paymentDate = String(req.body.payment_date || officeToday).slice(0, 10);
+  const parsedPaymentDate = new Date(`${paymentDate}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate) || Number.isNaN(parsedPaymentDate.getTime()) || parsedPaymentDate.toISOString().slice(0,10) !== paymentDate) {
+    return bad(res, 400, 'Укажите корректную дату выплаты');
+  }
+  if (paymentDate > officeToday) return bad(res, 400, 'Выплату нельзя провести будущей датой');
 
   const calculated = await calculatePayload(req, { office_id: officeId, date_from: periodFrom, date_to: periodTo });
   const row = (calculated.rows || []).find(item => Number(item.employee_id) === employeeId);
@@ -868,9 +874,9 @@ const paySalary = async (req, res) => {
     });
     const [paymentResult] = await connection.query(
       `INSERT INTO salary_payments
-       (office_id,employee_id,period_from,period_to,amount,payment_method,status,calculation_snapshot,paid_by)
-       VALUES (?,?,?,?,?,?,'paid',?,?)`,
-      [officeId,employeeId,periodFrom,periodTo,amount,paymentMethod,snapshot,req.user.id]
+       (office_id,employee_id,period_from,period_to,amount,payment_method,status,calculation_snapshot,paid_by,payment_date)
+       VALUES (?,?,?,?,?,?,'paid',?,?,?)`,
+      [officeId,employeeId,periodFrom,periodTo,amount,paymentMethod,snapshot,req.user.id,paymentDate]
     );
     const paymentId = paymentResult.insertId;
     const [expenseResult] = await connection.query(
@@ -882,9 +888,9 @@ const paySalary = async (req, res) => {
        `Период ${periodFrom} — ${periodTo}. Оклад ${row.base_salary}; бонус ${row.bonus}.`,paymentDate,req.user.id]
     );
     await connection.query('UPDATE salary_payments SET expense_id=? WHERE id=?',[expenseResult.insertId,paymentId]);
-    await audit(connection,req,'pay','salary_payment',paymentId,officeId,amount,{employee_id:employeeId,period_from:periodFrom,period_to:periodTo,payment_method:paymentMethod,expense_id:expenseResult.insertId});
+    await audit(connection,req,'pay','salary_payment',paymentId,officeId,amount,{employee_id:employeeId,period_from:periodFrom,period_to:periodTo,payment_method:paymentMethod,payment_date:paymentDate,expense_id:expenseResult.insertId});
     await connection.commit();
-    return res.status(201).json({ success:true, data:{ id:paymentId, amount, payment_method:paymentMethod, status:'paid' } });
+    return res.status(201).json({ success:true, data:{ id:paymentId, amount, payment_method:paymentMethod, payment_date:paymentDate, status:'paid' } });
   } catch (e) {
     try { await connection.rollback(); } catch (_) {}
     if(e && e.code==='ER_DUP_ENTRY') return bad(res,409,'Зарплата этому сотруднику за период уже выплачена');

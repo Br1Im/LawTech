@@ -18,6 +18,10 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
+// Backend is reached through exactly one trusted reverse proxy (nginx).
+// This makes req.ip and rate limiting use the real client address safely.
+app.set('trust proxy', 1);
+
 // Настройка CORS
 app.use(cors({
   origin: [
@@ -37,17 +41,7 @@ app.use(compression({ level: 6, threshold: 1024 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Отдача статических файлов фронтенда с кэшированием
-app.use(express.static(path.join(__dirname, '../frontend/dist'), {
-  maxAge: '7d',
-  etag: true,
-  lastModified: true,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
-  }
-}));
+// Frontend is served by the dedicated frontend container through nginx.
 
 // Создание директории uploads если не существует
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -225,11 +219,6 @@ app.get('/api/health', async (req, res) => {
 // Использование API маршрутов
 app.use('/api', apiRoutes);
 
-// Обработчик для SPA - все неизвестные маршруты возвращают index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
-});
-
 // Обработка 404 ошибки
 app.use((req, res, next) => {
   res.status(404).json({ error: 'Not Found' });
@@ -297,8 +286,11 @@ server.listen(PORT, '0.0.0.0', async () => {
     console.error('❌ Gainnet init error:', error);
   }
   
-  try { require('./services/deadlineNotifications').startScheduler(); } catch (e) { console.error('deadline scheduler:', e.message); }
-  try { require('./services/workflowEngine').startScheduler(); } catch (e) { console.error('workflow scheduler:', e.message); }
+  if (process.env.NODE_ENV !== 'test') {
+    try { require('./services/deadlineNotifications').startScheduler(); } catch (e) { console.error('deadline scheduler:', e.message); }
+    try { require('./services/paymentReminderService').startScheduler(); } catch (e) { console.error('payment reminder scheduler:', e.message); }
+    try { require('./services/workflowEngine').startScheduler(); } catch (e) { console.error('workflow scheduler:', e.message); }
+  }
   console.log('✅ Server is ready to accept requests');
 });
 

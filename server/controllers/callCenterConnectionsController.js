@@ -36,11 +36,18 @@ async function getMembership(userId) {
   return repairCenterName(rows[0] || null);
 }
 
-async function assertDirectorOwnsOffice(user, officeId) {
-  if (!user || String(user.role).toLowerCase() !== 'director') return false;
+async function canManageOfficeConnection(user, officeId) {
+  const role = String(user?.role || '').toLowerCase();
+  if (!user || !['director', 'manager', 'okk'].includes(role)) return false;
   const [rows] = await db.query(
-    'SELECT id FROM offices WHERE id = ? AND owner_id = ? LIMIT 1',
-    [Number(officeId), user.id]
+    `SELECT o.id
+       FROM offices o
+       LEFT JOIN user_offices uo ON uo.office_id=o.id AND uo.user_id=?
+      WHERE o.id=? AND (
+        (?='director' AND o.owner_id=?) OR
+        o.id=? OR uo.user_id IS NOT NULL
+      ) LIMIT 1`,
+    [user.id, Number(officeId), role, user.id, Number(user.office_id || 0)]
   );
   return rows.length > 0;
 }
@@ -122,8 +129,8 @@ const controller = {
 
   async lookup(req, res) {
     try {
-      if (String(req.user?.role || '').toLowerCase() !== 'director') {
-        return res.status(403).json({ success: false, message: 'Проверять код может только генеральный директор' });
+      if (!['director', 'manager', 'okk'].includes(String(req.user?.role || '').toLowerCase())) {
+        return res.status(403).json({ success: false, message: 'Проверять код могут директор, менеджер и руководитель ОКК' });
       }
       const code = normalizeCode(req.body?.code);
       if (!code) return res.status(400).json({ success: false, message: 'Введите код подключения' });
@@ -147,8 +154,8 @@ const controller = {
     try {
       const officeId = Number(req.params.officeId);
       const callCenterId = Number(req.body?.call_center_id);
-      if (!await assertDirectorOwnsOffice(req.user, officeId)) {
-        return res.status(403).json({ success: false, message: 'Управлять подключением может только генеральный директор офиса' });
+      if (!await canManageOfficeConnection(req.user, officeId)) {
+        return res.status(403).json({ success: false, message: 'Нет прав управлять подключениями этого офиса' });
       }
       const [active] = await db.query(
         'SELECT id FROM office_call_centers WHERE office_id = ? AND call_center_id = ? AND is_active = 1 LIMIT 1',
@@ -183,7 +190,7 @@ const controller = {
   async listForOffice(req, res) {
     try {
       const officeId = Number(req.params.officeId);
-      if (!await assertDirectorOwnsOffice(req.user, officeId)) {
+      if (!await canManageOfficeConnection(req.user, officeId)) {
         return res.status(403).json({ success: false, message: 'Нет доступа к офису' });
       }
       const [connections] = await db.query(
@@ -272,7 +279,7 @@ const controller = {
     try {
       const officeId = Number(req.params.officeId);
       const callCenterId = Number(req.params.callCenterId);
-      if (!await assertDirectorOwnsOffice(req.user, officeId)) {
+      if (!await canManageOfficeConnection(req.user, officeId)) {
         return res.status(403).json({ success: false, message: 'Нет доступа к офису' });
       }
       const [result] = await db.query(
@@ -281,6 +288,11 @@ const controller = {
         [officeId, callCenterId]
       );
       if (!result.affectedRows) return res.status(404).json({ success: false, message: 'Подключение не найдено' });
+      await db.query(
+        `DELETE FROM chat_channel_members
+          WHERE office_id=? AND source='call_center' AND call_center_id=?`,
+        [officeId, callCenterId]
+      );
       await db.query(
         `INSERT INTO call_center_connection_history
            (office_id, call_center_id, action, actor_user_id)

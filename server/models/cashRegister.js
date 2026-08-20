@@ -60,7 +60,7 @@ class CashRegister {
     return { id: result.insertId, ...data };
   }
 
-  static async update(id, data) {
+  static async update(id, officeId, data) {
     const sets = [];
     const params = [];
     const fields = ['entry_date', 'client_name', 'contract_number', 'action',
@@ -70,15 +70,16 @@ class CashRegister {
       if (data[f] !== undefined) { sets.push(`${f} = ?`); params.push(data[f]); }
     }
     if (sets.length === 0) return null;
-    params.push(id);
-    await db.query(`UPDATE cash_register SET ${sets.join(', ')} WHERE id = ?`, params);
-    const [rows] = await db.query('SELECT * FROM cash_register WHERE id = ?', [id]);
+    params.push(id, officeId);
+    const [result] = await db.query(`UPDATE cash_register SET ${sets.join(', ')} WHERE id = ? AND office_id = ?`, params);
+    if (!result.affectedRows) return null;
+    const [rows] = await db.query('SELECT * FROM cash_register WHERE id = ? AND office_id = ?', [id, officeId]);
     return rows[0];
   }
 
-  static async remove(id) {
-    await db.query('DELETE FROM cash_register WHERE id = ?', [id]);
-    return true;
+  static async remove(id, officeId) {
+    const [result] = await db.query('DELETE FROM cash_register WHERE id = ? AND office_id = ?', [id, officeId]);
+    return result.affectedRows > 0;
   }
 
   static async stats(officeId, dateFrom, dateTo) {

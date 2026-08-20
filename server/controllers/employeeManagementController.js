@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { canDelete } = require('../utils/deletePermissions');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
+const { employeeIdForUser } = require('../utils/employeeIdentity');
 
 // Иерархия: кто кого может создавать
 const CREATION_HIERARCHY = {
@@ -787,8 +788,9 @@ const validateDismissalTarget = (actor, target) => {
 
 const getDismissalSuccessors = async (executor, officeId, employeeId) => {
   const [rows] = await executor.query(
-    `SELECT DISTINCT u.id, u.first_name, u.last_name, u.middle_name, u.role, u.office_id
+    `SELECT DISTINCT u.id, e.id AS employee_id, u.first_name, u.last_name, u.middle_name, u.role, u.office_id
        FROM users u
+       JOIN employees e ON e.user_id = u.id AND e.deleted_at IS NULL AND e.office_id = ?
        LEFT JOIN user_offices uo
          ON uo.user_id = u.id AND uo.office_id = ?
        LEFT JOIN offices o
@@ -799,18 +801,18 @@ const getDismissalSuccessors = async (executor, officeId, employeeId) => {
         AND u.role IN ('manager', 'okk', 'director')
         AND (u.office_id = ? OR uo.office_id IS NOT NULL OR o.owner_id = u.id)
       ORDER BY FIELD(u.role, 'okk', 'manager', 'director'), u.last_name, u.first_name`,
-    [officeId, officeId, employeeId, officeId]
+    [officeId, officeId, officeId, employeeId, officeId]
   );
   return rows;
 };
 
-const getDismissalWorkload = async (executor, employeeId) => {
+const getDismissalWorkload = async (executor, employeeId, userId) => {
   const [contractsRows] = await executor.query(
     `SELECT COUNT(DISTINCT id) AS count
        FROM contracts
       WHERE status <> 'terminated'
         AND (id_employee = ? OR second_employee_id = ? OR expert_id = ? OR representative_id = ?)`,
-    [employeeId, employeeId, employeeId, employeeId]
+    [employeeId, employeeId, employeeId, userId]
   );
   const [casesRows] = await executor.query(
     `SELECT COUNT(DISTINCT id) AS count
@@ -824,14 +826,14 @@ const getDismissalWorkload = async (executor, employeeId) => {
        FROM contract_assignments ca
        JOIN contracts c ON c.id = ca.contract_id AND c.status <> 'terminated'
       WHERE ca.user_id = ? AND ca.status IN ('pending', 'in_progress')`,
-    [employeeId]
+    [userId]
   );
   const [appointmentRows] = await executor.query(
     `SELECT COUNT(DISTINCT id) AS count
        FROM appointments
       WHERE status IN ('waiting', 'confirmed', 'rescheduled')
         AND (assigned_lawyer_id = ? OR assigned_lawyer_id_2 = ?)`,
-    [employeeId, employeeId]
+    [userId, userId]
   );
   const [taskRows] = await executor.query(
     `SELECT COUNT(*) AS count
@@ -869,9 +871,11 @@ const getDismissalPreview = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Сотрудник другого офиса' });
     }
 
+    const targetEmployeeId = await employeeIdForUser(employeeId, db, target.office_id);
+    if (!targetEmployeeId) throw dismissalError(409, 'У сотрудника нет корректной карточки employee');
     const [successors, workload] = await Promise.all([
       getDismissalSuccessors(db, target.office_id, employeeId),
-      getDismissalWorkload(db, employeeId),
+      getDismissalWorkload(db, targetEmployeeId, employeeId),
     ]);
     const actorAsSuccessor = successors.find(s => Number(s.id) === Number(req.user.id));
 
@@ -923,18 +927,23 @@ const dismissEmployee = async (req, res) => {
       throw dismissalError(400, 'Выбранный руководитель недоступен или относится к другому офису');
     }
 
-    const workload = await getDismissalWorkload(connection, employeeId);
+    const targetEmployeeId = await employeeIdForUser(employeeId, connection, target.office_id);
+    const successorEmployeeId = await employeeIdForUser(successorId, connection, target.office_id);
+    if (!targetEmployeeId || !successorEmployeeId) {
+      throw dismissalError(409, 'Не найдена корректная employee-карточка сотрудника или преемника');
+    }
+    const workload = await getDismissalWorkload(connection, targetEmployeeId, employeeId);
 
     // Primary and secondary responsibility on all non-terminated contracts.
     await connection.query(
       `UPDATE contracts SET id_employee = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id_employee = ? AND status <> 'terminated'`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
     await connection.query(
       `UPDATE contracts SET second_employee_id = ?, updated_at = CURRENT_TIMESTAMP
         WHERE second_employee_id = ? AND status <> 'terminated'`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
 
     // Specialist assignments return to the leader's queue instead of pretending
@@ -942,7 +951,7 @@ const dismissEmployee = async (req, res) => {
     await connection.query(
       `UPDATE contracts SET expert_id = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE expert_id = ? AND status <> 'terminated'`,
-      [employeeId]
+      [targetEmployeeId]
     );
     await connection.query(
       `UPDATE contracts SET representative_id = NULL, updated_at = CURRENT_TIMESTAMP
@@ -953,30 +962,30 @@ const dismissEmployee = async (req, res) => {
     await connection.query(
       `UPDATE cases SET employee_id = ?, updated_at = CURRENT_TIMESTAMP
         WHERE employee_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
     await connection.query(
       `UPDATE cases SET manager_id = ?, updated_at = CURRENT_TIMESTAMP
         WHERE manager_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
     await connection.query(
       `UPDATE cases
           SET expert_id = NULL, manager_id = ?, workflow_status = 'with_manager', updated_at = CURRENT_TIMESTAMP
         WHERE expert_id = ? AND status NOT IN ('won', 'lost', 'closed')`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
 
     await connection.query(
       `UPDATE additional_tz SET manager_id = ?, updated_at = CURRENT_TIMESTAMP
         WHERE manager_id = ? AND status NOT IN ('done', 'closed')`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
     await connection.query(
       `UPDATE additional_tz
           SET expert_id = NULL, manager_id = ?, status = 'with_manager', updated_at = CURRENT_TIMESTAMP
         WHERE expert_id = ? AND status NOT IN ('done', 'closed')`,
-      [successorId, employeeId]
+      [successorEmployeeId, targetEmployeeId]
     );
 
     await connection.query(

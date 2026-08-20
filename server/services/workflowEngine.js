@@ -1,11 +1,16 @@
 // Движок бизнес-процессов (напоминания/задачи по делам).
 // Событие -> подходящие правила -> задачи + уведомления. Безопасен: пока не вызывается — ничего не делает.
 const db = require("../db");
+const { userIdForEmployee } = require("../utils/employeeIdentity");
 
 async function resolveAssignee(rule, contract) {
   // Кому ставим задачу: для expert — эксперт дела; для lawyer — юрист дела; иначе — первый в офисе по роли.
-  if (rule.target_role === "expert" && contract.expert_id) return contract.expert_id;
-  if (rule.target_role === "lawyer" && contract.id_employee) return contract.id_employee;
+  if (rule.target_role === "expert" && contract.expert_id) {
+    return userIdForEmployee(contract.expert_id, db, contract.office_id);
+  }
+  if (rule.target_role === "lawyer" && contract.id_employee) {
+    return userIdForEmployee(contract.id_employee, db, contract.office_id);
+  }
   if (!rule.target_role) return null;
   const [[u]] = await db.query(
     "SELECT id FROM users WHERE role = ? AND office_id = ? AND is_active = 1 LIMIT 1",
@@ -44,6 +49,10 @@ async function handleEvent(eventType, contractId, actorUserId) {
     );
     for (const rule of rules) {
       const assignee = await resolveAssignee(rule, c);
+      if (!assignee) {
+        console.error(`[workflowEngine] no user mapping for rule=${rule.id}, contract=${c.id}`);
+        continue;
+      }
       const dueAt = new Date(Date.now() + (rule.due_offset_hours || 24) * 3600000);
       const dedup = `wf:${rule.id}:${c.id}`;
       try {

@@ -49,9 +49,14 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Public landing access request. Account creation remains manual.
+const accessRequestsController = require('../controllers/accessRequestsController');
+const accessRequestLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-7', legacyHeaders: false, message: { success: false, message: 'Слишком много заявок. Попробуйте позже.' } });
+router.post('/access-requests', accessRequestLimiter, accessRequestsController.create);
+
 // Маршруты аутентификации
 router.post('/auth/login', authController.login);
-router.post('/auth/register', authController.register);
+router.post('/auth/register', process.env.NODE_ENV === 'test' ? authController.register : (_req, res) => res.status(403).json({ success: false, message: 'Самостоятельная регистрация отключена. Оставьте заявку на доступ.' }));
 router.post('/auth/refresh', authController.refresh);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);
 router.get('/profile', authenticateToken, authController.getCurrentUser); // Добавлен маршрут для совместимости с фронтендом
@@ -345,50 +350,39 @@ router.get('/calendar-events/all', authenticateToken, calendarController.getAllC
 router.post('/employees/ensure', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
-    const userId = (req.body && req.body.user_id) || user.id;
+    const userId = Number(user.id);
     const db = require('../db');
     const { ensureUserOffice } = require('../utils/ensureOffice');
-
-    // Гарантируем наличие офиса у текущего пользователя (создаст при необходимости).
     const officeId = await ensureUserOffice(user);
 
-    // Проверяем, существует ли уже employee с этим id.
     const [existing] = await db.query(
-      'SELECT id, office_id FROM employees WHERE id = ?',
+      'SELECT id, office_id FROM employees WHERE user_id = ? AND deleted_at IS NULL LIMIT 1',
       [userId]
     );
-
     if (existing.length > 0) {
-      // Если employee существует, но без офиса — допривязываем.
       if (!existing[0].office_id) {
-        await db.query('UPDATE employees SET office_id = ? WHERE id = ?', [officeId, userId]);
+        await db.query('UPDATE employees SET office_id = ? WHERE id = ?', [officeId, existing[0].id]);
       }
-      return res.json({ success: true, data: { id: existing[0].id } });
+      return res.json({ success: true, data: { id: Number(existing[0].id) } });
     }
 
-    // Создаем нового employee на основе данных пользователя
     const [userResult] = await db.query(
-      'SELECT first_name, last_name, email FROM users WHERE id = ?',
+      'SELECT first_name, last_name, middle_name, email, role FROM users WHERE id = ? AND is_active = 1 AND deleted_at IS NULL',
       [userId]
     );
-
     if (userResult.length === 0) {
-      return res.status(404).json({ success: false, message: 'Пользователь не найден' });
+      return res.status(404).json({ success: false, message: 'Активный пользователь не найден' });
     }
-
-    const userData = userResult[0];
-
-    // Вставляем employee с тем же ID что и user
-    await db.query(
-      `INSERT INTO employees (id, first_name, last_name, email, office_id, position)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userId, userData.first_name, userData.last_name, userData.email, officeId, 'Юрист']
+    const u = userResult[0];
+    const [created] = await db.query(
+      `INSERT INTO employees (user_id, first_name, last_name, middle_name, email, office_id, position)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, u.first_name, u.last_name, u.middle_name || null, u.email, officeId, u.role || 'lawyer']
     );
-
-    res.json({ success: true, data: { id: userId } });
+    return res.json({ success: true, data: { id: Number(created.insertId) } });
   } catch (error) {
     console.error('Error ensuring employee:', error);
-    res.status(500).json({ success: false, message: 'Ошибка при создании сотрудника' });
+    return res.status(500).json({ success: false, message: 'Не удалось определить карточку сотрудника' });
   }
 });
 

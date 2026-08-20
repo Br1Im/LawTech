@@ -4,6 +4,7 @@ const contractPaymentLimiter=rateLimit({windowMs:60*1000,limit:30,standardHeader
 const router = express.Router();
 const contractController = require('../controllers/contractController');
 const paymentController = require('../controllers/paymentController');
+const installmentController = require('../controllers/installmentController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Все маршруты требуют аутентификации
@@ -39,6 +40,40 @@ router.post('/:id/confirm-refund', contractController.confirmRefund);
 // Подтвердить оплату остатка
 router.post('/:id/confirm-remainder', contractController.confirmRemainder);
 
+router.get('/:id/installments', installmentController.list);
+router.post('/:id/installments', installmentController.create);
+router.put('/:id/installments/:installmentId', installmentController.update);
+router.delete('/:id/installments/:installmentId', installmentController.remove);
+
+// Изменить плановую дату следующей доплаты.
+router.patch('/:id/payment-schedule', async (req, res) => {
+  const db = require('../db');
+  const { checkOfficeAccess } = require('../utils/ensureOffice');
+  const { employeeIdForUser } = require('../utils/employeeIdentity');
+  try {
+    const id = Number(req.params.id);
+    const [[contract]] = await db.query('SELECT id, office_id, id_employee, second_employee_id, amount, paid_amount, status FROM contracts WHERE id = ?', [id]);
+    if (!contract) return res.status(404).json({ success: false, message: 'Договор не найден' });
+    if (!await checkOfficeAccess(req.user, contract.office_id)) return res.status(403).json({ success: false, message: 'Доступ запрещён' });
+    if (contract.status === 'terminated') return res.status(409).json({ success: false, message: 'Договор расторгнут' });
+    if (Number(contract.paid_amount) >= Number(contract.amount)) return res.status(400).json({ success: false, message: 'Договор уже оплачен полностью' });
+    const role = String(req.user.role || '').toLowerCase();
+    const employeeId = await employeeIdForUser(req.user.id, db, contract.office_id);
+    const allowed = ['admin', 'administrator', 'director', 'manager', 'okk'].includes(role)
+      || [Number(contract.id_employee), Number(contract.second_employee_id)].includes(Number(employeeId));
+    if (!allowed) return res.status(403).json({ success: false, message: 'Нет права менять дату доплаты' });
+    const value = String(req.body.additional_payment_date || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+      return res.status(400).json({ success: false, message: 'Укажите корректную дату доплаты' });
+    }
+    await db.query('UPDATE contracts SET additional_payment_date = ?, additional_payment_amount = ROUND(amount-paid_amount,2), updated_at = CURRENT_TIMESTAMP WHERE id = ?', [value, id]);
+    return res.json({ success: true, data: { id, additional_payment_date: value, additional_payment_amount: Number(contract.amount)-Number(contract.paid_amount) } });
+  } catch (error) {
+    console.error('payment schedule update:', error);
+    return res.status(500).json({ success: false, message: 'Не удалось сохранить дату доплаты' });
+  }
+});
+
 // Обновить данные расторжения (директор/менеджер/ОКК)
 router.patch('/:id/terminate-data', contractController.updateTerminationData);
 
@@ -47,119 +82,48 @@ router.post('/', contractController.createContract);
 
 // Обновить данные карточки клиента (документы, обстоятельства, эксперт, тема)
 router.patch('/:id/card-data', async (req, res) => {
+  const db = require('../db');
+  const { employeeIdForUser } = require('../utils/employeeIdentity');
+  const { applyExpertDeadline, publicMessage } = require('../services/expertDeadlineService');
+  const connection = await db.getClient();
   try {
-    // Представитель не может редактировать карточку договора
-    const userRole = String(req.user.role || '').toLowerCase();
-    if (userRole === 'representative') {
-      return res.status(403).json({ success: false, message: 'Представитель не может редактировать карточку договора' });
+    const contractId = Number(req.params.id);
+    const [[contract]] = await connection.query('SELECT id,office_id,contract_type,id_employee,second_employee_id FROM contracts WHERE id=? LIMIT 1',[contractId]);
+    if (!contract) return res.status(404).json({success:false,message:'Договор не найден'});
+    const { checkOfficeAccess } = require('../utils/ensureOffice');
+    if (!await checkOfficeAccess(req.user, contract.office_id)) {
+      // Do not reveal that a foreign-office contract exists.
+      return res.status(404).json({success:false,message:'Договор не найден'});
     }
-
-    const contractId = req.params.id;
-    const { document_types, custom_documents, circumstances, expert_id, title, customer_goal, legal_cost_comp, moral_comp, expert_deadline, expert_deadline_time, expert_deadline_comment } = req.body;
-    const db = require('../db');
-
-    const sets = [];
-    const params = [];
-
-    if (document_types !== undefined) {
-      sets.push('document_types = ?');
-      params.push(JSON.stringify(document_types));
+    const role=String(req.user.role||'').toLowerCase();
+    const ownEmployeeId=await employeeIdForUser(req.user.id,connection,contract.office_id);
+    const leadership=['director','manager','okk'].includes(role);
+    const assignedLawyer=role==='lawyer' && ownEmployeeId
+      && [Number(contract.id_employee),Number(contract.second_employee_id)].includes(Number(ownEmployeeId));
+    if (!leadership && !assignedLawyer) {
+      return res.status(403).json({success:false,message:'Изменять карточку может руководство или назначенный юрист'});
     }
-    if (custom_documents !== undefined) {
-      sets.push('custom_documents = ?');
-      params.push(JSON.stringify(custom_documents));
-    }
-    if (circumstances !== undefined) {
-      sets.push('circumstances = ?');
-      params.push(circumstances);
-    }
-    if (expert_id !== undefined) {
-      sets.push('expert_id = ?');
-      params.push(expert_id ? Number(expert_id) : null);
-    }
-    if (title !== undefined) {
-      sets.push('title = ?');
-      params.push(title);
-    }
-    if (customer_goal !== undefined) {
-      sets.push('customer_goal = ?');
-      params.push(customer_goal || null);
-    }
-    if (legal_cost_comp !== undefined) {
-      sets.push('legal_cost_comp = ?');
-      params.push(legal_cost_comp === null || legal_cost_comp === '' ? null : Number(legal_cost_comp));
-    }
-    if (moral_comp !== undefined) {
-      sets.push('moral_comp = ?');
-      params.push(moral_comp === null || moral_comp === '' ? null : Number(moral_comp));
-    }
-    if (expert_deadline !== undefined) {
-      sets.push('expert_deadline = ?');
-      params.push(expert_deadline ? expert_deadline : null);
-    }
-    if (expert_deadline_time !== undefined) {
-      sets.push('expert_deadline_time = ?');
-      params.push(expert_deadline_time ? expert_deadline_time : null);
-    }
-    if (expert_deadline_comment !== undefined) {
-      sets.push('expert_deadline_comment = ?');
-      params.push(expert_deadline_comment ? expert_deadline_comment : null);
-    }
-
-    if (sets.length === 0) {
-      return res.status(400).json({ message: 'Нет данных для обновления' });
-    }
-
-    params.push(contractId);
-    await db.query(
-      `UPDATE contracts SET ${sets.join(', ')} WHERE id = ?`,
-      params
-    );
-
-    // Авто-снятие needs_lawyer_input если ТЗ заполнено
-    try {
-      const [rows] = await db.query(
-        'SELECT contract_type, customer_goal, circumstances, document_types, custom_documents FROM contracts WHERE id = ?',
-        [contractId]
-      );
-      const c = rows && rows[0];
-      if (c) {
-        const isCourtRep = (c.contract_type || 'docs') === 'court_rep';
-        const hasCircum = c.circumstances && String(c.circumstances).trim().length > 0;
-        let isFilled = false;
-        if (isCourtRep) {
-          isFilled = hasCircum;
-        } else {
-          const hasGoal = c.customer_goal && String(c.customer_goal).trim().length > 0;
-          const hasDocs = (() => {
-            try {
-              const dt = typeof c.document_types === 'string' ? JSON.parse(c.document_types) : c.document_types;
-              const cd = typeof c.custom_documents === 'string' ? JSON.parse(c.custom_documents) : c.custom_documents;
-              return (Array.isArray(dt) && dt.length > 0) || (Array.isArray(cd) && cd.length > 0);
-            } catch { return false; }
-          })();
-          isFilled = hasGoal && hasCircum && hasDocs;
-        }
-        if (isFilled) {
-          await db.query('UPDATE contracts SET needs_lawyer_input = 0 WHERE id = ?', [contractId]);
-        }
-      }
-    } catch (e) {
-      console.error('needs_lawyer_input auto-clear failed:', e.message);
-    }
-
-    if (expert_deadline !== undefined || expert_deadline_time !== undefined || expert_deadline_comment !== undefined) {
-      try { await require('../services/deadlineNotifications').onDeadlineSet(contractId); } catch (e) { console.error('onDeadlineSet:', e.message); }
-    }
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error updating card data:', error);
-    res.status(500).json({ message: 'Ошибка при сохранении данных карточки' });
-  }
+    const body=req.body||{};
+    if ((contract.contract_type||'docs')==='docs' && (body.expert_id!==undefined || body.expert_deadline_days!==undefined) && (body.expert_id==null || body.expert_deadline_days==null)) return res.status(400).json({success:false,message:'Expert and deadline days are required'});
+    await connection.beginTransaction();
+    const sets=[],params=[];
+    for(const f of ['document_types','custom_documents']) if(body[f]!==undefined){sets.push(`${f}=?`);params.push(JSON.stringify(body[f]));}
+    for(const f of ['circumstances','title','customer_goal','expert_deadline_comment']) if(body[f]!==undefined){sets.push(`${f}=?`);params.push(body[f]||null);}
+    for(const f of ['legal_cost_comp','moral_comp']) if(body[f]!==undefined){sets.push(`${f}=?`);params.push(body[f]===''||body[f]===null?null:Number(body[f]));}
+    if(sets.length){params.push(contractId);await connection.query(`UPDATE contracts SET ${sets.join(',')},updated_at=CURRENT_TIMESTAMP WHERE id=?`,params);}
+    if(body.expert_id!==undefined || body.expert_deadline_days!==undefined) await applyExpertDeadline(connection,contractId,body.expert_id,body.expert_deadline_days);
+    const [[fresh]]=await connection.query('SELECT contract_type,customer_goal,circumstances,document_types,custom_documents,expert_id,expert_deadline_days FROM contracts WHERE id=?',[contractId]);
+    if(fresh){let docs=[];try{docs=[...(JSON.parse(fresh.document_types||'[]')),...(JSON.parse(fresh.custom_documents||'[]'))]}catch{};const filled=(fresh.contract_type==='court_rep'&&String(fresh.circumstances||'').trim())||(fresh.contract_type!=='court_rep'&&String(fresh.customer_goal||'').trim()&&String(fresh.circumstances||'').trim()&&docs.length&&fresh.expert_id&&fresh.expert_deadline_days);if(filled)await connection.query('UPDATE contracts SET needs_lawyer_input=0 WHERE id=?',[contractId]);}
+    await connection.commit();
+    if(body.expert_id!==undefined || body.expert_deadline_days!==undefined) await require('../services/deadlineNotifications').onDeadlineSet(contractId);
+    res.json({success:true});
+  } catch(error) {
+    try{await connection.rollback()}catch{}
+    res.status(error.status||500).json({success:false,message:publicMessage(error)});
+  } finally { connection.release(); }
 });
 
-// Обновить договор
+// Update contract
 router.put('/:id', contractController.updateContract);
 
 // Удалить договор

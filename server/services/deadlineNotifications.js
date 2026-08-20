@@ -32,9 +32,10 @@ async function createNotification({ user_id, office_id, contract_id, type, title
 async function onDeadlineSet(contractId) {
   try {
     const [rows] = await db.query(
-      `SELECT c.id, c.expert_id, c.office_id, c.expert_deadline, c.expert_deadline_time, c.expert_deadline_comment,
+      `SELECT c.id, c.expert_id, exp.user_id AS expert_user_id, c.office_id, c.expert_deadline, c.expert_deadline_time, c.expert_deadline_comment,
               cl.name AS client_name
          FROM contracts c
+         LEFT JOIN employees exp ON exp.id = c.expert_id
          LEFT JOIN clients cl ON cl.id = c.id_client
         WHERE c.id = ?`,
       [contractId]
@@ -47,7 +48,7 @@ async function onDeadlineSet(contractId) {
     const msg = `Срок подготовки документов ${who}: ${dateS}${timeS ? " " + timeS : ""}.` +
       (c.expert_deadline_comment ? ` Комментарий: ${c.expert_deadline_comment}` : "");
     await createNotification({
-      user_id: c.expert_id, office_id: c.office_id, contract_id: c.id,
+      user_id: c.expert_user_id, office_id: c.office_id, contract_id: c.id,
       type: "task", title: "Назначен дедлайн подготовки документов", message: msg,
       dedup_key: `deadline-set:${c.id}:${dateS}`,
     });
@@ -60,8 +61,9 @@ async function onDeadlineSet(contractId) {
 async function runDeadlineSweep() {
   try {
     const [rows] = await db.query(
-      `SELECT c.id, c.expert_id, c.office_id, c.expert_deadline, cl.name AS client_name
+      `SELECT c.id, c.expert_id, exp.user_id AS expert_user_id, c.office_id, c.expert_deadline, cl.name AS client_name
          FROM contracts c
+         LEFT JOIN employees exp ON exp.id = c.expert_id
          LEFT JOIN clients cl ON cl.id = c.id_client
         WHERE c.expert_id IS NOT NULL
           AND c.expert_deadline IS NOT NULL
@@ -85,7 +87,7 @@ async function runDeadlineSweep() {
         ? `deadline:${c.id}:${todayKey}:overdue`
         : `deadline:${c.id}:${dateS}:${kind}`;
       await createNotification({
-        user_id: c.expert_id, office_id: c.office_id, contract_id: c.id,
+        user_id: c.expert_user_id, office_id: c.office_id, contract_id: c.id,
         type, title, message, dedup_key: dedup,
       });
       created++;

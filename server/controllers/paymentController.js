@@ -2,6 +2,7 @@ const db = require('../db');
 const { checkOfficeAccess } = require('../utils/ensureOffice');
 const { canAccessContract } = require('../utils/contractAccess');
 const { dateOnly, claimIdempotency, audit } = require('../utils/financeSecurity');
+const { reconcileInstallments, syncLegacyFields } = require('../services/installmentService');
 
 const PAYMENT_METHODS = new Set(['cash', 'noncash', 'bank', 'sbp']);
 const PAYMENT_ROLES = new Set(['admin', 'administrator', 'director', 'manager', 'okk']);
@@ -187,6 +188,8 @@ async function addPayment(req, res) {
     );
 
     const totalPaid = await syncPaidAmount(connection, contract.id);
+    await reconcileInstallments(connection, contract.id);
+    await syncLegacyFields(connection, contract.id);
     await createCashRegisterEntry(connection, contract, payment, req.user.id);
     await audit(connection,req,'create','contract_payment',result.insertId,contract.office_id,amount,{contract_id:contract.id,payment_method:paymentMethod,payment_date:paymentDate});
     await connection.commit();
@@ -260,6 +263,8 @@ async function confirmPayment(req, res) {
       [req.user.id, payment.id]
     );
     await syncPaidAmount(connection, contract.id);
+    await reconcileInstallments(connection, contract.id);
+    await syncLegacyFields(connection, contract.id);
     await createCashRegisterEntry(connection, contract, payment, req.user.id);
     await audit(connection,req,'confirm','contract_payment',payment.id,contract.office_id,payment.amount,{contract_id:contract.id});
     await connection.commit();

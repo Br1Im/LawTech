@@ -12,6 +12,8 @@ const multer = require('multer');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../db');
+const { normalizeEmployeeId } = require('../utils/employeeIdentity');
+const { checkOfficeAccess } = require('../utils/ensureOffice');
 const config = require('../config');
 const { decodeUploadedFilename, decodeMultipartText } = require('../utils/filename');
 
@@ -39,7 +41,14 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}-${safe}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
+
+function removeUploadedFile(file) {
+  if (!file || !file.path) return;
+  try { fs.unlinkSync(file.path); } catch (e) {
+    if (e.code !== 'ENOENT') console.error('material cleanup err', e.message);
+  }
+}
 
 /**
  * POST /api/materials/upload
@@ -53,6 +62,35 @@ router.post('/materials/upload', upload.single('file'), async (req, res) => {
     const officeId = req.user.office_id;
     if (!officeId) return bad(res, 403, 'Пользователь не привязан к офису');
     const { case_id, contract_id } = req.body;
+    const caseId = case_id ? Number(case_id) : null;
+    const contractId = contract_id ? Number(contract_id) : null;
+    if ((case_id && (!Number.isInteger(caseId) || caseId <= 0)) ||
+        (contract_id && (!Number.isInteger(contractId) || contractId <= 0))) {
+      removeUploadedFile(req.file);
+      return bad(res, 400, 'Некорректная ссылка на дело или договор');
+    }
+
+    if (caseId) {
+      const [[caseRow]] = await db.query('SELECT office_id FROM cases WHERE id = ? LIMIT 1', [caseId]);
+      if (!caseRow || !(await checkOfficeAccess(req.user, caseRow.office_id))) {
+        removeUploadedFile(req.file);
+        return bad(res, 404, 'Дело не найдено');
+      }
+    }
+    if (contractId) {
+      const [[contractRow]] = await db.query(
+        `SELECT COALESCE(c.office_id, cl.office_id) AS office_id
+           FROM contracts c
+           LEFT JOIN clients cl ON cl.id = c.id_client
+          WHERE c.id = ? LIMIT 1`,
+        [contractId]
+      );
+      if (!contractRow || !(await checkOfficeAccess(req.user, contractRow.office_id))) {
+        removeUploadedFile(req.file);
+        return bad(res, 404, 'Договор не найден');
+      }
+    }
+
     const category = decodeMultipartText(req.body.category) || 'Документ';
     const description = decodeMultipartText(req.body.description) || null;
     const fileUrl = `/uploads/materials/${req.file.filename}`;
@@ -61,8 +99,8 @@ router.post('/materials/upload', upload.single('file'), async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         officeId,
-        case_id ? Number(case_id) : null,
-        contract_id ? Number(contract_id) : null,
+        caseId,
+        contractId,
         req.file.originalname || req.file.filename,
         category,
         description,
@@ -75,8 +113,9 @@ router.post('/materials/upload', upload.single('file'), async (req, res) => {
     const [[row]] = await db.query('SELECT * FROM materials WHERE id = ?', [r.insertId]);
     return ok(res, row);
   } catch (e) {
+    removeUploadedFile(req.file);
     console.error('material upload err', e);
-    return bad(res, 500, 'Ошибка загрузки файла', e);
+    return bad(res, 500, 'Ошибка загрузки файла');
   }
 });
 
@@ -276,6 +315,9 @@ router.get('/cases/:id', async (req, res) => {
       [id]
     );
     if (!c) return bad(res, 404, 'Дело не найдено');
+    if (!(await checkOfficeAccess(req.user, c.office_id))) {
+      return bad(res, 404, 'Дело не найдено');
+    }
     const [materials] = await db.query(
       'SELECT * FROM materials WHERE case_id = ? ORDER BY created_at DESC',
       [id]
@@ -305,10 +347,12 @@ router.put('/cases/:id/assign-expert', async (req, res) => {
       return bad(res, 403, 'Недостаточно прав');
     }
     const id = Number(req.params.id);
-    const expertId = Number(req.body.expert_id);
-    if (!expertId) return bad(res, 400, 'Нужно указать expert_id');
-
-    // manager_id: находим employee-id пользователя по email
+    const rawExpertId = Number(req.body.expert_id);
+    if (!rawExpertId) return bad(res,400,'expert_id required');
+    const [[caseRow]] = await db.query('SELECT office_id FROM cases WHERE id=? LIMIT 1',[id]);
+    if (!caseRow) return bad(res,404,'case not found');
+    const expertId = await normalizeEmployeeId(rawExpertId,{role:'expert',officeId:caseRow.office_id});
+    if (!expertId) return bad(res,400,'expert not found in office');
     const [[emp]] = await db.query('SELECT id FROM employees WHERE email = ? LIMIT 1', [user.email]);
     const managerEmpId = emp ? emp.id : null;
 
@@ -430,8 +474,12 @@ router.put('/additional-tz/:id/assign-expert', async (req, res) => {
       return bad(res, 403, 'Недостаточно прав');
     }
     const id = Number(req.params.id);
-    const expertId = Number(req.body.expert_id);
-    if (!expertId) return bad(res, 400, 'expert_id обязателен');
+    const rawExpertId = Number(req.body.expert_id);
+    if (!rawExpertId) return bad(res,400,'expert_id required');
+    const [[tzRow]] = await db.query('SELECT office_id FROM additional_tz WHERE id=? LIMIT 1',[id]);
+    if (!tzRow) return bad(res,404,'task not found');
+    const expertId = await normalizeEmployeeId(rawExpertId,{role:'expert',officeId:tzRow.office_id});
+    if (!expertId) return bad(res,400,'expert not found in office');
     const [[emp]] = await db.query('SELECT id FROM employees WHERE email = ? LIMIT 1', [user.email]);
     const managerEmpId = emp ? emp.id : null;
     await db.query(

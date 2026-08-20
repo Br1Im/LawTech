@@ -110,14 +110,22 @@ const chatController = {
       if (!officeId) return res.json({ channels: [], canManage: false });
       const [rows] = await db.query(
         `SELECT c.channel AS \`key\`, c.name AS label, c.is_system AS isSystem,
-                c.created_by AS createdBy, COUNT(cm2.id) AS memberCount
+                c.created_by AS createdBy, COUNT(DISTINCT cm2.id) AS memberCount,
+                lm.id AS lastMessageId,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', lu.first_name, lu.last_name)), ''), lu.email, '?????????') AS lastSender,
+                COALESCE(NULLIF(lm.content, ''), lm.file_name, '') AS lastText,
+                lm.created_at AS lastCreatedAt
            FROM chat_channels c
            JOIN chat_channel_members mine ON mine.office_id=c.office_id
              AND mine.channel=c.channel AND mine.user_id=?
            LEFT JOIN chat_channel_members cm2 ON cm2.office_id=c.office_id
              AND cm2.channel=c.channel
+           LEFT JOIN messages lm ON lm.id=(
+             SELECT MAX(m.id) FROM messages m WHERE m.office_id=c.office_id AND m.channel=c.channel
+           )
+           LEFT JOIN users lu ON lu.id=lm.sender_id
           WHERE c.office_id=? AND c.archived_at IS NULL
-          GROUP BY c.id ORDER BY c.is_system DESC, c.created_at ASC`,
+          GROUP BY c.id, lm.id, lu.id ORDER BY c.is_system DESC, c.created_at ASC`,
         [req.user.id, officeId]
       );
       return res.json({
@@ -370,7 +378,8 @@ const chatController = {
                FROM users u WHERE u.office_id=? AND u.is_active=1
              UNION ALL
              SELECT u.id,u.first_name,u.last_name,u.role,cc.id,CASE WHEN cc.name LIKE '%?%' THEN 'Подключённый колл-центр' ELSE cc.name END
-               FROM office_call_centers occ JOIN call_centers cc ON cc.id=occ.call_center_id AND cc.is_active=1
+               FROM office_call_centers occ
+               JOIN call_centers cc ON cc.id=occ.call_center_id AND cc.is_active=1
                JOIN call_center_members ccm ON ccm.call_center_id=cc.id JOIN users u ON u.id=ccm.user_id AND u.is_active=1
               WHERE occ.office_id=? AND occ.is_active=1
            ) q LEFT JOIN chat_channel_members cm ON cm.office_id=? AND cm.channel=? AND cm.user_id=q.id

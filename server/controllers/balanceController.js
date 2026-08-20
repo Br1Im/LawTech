@@ -116,6 +116,7 @@ async function loadIncome(officeId, from, to) {
        FROM contract_payments p
        JOIN contracts c ON c.id = p.contract_id
       WHERE c.office_id = ? AND p.confirmed = 1
+        AND COALESCE(p.comment,'') NOT LIKE '[BALANCE_SOURCE_EXCLUDED]%'
         AND p.payment_date BETWEEN ? AND ?
       GROUP BY p.payment_date, p.payment_method`,
     [officeId, from, to]
@@ -323,6 +324,7 @@ const getDayDetail = async (req, res) => {
          LEFT JOIN employees employee ON employee.id = c.id_employee
          LEFT JOIN clients cl ON cl.id = c.id_client
         WHERE c.office_id = ? AND p.payment_date = ? AND p.confirmed = 1
+          AND COALESCE(p.comment,'') NOT LIKE '[BALANCE_SOURCE_EXCLUDED]%'
         ORDER BY p.created_at, p.id`,
       [officeId, date]
     );
@@ -411,6 +413,7 @@ const createTransfer = async (req, res) => {
          FROM contract_payments p
          JOIN contracts c ON c.id = p.contract_id
         WHERE c.office_id = ? AND p.confirmed = 1
+        AND COALESCE(p.comment,'') NOT LIKE '[BALANCE_SOURCE_EXCLUDED]%'
           AND p.payment_date BETWEEN ? AND ?
         GROUP BY p.payment_method`,
       [officeId, startDate, date]

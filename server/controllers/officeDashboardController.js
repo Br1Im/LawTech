@@ -176,10 +176,10 @@ const officeDashboardController = {
         db.query(
           `SELECT
              COALESCE(SUM(CASE WHEN c.contract_date = ? THEN
-               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0)) * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0))
              ELSE 0 END), 0) AS day_initial,
              COALESCE(SUM(CASE WHEN c.contract_date BETWEEN ? AND ? THEN
-               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0)) * (CASE WHEN c.is_joint = 1 THEN 0.5 ELSE 1 END)
+               (c.paid_amount - COALESCE(cp_sum.confirmed_total, 0))
              ELSE 0 END), 0) AS period_initial
            FROM contracts c
            LEFT JOIN (

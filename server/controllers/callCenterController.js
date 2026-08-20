@@ -34,6 +34,14 @@ ALL_TARGETS.forEach(s => { STATUS_TRANSITIONS[s] = ALL_TARGETS.filter(t => t !==
 
 const ACTIVE_STATUSES = ['NEW', 'IN_PROGRESS', 'NO_ANSWER', 'CALL_BACK', 'INTERESTED'];  // BOOKED excluded — lead processed
 const OPERATOR_ROLES = ['cc_operator', 'cc_manager'];
+const APPOINTMENT_ACCESS_ROLES = new Set(['admin','administrator','director','manager','okk','cc_manager','cc_operator']);
+const ARRIVAL_ACCESS_ROLES = new Set(['admin','administrator','director','manager','okk']);
+const ARRIVAL_ASSIGN_ROLES = new Set(['director','manager','okk']);
+const requireRole = (req, res, allowed, message = '??? ???????') => {
+  if (allowed.has(String(req.user?.role || '').toLowerCase())) return true;
+  res.status(403).json({ success: false, message });
+  return false;
+};
 
 /**
  * Resolve a source from the unified directory. Legacy integrations may still
@@ -1520,6 +1528,7 @@ const callCenterController = {
   // --- Получение записей (appointments) ---
   async getAppointments(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, APPOINTMENT_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       // Для директора — показываем записи всех офисов того же владельца
@@ -1570,22 +1579,56 @@ const callCenterController = {
   // --- Создание записи напрямую (без лида) ---
   async createDirectAppointment(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, APPOINTMENT_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
     const connection = await db.getClient();
     try {
       const { client_name, client_phone, appointment_date, appointment_time,
-        comment, source, source_id, assigned_lawyer_id } = req.body;
+        comment, source, source_id, assigned_lawyer_id, assigned_lawyer_id_2,
+        assigned_lawyer_ids, mark_arrived } = req.body;
       if (!client_name || !client_name.trim()) {
         return res.status(400).json({ success: false, message: 'Имя клиента обязательно' });
       }
       if (!appointment_date || !appointment_time) {
         return res.status(400).json({ success: false, message: 'Дата и время обязательны' });
       }
+
+      const rawLawyerIds = Array.isArray(assigned_lawyer_ids)
+        ? assigned_lawyer_ids
+        : [assigned_lawyer_id, assigned_lawyer_id_2];
+      if (rawLawyerIds.filter(id => id !== null && id !== undefined && id !== '').length > 2) {
+        return res.status(400).json({ success: false, message: 'Можно назначить не более двух юристов' });
+      }
+      const lawyerIds = rawLawyerIds
+        .filter(id => id !== null && id !== undefined && id !== '')
+        .map(Number);
+      if (lawyerIds.length && (!mark_arrived || !ARRIVAL_ASSIGN_ROLES.has(String(req.user?.role || '').toLowerCase()))) {
+        return res.status(403).json({ success: false, message: 'Назначение юристов доступно только руководству во вкладке «Приходы»' });
+      }
+      if (lawyerIds.some(id => !Number.isInteger(id) || id <= 0)) {
+        return res.status(400).json({ success: false, message: 'Некорректный сотрудник' });
+      }
+      if (new Set(lawyerIds).size !== lawyerIds.length) {
+        return res.status(400).json({ success: false, message: 'Юристы должны отличаться друг от друга' });
+      }
+      if (lawyerIds.length) {
+        const placeholders = lawyerIds.map(() => '?').join(', ');
+        const [lawyers] = await connection.query(
+          `SELECT id FROM users
+           WHERE office_id = ? AND is_active = 1
+             AND role NOT IN ('cc_manager', 'cc_operator')
+             AND id IN (${placeholders})`,
+          [req.user.office_id, ...lawyerIds]
+        );
+        if (lawyers.length !== lawyerIds.length) {
+          return res.status(400).json({ success: false, message: 'Один из выбранных сотрудников недоступен' });
+        }
+      }
+      const [lawyer1 = null, lawyer2 = null] = lawyerIds;
       const sourceRecord = await resolveAppointmentSource(connection, source_id, source);
       if (!sourceRecord || !sourceRecord.is_active) {
         return res.status(400).json({ success: false, message: 'Выберите активный источник записи' });
       }
       const phone = String(client_phone || '').trim();
-      if (!phone) return res.status(400).json({ success: false, message: 'Телефон клиента обязателен' });
 
       await connection.beginTransaction();
       const [userRows] = await connection.query(
@@ -1611,11 +1654,12 @@ const callCenterController = {
         `INSERT INTO appointments
           (office_id, lead_id, client_name, client_phone, source, source_id,
            appointment_date, appointment_time, comment, operator_id,
-           operator_name, assigned_lawyer_id, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'waiting')`,
+           operator_name, assigned_lawyer_id, assigned_lawyer_id_2, status, arrived_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [req.user.office_id, leadId, client_name.trim(), phone,
          sourceRecord.name, sourceRecord.id, appointment_date, appointment_time,
-         comment || null, req.user.id, operatorName, assigned_lawyer_id || null]
+         comment || null, req.user.id, operatorName, lawyer1, lawyer2,
+         mark_arrived ? 'arrived' : 'waiting', mark_arrived ? new Date() : null]
       );
       await connection.query(
         `INSERT INTO call_center_history (lead_id, action, user_id, details)
@@ -1662,6 +1706,10 @@ const callCenterController = {
       // Фиксируем фактическое время прихода в момент нажатия «Пришёл».
       if (status === 'arrived') {
         updates.push('arrived_at = CURRENT_TIMESTAMP');
+        // Старое назначение из «Записей» не должно переходить в «Приходы»:
+        // после отметки прихода руководство распределяет клиента заново.
+        updates.push('assigned_lawyer_id = NULL');
+        updates.push('assigned_lawyer_id_2 = NULL');
       }
 
       if (manager_comment !== undefined) {
@@ -1692,6 +1740,7 @@ const callCenterController = {
   // --- Обновление полей записи (тема, время, комментарий) ---
   async updateAppointment(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, APPOINTMENT_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       const { id } = req.params;
@@ -1745,8 +1794,12 @@ const callCenterController = {
 
   async getPrimaryVisits(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, ARRIVAL_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
+      const requestedDay = String(req.query.date || '').slice(0, 10);
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) ? requestedDay : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tomsk' }).format(new Date());
+      const hasDay = true;
       const [rows] = await db.query(
         `SELECT
            a.*,
@@ -1768,10 +1821,10 @@ const callCenterController = {
          LEFT JOIN users l ON l.id = a.assigned_lawyer_id
          LEFT JOIN users l2 ON l2.id = a.assigned_lawyer_id_2
          LEFT JOIN consultation_analysis ca ON ca.consultation_id=a.id AND ca.deleted_at IS NULL
-         WHERE a.office_id = ? AND a.status = 'arrived'
+         WHERE a.office_id = ? AND a.status = 'arrived'${hasDay ? ' AND a.appointment_date = ?' : ''}
          GROUP BY a.id
          ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
-        [req.user.office_id]
+        hasDay ? [req.user.office_id, day] : [req.user.office_id]
       );
 
       res.json({
@@ -1821,6 +1874,9 @@ const callCenterController = {
         return res.status(400).json({ success: false, message: 'Допустимые значения: contract_signed, not_signed' });
       }
 
+      const [[appointment]] = await db.query(`SELECT a.id, (SELECT COUNT(*) FROM contracts c WHERE c.appointment_id = a.id) AS linked_contract_count FROM appointments a WHERE a.id = ? AND a.office_id = ? LIMIT 1`, [id, req.user.office_id]);
+      if (!appointment) return res.status(404).json({ success: false, message: '???????????? ?? ???????' });
+      if (consultation_result === 'not_signed' && Number(appointment.linked_contract_count) > 0) return res.status(409).json({ success: false, message: '?????? ???????? ?????????: ? ???????????? ??? ???????? ???????' });
       const updates = ['consultation_result = ?'];
       const params = [consultation_result];
 
@@ -1854,14 +1910,21 @@ const callCenterController = {
   async assignLawyer(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
 
-    // Назначать сотрудника на консультацию могут Администратор / Директор / Менеджер / ОКК.
-    const canAssign = ['admin', 'administrator', 'director', 'manager', 'okk'].includes(req.user.role);
-    if (!canAssign) {
-      return res.status(403).json({ success: false, message: 'Нет прав для назначения сотрудника' });
-    }
+    // Юрист назначается только руководством и только после фактического прихода клиента.
+    if (!requireRole(req, res, ARRIVAL_ASSIGN_ROLES, 'Назначение юристов доступно только руководству')) return;
 
     try {
       const { id } = req.params;
+      const [appointments] = await db.query(
+        'SELECT status FROM appointments WHERE id = ? AND office_id = ? LIMIT 1',
+        [id, req.user.office_id]
+      );
+      if (!appointments.length) {
+        return res.status(404).json({ success: false, message: 'Консультация не найдена' });
+      }
+      if (appointments[0].status !== 'arrived') {
+        return res.status(409).json({ success: false, message: 'Назначить юриста можно только после отметки «Пришёл» во вкладке «Приходы»' });
+      }
       // Поддержка до 2 юристов одновременно
       let lawyer1 = req.body.assigned_lawyer_id ?? null;
       let lawyer2 = req.body.assigned_lawyer_id_2 ?? null;
@@ -1891,6 +1954,7 @@ const callCenterController = {
 
   async getConsultationStats(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, ARRIVAL_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       const __from = (req.query.from || '').toString().slice(0, 10);
@@ -1912,7 +1976,7 @@ const callCenterController = {
            SUM(CASE WHEN a.consultation_result IS NULL THEN 1 ELSE 0 END) AS pending
          FROM users u
          JOIN employees e ON e.user_id = u.id AND e.office_id = u.office_id AND e.deleted_at IS NULL
-         LEFT JOIN appointments a ON a.assigned_lawyer_id = u.id AND a.office_id = ?${__dateFilter} AND a.status = 'arrived'
+         LEFT JOIN appointments a ON (a.assigned_lawyer_id = u.id OR a.assigned_lawyer_id_2 = u.id) AND a.office_id = ?${__dateFilter} AND a.status = 'arrived'
          WHERE u.office_id = ? AND u.is_active = 1
            AND u.role IN ('manager', 'okk', 'lawyer')
          GROUP BY e.id, u.id, u.first_name, u.last_name, u.role
@@ -1943,6 +2007,7 @@ const callCenterController = {
 
   async getExistingClientVisits(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, ARRIVAL_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       const [rows] = await db.query(
@@ -1967,6 +2032,7 @@ const callCenterController = {
 
   async addExistingClientVisit(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, ARRIVAL_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       const { client_name, employee_id, comment } = req.body;
@@ -1990,8 +2056,12 @@ const callCenterController = {
 
   async getVisitsStats(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, ARRIVAL_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
+      const requestedDay = String(req.query.date || '').slice(0, 10);
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) ? requestedDay : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tomsk' }).format(new Date());
+      const hasDay = true;
       const [primary] = await db.query(
         `SELECT
            COUNT(*) AS total_arrived,
@@ -1999,8 +2069,8 @@ const callCenterController = {
            SUM(CASE WHEN consultation_result = 'not_signed' THEN 1 ELSE 0 END) AS contracts_not_signed,
            SUM(CASE WHEN consultation_result IS NULL THEN 1 ELSE 0 END) AS pending_result
          FROM appointments
-         WHERE office_id = ? AND status = 'arrived'`,
-        [req.user.office_id]
+         WHERE office_id = ? AND status = 'arrived'${hasDay ? ' AND appointment_date = ?' : ''}`,
+        hasDay ? [req.user.office_id, day] : [req.user.office_id]
       );
 
       const [existing] = await db.query(
@@ -2039,6 +2109,7 @@ const callCenterController = {
 
   async getOfficeEmployees(req, res) {
     if (!await ensureOfficeAccess(req, res)) return;
+    if (!requireRole(req, res, APPOINTMENT_ACCESS_ROLES, '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430')) return;
 
     try {
       const [rows] = await db.query(

@@ -127,9 +127,36 @@ const contractAssignmentController = {
     }
   },
 
-  /**
-   * Обновить статус назначения
-   */
+  /** ?????????? ???????? ? ???????????? ????????? ? ?????? */
+  async supplementContract(req, res) {
+    const connection = await db.getClient();
+    try {
+      const user=req.user, contractId=Number(req.params.contractId), body=req.body||{};
+      const { employeeIdForUser }=require('../utils/employeeIdentity');
+      const { applyExpertDeadline,publicMessage }=require('../services/expertDeadlineService');
+      const [[contract]]=await connection.query('SELECT id,office_id,contract_type,id_employee,second_employee_id FROM contracts WHERE id=? LIMIT 1',[contractId]);
+      if(!contract)return bad(res,404,'??????? ?? ??????');
+      const role=String(user.role||'').toLowerCase(), ownEmployeeId=await employeeIdForUser(user.id,connection);
+      const allowed=['director','manager','okk'].includes(role)||(ownEmployeeId&&[Number(contract.id_employee),Number(contract.second_employee_id)].includes(Number(ownEmployeeId)));
+      if(!allowed)return bad(res,403,'????????? ??????? ????? ??????????? ??? ?????????, ??????????? ???????');
+      if((contract.contract_type||'docs')==='docs'){
+        if(body.expert_id==null)return bad(res,400,'???????? ????????');
+        const days=Number(body.expert_deadline_days);if(!Number.isInteger(days)||days<1||days>365)return bad(res,400,'??????? ???? ?? 1 ?? 365 ????');
+      }
+      await connection.beginTransaction();
+      const sets=[],params=[];
+      for(const f of ['title','description','customer_goal','situation_description','circumstances'])if(body[f]!==undefined){sets.push(`${f}=?`);params.push(body[f]||null);}
+      for(const f of ['legal_cost_comp','moral_comp'])if(body[f]!==undefined){sets.push(`${f}=?`);params.push(body[f]===''?null:body[f]);}
+      for(const f of ['document_types','custom_documents'])if(body[f]!==undefined){sets.push(`${f}=?`);params.push(JSON.stringify(body[f]));}
+      sets.push('needs_lawyer_input=0');params.push(contractId);
+      await connection.query(`UPDATE contracts SET ${sets.join(',')},updated_at=CURRENT_TIMESTAMP WHERE id=?`,params);
+      if((contract.contract_type||'docs')==='docs')await applyExpertDeadline(connection,contractId,body.expert_id,body.expert_deadline_days);
+      await connection.commit();
+      if((contract.contract_type||'docs')==='docs')await require('../services/deadlineNotifications').onDeadlineSet(contractId);
+      ok(res,{message:'??????? ????????'});
+    }catch(error){try{await connection.rollback()}catch{};const{publicMessage}=require('../services/expertDeadlineService');bad(res,error.status||500,publicMessage(error),error.status?null:error);}finally{connection.release();}
+  },
+
   async updateAssignmentStatus(req, res) {
     try {
       const { assignmentId } = req.params;

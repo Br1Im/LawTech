@@ -1,6 +1,7 @@
 const db = require('../db');
 const contractAssignmentService = require('../services/contractAssignmentService');
 const { availableBalance } = require('../utils/financeSecurity');
+const { normalizeEmployeeId } = require('../utils/employeeIdentity');
 
 /**
  * Модель для работы с договорами
@@ -32,6 +33,8 @@ class Contract {
                COALESCE(cl.name, 'Неизвестный клиент') as client_name,
                cl.phone as client_phone,
                cl.email as client_email,
+               e.user_id as signer_user_id,
+               e2.user_id as second_signer_user_id,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
                CONCAT(e.first_name, ' ', e.last_name) as lawyer_short,
@@ -69,6 +72,8 @@ class Contract {
                COALESCE(cl.name, 'Неизвестный клиент') as client_name,
                cl.phone as client_phone,
                cl.email as client_email,
+               e.user_id as signer_user_id,
+               e2.user_id as second_signer_user_id,
                CONCAT(e.first_name, ' ', e.last_name) as employee_name,
                TRIM(CONCAT_WS(' ', e.last_name, e.first_name, e.middle_name)) as lawyer_full_name,
                TRIM(CONCAT_WS(' ', e2.last_name, e2.first_name, e2.middle_name)) as second_lawyer_full_name,
@@ -180,7 +185,7 @@ class Contract {
         ? 'mixed'
         : (paymentMethods[0] || payment_method || 'cash');
       const ctype = (contract_type || 'docs').toString();
-      const expertVal = expert_id ? Number(expert_id) : null;
+      let expertVal = expert_id ? Number(expert_id) : null;
       const dStatus = (docs_status || 'pending').toString();
 
       // Совместный договор: второй юрист обязателен и не равен первому
@@ -198,6 +203,7 @@ class Contract {
         const [empRows] = await connection.query('SELECT office_id FROM employees WHERE id = ?', [id_employee]);
         contractOfficeId = empRows.length > 0 ? empRows[0].office_id : null;
       }
+      if (expertVal) expertVal = await normalizeEmployeeId(expertVal, { role: 'expert', officeId: contractOfficeId }, connection);
 
       // Создаем договор с привязкой к офису
       const [result] = await connection.query(
@@ -220,6 +226,23 @@ class Contract {
       );
 
       const contractId = result.insertId;
+
+      // Keep the consultation linked to both lawyers so office statistics
+      // include the second lawyer in signed contracts and conversion.
+      if (appointment_id && isJointVal && secondEmpVal) {
+        const [[secondLawyer]] = await connection.query(
+          'SELECT user_id FROM employees WHERE id = ? AND deleted_at IS NULL LIMIT 1',
+          [secondEmpVal]
+        );
+        if (secondLawyer?.user_id) {
+          await connection.query(
+            `UPDATE appointments
+             SET assigned_lawyer_id_2 = ?, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ? AND office_id = ?`,
+            [secondLawyer.user_id, appointment_id, contractOfficeId]
+          );
+        }
+      }
 
       for (const payment of normalizedPayments) {
         await connection.query(
@@ -261,8 +284,14 @@ class Contract {
         // Обновляем статистику офиса - используем paid_amount для выручки
         await this.updateOfficeStats(connection, officeId, paidAmountValue, contract_date);
 
-        // Обновляем статистику сотрудника
-        await this.updateEmployeeStats(connection, id_employee, paidAmountValue, contract_date);
+        // Совместный договор делится между двумя юристами поровну.
+        if (isJointVal && secondEmpVal) {
+          const sharedAmount = paidAmountValue / 2;
+          await this.updateEmployeeStats(connection, id_employee, sharedAmount, contract_date);
+          await this.updateEmployeeStats(connection, secondEmpVal, sharedAmount, contract_date);
+        } else {
+          await this.updateEmployeeStats(connection, id_employee, paidAmountValue, contract_date);
+        }
 
         // Создаем событие в календаре
         await connection.query(
@@ -376,7 +405,7 @@ class Contract {
       const params = [id_employee, id_client, contract_date, amount, paidAmountValue, status];
       if (paymentDateChanged) { sets.push('payment_date = CURRENT_DATE()'); }
       if (contract_type !== undefined) { sets.push('contract_type = ?'); params.push(contract_type); }
-      if (expert_id !== undefined)     { sets.push('expert_id = ?');     params.push(expert_id ? Number(expert_id) : null); }
+      if (expert_id !== undefined)     { sets.push('expert_id = ?');     params.push(expert_id ? await normalizeEmployeeId(expert_id, { role: 'expert' }) : null); }
       if (docs_status !== undefined)   { sets.push('docs_status = ?');   params.push(docs_status); }
       if (title !== undefined)         { sets.push('title = ?');         params.push(title); }
       if (description !== undefined)   { sets.push('description = ?');   params.push(description); }
@@ -741,7 +770,7 @@ class Contract {
       }
       const allowedRefundMethods = new Set(['cash', 'noncash', 'bank']);
       if (!allowedRefundMethods.has(paymentMethod)) {
-        const error = new Error('???????? ???????? ????????: ????????, ??????????? ??? ????????? ????');
+        const error = new Error('Выберите источник списания: наличные, безналичные или расчётный счёт');
         error.statusCode = 400;
         error.code = 'REFUND_PAYMENT_METHOD_REQUIRED';
         throw error;
@@ -760,7 +789,7 @@ class Contract {
       if (refundAmount > 0) {
         const available = await availableBalance(connection, contract.office_id, paymentMethod, todayStr);
         if (available + 0.000001 < refundAmount) {
-          const error = new Error('???????????? ??????? ? ????????? ?????????');
+          const error = new Error('Недостаточно средств в выбранном источнике');
           error.statusCode = 409;
           error.code = 'INSUFFICIENT_REFUND_SOURCE_BALANCE';
           throw error;
@@ -779,7 +808,13 @@ class Contract {
 
       if (refundAmount > 0) {
         await this.updateOfficeStatsOnDelete(connection, contract.office_id, refundAmount, todayStr);
-        await this.updateEmployeeStatsOnDelete(connection, contract.id_employee, refundAmount, todayStr);
+        if (contract.is_joint && contract.second_employee_id) {
+          const sharedRefund = refundAmount / 2;
+          await this.updateEmployeeStatsOnDelete(connection, contract.id_employee, sharedRefund, todayStr);
+          await this.updateEmployeeStatsOnDelete(connection, contract.second_employee_id, sharedRefund, todayStr);
+        } else {
+          await this.updateEmployeeStatsOnDelete(connection, contract.id_employee, refundAmount, todayStr);
+        }
 
         // Записываем возврат в кассу как расход
         const [lawyerRows] = await connection.query(
@@ -791,10 +826,10 @@ class Contract {
         await connection.query(
           `INSERT INTO expenses
            (office_id, category, amount, expense_type, payment_method, is_auto, source_type, source_id, title, description, spent_on, created_by)
-           VALUES (?, '????????', ?, '???????', ?, 1, 'refund', ?, ?, ?, ?, ?)`,
+           VALUES (?, 'Возвраты', ?, 'Разовый', ?, 1, 'refund', ?, ?, ?, ?, ?)`,
           [contract.office_id, refundAmount, paymentMethod, Number(id),
-           `???????: ${contract.client_name || '??????'} (??????? ${contract.contract_number || id})`,
-           `?????????????? ?????? ??? ????????????? ????????. ????????: ${paymentMethod}`, todayStr, userId]
+           `Возврат: ${contract.client_name || 'клиент'} (договор ${contract.contract_number || id})`,
+           `Автоматический расход при подтверждении возврата. Источник: ${paymentMethod}`, todayStr, userId]
         );
 
         await connection.query(

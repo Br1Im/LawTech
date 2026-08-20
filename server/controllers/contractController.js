@@ -292,8 +292,9 @@ const contractController = {
       }
 
       const linkedLawyer = await userForEmployee(contractData.id_employee);
-      if (!linkedLawyer || linkedLawyer.role !== 'lawyer') {
-        return res.status(400).json({ success:false, message:'Выбранный исполнитель не связан с активным пользователем роли «Юрист».' });
+      const signerRoles = new Set(['lawyer', 'manager', 'okk', 'director']);
+      if (!linkedLawyer || !signerRoles.has(String(linkedLawyer.role || '').toLowerCase())) {
+        return res.status(400).json({ success:false, message:'Договор может заключить юрист, менеджер, руководитель ОКК или директор.' });
       }
       if (Number(contractData.paid_amount) < Number(contractData.amount)) {
         const remainder = Math.round((Number(contractData.amount)-Number(contractData.paid_amount))*100)/100;
@@ -333,11 +334,11 @@ const contractController = {
       const { id } = req.params;
       const user = req.user;
 
-      // Представитель не может редактировать договор
-      if (user.role === 'representative') {
-        return res.status(403).json({ success: false, message: 'Представитель не может редактировать договор' });
+      const role = String(user.role || '').toLowerCase();
+      if (!['director', 'manager', 'okk'].includes(role)) {
+        return res.status(403).json({ success: false, message: 'Полное изменение договора доступно только руководству' });
       }
-      const contractData = req.body;
+      const contractData = { ...req.body };
 
       // Проверяем существование и доступ
       const existingContract = await Contract.getById(id);
@@ -351,9 +352,9 @@ const contractController = {
 
       const allowedUpd = await checkOfficeAccess(user, existingContract.office_id);
       if (!allowedUpd) {
-        return res.status(403).json({
+        return res.status(404).json({
           success: false,
-          message: 'Доступ запрещен'
+          message: 'Договор не найден'
         });
       }
 
@@ -415,6 +416,10 @@ const contractController = {
     try {
       const { id } = req.params;
       const user = req.user;
+      const role = String(user.role || '').toLowerCase();
+      if (!['director', 'manager', 'okk'].includes(role)) {
+        return res.status(403).json({ success: false, message: 'Удаление договора доступно только руководству' });
+      }
 
       // Проверяем существование и доступ
       const contract = await Contract.getById(id);
@@ -428,9 +433,9 @@ const contractController = {
 
       const allowedDel = await checkOfficeAccess(user, contract.office_id);
       if (!allowedDel) {
-        return res.status(403).json({
+        return res.status(404).json({
           success: false,
-          message: 'Доступ запрещен'
+          message: 'Договор не найден'
         });
       }
 
@@ -515,7 +520,7 @@ const contractController = {
 
       const paymentMethod = String(req.body?.payment_method || '');
       if (!['cash', 'noncash', 'bank'].includes(paymentMethod)) {
-        return res.status(400).json({ success: false, code: 'REFUND_PAYMENT_METHOD_REQUIRED', message: '???????? ???????? ????????' });
+        return res.status(400).json({ success: false, code: 'REFUND_PAYMENT_METHOD_REQUIRED', message: 'Выберите источник списания' });
       }
       const contract = await Contract.confirmRefund(id, user.id, paymentMethod);
 

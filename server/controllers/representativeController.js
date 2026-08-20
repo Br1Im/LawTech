@@ -79,7 +79,7 @@ const representativeController = {
           (SELECT COUNT(*) FROM case_actions ca WHERE ca.contract_id = c.id) AS actions_count
         FROM contracts c
         LEFT JOIN clients cl ON cl.id = c.id_client
-        LEFT JOIN users emp ON emp.id = c.id_employee
+        LEFT JOIN employees emp ON emp.id = c.id_employee
         LEFT JOIN users rep ON rep.id = c.representative_id
         WHERE ${where}
         ORDER BY c.created_at DESC
@@ -108,7 +108,7 @@ const representativeController = {
           CONCAT(rep.first_name, ' ', rep.last_name) AS representative_name
         FROM contracts c
         LEFT JOIN clients cl ON cl.id = c.id_client
-        LEFT JOIN users emp ON emp.id = c.id_employee
+        LEFT JOIN employees emp ON emp.id = c.id_employee
         LEFT JOIN users rep ON rep.id = c.representative_id
         WHERE c.id = ?
       `, [id]);

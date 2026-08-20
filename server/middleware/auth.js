@@ -65,21 +65,28 @@ const authenticateToken = (req, res, next) => {
       });
     }
 
-    if (['cc_manager', 'cc_operator'].includes(String(user.role || '').toLowerCase()) && !user.office_id) {
+    if (['cc_manager', 'cc_operator'].includes(String(user.role || '').toLowerCase())) {
       try {
         const [connected] = await db.query(
           `SELECT occ.office_id, ccm.call_center_id
              FROM call_center_members ccm
              JOIN office_call_centers occ ON occ.call_center_id = ccm.call_center_id AND occ.is_active = 1
-            WHERE ccm.user_id = ? ORDER BY occ.connected_at LIMIT 1`,
-          [user.id]
+            WHERE ccm.user_id = ?
+            ORDER BY (occ.office_id = ?) DESC, occ.connected_at
+            LIMIT 1`,
+          [user.id, Number(user.office_id) || 0]
         );
-        if (connected.length) {
-          req.user.office_id = connected[0].office_id;
-          req.user.call_center_id = connected[0].call_center_id;
+        if (!connected.length) {
+          return res.status(403).json({ success: false, message: 'Колл-центр не подключён к офису' });
         }
+        // Keep the current office only if it is an active CC connection; otherwise
+        // replace stale users.office_id with the first active connected office.
+        req.user.office_id = Number(connected[0].office_id);
+        req.user.call_center_id = Number(connected[0].call_center_id);
+        user.office_id = req.user.office_id;
       } catch (error) {
         console.error('[auth] Ошибка определения офиса колл-центра:', error);
+        return res.status(500).json({ success: false, message: 'Не удалось определить офис колл-центра' });
       }
     }
 

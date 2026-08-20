@@ -40,7 +40,7 @@ async function availableBalance(connection, officeId, bucket, throughDate) {
     bank: Number(opening?.opening_bank || 0),
   };
   const add = (pm, n) => { const b=norm(pm); if (b in balances) balances[b] += Number(n || 0); };
-  const [payments] = await connection.query(`SELECT p.payment_method pm,COALESCE(SUM(p.amount),0) s FROM contract_payments p JOIN contracts c ON c.id=p.contract_id WHERE c.office_id=? AND p.confirmed=1 AND p.payment_date BETWEEN ? AND ? GROUP BY p.payment_method`,[officeId,start,throughDate]);
+  const [payments] = await connection.query(`SELECT p.payment_method pm,COALESCE(SUM(p.amount),0) s FROM contract_payments p JOIN contracts c ON c.id=p.contract_id WHERE c.office_id=? AND p.confirmed=1 AND COALESCE(p.comment,'') NOT LIKE '[BALANCE_SOURCE_EXCLUDED]%' AND p.payment_date BETWEEN ? AND ? GROUP BY p.payment_method`,[officeId,start,throughDate]);
   payments.forEach(r=>add(r.pm,r.s));
   const [incomes] = await connection.query(`SELECT payment_method pm,COALESCE(SUM(amount),0) s FROM office_income WHERE office_id=? AND income_date BETWEEN ? AND ? GROUP BY payment_method`,[officeId,start,throughDate]);
   incomes.forEach(r=>add(r.pm,r.s));
