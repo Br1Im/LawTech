@@ -3634,3 +3634,35 @@ table {
   .mobile-case-card__topic { display:block;margin:8px 0;color:var(--lt-ink-soft);font-size:13px;line-height:18px; }
   .mobile-case-card__meta { color:var(--lt-muted);font-size:12px; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   ЛЕЧЕНИЕ ВИДИМОСТИ ВЫБРАННОГО ЗНАЧЕНИЯ В SELECT (antd 6), 21.08.2026
+
+   antd гасит выбранное значение двумя правилами (select/style/select-input.js):
+     .ant-select-open .ant-select-content-has-value  -> opacity: .25
+     .ant-select-content-has-search-value            -> color: transparent
+                                                      + > *:not(-input) {opacity: 0}
+
+   Второе читается как пустое поле при полностью рабочем выборе.
+
+   Возвращаем значение, когда список ЗАКРЫТ. Пока список открыт и человек
+   печатает — поведение antd не трогаем: там намеренно показывается
+   поисковый запрос вместо старого значения.
+
+   color: inherit, а не конкретное значение — чтобы не перебивать
+   статусные окраски и чтобы тёмная тема работала без отдельного правила.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.ant-select:not(.ant-select-open) .ant-select-content-has-search-value {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+.ant-select:not(.ant-select-open) .ant-select-content > *:not(.ant-select-input) {
+  opacity: 1 !important;
+}
+
+.ant-select-open .ant-select-content-has-value:not(.ant-select-content-has-search-value) {
+  opacity: 1 !important;
+}
