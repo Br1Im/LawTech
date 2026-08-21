@@ -29,9 +29,19 @@ const bad = (res, code, message, err) => {
 
 // --- Хранилище фотографий актов (изображения / PDF) ---
 const IMG_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.gif', '.pdf']);
+// :id уходит в путь на диске, поэтому проверяем его ДО создания каталога.
+// Проверка доступа к договору в контроллере срабатывает уже после multer,
+// когда файл записан, — на неё здесь полагаться нельзя.
+const safeContractId = (raw) => {
+  const id = Number.parseInt(raw, 10);
+  return Number.isInteger(id) && id > 0 && String(id) === String(raw).trim() ? id : null;
+};
+
 const actStorage = multer.diskStorage({
   destination(req, _file, cb) {
-    const dir = path.join(config.paths.uploads, 'acts', `contract_${req.params.id}`);
+    const id = safeContractId(req.params.id);
+    if (id === null) return cb(new Error('Некорректный идентификатор договора'));
+    const dir = path.join(config.paths.uploads, 'acts', `contract_${id}`);
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },

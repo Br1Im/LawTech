@@ -55,7 +55,17 @@ const accessRequestLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, sta
 router.post('/access-requests', accessRequestLimiter, accessRequestsController.create);
 
 // Маршруты аутентификации
-router.post('/auth/login', authController.login);
+// Считаем только НЕУДАЧНЫЕ попытки: офис за одним NAT-адресом не должен
+// упираться в лимит при обычных входах.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { success: false, message: 'Слишком много неудачных попыток входа. Повторите через 15 минут.' },
+});
+router.post('/auth/login', loginLimiter, authController.login);
 router.post('/auth/register', process.env.NODE_ENV === 'test' ? authController.register : (_req, res) => res.status(403).json({ success: false, message: 'Самостоятельная регистрация отключена. Оставьте заявку на доступ.' }));
 router.post('/auth/refresh', authController.refresh);
 router.get('/auth/me', authenticateToken, authController.getCurrentUser);

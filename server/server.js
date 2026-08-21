@@ -29,7 +29,10 @@ app.use(cors({
     'http://localhost:5174',
     'http://localhost:3000',
     'https://lawtech-p225.onrender.com',
-    '*'
+    // Фронтенд отдаётся с того же origin через nginx, поэтому CORS в проде
+    // фактически не задействован. Домен добавлен явно, а строка '*' убрана:
+    // в массиве она сравнивалась буквально и не значила ничего.
+    'https://xn--80akq3ae0a.xn--p1ai'
   ],
   credentials: true
 }));

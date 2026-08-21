@@ -7,7 +7,20 @@ const config = {
   PORT: process.env.PORT || 5000,
   
   // JWT секрет
-  JWT_SECRET: process.env.JWT_SECRET || 'law-tech-secret-key',
+  JWT_SECRET: (() => {
+    const secret = process.env.JWT_SECRET;
+    // Раньше здесь стоял фолбэк 'law-tech-secret-key'. Если переменная
+    // не пробрасывалась, приложение молча подписывало токены известным
+    // значением. В проде лучше не стартовать вовсе, чем стартовать так.
+    if (!secret || secret === 'law-tech-secret-key') {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET не задан. Проверьте .env и docker-compose.');
+      }
+      console.warn('[config] JWT_SECRET не задан — небезопасное значение для разработки');
+      return secret || 'dev-only-insecure-secret';
+    }
+    return secret;
+  })(),
   
   // Время жизни JWT токена
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
