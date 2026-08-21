@@ -23,6 +23,9 @@ interface Lead {
   status: LeadStatus;
   score: number;
   temperature: Temperature;
+  /* Автоматическая метка качества по предзаказу поставщика.
+     Не путать с temperature — та выставляется оператором вручную. */
+  quality_label?: string | null;
   assigned_to: number | null;
   assigned_to_name?: string | null;
   assigned_to_office_id?: number | null;
@@ -35,6 +38,16 @@ interface Lead {
   calls_count?: number;
   operator_note?: string | null;
 }
+
+// Подписи для меток, которые ставит интеграция. Метка может быть любой
+// строкой из таблицы lead_preorder_quality, поэтому неизвестные
+// показываем как есть, а не прячем.
+const QUALITY_LABELS: Record<string, string> = {
+  premium: 'Премиум',
+  high: 'Высокое',
+  standard: 'Стандарт',
+  basic: 'Базовое',
+};
 
 interface CallLog {
   id: number;
@@ -801,7 +814,17 @@ const CallCenter: React.FC = () => {
                         </td>
                       )}
                       <td>
-                        <div className="cc-lead-name">{lead.name}</div>
+                        <div className="cc-lead-name">
+                          {lead.name}
+                          {lead.quality_label && (
+                            <span
+                              className={`cc-quality cc-quality-${lead.quality_label}`}
+                              title={`Качество лида: ${QUALITY_LABELS[lead.quality_label] || lead.quality_label}`}
+                            >
+                              {QUALITY_LABELS[lead.quality_label] || lead.quality_label}
+                            </span>
+                          )}
+                        </div>
                         <div className="cc-lead-phone">{lead.phone || '—'}</div>
                       </td>
                       <td className="cc-td-clamp">

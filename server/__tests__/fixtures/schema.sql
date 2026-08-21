@@ -329,6 +329,7 @@ CREATE TABLE `call_center_leads` (
   `status` varchar(50) NOT NULL DEFAULT 'NEW',
   `score` int NOT NULL DEFAULT '0',
   `temperature` varchar(10) DEFAULT NULL,
+  `quality_label` varchar(50) DEFAULT NULL,
   `assigned_to` int DEFAULT NULL,
   `duplicate_of_lead_id` int DEFAULT NULL,
   `first_call_at` datetime DEFAULT NULL,
@@ -347,6 +348,7 @@ CREATE TABLE `call_center_leads` (
   KEY `idx_call_center_leads_temperature` (`temperature`),
   KEY `idx_call_center_leads_assigned_status` (`assigned_to`,`status`),
   KEY `idx_call_center_leads_created_at` (`created_at`),
+  UNIQUE KEY `uq_call_center_lead_external` (`office_id`,`source`,`external_id`),
   CONSTRAINT `call_center_leads_ibfk_1` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
   CONSTRAINT `call_center_leads_ibfk_2` FOREIGN KEY (`assigned_to`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `call_center_leads_ibfk_3` FOREIGN KEY (`duplicate_of_lead_id`) REFERENCES `call_center_leads` (`id`) ON DELETE SET NULL
@@ -462,6 +464,7 @@ DROP TABLE IF EXISTS `cash_register`;
 CREATE TABLE `cash_register` (
   `id` int NOT NULL AUTO_INCREMENT,
   `office_id` int NOT NULL,
+  `contract_id` int DEFAULT NULL,
   `entry_date` date NOT NULL,
   `client_name` varchar(500) DEFAULT NULL,
   `contract_number` varchar(50) DEFAULT NULL,
@@ -476,7 +479,8 @@ CREATE TABLE `cash_register` (
   `created_by` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  KEY `idx_cash_office_date` (`office_id`,`entry_date`)
+  KEY `idx_cash_office_date` (`office_id`,`entry_date`),
+  KEY `idx_cash_register_contract_id` (`contract_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=290 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `chat_channel_members`;
@@ -894,6 +898,27 @@ CREATE TABLE `employee_salaries` (
   CONSTRAINT `fk_es_user` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `employee_salary_versions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `employee_salary_versions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `employee_id` int NOT NULL,
+  `base_salary` decimal(12,2) NOT NULL DEFAULT '0.00',
+  `custom_percent` decimal(6,3) DEFAULT NULL,
+  `custom_shift_rate` decimal(12,2) DEFAULT NULL,
+  `custom_per_doc` decimal(12,2) DEFAULT NULL,
+  `effective_period_start` date NOT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_employee_salary_version` (`employee_id`,`effective_period_start`),
+  KEY `idx_employee_salary_version_lookup` (`employee_id`,`effective_period_start`),
+  KEY `fk_salary_version_user` (`created_by`),
+  CONSTRAINT `fk_salary_version_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_salary_version_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `employee_stats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1234,6 +1259,38 @@ CREATE TABLE `office_lead_api_keys` (
   CONSTRAINT `fk_office_lead_api_keys_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `call_center_lead_integrations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `call_center_lead_integrations` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `call_center_id` bigint unsigned NOT NULL,
+  `target_office_id` int NOT NULL,
+  `provider` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `label` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `account_identifier` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `api_key` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `api_key_hash` char(64) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `webhook_key` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `last_verified_at` datetime DEFAULT NULL,
+  `last_poll_at` datetime DEFAULT NULL,
+  `last_success_at` datetime DEFAULT NULL,
+  `last_error` varchar(1000) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_cc_lead_provider` (`call_center_id`,`provider`),
+  UNIQUE KEY `uq_lead_provider_key` (`provider`,`api_key_hash`),
+  KEY `idx_cc_lead_integrations_active` (`provider`,`is_active`),
+  KEY `fk_cc_lead_integration_office` (`target_office_id`),
+  KEY `fk_cc_lead_integration_creator` (`created_by`),
+  CONSTRAINT `fk_cc_lead_integration_center` FOREIGN KEY (`call_center_id`) REFERENCES `call_centers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_cc_lead_integration_office` FOREIGN KEY (`target_office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_cc_lead_integration_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `office_plans`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
@@ -1278,6 +1335,25 @@ CREATE TABLE `office_salary_settings` (
   CONSTRAINT `fk_oss_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_oss_user` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `office_financial_cycles`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `office_financial_cycles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `office_id` int NOT NULL,
+  `cycle_type` enum('semi_monthly') NOT NULL DEFAULT 'semi_monthly',
+  `is_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `effective_from` date NOT NULL,
+  `activated_by` int DEFAULT NULL,
+  `activated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_office_financial_cycle` (`office_id`),
+  KEY `fk_financial_cycle_user` (`activated_by`),
+  CONSTRAINT `fk_financial_cycle_office` FOREIGN KEY (`office_id`) REFERENCES `offices` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_financial_cycle_user` FOREIGN KEY (`activated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `office_stats`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -1542,3 +1618,17 @@ CREATE TABLE `workflow_tasks` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+CREATE TABLE `lead_preorder_quality` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `provider` varchar(50) NOT NULL DEFAULT 'pravoved',
+  `preorder_id` varchar(64) NOT NULL,
+  `label` varchar(50) NOT NULL,
+  `score` tinyint unsigned NOT NULL DEFAULT '50',
+  `comment` varchar(500) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_by` int DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_lead_preorder_quality` (`provider`,`preorder_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
