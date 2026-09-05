@@ -1,0 +1,60 @@
+name: Check LawTech server access
+
+on:
+  push:
+    branches:
+      - codex/lawtech-access-check-20260905
+    paths:
+      - .github/workflows/lawtech-access-check.yml
+
+permissions: {}
+
+jobs:
+  check-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify existing deployment target
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SERVER_HOST" != '138.124.14.157' ]]; then
+            echo 'DEPLOYMENT_TARGET_MISMATCH: saved deployment is not the requested server.'
+            exit 1
+          fi
+          if [[ -z "$SERVER_USER" || -z "$SERVER_PASSWORD" ]]; then
+            echo 'DEPLOYMENT_CREDENTIALS_MISSING'
+            exit 1
+          fi
+          echo 'DEPLOYMENT_TARGET_MATCHES'
+      - name: Check SSH authentication without changing the server
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SSHPASS: ${{ secrets.SERVER_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v sshpass >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+          fi
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -T 10 -t ed25519 138.124.14.157 2>/dev/null > "$HOME/.ssh/known_hosts"
+          actual=$(ssh-keygen -lf "$HOME/.ssh/known_hosts" | awk '{print $2}')
+          if [[ "$actual" != 'SHA256:bEDY6Z3wjup5YgOFzTzd6rOPhkRwUDIik+ln3R732XQ' ]]; then
+            echo 'SERVER_HOST_KEY_MISMATCH'
+            exit 1
+          fi
+          sshpass -e ssh \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=12 \
+            -o ConnectionAttempts=1 \
+            -o NumberOfPasswordPrompts=1 \
+            -o PubkeyAuthentication=no \
+            -o PreferredAuthentications=password,keyboard-interactive \
+            "$SERVER_USER@138.124.14.157" 'printf "LAWTECH_SSH_ACCESS_OK\n"'
